@@ -405,21 +405,18 @@
   };
 
   function muatData() {
-    Promise.all([
-      apiGet('getPelanggan'),
-      apiGet('getAgen')
-    ]).then(([resPelanggan, resAgen]) => {
-      dataPelanggan = Array.isArray(resPelanggan) ? resPelanggan : [];
-      dataAgen = Array.isArray(resAgen) ? resAgen : [];
-      isiDropdownAgen();
-      renderTabel(dataPelanggan);
-      document.getElementById('loadingState').style.display = 'none';
-      document.getElementById('tabelPelanggan').style.display = 'table';
-    }).catch(err => {
-      document.getElementById('loadingState').innerHTML =
-        '<span style="color:#c8401a;font-family:var(--mono)">Gagal memuat data. Coba refresh.</span>';
-    });
-  }
+  apiGet('getPelanggan').then(res => {
+    console.log('hasil:', res);
+    dataPelanggan = Array.isArray(res) ? res : [];
+    renderTabel(dataPelanggan);
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tabelPelanggan').style.display = 'table';
+  }).catch(err => {
+    console.log('error:', err);
+    document.getElementById('loadingState').innerHTML =
+      '<span style="color:#c8401a;font-family:var(--mono)">Gagal: ' + err.message + '</span>';
+  });
+}
 
   // ---- RENDER ----
   function renderTabel(data) {
