@@ -11,4 +11,3 @@ function formatRupiah(angka) {
             document.getElementById(elId).innerHTML =
                 `<div class="alert alert-${tipe} py-2">${pesan}</div>`;
                 }
-}
