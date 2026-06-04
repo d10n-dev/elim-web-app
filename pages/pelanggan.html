@@ -432,7 +432,7 @@
         <td class="td-nama">${escHtml(p.nama)}</td>
         <td><span class="badge-tipe badge-${p.tipe}">${p.tipe}</span></td>
         <td><span class="badge-status badge-${p.status}">${p.status}</span></td>
-        <td style="color:var(--muted)">${escHtml(p.telepon || '—')}</td>
+        <td style="color:var(--muted)">${p.telepon ? escHtml(p.telepon) : '—'}</td>
         <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(p)})'>Edit</button></td>
       </tr>
     `).join('');
@@ -552,7 +552,7 @@
 
   function escHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 </script>
 </body>
