@@ -1,4 +1,4 @@
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbz0hPHjkMZvXbN-bX6M3DabagnisBvUDONLHBXelCuyIGexIKuGRS-JIfHUEMnkrHYo/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzJEhc7gkNc3FVvbeGaEKuVO2DCdJ7gwwknpYCL6mv4xh4fGvwZPi2Ww6kfKZ1yxMiX/exec';
 
 function apiGet(action, params = {}) {
   params.action = action;
