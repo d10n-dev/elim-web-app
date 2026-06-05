@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIEO — Master Tinta</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f5f4f0;--surface:#fff;--border:#d0cec8;--accent:#1a3a5c;--accent2:#c8401a;--text:#1c1c1c;--muted:#777;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;}
+    *{box-sizing:border-box;}
+    body{background:var(--bg);font-family:var(--sans);color:var(--text);font-size:14px;}
+    .page-header{background:var(--accent);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--accent2);}
+    .page-header .title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+    .page-header .subtitle{font-size:11px;opacity:.6;margin-top:2px;font-family:var(--mono);}
+    .btn-back{color:#fff;text-decoration:none;font-size:13px;opacity:.8;}
+    .btn-back:hover{opacity:1;color:#fff;}
+    .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .filter-bar input,.filter-bar select{font-size:13px;border:1px solid var(--border);border-radius:3px;padding:6px 10px;background:var(--bg);color:var(--text);font-family:var(--sans);}
+    .filter-bar input{flex:1;min-width:160px;}
+    .filter-bar select{min-width:120px;}
+    .btn-tambah{background:var(--accent2);color:#fff;border:none;border-radius:3px;padding:6px 14px;font-size:13px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-tambah:hover{background:#a83314;}
+    .counter-bar{padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg);}
+    .table-wrap{overflow-x:auto;padding:0 0 80px 0;}
+    table{width:100%;border-collapse:collapse;background:var(--surface);}
+    thead th{background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+    tbody tr:hover{background:#f0ede8;}
+    tbody td{padding:8px 10px;font-size:13px;vertical-align:middle;}
+    .td-id{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+    .badge-sat{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;background:#f3f4f6;color:#374151;}
+    .badge-AKTIF{background:#dcfce7;color:#15803d;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;}
+    .badge-NONAKTIF{background:#fee2e2;color:#991b1b;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;}
+    .btn-edit{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:2px;padding:3px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
+    .btn-edit:hover{background:var(--accent);color:#fff;}
+    .loading-state{text-align:center;padding:40px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .modal-content{border-radius:4px;border:2px solid var(--accent);}
+    .modal-header{background:var(--accent);color:#fff;border-radius:0;padding:10px 16px;}
+    .modal-title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.06em;}
+    .modal-header .btn-close{filter:invert(1);}
+    .modal-body{padding:16px;}
+    .form-label{font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px;}
+    .form-control,.form-select{font-size:13px;border:1px solid var(--border);border-radius:3px;font-family:var(--sans);}
+    .form-control:focus,.form-select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(26,58,92,.15);}
+    .btn-simpan{background:var(--accent);color:#fff;border:none;border-radius:3px;padding:8px 20px;font-family:var(--mono);font-size:13px;font-weight:600;cursor:pointer;}
+    .btn-simpan:hover{background:#142d4a;}
+    .btn-batal{background:none;border:1px solid var(--border);border-radius:3px;padding:8px 16px;font-family:var(--mono);font-size:13px;cursor:pointer;color:var(--text);}
+  </style>
+</head>
+<body>
+<div class="page-header">
+  <div>
+    <div class="title">Master Tinta</div>
+    <div class="subtitle">SIEO — PT. Elim Citra Offset</div>
+  </div>
+  <a href="../index.html" class="btn-back">← Kembali</a>
+</div>
+
+<div class="filter-bar">
+  <input type="text" id="searchNama" placeholder="Cari nama tinta..." oninput="filterTabel()">
+  <select id="filterStatus" onchange="filterTabel()">
+    <option value="">Semua Status</option>
+    <option value="AKTIF">Aktif</option>
+    <option value="NONAKTIF">Nonaktif</option>
+  </select>
+  <button class="btn-tambah" onclick="bukaModalTambah()">+ Tambah</button>
+</div>
+
+<div class="counter-bar" id="counterBar">Memuat data...</div>
+
+<div class="table-wrap">
+  <div class="loading-state" id="loadingState"><span class="spinner"></span> Mengambil data tinta...</div>
+  <table id="tabelTinta" style="display:none">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nama Tinta</th>
+        <th>Satuan</th>
+        <th>Status</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="tbodyTinta"></tbody>
+  </table>
+</div>
+
+<div class="modal fade" id="modalTinta" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modalJudul">TAMBAH TINTA</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alert-form"></div>
+        <input type="hidden" id="fId">
+
+        <div class="mb-3">
+          <label class="form-label">Nama Tinta *</label>
+          <input type="text" class="form-control" id="fNama" placeholder="Misal: TC 1315 RED">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Satuan</label>
+          <select class="form-select" id="fSatuan">
+            <option value="KG">KG</option>
+            <option value="KALENG">KALENG</option>
+            <option value="PCS">PCS</option>
+          </select>
+        </div>
+
+        <div class="mb-3" id="statusGroup" style="display:none">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="fStatus">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+          </select>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+          <button class="btn-simpan" onclick="simpanTinta()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  let dataTinta = [];
+  let modalInstance;
+
+  window.onload = function() {
+    modalInstance = new bootstrap.Modal(document.getElementById('modalTinta'));
+    muatData();
+  };
+
+  function muatData() {
+    apiGet('getTinta').then(res => {
+      dataTinta = Array.isArray(res) ? res : [];
+      renderTabel(dataTinta);
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('tabelTinta').style.display = 'table';
+    }).catch(err => {
+      document.getElementById('loadingState').innerHTML =
+        '<span style="color:#c8401a;font-family:var(--mono)">Gagal: ' + err.message + '</span>';
+    });
+  }
+
+  function renderTabel(data) {
+    const tbody = document.getElementById('tbodyTinta');
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
+      document.getElementById('counterBar').textContent = '0 tinta ditemukan';
+      return;
+    }
+    tbody.innerHTML = data.map(t => `
+      <tr>
+        <td class="td-id">${String(t.id_tinta)}</td>
+        <td style="font-weight:500">${escHtml(t.nama_tinta)}</td>
+        <td><span class="badge-sat">${escHtml(t.satuan)}</span></td>
+        <td><span class="badge-${t.status}">${t.status}</span></td>
+        <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(t)})'>Edit</button></td>
+      </tr>
+    `).join('');
+    document.getElementById('counterBar').textContent = data.length + ' dari ' + dataTinta.length + ' tinta';
+  }
+
+  function filterTabel() {
+    const cari   = document.getElementById('searchNama').value.toLowerCase();
+    const status = document.getElementById('filterStatus').value;
+    renderTabel(dataTinta.filter(t =>
+      (!cari   || t.nama_tinta.toLowerCase().includes(cari)) &&
+      (!status || t.status === status)
+    ));
+  }
+
+  function bukaModalTambah() {
+    document.getElementById('modalJudul').textContent = 'TAMBAH TINTA';
+    document.getElementById('alert-form').innerHTML = '';
+    document.getElementById('fId').value = '';
+    document.getElementById('fNama').value = '';
+    document.getElementById('fSatuan').value = 'KG';
+    document.getElementById('fStatus').value = 'AKTIF';
+    document.getElementById('statusGroup').style.display = 'none';
+    modalInstance.show();
+  }
+
+  function bukaModalEdit(t) {
+    document.getElementById('modalJudul').textContent = 'EDIT TINTA — ' + t.id_tinta;
+    document.getElementById('alert-form').innerHTML = '';
+    document.getElementById('fId').value = t.id_tinta;
+    document.getElementById('fNama').value = t.nama_tinta;
+    document.getElementById('fSatuan').value = t.satuan || 'KG';
+    document.getElementById('fStatus').value = t.status || 'AKTIF';
+    document.getElementById('statusGroup').style.display = 'block';
+    modalInstance.show();
+  }
+
+  function simpanTinta() {
+    const id     = document.getElementById('fId').value;
+    const nama   = document.getElementById('fNama').value.trim();
+    const satuan = document.getElementById('fSatuan').value;
+    const status = document.getElementById('fStatus').value;
+
+    if (!nama) return tampilError('Nama Tinta wajib diisi');
+
+    const payload = { nama_tinta: nama, satuan, status };
+    const action  = id ? 'editTinta' : 'tambahTinta';
+    if (id) payload.id_tinta = id;
+
+    const btn = document.querySelector('.btn-simpan');
+    btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+    apiPost(action, payload).then(res => {
+      if (res.error) tampilError(res.error);
+      else { modalInstance.hide(); muatData(); }
+    }).catch(() => tampilError('Gagal menyimpan. Coba lagi.'))
+    .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
+  }
+
+  function tampilError(msg) {
+    document.getElementById('alert-form').innerHTML =
+      `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
