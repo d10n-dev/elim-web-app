@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIEO — BOM Item</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f5f4f0;--surface:#fff;--border:#d0cec8;--accent:#1a3a5c;--accent2:#c8401a;--text:#1c1c1c;--muted:#777;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;}
+    *{box-sizing:border-box;}
+    body{background:var(--bg);font-family:var(--sans);color:var(--text);font-size:14px;}
+    .page-header{background:var(--accent);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--accent2);}
+    .page-header .title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+    .page-header .subtitle{font-size:11px;opacity:.6;margin-top:2px;font-family:var(--mono);}
+    .btn-back{color:#fff;text-decoration:none;font-size:13px;opacity:.8;}
+    .btn-back:hover{opacity:1;color:#fff;}
+
+    .panel{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;}
+    .panel label{font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:block;margin-bottom:6px;}
+    .item-select-wrap{display:flex;gap:8px;align-items:center;}
+    .item-select-wrap .ac-wrap{flex:1;}
+    .btn-load{background:var(--accent);color:#fff;border:none;border-radius:3px;padding:7px 16px;font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-load:hover{background:#142d4a;}
+    .item-info{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;}
+
+    .bom-wrap{padding:12px 16px 100px;}
+    .section-title{font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 0 8px;}
+    .warna-count{font-family:var(--mono);font-size:11px;color:var(--accent);margin-left:6px;font-weight:400;text-transform:none;letter-spacing:0;}
+    .bom-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:8px;}
+
+    /* ROW */
+    .row-item{display:flex;gap:6px;align-items:flex-start;margin-bottom:6px;}
+    .row-item .ac-wrap{flex:1;}
+    .ket-input{font-size:12px;border:1px solid var(--border);border-radius:3px;padding:6px 8px;background:var(--bg);width:140px;font-family:var(--sans);}
+    .ket-input:focus{border-color:var(--accent);outline:none;}
+    .btn-del{background:none;border:1px solid #fca5a5;color:#dc2626;border-radius:2px;padding:5px 8px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+    .btn-del:hover{background:#fee2e2;}
+    .btn-add-row{background:none;border:1px dashed var(--border);color:var(--muted);border-radius:3px;padding:5px 12px;font-size:12px;font-family:var(--mono);cursor:pointer;width:100%;margin-top:4px;}
+    .btn-add-row:hover{border-color:var(--accent);color:var(--accent);}
+
+    /* AUTOCOMPLETE */
+    .ac-wrap{position:relative;}
+    .ac-input{width:100%;font-size:13px;border:1px solid var(--border);border-radius:3px;padding:6px 10px;background:var(--bg);font-family:var(--sans);color:var(--text);}
+    .ac-input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px rgba(26,58,92,.12);}
+    .ac-input.selected{border-color:#15803d;background:#f0fdf4;}
+    .ac-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 4px 4px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+    .ac-dropdown.open{display:block;}
+    .ac-item{padding:8px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:2px;}
+    .ac-item:last-child{border-bottom:none;}
+    .ac-item:hover,.ac-item.active{background:#e8eef5;}
+    .ac-item-id{font-family:var(--mono);font-size:10px;color:var(--muted);}
+    .ac-item-nama{font-size:13px;font-weight:500;}
+    .ac-empty{padding:10px;font-size:12px;color:var(--muted);font-family:var(--mono);text-align:center;}
+    .ac-hint{font-size:11px;color:var(--accent2);font-family:var(--mono);margin-top:3px;display:none;}
+
+    /* FINISHING */
+    .fin-row{display:flex;gap:6px;align-items:flex-start;margin-bottom:6px;}
+    .fin-row .ac-wrap{flex:1;}
+
+    .save-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:2px solid var(--border);padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;}
+    .btn-simpan{background:var(--accent2);color:#fff;border:none;border-radius:3px;padding:9px 24px;font-family:var(--mono);font-size:13px;font-weight:600;cursor:pointer;}
+    .btn-simpan:hover{background:#a83314;}
+    .btn-simpan:disabled{opacity:.5;cursor:not-allowed;}
+    .loading-state{text-align:center;padding:40px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .alert-bar{padding:8px 16px;font-family:var(--mono);font-size:12px;}
+  </style>
+</head>
+<body>
+<div class="page-header">
+  <div>
+    <div class="title">BOM — Bill of Materials</div>
+    <div class="subtitle">SIEO — PT. Elim Citra Offset</div>
+  </div>
+  <a href="../index.html" class="btn-back">← Kembali</a>
+</div>
+
+<div class="panel">
+  <label>Pilih Item</label>
+  <div class="item-select-wrap">
+    <div class="ac-wrap" id="acWrapItem">
+      <input type="text" class="ac-input" id="inputItem" placeholder="Ketik ID atau nama item..." autocomplete="off">
+      <div class="ac-dropdown" id="acDropItem"></div>
+    </div>
+    <button class="btn-load" onclick="muatBom()">Muat BOM</button>
+  </div>
+  <div class="item-info" id="itemInfo"></div>
+</div>
+
+<div id="alertBar" class="alert-bar"></div>
+<div class="loading-state" id="loadingBom" style="display:none"><span class="spinner"></span> Memuat BOM...</div>
+
+<div class="bom-wrap" id="bomWrap" style="display:none">
+
+  <div class="section-title">Tinta <span class="warna-count" id="warnaCount"></span></div>
+  <div class="bom-card">
+    <div id="listTinta"></div>
+    <button class="btn-add-row" onclick="tambahRowTinta()">+ Tambah Tinta</button>
+  </div>
+
+  <div class="section-title">Bahan Baku</div>
+  <div class="bom-card">
+    <div id="listBahan"></div>
+    <button class="btn-add-row" onclick="tambahRowBahan()">+ Tambah Bahan</button>
+  </div>
+
+  <div class="section-title">Finishing <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(PACKING selalu di akhir)</span></div>
+  <div class="bom-card">
+    <div id="listFinishing"></div>
+    <button class="btn-add-row" onclick="tambahRowFinishing()">+ Tambah Finishing</button>
+  </div>
+
+  <div class="section-title">Keterangan</div>
+  <div class="bom-card">
+    <textarea id="inputKeterangan" rows="2" placeholder="Catatan tambahan (opsional)"
+      style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:3px;padding:8px;font-family:var(--sans);background:var(--bg);"></textarea>
+  </div>
+</div>
+
+<div class="save-bar" id="saveBar" style="display:none">
+  <button class="btn-simpan" id="btnSimpan" onclick="simpanBom()">Simpan BOM</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  let dataItem = [], dataTinta = [], dataBahan = [];
+  const FINISHING_LIST = ['POTONG','LAMINASI DOFF','LAMINASI GLOSSY','PON','FOIL','LEM','NOMERATOR','PERFORASI ATAS','PERFORASI SAMPING','BLOK LEM','SPIRAL','JILID','PACKING'];
+
+  // ===================== AUTOCOMPLETE ENGINE =====================
+  function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect) {
+    let selectedId = null;
+
+    function filter(q) {
+      q = q.toLowerCase();
+      return dataArr.filter(d =>
+        d[idKey].toLowerCase().includes(q) ||
+        d[namaKey].toLowerCase().includes(q)
+      ).slice(0, 30);
+    }
+
+    function render(items) {
+      dropEl.innerHTML = '';
+      if (items.length === 0) {
+        dropEl.innerHTML = '<div class="ac-empty">Tidak ditemukan</div>';
+      } else {
+        items.forEach(d => {
+          const div = document.createElement('div');
+          div.className = 'ac-item';
+          div.innerHTML = `<span class="ac-item-id">${escHtml(d[idKey])}</span><span class="ac-item-nama">${escHtml(d[namaKey])}</span>`;
+          div.addEventListener('mousedown', e => { e.preventDefault(); pilih(d); });
+          div.addEventListener('touchend', e => { e.preventDefault(); pilih(d); });
+          dropEl.appendChild(div);
+        });
+      }
+      dropEl.classList.add('open');
+    }
+
+    function pilih(d) {
+      selectedId = d[idKey];
+      inputEl.value = d[idKey] + ' | ' + d[namaKey];
+      inputEl.classList.add('selected');
+      dropEl.classList.remove('open');
+      if (onSelect) onSelect(d);
+    }
+
+    function tutup() {
+      dropEl.classList.remove('open');
+    }
+
+    inputEl.addEventListener('input', () => {
+      selectedId = null;
+      inputEl.classList.remove('selected');
+      const q = inputEl.value.trim();
+      if (q.length === 0) { tutup(); return; }
+      render(filter(q));
+    });
+
+    inputEl.addEventListener('focus', () => {
+      const q = inputEl.value.trim();
+      if (q.length > 0 && !selectedId) render(filter(q));
+    });
+
+    inputEl.addEventListener('blur', () => {
+      setTimeout(tutup, 200);
+    });
+
+    // expose getter
+    inputEl._getSelectedId = () => selectedId;
+    inputEl._setItem = (d) => { if(d) pilih(d); };
+    inputEl._clear = () => {
+      selectedId = null;
+      inputEl.value = '';
+      inputEl.classList.remove('selected');
+      tutup();
+    };
+  }
+
+  // ===================== INIT =====================
+  window.onload = function() {
+    Promise.all([
+      apiGet('getItem'),
+      apiGet('getTinta'),
+      apiGet('getBahan')
+    ]).then(([ri, rt, rb]) => {
+      dataItem  = Array.isArray(ri) ? ri.filter(i => i.status === 'AKTIF') : [];
+      dataTinta = Array.isArray(rt) ? rt.filter(t => t.status === 'AKTIF') : [];
+      dataBahan = Array.isArray(rb) ? rb.filter(b => b.status === 'AKTIF') : [];
+
+      // setup AC untuk item
+      buatAC(
+        document.getElementById('inputItem'),
+        document.getElementById('acDropItem'),
+        dataItem, 'id_item', 'nama_item',
+        function(d) {
+          document.getElementById('itemInfo').textContent =
+            'Kategori: ' + d.kategori + ' | Satuan: ' + d.satuan + ' | PPS: ' + d.pps;
+          document.getElementById('bomWrap').style.display = 'none';
+          document.getElementById('saveBar').style.display = 'none';
+          document.getElementById('alertBar').innerHTML = '';
+        }
+      );
+    }).catch(() => {
+      document.getElementById('alertBar').innerHTML =
+        '<div class="alert alert-danger py-2" style="font-size:12px">Gagal memuat data master. Refresh halaman.</div>';
+    });
+  };
+
+  // ===================== MUAT BOM =====================
+  function muatBom() {
+    const inputItem = document.getElementById('inputItem');
+    const idItem = inputItem._getSelectedId ? inputItem._getSelectedId() : null;
+    if (!idItem) { tampilAlert('Pilih item dari daftar terlebih dahulu.', 'warning'); return; }
+
+    document.getElementById('loadingBom').style.display = 'block';
+    document.getElementById('bomWrap').style.display = 'none';
+    document.getElementById('alertBar').innerHTML = '';
+
+    apiGet('getBomV2', { id_item: idItem }).then(res => {
+      document.getElementById('loadingBom').style.display = 'none';
+      document.getElementById('bomWrap').style.display = 'block';
+      document.getElementById('saveBar').style.display = 'flex';
+      renderBom(res);
+    }).catch(() => {
+      document.getElementById('loadingBom').style.display = 'none';
+      tampilAlert('Gagal memuat BOM.', 'danger');
+    });
+  }
+
+  function renderBom(res) {
+    const bom = res.bom && res.bom.length > 0 ? res.bom[0] : null;
+    document.getElementById('inputKeterangan').value = bom ? bom.keterangan : '';
+
+    document.getElementById('listTinta').innerHTML = '';
+    const tinta = res.tinta || [];
+    if (tinta.length > 0) {
+      tinta.forEach(t => {
+        const obj = dataTinta.find(x => x.id_tinta === t.id_tinta);
+        tambahRowTinta(obj || null);
+      });
+    } else { tambahRowTinta(); }
+
+    document.getElementById('listBahan').innerHTML = '';
+    const bahan = res.bahan || [];
+    if (bahan.length > 0) {
+      bahan.forEach(b => {
+        const obj = dataBahan.find(x => x.id_bahan === b.id_bahan);
+        tambahRowBahan(obj || null, b.keterangan);
+      });
+    } else { tambahRowBahan(); }
+
+    document.getElementById('listFinishing').innerHTML = '';
+    const fin = res.finishing || [];
+    if (fin.length > 0) {
+      fin.forEach(f => tambahRowFinishing(f.jenis_finishing));
+    } else {
+      tambahRowFinishing();
+      tambahRowFinishing('PACKING');
+    }
+    updateWarnaCount();
+  }
+
+  // ===================== ROW BUILDERS =====================
+  let rowCounter = 0;
+
+  function tambahRowTinta(tintaObj) {
+    const id = 'trow' + (++rowCounter);
+    const div = document.createElement('div');
+    div.className = 'row-item tinta-row';
+    div.id = id;
+    div.innerHTML = `
+      <div class="ac-wrap">
+        <input type="text" class="ac-input" placeholder="Ketik nama tinta..." autocomplete="off">
+        <div class="ac-dropdown"></div>
+      </div>
+      <button class="btn-del" onclick="document.getElementById('${id}').remove();updateWarnaCount()">Hapus</button>
+    `;
+    document.getElementById('listTinta').appendChild(div);
+    const inp = div.querySelector('.ac-input');
+    const drop = div.querySelector('.ac-dropdown');
+    buatAC(inp, drop, dataTinta, 'id_tinta', 'nama_tinta', updateWarnaCount);
+    if (tintaObj) inp._setItem(tintaObj);
+    updateWarnaCount();
+  }
+
+  function tambahRowBahan(bahanObj, ket) {
+    const id = 'brow' + (++rowCounter);
+    const div = document.createElement('div');
+    div.className = 'row-item bahan-row';
+    div.id = id;
+    div.innerHTML = `
+      <div class="ac-wrap">
+        <input type="text" class="ac-input" placeholder="Ketik nama bahan..." autocomplete="off">
+        <div class="ac-dropdown"></div>
+      </div>
+      <input type="text" class="ket-input" placeholder="Keterangan..." value="${escHtml(ket||'')}">
+      <button class="btn-del" onclick="document.getElementById('${id}').remove()">Hapus</button>
+    `;
+    document.getElementById('listBahan').appendChild(div);
+    const inp = div.querySelector('.ac-input');
+    const drop = div.querySelector('.ac-dropdown');
+    buatAC(inp, drop, dataBahan, 'id_bahan', 'nama_bahan', null);
+    if (bahanObj) inp._setItem(bahanObj);
+  }
+
+  function tambahRowFinishing(val) {
+    const id = 'frow' + (++rowCounter);
+    const div = document.createElement('div');
+    div.className = 'fin-row';
+    div.id = id;
+    div.innerHTML = `
+      <div class="ac-wrap">
+        <input type="text" class="ac-input" placeholder="Ketik atau pilih finishing..." autocomplete="off" value="${escHtml(val||'')}">
+        <div class="ac-dropdown"></div>
+      </div>
+      <button class="btn-del" onclick="document.getElementById('${id}').remove()">Hapus</button>
+    `;
+    document.getElementById('listFinishing').appendChild(div);
+    const inp = div.querySelector('.ac-input');
+    const drop = div.querySelector('.ac-dropdown');
+    // finishing pakai data array sederhana
+    const finData = FINISHING_LIST.map(f => ({ id: f, nama: f }));
+    buatAC(inp, drop, finData, 'id', 'nama', d => { inp.value = d.id; });
+    // kalau sudah ada value, tandai sebagai selected
+    if (val) {
+      inp.classList.add('selected');
+      inp._getSelectedId = () => val;
+    }
+    // override agar teks bebas juga valid
+    inp._getFinVal = () => inp.value.trim();
+  }
+
+  function updateWarnaCount() {
+    const rows = document.querySelectorAll('#listTinta .tinta-row .ac-input');
+    const isi = Array.from(rows).filter(r => r._getSelectedId && r._getSelectedId()).length;
+    document.getElementById('warnaCount').textContent = isi > 0 ? isi + ' warna' : '';
+  }
+
+  // ===================== SIMPAN =====================
+  function simpanBom() {
+    const inputItem = document.getElementById('inputItem');
+    const idItem = inputItem._getSelectedId ? inputItem._getSelectedId() : null;
+    if (!idItem) return tampilAlert('Pilih item dari daftar terlebih dahulu.', 'warning');
+
+    // tinta
+    const tinta = [];
+    let tintaError = false;
+    document.querySelectorAll('#listTinta .tinta-row .ac-input').forEach(inp => {
+      const id = inp._getSelectedId ? inp._getSelectedId() : null;
+      if (!inp.value.trim()) return;
+      if (!id) { tintaError = true; return; }
+      tinta.push({ id_tinta: id });
+    });
+    if (tintaError) return tampilAlert('Ada tinta yang tidak dikenali. Pilih dari daftar, atau tambah di Master Tinta dulu.', 'danger');
+    if (tinta.length === 0) return tampilAlert('Minimal 1 tinta wajib diisi.', 'danger');
+
+    // bahan
+    const bahan = [];
+    let bahanError = false;
+    document.querySelectorAll('#listBahan .bahan-row').forEach(row => {
+      const inp = row.querySelector('.ac-input');
+      const ket = row.querySelector('.ket-input');
+      const id  = inp._getSelectedId ? inp._getSelectedId() : null;
+      if (!inp.value.trim()) return;
+      if (!id) { bahanError = true; return; }
+      bahan.push({ id_bahan: id, keterangan: ket ? ket.value.trim() : '' });
+    });
+    if (bahanError) return tampilAlert('Ada bahan yang tidak dikenali. Pilih dari daftar, atau tambah di Master Bahan dulu.', 'danger');
+    if (bahan.length === 0) return tampilAlert('Minimal 1 bahan wajib diisi.', 'danger');
+
+    // finishing
+    const finishing = [];
+    document.querySelectorAll('#listFinishing .fin-row').forEach(row => {
+      const inp = row.querySelector('.ac-input');
+      const val = inp._getFinVal ? inp._getFinVal() : inp.value.trim();
+      if (val) finishing.push({ jenis_finishing: val });
+    });
+    if (finishing.length === 0) return tampilAlert('Minimal 1 finishing wajib diisi.', 'danger');
+
+    const keterangan = document.getElementById('inputKeterangan').value.trim();
+    const payload = { id_item: idItem, keterangan, bahan, tinta, finishing };
+
+    const btn = document.getElementById('btnSimpan');
+    btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+    apiPost('simpanBomV2', payload).then(res => {
+      if (res.error) tampilAlert(res.error, 'danger');
+      else tampilAlert('BOM berhasil disimpan.', 'success');
+    }).catch(() => tampilAlert('Gagal menyimpan. Coba lagi.', 'danger'))
+    .finally(() => { btn.textContent = 'Simpan BOM'; btn.disabled = false; });
+  }
+
+  function tampilAlert(msg, tipe) {
+    document.getElementById('alertBar').innerHTML =
+      `<div class="alert alert-${tipe} py-2" style="font-size:12px">${msg}</div>`;
+    window.scrollTo(0, 0);
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function apiGet(action, params) {
+    let url = GAS_URL + '?action=' + action;
+    if (params) Object.keys(params).forEach(k => url += '&' + k + '=' + encodeURIComponent(params[k]));
+    return fetch(url).then(r => r.json());
+  }
+</script>
+</body>
+</html>
