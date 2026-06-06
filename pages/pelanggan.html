@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIEO — Master Pelanggan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f4f0;
+      --surface: #ffffff;
+      --border: #d0cec8;
+      --accent: #1a3a5c;
+      --accent2: #c8401a;
+      --text: #1c1c1c;
+      --muted: #777;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      font-family: var(--sans);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    /* HEADER */
+    .page-header {
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--accent2);
+    }
+    .page-header .title {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .page-header .subtitle {
+      font-size: 11px;
+      opacity: 0.6;
+      margin-top: 2px;
+      font-family: var(--mono);
+    }
+    .btn-back {
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+    .btn-back:hover { opacity: 1; color: #fff; }
+
+    /* FILTER BAR */
+    .filter-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar input, .filter-bar select {
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 6px 10px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+    .filter-bar input { flex: 1; min-width: 160px; }
+    .filter-bar select { min-width: 110px; }
+    .btn-tambah {
+      background: var(--accent2);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-family: var(--mono);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-tambah:hover { background: #a83314; }
+
+    /* TAB TOGGLE */
+    .tab-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1rem; display: flex; }
+    .tab-btn { font-family: var(--mono); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 0.6rem 1.1rem; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    /* COUNTER */
+    .counter-bar {
+      padding: 6px 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    /* TABLE */
+    .table-wrap {
+      overflow-x: auto;
+      padding: 0 0 80px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+    }
+    thead th {
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 9px 10px;
+      border-right: 1px solid rgba(255,255,255,0.1);
+      position: sticky;
+      top: 0;
+      white-space: nowrap;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    tbody tr:hover { background: #f0ede8; }
+    tbody td {
+      padding: 8px 10px;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+    .td-id {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .td-nama { font-weight: 500; }
+    .badge-tipe {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 2px;
+      letter-spacing: 0.05em;
+    }
+    .badge-PT { background: #dbeafe; color: #1e40af; }
+    .badge-DK { background: #dcfce7; color: #15803d; }
+    .badge-RESELLER { background: #fef9c3; color: #854d0e; }
+    .badge-status {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 2px;
+    }
+    .badge-AKTIF { background: #dcfce7; color: #15803d; }
+    .badge-NONAKTIF { background: #fee2e2; color: #991b1b; }
+    .btn-edit {
+      background: none;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      border-radius: 2px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-family: var(--mono);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-edit:hover { background: var(--accent); color: #fff; }
+
+    /* LOADING */
+    .loading-state {
+      text-align: center;
+      padding: 40px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* MODAL */
+    .modal-content {
+      border-radius: 4px;
+      border: 2px solid var(--accent);
+    }
+    .modal-header {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 0;
+      padding: 10px 16px;
+    }
+    .modal-title {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+    }
+    .modal-header .btn-close { filter: invert(1); }
+    .modal-body { padding: 16px; }
+    .form-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .form-control, .form-select {
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: var(--sans);
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(26,58,92,0.15);
+    }
+    .npwp-group { display: none; }
+    .npwp-group.show { display: block; }
+    .btn-simpan {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 8px 20px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-simpan:hover { background: #142d4a; }
+    .btn-batal {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 8px 16px;
+      font-family: var(--mono);
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    /* ALERT inline */
+    #alert-form {
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 600px) {
+      .filter-bar { gap: 6px; }
+      .filter-bar input { min-width: 100%; }
+      thead th:nth-child(5), tbody td:nth-child(5) { display: none; } /* sembunyikan kolom telepon di mobile */
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <div>
+    <div class="title">Master Pelanggan</div>
+    <div class="subtitle">SIEO — PT. Elim Citra Offset</div>
+  </div>
+  <a href="../index.html" class="btn-back">← Kembali</a>
+</div>
+
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tabPelanggan" onclick="gantTab('pelanggan')">Pelanggan</button>
+  <button class="tab-btn" id="tabAgen" onclick="gantTab('agen')">Agen</button>
+</div>
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <input type="text" id="searchNama" placeholder="Cari nama pelanggan..." oninput="filterTabel()">
+  <select id="filterTipe" onchange="filterTabel()">
+    <option value="">Semua Tipe</option>
+    <option value="PT">PT</option>
+    <option value="DK">DK</option>
+    <option value="RESELLER">Reseller</option>
+  </select>
+  <select id="filterStatus" onchange="filterTabel()">
+    <option value="">Semua Status</option>
+    <option value="AKTIF">Aktif</option>
+    <option value="NONAKTIF">Nonaktif</option>
+  </select>
+  <button class="btn-tambah" id="btnTambahUtama" onclick="bukaModalTambahAktif()">+ Tambah</button>
+</div>
+
+<!-- COUNTER -->
+<div class="counter-bar" id="counterBar">Memuat data...</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+  <div class="loading-state" id="loadingState">
+    <span class="spinner"></span> Mengambil data pelanggan...
+  </div>
+  <table id="tabelPelanggan" style="display:none">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nama</th>
+        <th>Tipe</th>
+        <th>Status</th>
+        <th>Telepon</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="tbodyPelanggan"></tbody>
+  </table>
+</div>
+
+
+<!-- TABEL AGEN -->
+<div id="wrapAgen" style="display:none">
+  <div class="table-wrap">
+    <table id="tabelAgen">
+      <thead>
+        <tr>
+          <th>ID</th><th>Nama</th><th>Telepon</th><th>Status</th><th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyAgen"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL FORM -->
+<div class="modal fade" id="modalPelanggan" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modalJudul">TAMBAH PELANGGAN</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alert-form"></div>
+
+        <input type="hidden" id="fId">
+
+        <div class="mb-3">
+          <label class="form-label">Nama *</label>
+          <input type="text" class="form-control" id="fNama" placeholder="Nama pelanggan">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Tipe *</label>
+          <select class="form-select" id="fTipe" onchange="toggleNpwp()">
+            <option value="">-- Pilih --</option>
+            <option value="PT">PT</option>
+            <option value="DK">DK</option>
+            <option value="RESELLER">Reseller</option>
+          </select>
+        </div>
+
+        <div class="mb-3 npwp-group" id="npwpGroup">
+          <label class="form-label">NPWP *</label>
+          <input type="text" class="form-control" id="fNpwp" placeholder="xx.xxx.xxx.x-xxx.xxx">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Telepon</label>
+          <input type="text" class="form-control" id="fTelepon" placeholder="08xx-xxxx-xxxx">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Alamat</label>
+          <textarea class="form-control" id="fAlamat" rows="2" placeholder="Alamat lengkap"></textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Agen</label>
+          <select class="form-select" id="fAgen">
+            <option value="">-- Tidak ada agen --</option>
+          </select>
+        </div>
+
+        <div class="mb-3" id="statusGroup" style="display:none">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="fStatus">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+          </select>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+          <button class="btn-simpan" onclick="simpanPelanggan()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL AGEN -->
+<div class="modal fade" id="modalAgen" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modalAgenJudul">TAMBAH AGEN</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alert-form-agen"></div>
+        <input type="hidden" id="fAgenId">
+        <div class="mb-3">
+          <label class="form-label">Nama Agen *</label>
+          <input type="text" class="form-control" id="fAgenNama" placeholder="Nama agen"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Telepon</label>
+          <input type="text" class="form-control" id="fAgenTelepon" placeholder="08xx-xxxx-xxxx"/>
+        </div>
+        <div class="mb-3" id="statusAgenGroup" style="display:none">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="fAgenStatus">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+          </select>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+          <button class="btn-simpan" onclick="simpanAgen()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+  let dataPelanggan = [];
+  let dataAgen = [];
+  let modalInstance;
+
+  // ---- INIT ----
+  window.onload = function() {
+    modalInstance = new bootstrap.Modal(document.getElementById('modalPelanggan'));
+    muatData();
+  };
+
+  function muatData() {
+  Promise.all([
+    apiGet('getPelanggan'),
+    apiGet('getAgen')
+  ]).then(([resPelanggan, resAgen]) => {
+    dataPelanggan = Array.isArray(resPelanggan) ? resPelanggan : [];
+    dataAgen = Array.isArray(resAgen) ? resAgen : [];
+    isiDropdownAgen();
+    renderTabel(dataPelanggan);
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tabelPelanggan').style.display = 'table';
+  }).catch(err => {
+    document.getElementById('loadingState').innerHTML =
+      '<span style="color:#c8401a;font-family:var(--mono)">Gagal: ' + err.message + '</span>';
+  });
+  
+}
+
+  // ---- RENDER ----
+  function renderTabel(data) {
+    const tbody = document.getElementById('tbodyPelanggan');
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
+      document.getElementById('counterBar').textContent = '0 pelanggan ditemukan';
+      return;
+    }
+    tbody.innerHTML = data.map(p => `
+      <tr>
+        <td class="td-id">${p.id_pelanggan}</td>
+        <td class="td-nama">${escHtml(p.nama)}</td>
+        <td><span class="badge-tipe badge-${p.tipe}">${p.tipe}</span></td>
+        <td><span class="badge-status badge-${p.status}">${p.status}</span></td>
+        <td style="color:var(--muted)">${p.telepon ? escHtml(p.telepon) : '—'}</td>
+        <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(p)})'>Edit</button></td>
+      </tr>
+    `).join('');
+    document.getElementById('counterBar').textContent =
+      data.length + ' dari ' + dataPelanggan.length + ' pelanggan';
+  }
+
+  // ---- FILTER ----
+  function filterTabel() {
+    const cari = document.getElementById('searchNama').value.toLowerCase();
+    const tipe = document.getElementById('filterTipe').value;
+    const status = document.getElementById('filterStatus').value;
+    const hasil = dataPelanggan.filter(p => {
+      const cocokNama = p.nama.toLowerCase().includes(cari);
+      const cocokTipe = !tipe || p.tipe === tipe;
+      const cocokStatus = !status || p.status === status;
+      return cocokNama && cocokTipe && cocokStatus;
+    });
+    renderTabel(hasil);
+  }
+
+  // ---- DROPDOWN AGEN ----
+  function isiDropdownAgen() {
+    const sel = document.getElementById('fAgen');
+    const aktif = dataAgen.filter(a => a.status === 'AKTIF');
+    aktif.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id_agen;
+      opt.textContent = a.nama;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ---- TOGGLE NPWP ----
+  function toggleNpwp() {
+    const tipe = document.getElementById('fTipe').value;
+    document.getElementById('npwpGroup').classList.toggle('show', tipe === 'PT');
+  }
+
+  // ---- MODAL TAMBAH ----
+  function bukaModalTambah() {
+    document.getElementById('modalJudul').textContent = 'TAMBAH PELANGGAN';
+    document.getElementById('alert-form').innerHTML = '';
+    document.getElementById('fId').value = '';
+    document.getElementById('fNama').value = '';
+    document.getElementById('fTipe').value = '';
+    document.getElementById('fNpwp').value = '';
+    document.getElementById('fTelepon').value = '';
+    document.getElementById('fAlamat').value = '';
+    document.getElementById('fAgen').value = '';
+    document.getElementById('fStatus').value = 'AKTIF';
+    document.getElementById('statusGroup').style.display = 'none';
+    document.getElementById('npwpGroup').classList.remove('show');
+    modalInstance.show();
+  }
+
+  // ---- MODAL EDIT ----
+  function bukaModalEdit(p) {
+    document.getElementById('modalJudul').textContent = 'EDIT PELANGGAN — ' + p.id_pelanggan;
+    document.getElementById('alert-form').innerHTML = '';
+    document.getElementById('fId').value = p.id_pelanggan;
+    document.getElementById('fNama').value = p.nama;
+    document.getElementById('fTipe').value = p.tipe;
+    document.getElementById('fNpwp').value = p.npwp || '';
+    document.getElementById('fTelepon').value = p.telepon || '';
+    document.getElementById('fAlamat').value = p.alamat || '';
+    document.getElementById('fAgen').value = p.id_agen || '';
+    document.getElementById('fStatus').value = p.status || 'AKTIF';
+    document.getElementById('statusGroup').style.display = 'block';
+    toggleNpwp();
+    modalInstance.show();
+  }
+
+  // ---- SIMPAN ----
+  function simpanPelanggan() {
+    const id    = document.getElementById('fId').value;
+    const nama  = document.getElementById('fNama').value.trim();
+    const tipe  = document.getElementById('fTipe').value;
+    const npwp  = document.getElementById('fNpwp').value.trim();
+    const telp  = document.getElementById('fTelepon').value.trim();
+    const alamat= document.getElementById('fAlamat').value.trim();
+    const agen  = document.getElementById('fAgen').value;
+    const status= document.getElementById('fStatus').value;
+
+    // validasi
+    if (!nama) return tampilError('Nama wajib diisi');
+    if (!tipe) return tampilError('Tipe wajib dipilih');
+    if (tipe === 'PT' && !npwp) return tampilError('NPWP wajib diisi untuk pelanggan PT');
+
+    const payload = { nama, tipe, npwp, telepon: telp, alamat, id_agen: agen, status };
+    const action  = id ? 'editPelanggan' : 'tambahPelanggan';
+    if (id) payload.id_pelanggan = id;
+
+    const btnSimpan = document.querySelector('.btn-simpan');
+    btnSimpan.textContent = 'Menyimpan...';
+    btnSimpan.disabled = true;
+
+    apiPost(action, payload).then(res => {
+      if (res.error) {
+        tampilError(res.error);
+      } else {
+        modalInstance.hide();
+        muatData();
+      }
+    }).catch(() => {
+      tampilError('Gagal menyimpan. Coba lagi.');
+    }).finally(() => {
+      btnSimpan.textContent = 'Simpan';
+      btnSimpan.disabled = false;
+    });
+  }
+
+
+  // ---- TAB ----
+  let tabAktif = 'pelanggan';
+  let modalAgenInstance;
+
+  window.addEventListener('load', function() {
+    modalAgenInstance = new bootstrap.Modal(document.getElementById('modalAgen'));
+  }, {once: true});
+
+  function gantTab(tab) {
+    tabAktif = tab;
+    document.getElementById('tabPelanggan').classList.toggle('active', tab === 'pelanggan');
+    document.getElementById('tabAgen').classList.toggle('active', tab === 'agen');
+    // Toolbar
+    document.getElementById('filterTipe').style.display    = tab === 'pelanggan' ? '' : 'none';
+    document.getElementById('filterStatus').style.display  = tab === 'pelanggan' ? '' : 'none';
+    document.getElementById('searchNama').placeholder = tab === 'pelanggan' ? 'Cari nama pelanggan...' : 'Cari nama agen...';
+    // Konten
+    document.getElementById('tabelPelanggan').style.display = tab === 'pelanggan' ? 'table' : 'none';
+    document.getElementById('loadingState').style.display   = 'none';
+    document.getElementById('wrapAgen').style.display       = tab === 'agen' ? 'block' : 'none';
+    if (tab === 'agen') renderTabelAgen(dataAgen);
+  }
+
+  function bukaModalTambahAktif() {
+    if (tabAktif === 'agen') bukaModalTambahAgen();
+    else bukaModalTambah();
+  }
+
+  // ---- RENDER AGEN ----
+  function renderTabelAgen(data) {
+    const tbody = document.getElementById('tbodyAgen');
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Belum ada agen</td></tr>';
+      document.getElementById('counterBar').textContent = '0 agen';
+      return;
+    }
+    tbody.innerHTML = data.map(a => `
+      <tr>
+        <td class="td-id">${a.id_agen}</td>
+        <td class="td-nama">${escHtml(a.nama)}</td>
+        <td style="color:var(--muted)">${a.telepon ? escHtml(a.telepon) : '—'}</td>
+        <td><span class="badge-status badge-${a.status}">${a.status}</span></td>
+        <td><button class="btn-edit" onclick='bukaModalEditAgen(${JSON.stringify(a)})'>Edit</button></td>
+      </tr>
+    `).join('');
+    document.getElementById('counterBar').textContent = data.length + ' agen';
+  }
+
+  // ---- MODAL TAMBAH AGEN ----
+  function bukaModalTambahAgen() {
+    document.getElementById('modalAgenJudul').textContent = 'TAMBAH AGEN';
+    document.getElementById('alert-form-agen').innerHTML = '';
+    document.getElementById('fAgenId').value = '';
+    document.getElementById('fAgenNama').value = '';
+    document.getElementById('fAgenTelepon').value = '';
+    document.getElementById('fAgenStatus').value = 'AKTIF';
+    document.getElementById('statusAgenGroup').style.display = 'none';
+    modalAgenInstance.show();
+  }
+
+  function bukaModalEditAgen(a) {
+    document.getElementById('modalAgenJudul').textContent = 'EDIT AGEN — ' + a.id_agen;
+    document.getElementById('alert-form-agen').innerHTML = '';
+    document.getElementById('fAgenId').value = a.id_agen;
+    document.getElementById('fAgenNama').value = a.nama;
+    document.getElementById('fAgenTelepon').value = a.telepon || '';
+    document.getElementById('fAgenStatus').value = a.status || 'AKTIF';
+    document.getElementById('statusAgenGroup').style.display = 'block';
+    modalAgenInstance.show();
+  }
+
+  // ---- SIMPAN AGEN ----
+  function simpanAgen() {
+    const id     = document.getElementById('fAgenId').value;
+    const nama   = document.getElementById('fAgenNama').value.trim();
+    const telp   = document.getElementById('fAgenTelepon').value.trim();
+    const status = document.getElementById('fAgenStatus').value;
+    if (!nama) {
+      document.getElementById('alert-form-agen').innerHTML =
+        '<div class="alert alert-danger py-2 mb-3" style="font-size:12px">Nama agen wajib diisi</div>';
+      return;
+    }
+    const payload = { nama, telepon: telp, status };
+    const action  = id ? 'editAgen' : 'tambahAgen';
+    if (id) payload.id_agen = id;
+
+    const btn = document.querySelector('#modalAgen .btn-simpan');
+    btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+    apiPost(action, payload).then(res => {
+      if (res.error) {
+        document.getElementById('alert-form-agen').innerHTML =
+          '<div class="alert alert-danger py-2 mb-3" style="font-size:12px">' + res.error + '</div>';
+      } else {
+        modalAgenInstance.hide();
+        // Reload data agen
+        apiGet('getAgen').then(r => {
+          dataAgen = Array.isArray(r) ? r : [];
+          // Update dropdown agen di modal pelanggan
+          const sel = document.getElementById('fAgen');
+          while (sel.options.length > 1) sel.remove(1);
+          dataAgen.filter(a => a.status === 'AKTIF').forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id_agen; opt.textContent = a.nama;
+            sel.appendChild(opt);
+          });
+          renderTabelAgen(dataAgen);
+        });
+      }
+    }).catch(() => {
+      document.getElementById('alert-form-agen').innerHTML =
+        '<div class="alert alert-danger py-2 mb-3" style="font-size:12px">Gagal menyimpan. Coba lagi.</div>';
+    }).finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
+  }
+
+  function tampilError(msg) {
+    document.getElementById('alert-form').innerHTML =
+      `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
+  }
+
+  function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
