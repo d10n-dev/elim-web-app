@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SPK — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --navy:     #1a2744;
+      --navy-dk:  #131e36;
+      --navy-mid: #243257;
+      --orange:   #e8521a;
+      --bg:       #eef1f7;
+      --surface:  #ffffff;
+      --border:   #d0d8e8;
+      --text:     #1a2744;
+      --muted:    #6b7a99;
+      --green:    #1a9e5c;
+      --green-bg: #e6f7ef;
+      --green-bd: #a3d9be;
+      --red:      #dc3545;
+      --yellow:   #f59e0b;
+      --mono:     'IBM Plex Mono', monospace;
+      --sans:     'IBM Plex Sans', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; padding-bottom: 2rem; }
+
+    /* TOPBAR */
+    .topbar {
+      background: var(--navy); border-bottom: 3px solid var(--orange);
+      padding: 0.7rem 1.1rem; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 200;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 0.75rem; }
+    .topbar-back { color: rgba(255,255,255,0.7); font-size: 0.75rem; font-family: var(--mono); text-decoration: none; }
+    .topbar-back:hover { color: #fff; }
+    .topbar-divider { color: rgba(255,255,255,0.2); }
+    .topbar-title { font-family: var(--mono); font-weight: 600; font-size: 0.88rem; letter-spacing: 0.05em; color: #fff; text-transform: uppercase; }
+    .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+
+    /* MAIN */
+    .main { padding: 1.1rem; }
+
+    /* TOOLBAR */
+    .toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem; gap: 0.5rem; flex-wrap: wrap;
+    }
+    .toolbar-left { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+    /* BUTTONS */
+    .btn-buat {
+      background: var(--orange); color: #fff; border: none;
+      font-family: var(--mono); font-size: 0.75rem; font-weight: 600;
+      padding: 0.5rem 0.9rem; border-radius: 6px; cursor: pointer; letter-spacing: 0.03em;
+    }
+    .btn-buat:hover { background: #d04515; }
+    .btn-simpan {
+      background: var(--navy); color: #fff; border: none;
+      font-family: var(--mono); font-size: 0.75rem; font-weight: 600;
+      padding: 0.5rem 0.9rem; border-radius: 6px; cursor: pointer;
+    }
+    .btn-simpan:hover { background: var(--navy-dk); }
+    .btn-simpan:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-batal {
+      background: transparent; color: var(--muted); border: 1px solid var(--border);
+      font-family: var(--mono); font-size: 0.75rem;
+      padding: 0.5rem 0.9rem; border-radius: 6px; cursor: pointer;
+    }
+    .btn-tambah-item {
+      background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd);
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+      padding: 0.4rem 0.75rem; border-radius: 6px; cursor: pointer;
+    }
+    .btn-tambah-item:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-hapus {
+      background: #fff0f0; color: var(--red); border: 1px solid #ffc9c9;
+      font-family: var(--mono); font-size: 0.68rem;
+      padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer;
+    }
+    .btn-print {
+      background: #fff; color: var(--navy); border: 1px solid var(--border);
+      font-family: var(--mono); font-size: 0.72rem;
+      padding: 0.3rem 0.65rem; border-radius: 5px; cursor: pointer;
+    }
+    .btn-print:hover { background: var(--bg); }
+
+    /* FILTER */
+    .filter-btn {
+      font-family: var(--mono); font-size: 0.72rem; padding: 0.35rem 0.75rem;
+      border-radius: 5px; border: 1px solid var(--border); background: var(--surface);
+      color: var(--muted); cursor: pointer;
+    }
+    .filter-btn.aktif { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+    /* TABLE */
+    .tbl-wrap { background: var(--surface); border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    thead th {
+      background: var(--navy); color: #fff; font-family: var(--mono);
+      font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em;
+      padding: 0.6rem 0.75rem; text-align: left; white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f5f7fb; }
+    tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
+    .td-mono { font-family: var(--mono); font-size: 0.72rem; }
+    .td-muted { color: var(--muted); font-size: 0.75rem; }
+
+    /* BADGES */
+    .badge-status {
+      font-family: var(--mono); font-size: 0.63rem; font-weight: 600;
+      padding: 0.2rem 0.5rem; border-radius: 4px; letter-spacing: 0.04em;
+    }
+    .bs-open     { background: #e8f0fe; color: #1a56b0; }
+    .bs-selesai  { background: var(--green-bg); color: var(--green); }
+    .bs-belum    { background: #fff3cd; color: #856404; }
+    .bs-sebagian { background: #fff3e0; color: #c45a00; }
+
+    /* LOADING */
+    .loading { text-align: center; padding: 2rem; font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+
+    /* MODAL */
+    .modal-content { border-radius: 12px; border: 1px solid var(--border); }
+    .modal-header {
+      background: var(--navy); color: #fff; border-radius: 12px 12px 0 0;
+      padding: 0.8rem 1.1rem; border-bottom: none;
+    }
+    .modal-title { font-family: var(--mono); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.04em; }
+    .modal-header .btn-close { filter: invert(1); opacity: 0.7; }
+    .modal-body { padding: 1.1rem; }
+    .modal-footer { padding: 0.75rem 1.1rem; border-top: 1px solid var(--border); gap: 0.5rem; }
+
+    /* FORM */
+    .form-label { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 0.3rem; display: block; }
+    .form-control, .form-select {
+      font-family: var(--mono); font-size: 0.8rem; border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.5rem 0.7rem; width: 100%; color: var(--text);
+      background: var(--surface);
+    }
+    .form-control:focus, .form-select:focus { border-color: var(--navy); outline: none; box-shadow: 0 0 0 2px rgba(26,39,68,0.1); }
+    .form-row { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .form-row-2 { grid-template-columns: 1fr 1fr; }
+    .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    /* PPS INDICATOR */
+    .pps-bar-wrap {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.65rem 0.9rem; margin-bottom: 0.75rem;
+    }
+    .pps-bar-label {
+      font-family: var(--mono); font-size: 0.68rem; color: var(--muted);
+      margin-bottom: 0.4rem; display: flex; justify-content: space-between;
+    }
+    .pps-bar-label span:last-child { font-weight: 600; color: var(--text); }
+    .pps-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .pps-fill { height: 100%; border-radius: 3px; background: var(--orange); transition: width 0.3s; }
+    .pps-fill.genap { background: var(--green); }
+
+    /* SDET TABLE di modal */
+    .sdet-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-bottom: 0.75rem; }
+    .sdet-table thead th {
+      background: var(--navy-mid); color: #fff; font-family: var(--mono);
+      font-size: 0.63rem; padding: 0.4rem 0.5rem; text-align: left;
+    }
+    .sdet-table tbody td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .sdet-table tbody tr:last-child td { border-bottom: none; }
+    .sdet-table tbody tr:hover { background: #f5f7fb; }
+    .sdet-empty { text-align: center; font-family: var(--mono); font-size: 0.75rem; color: var(--muted); padding: 1rem 0; }
+
+    /* FORM TAMBAH SDET */
+    .sdet-form-wrap {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.75rem; margin-bottom: 0.75rem;
+    }
+    .sdet-form-title { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 0.6rem; }
+
+    /* AUTOCOMPLETE */
+    .ac-wrap { position: relative; }
+    .ac-dropdown {
+      position: fixed; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 7px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      max-height: 200px; overflow-y: auto; z-index: 9999; display: none; min-width: 260px;
+    }
+    .ac-item { padding: 0.5rem 0.75rem; cursor: pointer; border-bottom: 1px solid var(--border); }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover, .ac-item.aktif { background: var(--bg); }
+    .ac-item-id { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); display: block; }
+    .ac-item-nama { font-size: 0.78rem; color: var(--text); display: block; }
+    .ac-item-sub { font-family: var(--mono); font-size: 0.65rem; color: var(--orange); }
+    .ac-empty { padding: 0.6rem 0.75rem; font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+
+    /* ALERT */
+    .alert-box { font-family: var(--mono); font-size: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; }
+    .alert-err  { background: #fff0f0; color: var(--red); border: 1px solid #ffc9c9; }
+    .alert-ok   { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
+    .alert-warn { background: #fff8e1; color: #9a6500; border: 1px solid #ffe082; }
+
+    /* KV LIST modal detail */
+    .kv-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem; margin-bottom: 0.9rem; }
+    .kv-item label { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; display: block; }
+    .kv-item span  { font-size: 0.82rem; font-weight: 500; }
+    .section-label {
+      font-family: var(--mono); font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem;
+      padding-bottom: 0.3rem; border-bottom: 1px solid var(--border);
+    }
+
+    /* PRINT */
+    @media print {
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea {
+        position: fixed; left: 0; top: 0;
+        width: 15cm; min-height: 21cm;
+        padding: 0.7cm 0.8cm;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 9pt;
+        color: #000;
+        background: #fff;
+      }
+    }
+    #printArea { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="../index.html" class="topbar-back">&#8592; Menu</a>
+    <span class="topbar-divider">|</span>
+    <span class="topbar-title">SPK</span>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-buat" onclick="bukaBuatSPK()">+ Buat SPK</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- FILTER -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="filter-btn aktif" onclick="setFilter('', this)">Semua</button>
+      <button class="filter-btn" onclick="setFilter('OPEN', this)">Open</button>
+      <button class="filter-btn" onclick="setFilter('SELESAI', this)">Selesai</button>
+    </div>
+  </div>
+
+  <!-- TABEL SPK -->
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID SPK</th>
+          <th>Tanggal</th>
+          <th>Oplah</th>
+          <th>Max PPS</th>
+          <th>Status</th>
+          <th>Keterangan</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tblBody">
+        <tr><td colspan="7" class="loading">Memuat data…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div><!-- /main -->
+
+
+<!-- ====================================================== -->
+<!-- MODAL: BUAT SPK -->
+<!-- ====================================================== -->
+<div class="modal fade" id="modalBuat" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Buat SPK Baru</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertBuat"></div>
+        <div class="form-row form-row-2">
+          <div>
+            <label class="form-label">Total Oplah *</label>
+            <input type="number" class="form-control" id="inOplah" placeholder="cth: 1000" min="1"/>
+          </div>
+          <div>
+            <label class="form-label">Max PPS</label>
+            <input type="text" class="form-control" id="inMaxPps" placeholder="Otomatis dari item pertama" readonly style="background:#f5f7fb;color:var(--muted)"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="inKet" placeholder="Opsional"/>
+          </div>
+        </div>
+        <div id="alertBuatInfo" class="alert-box alert-warn" style="display:none">
+          Max PPS akan terkunci dari item pertama yang ditambahkan ke SPK ini.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-simpan" id="btnSimpanBuat" onclick="simpanBuatSPK()">Buat SPK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- MODAL: DETAIL SPK -->
+<!-- ====================================================== -->
+<div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="detailTitle">Detail SPK</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detailBody">
+        <div class="loading">Memuat…</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-print" onclick="printSPK()">&#128438; Print SPK</button>
+        <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
+        <button class="btn-simpan" id="btnCloseSPK" onclick="closeSPKModal()" style="background:#6c757d">&#10003; Close SPK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- PRINT AREA (tersembunyi, muncul saat print) -->
+<!-- ====================================================== -->
+<div id="printArea"></div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script>
+// ── STATE ────────────────────────────────────────────────
+var semuaSPK      = [];
+var filterAktif   = '';
+var idSpkAktif    = null;   // SPK yang sedang dibuka di modal detail
+var maxPpsAktif   = 0;      // MAX_PPS SPK yang sedang dibuka
+var oplahAktif    = 0;      // TOTAL_OPLAH SPK yang sedang dibuka
+var totalPpsTerpakai = 0;   // Total PPS sudah terisi di SDET
+var semuaOrderDtl = [];     // Cache order detail belum ter-SPK
+var ppsFilter     = 0;      // PPS filter setelah item pertama dipilih
+var sdtPilihan    = null;   // Object order detail yang sedang dipilih di form tambah
+var acDropEl      = null;   // Dropdown autocomplete aktif
+
+// ── INIT ────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  muatSPK();
+  document.addEventListener('touchstart', tutupAC);
+  document.addEventListener('mousedown', function(e) {
+    if (acDropEl && !acDropEl.contains(e.target)) tutupAC();
+  });
+});
+
+// ── MUAT LIST SPK ───────────────────────────────────────
+function muatSPK() {
+  document.getElementById('tblBody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  apiGet('getSPK', {}).then(function(res) {
+    semuaSPK = (res && res.data) ? res.data : [];
+    renderTabel();
+  }).catch(function() {
+    document.getElementById('tblBody').innerHTML = '<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
+  });
+}
+
+function renderTabel() {
+  var data = filterAktif
+    ? semuaSPK.filter(function(s) { return s.STATUS === filterAktif; })
+    : semuaSPK;
+
+  if (!data.length) {
+    document.getElementById('tblBody').innerHTML = '<tr><td colspan="7" class="loading">Belum ada data SPK.</td></tr>';
+    return;
+  }
+
+  var html = '';
+  data.forEach(function(s) {
+    html += '<tr>' +
+      '<td class="td-mono">' + esc(s.ID_SPK) + '</td>' +
+      '<td class="td-mono td-muted">' + fmtTgl(s.TGL_SPK) + '</td>' +
+      '<td class="td-mono">' + fmtAngka(s.TOTAL_OPLAH) + '</td>' +
+      '<td class="td-mono">' + (s.MAX_PPS || '<span style="color:var(--muted)">—</span>') + '</td>' +
+      '<td><span class="badge-status ' + kelasBadge(s.STATUS) + '">' + esc(s.STATUS) + '</span></td>' +
+      '<td class="td-muted">' + esc(s.KETERANGAN || '—') + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="btn-print" style="margin-right:4px" onclick="bukaDetail(\'' + esc(s.ID_SPK) + '\')">Detail</button>' +
+      '</td>' +
+    '</tr>';
+  });
+  document.getElementById('tblBody').innerHTML = html;
+}
+
+function setFilter(val, el) {
+  filterAktif = val;
+  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('aktif'); });
+  el.classList.add('aktif');
+  renderTabel();
+}
+
+// ── BUAT SPK ─────────────────────────────────────────────
+function bukaBuatSPK() {
+  document.getElementById('inOplah').value = '';
+  document.getElementById('inMaxPps').value = '';
+  document.getElementById('inKet').value = '';
+  document.getElementById('alertBuat').innerHTML = '';
+  document.getElementById('alertBuatInfo').style.display = 'block';
+  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+}
+
+function simpanBuatSPK() {
+  var oplah = parseInt(document.getElementById('inOplah').value, 10);
+  var ket   = document.getElementById('inKet').value.trim();
+  var alertEl = document.getElementById('alertBuat');
+  alertEl.innerHTML = '';
+
+  if (!oplah || oplah <= 0) {
+    alertEl.innerHTML = '<div class="alert-box alert-err">Total oplah wajib diisi dan harus lebih dari 0.</div>';
+    return;
+  }
+
+  var btn = document.getElementById('btnSimpanBuat');
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+
+  // maxPps = 0, akan diupdate saat item pertama ditambah
+  apiPost({ action: 'buatSPK', totalOplah: oplah, maxPps: 0, keterangan: ket })
+    .then(function(res) {
+      if (res && res.status === 'ok') {
+        bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
+        muatSPK();
+        // Langsung buka detail SPK yang baru dibuat
+        setTimeout(function() { bukaDetail(res.idSpk); }, 600);
+      } else {
+        alertEl.innerHTML = '<div class="alert-box alert-err">' + esc(res && res.message || 'Error') + '</div>';
+      }
+      btn.disabled = false; btn.textContent = 'Buat SPK';
+    }).catch(function() {
+      alertEl.innerHTML = '<div class="alert-box alert-err">Gagal koneksi GAS.</div>';
+      btn.disabled = false; btn.textContent = 'Buat SPK';
+    });
+}
+
+// ── DETAIL SPK ───────────────────────────────────────────
+function bukaDetail(idSpk) {
+  idSpkAktif = idSpk;
+  sdtPilihan = null;
+  ppsFilter  = 0;
+
+  var spk = semuaSPK.find(function(s) { return s.ID_SPK === idSpk; });
+  maxPpsAktif = spk ? (parseInt(spk.MAX_PPS, 10) || 0) : 0;
+  oplahAktif  = spk ? (parseInt(spk.TOTAL_OPLAH, 10) || 0) : 0;
+
+  document.getElementById('detailTitle').textContent = 'Detail SPK — ' + idSpk;
+  document.getElementById('detailBody').innerHTML = '<div class="loading">Memuat…</div>';
+  document.getElementById('btnCloseSPK').style.display = spk && spk.STATUS === 'OPEN' ? '' : 'none';
+
+  new bootstrap.Modal(document.getElementById('modalDetail')).show();
+
+  // Muat SDET dan order detail belum ter-SPK paralel
+  Promise.all([
+    apiGet('getSPKDetail', { idSpk: idSpk }),
+    apiGet('getOrderDetailBelumSPK', { filterPps: maxPpsAktif > 0 ? maxPpsAktif : '' })
+  ]).then(function(results) {
+    var sdetData  = (results[0] && results[0].data) ? results[0].data : [];
+    semuaOrderDtl = (results[1] && results[1].data) ? results[1].data : [];
+
+    // Hitung total PPS terpakai
+    totalPpsTerpakai = sdetData.reduce(function(sum, r) {
+      return sum + (parseInt(r.PPS, 10) || 0);
+    }, 0);
+
+    renderDetailBody(spk, sdetData);
+  }).catch(function() {
+    document.getElementById('detailBody').innerHTML = '<div class="loading" style="color:var(--red)">Gagal memuat detail.</div>';
+  });
+}
+
+function renderDetailBody(spk, sdetData) {
+  if (!spk) return;
+  var isOpen = spk.STATUS === 'OPEN';
+
+  // Hitung sisa PPS
+  var sisaPps  = maxPpsAktif - totalPpsTerpakai;
+  var pct      = maxPpsAktif > 0 ? Math.round((totalPpsTerpakai / maxPpsAktif) * 100) : 0;
+  var genap    = maxPpsAktif > 0 && totalPpsTerpakai === maxPpsAktif;
+
+  var html = '';
+
+  // KV info
+  html += '<div class="kv-list">' +
+    kv('ID SPK', '<span class="td-mono">' + esc(spk.ID_SPK) + '</span>') +
+    kv('Tanggal', fmtTgl(spk.TGL_SPK)) +
+    kv('Total Oplah', '<strong>' + fmtAngka(spk.TOTAL_OPLAH) + '</strong> lembar') +
+    kv('Max PPS', maxPpsAktif > 0 ? '<strong>' + maxPpsAktif + '</strong>' : '<span style="color:var(--muted)">Belum ada item</span>') +
+    kv('Status', '<span class="badge-status ' + kelasBadge(spk.STATUS) + '">' + esc(spk.STATUS) + '</span>') +
+    kv('Keterangan', esc(spk.KETERANGAN || '—')) +
+  '</div>';
+
+  // PPS bar
+  if (maxPpsAktif > 0) {
+    html += '<div class="pps-bar-wrap">' +
+      '<div class="pps-bar-label">' +
+        '<span>PPS Terpakai</span>' +
+        '<span id="ppsLabel">' + totalPpsTerpakai + ' / ' + maxPpsAktif + (genap ? ' ✓ Genap' : ' — Sisa ' + sisaPps) + '</span>' +
+      '</div>' +
+      '<div class="pps-track"><div class="pps-fill' + (genap ? ' genap' : '') + '" id="ppsFill" style="width:' + pct + '%"></div></div>' +
+    '</div>';
+  }
+
+  // Tabel SDET
+  html += '<div class="section-label">Item dalam SPK ini</div>';
+  if (!sdetData.length) {
+    html += '<div class="sdet-empty">Belum ada item. Tambahkan item di bawah.</div>';
+  } else {
+    html += '<div style="overflow-x:auto"><table class="sdet-table"><thead><tr>' +
+      '<th>#</th><th>ID Detail</th><th>ID Order</th><th>Item</th><th>Subitem</th><th>PPS</th><th>QTY</th><th>Sat</th><th></th>' +
+    '</tr></thead><tbody>';
+    sdetData.forEach(function(r, i) {
+      html += '<tr>' +
+        '<td class="td-mono" style="color:var(--muted)">' + (i+1) + '</td>' +
+        '<td class="td-mono" style="font-size:0.65rem">' + esc(r.ID_DETAIL) + '</td>' +
+        '<td class="td-mono" style="font-size:0.65rem">' + esc(r.ID_ORDER) + '</td>' +
+        '<td style="font-size:0.75rem">' + esc(r.NAMA_ITEM) + '</td>' +
+        '<td class="td-mono" style="font-size:0.72rem">' + esc(r.SUBITEM || '—') + '</td>' +
+        '<td class="td-mono" style="text-align:right">' + r.PPS + '</td>' +
+        '<td class="td-mono" style="text-align:right">' + fmtAngka(r.QTY) + '</td>' +
+        '<td class="td-mono">' + esc(r.SATUAN) + '</td>' +
+        '<td>' + (isOpen
+          ? '<button class="btn-hapus" onclick="hapusSdet(\'' + esc(r.ID_SDET) + '\')">Hapus</button>'
+          : '') + '</td>' +
+      '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // Form tambah SDET (hanya jika OPEN)
+  if (isOpen) {
+    html += '<div class="sdet-form-wrap" id="sdetFormWrap">' +
+      '<div class="sdet-form-title">Tambah Item ke SPK</div>' +
+      '<div id="alertSdet"></div>' +
+      '<div class="form-row">' +
+        '<div>' +
+          '<label class="form-label">Cari Order Detail *</label>' +
+          '<div class="ac-wrap">' +
+            '<input type="text" class="form-control" id="inAcSdet" placeholder="Ketik ID order / nama item / subitem" autocomplete="off"/>' +
+            '<div class="ac-dropdown" id="dropSdet"></div>' +
+          '</div>' +
+          '<div id="infoSdetPilihan" style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);margin-top:4px"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="form-row form-row-3">' +
+        '<div>' +
+          '<label class="form-label">PPS *</label>' +
+          '<input type="number" class="form-control" id="inPpsSdet" placeholder="cth: 25" min="1" oninput="hitungPreviewQty()"/>' +
+        '</div>' +
+        '<div>' +
+          '<label class="form-label">Preview QTY</label>' +
+          '<input type="text" class="form-control" id="previewQty" readonly style="background:#f5f7fb;color:var(--muted)"/>' +
+        '</div>' +
+        '<div style="display:flex;align-items:flex-end">' +
+          '<button class="btn-tambah-item" id="btnTambahSdet" onclick="tambahSdet()" style="width:100%;padding:0.5rem">+ Tambah</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  document.getElementById('detailBody').innerHTML = html;
+
+  // Init autocomplete jika form ada
+  if (isOpen) {
+    initAcSdet();
+  }
+}
+
+// ── AUTOCOMPLETE ORDER DETAIL ────────────────────────────
+function initAcSdet() {
+  var inputEl = document.getElementById('inAcSdet');
+  var dropEl  = document.getElementById('dropSdet');
+  if (!inputEl || !dropEl) return;
+  acDropEl = dropEl;
+
+  inputEl.addEventListener('input', function() {
+    var q = this.value.toLowerCase().trim();
+    if (!q) { tutupAC(); return; }
+
+    // Filter: pakai ppsFilter kalau sudah ada item pertama
+    var data = semuaOrderDtl.filter(function(d) {
+      if (ppsFilter > 0 && parseInt(d.PPS, 10) !== ppsFilter) return false;
+      return (
+        (d.ID_DETAIL  || '').toLowerCase().includes(q) ||
+        (d.ID_ORDER   || '').toLowerCase().includes(q) ||
+        (d.NAMA_ITEM  || '').toLowerCase().includes(q) ||
+        (d.SUBITEM    || '').toLowerCase().includes(q)
+      );
+    }).slice(0, 30);
+
+    renderAC(dropEl, data, inputEl);
+  });
+
+  inputEl.addEventListener('focus', function() {
+    var q = this.value.toLowerCase().trim();
+    if (q) inputEl.dispatchEvent(new Event('input'));
+  });
+
+  inputEl.addEventListener('blur', function() {
+    setTimeout(tutupAC, 200);
+  });
+}
+
+function renderAC(dropEl, data, inputEl) {
+  dropEl.innerHTML = '';
+  if (!data.length) {
+    dropEl.innerHTML = '<div class="ac-empty">' +
+      (ppsFilter > 0 ? 'Tidak ada item dengan PPS ' + ppsFilter : 'Tidak ditemukan') +
+    '</div>';
+  } else {
+    data.forEach(function(d) {
+      var div = document.createElement('div');
+      div.className = 'ac-item';
+      div.innerHTML =
+        '<span class="ac-item-id">' + esc(d.ID_ORDER) + ' · ' + esc(d.ID_DETAIL) + '</span>' +
+        '<span class="ac-item-nama">' + esc(d.NAMA_ITEM) + (d.SUBITEM ? ' <span class="ac-item-sub">' + esc(d.SUBITEM) + '</span>' : '') + '</span>' +
+        '<span class="ac-item-id">PPS: ' + d.PPS + ' · QTY Order: ' + fmtAngka(d.QTY_ORDER) + ' ' + esc(d.SATUAN) + '</span>';
+
+      div.addEventListener('mousedown', function(e) { e.preventDefault(); pilihSdet(d, inputEl, dropEl); });
+      div.addEventListener('touchend',  function(e) { e.preventDefault(); pilihSdet(d, inputEl, dropEl); });
+      dropEl.appendChild(div);
+    });
+  }
+
+  // Posisi dropdown
+  var rect = inputEl.getBoundingClientRect();
+  dropEl.style.top    = (rect.bottom + window.scrollY + 2) + 'px';
+  dropEl.style.left   = (rect.left   + window.scrollX)    + 'px';
+  dropEl.style.width  = rect.width + 'px';
+  dropEl.style.display = 'block';
+}
+
+function pilihSdet(d, inputEl, dropEl) {
+  sdtPilihan = d;
+  inputEl.value = d.ID_ORDER + ' — ' + d.NAMA_ITEM + (d.SUBITEM ? ' (' + d.SUBITEM + ')' : '');
+  dropEl.style.display = 'none';
+
+  // Tampil info
+  var info = document.getElementById('infoSdetPilihan');
+  if (info) {
+    info.textContent = 'ID Detail: ' + d.ID_DETAIL + ' | PPS item: ' + d.PPS + ' | QTY Order: ' + fmtAngka(d.QTY_ORDER) + ' ' + d.SATUAN;
+  }
+
+  // Set ppsFilter dari item pertama
+  if (ppsFilter === 0 && maxPpsAktif === 0) {
+    ppsFilter = parseInt(d.PPS, 10);
+  }
+
+  // Isi PPS otomatis
+  var inPps = document.getElementById('inPpsSdet');
+  if (inPps && !inPps.value) {
+    inPps.value = d.PPS;
+    hitungPreviewQty();
+  }
+}
+
+function tutupAC() {
+  if (acDropEl) acDropEl.style.display = 'none';
+}
+
+// ── HITUNG PREVIEW QTY ──────────────────────────────────
+function hitungPreviewQty() {
+  var pps  = parseInt(document.getElementById('inPpsSdet').value, 10) || 0;
+  var prev = document.getElementById('previewQty');
+  if (prev) prev.value = pps > 0 ? fmtAngka(oplahAktif * pps) : '';
+}
+
+// ── TAMBAH SDET ─────────────────────────────────────────
+function tambahSdet() {
+  var alertEl = document.getElementById('alertSdet');
+  var pps     = parseInt(document.getElementById('inPpsSdet').value, 10);
+
+  alertEl.innerHTML = '';
+
+  if (!sdtPilihan) {
+    alertEl.innerHTML = '<div class="alert-box alert-err">Pilih item dari daftar terlebih dahulu.</div>';
+    return;
+  }
+  if (!pps || pps <= 0) {
+    alertEl.innerHTML = '<div class="alert-box alert-err">PPS wajib diisi.</div>';
+    return;
+  }
+
+  var btn = document.getElementById('btnTambahSdet');
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+
+  apiPost({
+    action:   'tambahSPKDetail',
+    idSpk:    idSpkAktif,
+    idDetail: sdtPilihan.ID_DETAIL,
+    pps:      pps
+  }).then(function(res) {
+    if (res && res.status === 'ok') {
+      // Update max PPS di state jika baru diset
+      if (maxPpsAktif === 0 && res.maxPps) {
+        maxPpsAktif = parseInt(res.maxPps, 10);
+        // Update SPK di list
+        var spk = semuaSPK.find(function(s) { return s.ID_SPK === idSpkAktif; });
+        if (spk) spk.MAX_PPS = maxPpsAktif;
+      }
+      totalPpsTerpakai = parseInt(res.totalPps, 10) || 0;
+      ppsFilter = maxPpsAktif;
+      sdtPilihan = null;
+
+      // Reset form tambah
+      document.getElementById('inAcSdet').value  = '';
+      document.getElementById('inPpsSdet').value = '';
+      document.getElementById('previewQty').value = '';
+      document.getElementById('infoSdetPilihan').textContent = '';
+
+      // Reload order detail dengan filter PPS
+      apiGet('getOrderDetailBelumSPK', { filterPps: maxPpsAktif }).then(function(r2) {
+        semuaOrderDtl = (r2 && r2.data) ? r2.data : [];
+      });
+
+      // Reload SDET
+      apiGet('getSPKDetail', { idSpk: idSpkAktif }).then(function(r3) {
+        var sdetData = (r3 && r3.data) ? r3.data : [];
+        totalPpsTerpakai = sdetData.reduce(function(sum, r) {
+          return sum + (parseInt(r.PPS, 10) || 0);
+        }, 0);
+        var spk = semuaSPK.find(function(s) { return s.ID_SPK === idSpkAktif; });
+        renderDetailBody(spk, sdetData);
+        // Tampil alert ok
+        setTimeout(function() {
+          var a = document.getElementById('alertSdet');
+          if (a) {
+            var sisa = maxPpsAktif - totalPpsTerpakai;
+            a.innerHTML = '<div class="alert-box ' + (sisa === 0 ? 'alert-ok' : 'alert-warn') + '">' +
+              (sisa === 0 ? '✓ PPS sudah genap. SPK siap digunakan.' : 'Tersimpan. Sisa PPS: ' + sisa) +
+            '</div>';
+          }
+        }, 100);
+      });
+
+    } else {
+      alertEl.innerHTML = '<div class="alert-box alert-err">' + esc(res && res.message || 'Error') + '</div>';
+      btn.disabled = false; btn.textContent = '+ Tambah';
+    }
+  }).catch(function() {
+    alertEl.innerHTML = '<div class="alert-box alert-err">Gagal koneksi GAS.</div>';
+    btn.disabled = false; btn.textContent = '+ Tambah';
+  });
+}
+
+// ── HAPUS SDET ──────────────────────────────────────────
+function hapusSdet(idSdet) {
+  if (!confirm('Hapus item ' + idSdet + ' dari SPK ini?')) return;
+
+  apiPost({ action: 'hapusSPKDetail', idSdet: idSdet }).then(function(res) {
+    if (res && res.status === 'ok') {
+      apiGet('getSPKDetail', { idSpk: idSpkAktif }).then(function(r) {
+        var sdetData = (r && r.data) ? r.data : [];
+        totalPpsTerpakai = sdetData.reduce(function(sum, row) {
+          return sum + (parseInt(row.PPS, 10) || 0);
+        }, 0);
+        var spk = semuaSPK.find(function(s) { return s.ID_SPK === idSpkAktif; });
+        renderDetailBody(spk, sdetData);
+      });
+    } else {
+      alert('Gagal: ' + (res && res.message || 'Error'));
+    }
+  }).catch(function() { alert('Gagal koneksi GAS.'); });
+}
+
+// ── CLOSE SPK ───────────────────────────────────────────
+function closeSPKModal() {
+  if (!idSpkAktif) return;
+  if (!confirm('Close SPK ' + idSpkAktif + '?')) return;
+  var btn = document.getElementById('btnCloseSPK');
+  btn.disabled = true; btn.textContent = 'Memproses…';
+  apiPost({ action: 'closeSPK', idSpk: idSpkAktif }).then(function(res) {
+    if (res && res.status === 'ok') {
+      bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
+      muatSPK();
+    } else {
+      alert('Gagal: ' + (res && res.message || 'Error'));
+    }
+    btn.disabled = false; btn.textContent = '✓ Close SPK';
+  }).catch(function() {
+    alert('Gagal koneksi GAS.');
+    btn.disabled = false; btn.textContent = '✓ Close SPK';
+  });
+}
+
+// ── PRINT SPK ───────────────────────────────────────────
+function printSPK() {
+  if (!idSpkAktif) return;
+  var spk = semuaSPK.find(function(s) { return s.ID_SPK === idSpkAktif; });
+  if (!spk) return;
+
+  Promise.all([
+    apiGet('getSPKDetail',      { idSpk:  idSpkAktif }),
+    apiGet('getBOMFinishingSPK', { idItem: '' }) // idItem diisi setelah SDET dimuat
+  ]).then(function(results) {
+    var sdetData = (results[0] && results[0].data) ? results[0].data : [];
+
+    // Ambil idItem dari SDET pertama untuk BOM finishing
+    var idItemPertama = sdetData.length ? sdetData[0].ID_ITEM : null;
+    if (!idItemPertama) {
+      renderPrintArea(spk, sdetData, []);
+      return;
+    }
+
+    apiGet('getBOMFinishingSPK', { idItem: idItemPertama }).then(function(r) {
+      var finishing = (r && r.data) ? r.data : [];
+      renderPrintArea(spk, sdetData, finishing);
+    });
+  });
+}
+
+function renderPrintArea(spk, sdetData, finishing) {
+  var now = new Date();
+  var tglCetak = now.toLocaleDateString('id-ID') + ' ' + now.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'});
+
+  // Baris item
+  var barisSdet = '';
+  var totalPps  = 0;
+  var totalQty  = 0;
+  sdetData.forEach(function(r, i) {
+    var pps = parseInt(r.PPS, 10) || 0;
+    var qty = parseInt(r.QTY, 10) || 0;
+    totalPps += pps;
+    totalQty += qty;
+    barisSdet +=
+      '<tr>' +
+        '<td style="padding:2px 3px">' + (i+1) + '</td>' +
+        '<td style="padding:2px 3px">' + esc(r.ID_ORDER) + '</td>' +
+        '<td style="padding:2px 3px">' + esc(r.NAMA_ITEM) + '</td>' +
+        '<td style="padding:2px 3px">' + esc(r.SUBITEM || '—') + '</td>' +
+        '<td style="padding:2px 3px;text-align:right">' + pps + '</td>' +
+        '<td style="padding:2px 3px;text-align:right">' + fmtAngka(qty) + '</td>' +
+        '<td style="padding:2px 3px">' + esc(r.SATUAN) + '</td>' +
+        '<td style="padding:2px 3px;border-bottom:1px solid #000"></td>' +
+      '</tr>';
+  });
+  // Baris kosong sampai 25
+  for (var i = sdetData.length; i < 25; i++) {
+    barisSdet +=
+      '<tr style="height:16px">' +
+        '<td style="padding:1px 3px;color:#bbb">' + (i+1) + '</td>' +
+        '<td></td><td></td><td></td><td></td><td></td><td></td>' +
+        '<td style="border-bottom:1px solid #ccc"></td>' +
+      '</tr>';
+  }
+
+  // Baris finishing
+  var barisFinishing = '<tr style="background:#000;color:#fff"><th style="padding:2px 3px;text-align:left">Tahap</th><th style="padding:2px 3px;text-align:left">Mesin / Vendor</th><th style="padding:2px 3px;text-align:left">Operator / PIC</th><th style="padding:2px 3px;text-align:center">Tgl Kirim</th><th style="padding:2px 3px;text-align:center">Tgl Kembali</th><th colspan="3" style="padding:2px 3px;text-align:center">Tgl Selesai</th></tr>';
+  // Cetak selalu ada
+  barisFinishing +=
+    '<tr style="border-bottom:0.5px solid #ccc">' +
+      '<td style="padding:3px 3px;font-weight:700">Cetak</td>' +
+      '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+      '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+      '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+      '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+      '<td colspan="3" style="padding:3px 3px"></td>' +
+    '</tr>';
+  finishing.forEach(function(f) {
+    barisFinishing +=
+      '<tr style="border-bottom:0.5px solid #ccc">' +
+        '<td style="padding:3px 3px">' + esc(f.NAMA_FINISHING) + '</td>' +
+        '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+        '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+        '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+        '<td style="padding:3px 3px;border-right:0.5px solid #ccc"></td>' +
+        '<td colspan="3" style="padding:3px 3px"></td>' +
+      '</tr>';
+  });
+
+  var html =
+    '<div style="font-family:\'Courier New\',Courier,monospace;font-size:9pt;color:#000;width:15cm;min-height:21cm;padding:0.6cm 0.7cm;box-sizing:border-box">' +
+
+    // HEADER
+    '<div style="border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:flex-start">' +
+      '<div>' +
+        '<div style="font-size:7pt;color:#555">PT. ELIM CITRA OFFSET</div>' +
+      '</div>' +
+      '<div style="text-align:right">' +
+        '<div style="font-size:18pt;font-weight:700;letter-spacing:0.05em">' + esc(spk.ID_SPK) + '</div>' +
+        '<div style="font-size:7.5pt">' + fmtTgl(spk.TGL_SPK) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    // INFO SPK
+    '<table style="width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:6px">' +
+      '<tr>' +
+        '<td style="width:18%;color:#555;padding:1px 0">Oplah</td>' +
+        '<td style="width:2%">:</td>' +
+        '<td style="font-weight:700;width:28%">' + fmtAngka(spk.TOTAL_OPLAH) + ' lembar</td>' +
+        '<td style="width:18%;color:#555;padding-left:8px">Max PPS</td>' +
+        '<td style="width:2%">:</td>' +
+        '<td style="font-weight:700">' + (spk.MAX_PPS || '—') + ' pcs</td>' +
+      '</tr>' +
+      '<tr>' +
+        '<td style="color:#555;padding:1px 0">Status</td>' +
+        '<td>:</td>' +
+        '<td>' + esc(spk.STATUS) + '</td>' +
+        '<td style="color:#555;padding-left:8px">Keterangan</td>' +
+        '<td>:</td>' +
+        '<td>' + esc(spk.KETERANGAN || '—') + '</td>' +
+      '</tr>' +
+    '</table>' +
+
+    // TABEL ITEM
+    '<table style="width:100%;border-collapse:collapse;font-size:7.5pt;margin-bottom:7px;table-layout:fixed">' +
+      '<colgroup>' +
+        '<col style="width:4%"><col style="width:17%"><col style="width:25%">' +
+        '<col style="width:13%"><col style="width:8%"><col style="width:12%">' +
+        '<col style="width:7%"><col style="width:14%">' +
+      '</colgroup>' +
+      '<thead>' +
+        '<tr style="background:#000;color:#fff">' +
+          '<th style="padding:2px 3px;text-align:left">#</th>' +
+          '<th style="padding:2px 3px;text-align:left">ID Order</th>' +
+          '<th style="padding:2px 3px;text-align:left">Item</th>' +
+          '<th style="padding:2px 3px;text-align:left">Subitem</th>' +
+          '<th style="padding:2px 3px;text-align:right">PPS</th>' +
+          '<th style="padding:2px 3px;text-align:right">QTY Order</th>' +
+          '<th style="padding:2px 3px;text-align:left">Sat</th>' +
+          '<th style="padding:2px 3px;text-align:right">Hasil Pack</th>' +
+        '</tr>' +
+      '</thead>' +
+      '<tbody>' + barisSdet + '</tbody>' +
+      '<tfoot>' +
+        '<tr style="border-top:2px solid #000;font-weight:700;background:#eee">' +
+          '<td colspan="4" style="padding:2px 3px;text-align:right">Total</td>' +
+          '<td style="padding:2px 3px;text-align:right">' + totalPps + '</td>' +
+          '<td style="padding:2px 3px;text-align:right">' + fmtAngka(totalQty) + '</td>' +
+          '<td colspan="2"></td>' +
+        '</tr>' +
+      '</tfoot>' +
+    '</table>' +
+
+    // PELAKSANAAN PRODUKSI
+    '<div style="font-size:7.5pt;font-weight:700;letter-spacing:0.05em;border-bottom:1px solid #000;padding-bottom:2px;margin-bottom:4px">PELAKSANAAN PRODUKSI</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:7pt;margin-bottom:6px;table-layout:fixed">' +
+      '<colgroup>' +
+        '<col style="width:16%"><col style="width:22%"><col style="width:18%">' +
+        '<col style="width:14%"><col style="width:15%"><col style="width:15%">' +
+      '</colgroup>' +
+      '<thead>' + barisFinishing + '</thead>' +
+    '</table>' +
+
+    // KETERANGAN BOX
+    '<div style="border:0.5px solid #ccc;padding:3px 5px;font-size:7.5pt;min-height:18px">' +
+      '<span style="color:#888">Keterangan:</span>' +
+    '</div>' +
+
+    // FOOTER
+    '<div style="margin-top:5px;font-size:6.5pt;color:#aaa;text-align:right">Dicetak: ' + tglCetak + '</div>' +
+
+    '</div>';
+
+  document.getElementById('printArea').innerHTML = html;
+  window.print();
+}
+
+// ── UTILS ───────────────────────────────────────────────
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtTgl(v) {
+  if (!v) return '—';
+  var d = new Date(v);
+  if (isNaN(d)) return String(v);
+  return d.toLocaleDateString('id-ID', {day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtAngka(v) {
+  var n = parseInt(v, 10);
+  if (isNaN(n)) return '—';
+  return n.toLocaleString('id-ID');
+}
+function kelasBadge(s) {
+  if (s === 'OPEN')    return 'bs-open';
+  if (s === 'SELESAI') return 'bs-selesai';
+  if (s === 'BELUM')   return 'bs-belum';
+  if (s === 'SEBAGIAN') return 'bs-sebagian';
+  return '';
+}
+function kv(l, v) {
+  return '<div class="kv-item"><label>' + l + '</label><span>' + v + '</span></div>';
+}
+</script>
+</body>
+</html>
