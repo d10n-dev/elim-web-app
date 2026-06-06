@@ -1,46 +1,549 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>SIEO — Sistem Informasi Elim Offset</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-          <link rel="stylesheet" href="style.css">
-          </head>
-          <body>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIEO — Elim Citra Offset</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #4f7cff;
+      --accent-dim: rgba(79,124,255,0.12);
+      --green: #22c55e;
+      --green-dim: rgba(34,197,94,0.12);
+      --red: #ef4444;
+      --red-dim: rgba(239,68,68,0.12);
+      --yellow: #f59e0b;
+      --text: #e2e8f0;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
 
-            <nav class="navbar navbar-dark bg-dark px-3">
-                <span class="navbar-brand fw-bold">SIEO</span>
-                    <span class="text-white-50 small">PT. Elim Citra Offset</span>
-                      </nav>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-                        <div class="container mt-4">
-                            <div class="card">
-                                  <div class="card-body">
-                                          <h5 class="card-title">Test Koneksi GAS</h5>
-                                                  <p class="text-muted small">Pastikan GAS sudah di-deploy sebelum test.</p>
-                                                          <button class="btn btn-primary" onclick="testKoneksi()">Test Koneksi</button>
-                                                                  <div id="hasil" class="mt-3"></div>
-                                                                        </div>
-                                                                            </div>
-                                                                              </div>
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      padding-bottom: 2rem;
+    }
 
-                                                                                <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-                                                                                  <script src="js/api.js"></script>
-                                                                                    <script src="js/utils.js"></script>
-                                                                                      <script>
-                                                                                          function testKoneksi() {
-                                                                                                const hasil = document.getElementById('hasil');
-                                                                                                      hasil.innerHTML = '<span class="text-muted">Menghubungkan...</span>';
-                                                                                                            apiGet('ping')
-                                                                                                                    .then(res => {
-                                                                                                                              hasil.innerHTML = '<span class="text-success fw-bold">✅ Koneksi berhasil: ' + res.message + '</span>';
-                                                                                                                                      })
-                                                                                                                                              .catch(err => {
-                                                                                                                                                        hasil.innerHTML = '<span class="text-danger fw-bold">❌ Gagal: ' + err + '</span>';
-                                                                                                                                                                });
-                                                                                                                                                                    }
-                                                                                                                                                                      </script>
+    /* TOP BAR */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-                                                                                                                                                                      </body>
-                                                                                                                                                                      </html>
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-badge {
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      padding: 0.3rem 0.55rem;
+      border-radius: 6px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .company-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .company-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-family: var(--mono);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .user-pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+
+    .user-pill span {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* STATUS BAR */
+    .status-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.5rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      flex-wrap: wrap;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.offline { background: var(--red); }
+    .status-dot.checking {
+      background: var(--yellow);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .status-label { color: var(--text-dim); }
+    .status-value { color: var(--text); }
+    .status-value.green { color: var(--green); }
+    .status-value.red { color: var(--red); }
+
+    /* MAIN CONTENT */
+    .main {
+      padding: 1.5rem 1.25rem 0;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* SECTION HEADER */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+      margin-top: 1.75rem;
+    }
+
+    .section-tag {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(79,124,255,0.25);
+    }
+
+    .section-tag.done {
+      background: var(--green-dim);
+      color: var(--green);
+      border-color: rgba(34,197,94,0.25);
+    }
+
+    .section-tag.coming {
+      background: rgba(100,116,139,0.1);
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      letter-spacing: 0.03em;
+    }
+
+    /* CARDS GRID */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 0.75rem;
+    }
+
+    /* MODULE CARD */
+    .mod-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 0.9rem;
+      text-decoration: none;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mod-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .mod-card:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+      transform: translateY(-1px);
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .mod-card:hover::before { opacity: 1; }
+
+    .mod-card:active { transform: translateY(0); }
+
+    .mod-card.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .mod-card.disabled::before { display: none; }
+
+    .card-icon {
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .card-body-content { flex: 1; }
+
+    .card-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+      margin-bottom: 0.2rem;
+    }
+
+    .card-desc {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .card-badge {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      align-self: flex-start;
+    }
+
+    .badge-active {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+
+    .badge-soon {
+      background: rgba(100,116,139,0.1);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    /* DIVIDER */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1.75rem 0 0;
+    }
+
+    /* FOOTER */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    /* Responsive: tablet/fold */
+    @media (min-width: 540px) {
+      .cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo-badge">SIEO</div>
+      <div>
+        <div class="company-name">PT. Elim Citra Offset</div>
+        <div class="company-sub">Sistem Informasi Elim Offset</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-pill">👤 <span>Administrator</span></div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="status-dot checking" id="gasDot"></div>
+      <span class="status-label">GAS:</span>
+      <span class="status-value" id="gasStatus">Mengecek…</span>
+    </div>
+    <div class="status-item">
+      <div class="status-dot online"></div>
+      <span class="status-label">Tgl:</span>
+      <span class="status-value" id="clockDate">—</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Jam:</span>
+      <span class="status-value" id="clockTime">—</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TAHAP 1 -->
+    <div class="section-header">
+      <div class="section-tag done">Tahap 1</div>
+      <div class="section-title">Master Data</div>
+    </div>
+
+    <div class="cards-grid">
+      <a href="pages/pelanggan.html" class="mod-card">
+        <div class="card-icon">🏢</div>
+        <div class="card-body-content">
+          <div class="card-title">Pelanggan</div>
+          <div class="card-desc">Data pelanggan & agen</div>
+        </div>
+        <div class="card-badge badge-active">AKTIF</div>
+      </a>
+
+      <a href="pages/item.html" class="mod-card">
+        <div class="card-icon">📦</div>
+        <div class="card-body-content">
+          <div class="card-title">Item</div>
+          <div class="card-desc">Produk & satuan barang jadi</div>
+        </div>
+        <div class="card-badge badge-active">AKTIF</div>
+      </a>
+
+      <a href="pages/bahan.html" class="mod-card">
+        <div class="card-icon">🧱</div>
+        <div class="card-body-content">
+          <div class="card-title">Bahan</div>
+          <div class="card-desc">Kertas, plastik & bahan baku</div>
+        </div>
+        <div class="card-badge badge-active">AKTIF</div>
+      </a>
+
+      <a href="pages/tinta.html" class="mod-card">
+        <div class="card-icon">🎨</div>
+        <div class="card-body-content">
+          <div class="card-title">Tinta</div>
+          <div class="card-desc">Master tinta cetak</div>
+        </div>
+        <div class="card-badge badge-active">AKTIF</div>
+      </a>
+
+      <a href="pages/bom_v2.html" class="mod-card">
+        <div class="card-icon">📋</div>
+        <div class="card-body-content">
+          <div class="card-title">BOM</div>
+          <div class="card-desc">Bill of Materials per item</div>
+        </div>
+        <div class="card-badge badge-active">AKTIF</div>
+      </a>
+    </div>
+
+    <!-- TAHAP 2 -->
+    <div class="section-header">
+      <div class="section-tag coming">Tahap 2</div>
+      <div class="section-title">Order Masuk</div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="mod-card disabled">
+        <div class="card-icon">📝</div>
+        <div class="card-body-content">
+          <div class="card-title">Input Order</div>
+          <div class="card-desc">Terima & catat order masuk</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+
+      <div class="mod-card disabled">
+        <div class="card-icon">🔍</div>
+        <div class="card-body-content">
+          <div class="card-title">Lihat Order</div>
+          <div class="card-desc">Filter & cek status order</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+    </div>
+
+    <!-- TAHAP 3 -->
+    <div class="section-header">
+      <div class="section-tag coming">Tahap 3</div>
+      <div class="section-title">Produksi & SPK</div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="mod-card disabled">
+        <div class="card-icon">🖨️</div>
+        <div class="card-body-content">
+          <div class="card-title">SPK</div>
+          <div class="card-desc">Surat Perintah Kerja</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+
+      <div class="mod-card disabled">
+        <div class="card-icon">📊</div>
+        <div class="card-body-content">
+          <div class="card-title">Log Produksi</div>
+          <div class="card-desc">Cetak, potong, finishing</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+    </div>
+
+    <!-- TAHAP 4+ -->
+    <div class="section-header">
+      <div class="section-tag coming">Tahap 4+</div>
+      <div class="section-title">Stok, Keuangan & Laporan</div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="mod-card disabled">
+        <div class="card-icon">📦</div>
+        <div class="card-body-content">
+          <div class="card-title">Stok</div>
+          <div class="card-desc">Bahan baku & barang jadi</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+
+      <div class="mod-card disabled">
+        <div class="card-icon">🚚</div>
+        <div class="card-body-content">
+          <div class="card-title">Pengiriman</div>
+          <div class="card-desc">Surat jalan & invoice</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+
+      <div class="mod-card disabled">
+        <div class="card-icon">💰</div>
+        <div class="card-body-content">
+          <div class="card-title">Keuangan</div>
+          <div class="card-desc">Kas, bank & piutang</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+
+      <div class="mod-card disabled">
+        <div class="card-icon">📈</div>
+        <div class="card-body-content">
+          <div class="card-title">Laporan</div>
+          <div class="card-desc">Dashboard & rekap</div>
+        </div>
+        <div class="card-badge badge-soon">SEGERA</div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+    <div class="footer">SIEO v1.0 — PT. Elim Citra Offset &nbsp;|&nbsp; Build 2026</div>
+
+  </div><!-- /main -->
+
+  <script src="js/api.js"></script>
+  <script>
+    // CLOCK
+    function updateClock() {
+      const now = new Date();
+      const opsi = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+      document.getElementById('clockDate').textContent = now.toLocaleDateString('id-ID', opsi);
+      document.getElementById('clockTime').textContent = now.toLocaleTimeString('id-ID');
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // GAS PING
+    async function cekKoneksi() {
+      const dot = document.getElementById('gasDot');
+      const label = document.getElementById('gasStatus');
+      try {
+        const res = await apiGet('ping');
+        if (res && res.message) {
+          dot.className = 'status-dot online';
+          label.textContent = 'Online';
+          label.className = 'status-value green';
+        } else {
+          throw new Error('no message');
+        }
+      } catch (e) {
+        dot.className = 'status-dot offline';
+        label.textContent = 'Offline';
+        label.className = 'status-value red';
+      }
+    }
+    cekKoneksi();
+    setInterval(cekKoneksi, 60000); // re-ping tiap 1 menit
+  </script>
+</body>
+</html>
