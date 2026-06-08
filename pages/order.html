@@ -114,6 +114,7 @@
   <div>
     <div class="topbar-title">Order Masuk</div>
     <div class="topbar-sub">SIEO — PT. Elim Citra Offset</div>
+  <div id="userInfo"></div>
   </div>
 </div>
 
@@ -605,6 +606,12 @@ function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/<
 function fmtTgl(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}
 function fmtAngka(n){return Number(n).toLocaleString('id-ID');}
 function fmtRupiah(n){return 'Rp '+Number(n).toLocaleString('id-ID');}
+</script>
+<script>
+window.addEventListener("load", function(){
+  guardHalaman();
+  renderUserInfo();
+});
 </script>
 </body>
 </html>
