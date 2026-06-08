@@ -977,7 +977,10 @@ function renderPrintArea(spk, sdetData, finishing) {
     '</div>';
 
   document.getElementById('printArea').innerHTML = html;
+  var pa = document.getElementById('printArea');
+  pa.style.display = 'block';
   window.print();
+  pa.style.display = 'none';
 }
 
 // ── UTILS ───────────────────────────────────────────────
