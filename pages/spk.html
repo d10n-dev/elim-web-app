@@ -959,7 +959,8 @@ function renderPackingItemListDenganSisa(cekData) {
   var pct = target > 0 ? Math.min(Math.round((val/target)*100), 100) : 0;
   fill.style.width = pct + '%';
   fill.className = 'progress-bar-fill' + (pct >= 100 ? ' full' : '');
-}
+
+
 
 function validasiQtyLog(inputId) {
   var spk = semuaSPK.find(function(s){return s.ID_SPK === idSpkAktif;});
