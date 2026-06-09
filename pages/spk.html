@@ -148,12 +148,25 @@
     .sdet-table tbody tr:last-child td { border-bottom: none; }
     .sdet-empty { text-align: center; font-family: var(--mono); font-size: 0.75rem; color: var(--muted); padding: 0.75rem 0; }
 
-    @media print {
-      body * { visibility: hidden; }
-      #printArea, #printArea * { visibility: visible; }
-      #printArea { position: fixed; left: 0; top: 0; width: 15cm; min-height: 21cm; padding: 0.7cm 0.8cm; font-family: 'Courier New', Courier, monospace; font-size: 9pt; color: #000; background: #fff; }
-    }
     #printArea { display: none; }
+
+    @media print {
+      body > *:not(#printArea) { display: none !important; }
+      .modal, .modal-backdrop, nav, header, #topbar { display: none !important; }
+      #printArea {
+        display: block !important;
+        position: absolute;
+        left: 0; top: 0;
+        width: 15cm;
+        min-height: 21cm;
+        padding: 0.7cm 0.8cm;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 9pt;
+        color: #000;
+        background: #fff;
+      }
+    }
+
   </style>
 </head>
 <body>
