@@ -295,8 +295,20 @@
               <input type="date" class="form-control" id="logCetakTgl"/>
             </div>
             <div>
-              <label class="form-label">Qty Cetak (lembar)</label>
-              <input type="number" class="form-control" id="logCetakQty" placeholder="cth: 5000" min="1"/>
+              <label class="form-label">Qty Cetak (lembar) *</label>
+              <input type="number" class="form-control" id="logCetakQty" placeholder="maks = oplah" min="1"
+                oninput="validasiQtyLog('logCetakQty')"/>
+            </div>
+          </div>
+          <div class="form-row form-row-2">
+            <div>
+              <label class="form-label">Insheet (lembar cadangan)</label>
+              <input type="number" class="form-control" id="logCetakInsheet" placeholder="cth: 200" min="0"/>
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <div id="insheetInfo" style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);padding-bottom:0.5rem;">
+                Total potong stok = qty + insheet
+              </div>
             </div>
           </div>
           <div class="form-row form-row-2">
@@ -327,7 +339,8 @@
             </div>
             <div>
               <label class="form-label">Qty Potong (lembar)</label>
-              <input type="number" class="form-control" id="logPotongQty" placeholder="cth: 5000" min="1"/>
+              <input type="number" class="form-control" id="logPotongQty" placeholder="maks = oplah" min="1"
+                oninput="validasiQtyLog('logPotongQty')"/>
             </div>
           </div>
           <div class="form-row form-row-2">
@@ -354,7 +367,8 @@
             </div>
             <div>
               <label class="form-label">Qty (lembar/set)</label>
-              <input type="number" class="form-control" id="logFinishingQty" placeholder="cth: 5000" min="1"/>
+              <input type="number" class="form-control" id="logFinishingQty" placeholder="maks = oplah" min="1"
+                oninput="validasiQtyLog('logFinishingQty')"/>
             </div>
           </div>
           <div class="form-row form-row-2">
@@ -843,7 +857,7 @@ function resetFormLog() {
     var el = document.getElementById(id);
     if (el) el.value = hariIni;
   });
-  ['logCetakQty','logCetakMesin','logCetakOperator','logCetakKet',
+  ['logCetakQty','logCetakInsheet','logCetakMesin','logCetakOperator','logCetakKet',
    'logPotongQty','logPotongOperator','logPotongKet',
    'logFinishingQty','logFinishingMesin','logFinishingOperator','logFinishingKet',
    'logPackingOperator','logPackingKet'].forEach(function(id){
@@ -888,18 +902,45 @@ function updatePackingBar(idDetail, target) {
   fill.className = 'progress-bar-fill' + (pct >= 100 ? ' full' : '');
 }
 
+function validasiQtyLog(inputId) {
+  var spk = semuaSPK.find(function(s){return s.ID_SPK === idSpkAktif;});
+  var oplah = spk ? (parseInt(spk.TOTAL_OPLAH,10)||0) : 0;
+  var inp = document.getElementById(inputId);
+  if (!inp || !oplah) return;
+  var val = parseInt(inp.value,10)||0;
+  if (val > oplah) {
+    inp.style.borderColor = 'var(--red)';
+    inp.title = 'Melebihi oplah (' + fmtAngka(oplah) + ')';
+  } else {
+    inp.style.borderColor = '';
+    inp.title = '';
+  }
+  // Update info insheet kalau yang diedit adalah qty cetak
+  if (inputId === 'logCetakQty') {
+    var insheet = parseInt((document.getElementById('logCetakInsheet')||{}).value,10)||0;
+    var infoEl = document.getElementById('insheetInfo');
+    if (infoEl && val > 0) {
+      infoEl.textContent = 'Total potong stok: ' + fmtAngka(val + insheet) + ' lembar';
+    }
+  }
+}
+
 function simpanLog(jenis) {
   var alertEl = document.getElementById('alertProgress');
   alertEl.innerHTML = '';
+  var spk = semuaSPK.find(function(s){return s.ID_SPK === idSpkAktif;});
+  var oplah = spk ? (parseInt(spk.TOTAL_OPLAH,10)||0) : 0;
   var data = {idSpk: idSpkAktif, jenis: jenis, namaUser: getNamaUser()};
 
   if (jenis === 'CETAK') {
     data.tgl      = document.getElementById('logCetakTgl').value;
     data.qty      = parseInt(document.getElementById('logCetakQty').value,10)||0;
+    data.insheet  = parseInt(document.getElementById('logCetakInsheet').value,10)||0;
     data.mesin    = document.getElementById('logCetakMesin').value.trim();
     data.operator = document.getElementById('logCetakOperator').value.trim();
     data.ket      = document.getElementById('logCetakKet').value.trim();
     if (!data.qty) {alertEl.innerHTML='<div class="alert-box alert-err">Qty wajib diisi.</div>';return;}
+    if (oplah && data.qty > oplah) {alertEl.innerHTML='<div class="alert-box alert-err">Qty cetak ('+fmtAngka(data.qty)+') melebihi oplah SPK ('+fmtAngka(oplah)+').</div>';return;}
 
   } else if (jenis === 'POTONG') {
     data.tgl      = document.getElementById('logPotongTgl').value;
@@ -907,6 +948,7 @@ function simpanLog(jenis) {
     data.operator = document.getElementById('logPotongOperator').value.trim();
     data.ket      = document.getElementById('logPotongKet').value.trim();
     if (!data.qty) {alertEl.innerHTML='<div class="alert-box alert-err">Qty wajib diisi.</div>';return;}
+    if (oplah && data.qty > oplah) {alertEl.innerHTML='<div class="alert-box alert-err">Qty potong ('+fmtAngka(data.qty)+') melebihi oplah SPK ('+fmtAngka(oplah)+').</div>';return;}
 
   } else if (jenis === 'FINISHING') {
     data.tgl      = document.getElementById('logFinishingTgl').value;
@@ -915,12 +957,12 @@ function simpanLog(jenis) {
     data.operator = document.getElementById('logFinishingOperator').value.trim();
     data.ket      = document.getElementById('logFinishingKet').value.trim();
     if (!data.qty) {alertEl.innerHTML='<div class="alert-box alert-err">Qty wajib diisi.</div>';return;}
+    if (oplah && data.qty > oplah) {alertEl.innerHTML='<div class="alert-box alert-err">Qty finishing ('+fmtAngka(data.qty)+') melebihi oplah SPK ('+fmtAngka(oplah)+').</div>';return;}
 
   } else if (jenis === 'PACKING') {
     data.tgl      = document.getElementById('logPackingTgl').value;
     data.operator = document.getElementById('logPackingOperator').value.trim();
     data.ket      = document.getElementById('logPackingKet').value.trim();
-    // Kumpulkan qty per subitem
     var items = [];
     sdetAktif.forEach(function(r) {
       var inp = document.getElementById('pkQty_'+r.ID_DETAIL);
