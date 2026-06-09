@@ -833,6 +833,7 @@ function printSPK() {
 }
 
 function eksekusiPrint(alasanOverride, bomOverride) {
+alert('eksekusiPrint dipanggil, alasan: ' + alasanOverride);
   var alasan = (alasanOverride !== undefined) ? alasanOverride
     : (document.getElementById('inAlasanPrint').value || '').trim();
 
