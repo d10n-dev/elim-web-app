@@ -788,48 +788,29 @@ function getNamaUserSesi() {
 }
 
 function printSPK() {
-  if (!idSpkAktif) return;
-  var spk = semuaSPK.find(function(s){ return s.ID_SPK === idSpkAktif; });
-  if (!spk) return;
-
-  var btnPrint = document.querySelector('#modalDetail .btn-print');
-  if (btnPrint) { btnPrint.disabled = true; btnPrint.textContent = 'Memuat…'; }
-
   apiGet('getSPKDetail', {idSpk: idSpkAktif}).then(function(res) {
     var sdetData = (res && res.data) ? res.data : [];
     var idItemPertama = sdetData.length ? sdetData[0].ID_ITEM : null;
+    alert('Step 1 OK - sdet: ' + sdetData.length + ', idItem: ' + idItemPertama);
 
     function lanjut(finishing, bom) {
+      alert('Step 2 OK - fin: ' + finishing.length + ', bom bahan: ' + (bom.bahan||[]).length);
       _printSpk    = spk;
-      _printSdet   = sdetData;
-      _printFinish = finishing;
-      if (btnPrint) { btnPrint.disabled = false; btnPrint.innerHTML = '&#128438; Print SPK'; }
-
-      var printCount = parseInt(spk.PRINT_COUNT, 10) || 0;
-      if (printCount >= 1) {
-        document.getElementById('inAlasanPrint').value = '';
-        document.getElementById('alertAlasan').innerHTML = '';
-        // simpan bom ke state untuk dipakai eksekusiPrint
-        _printSpk._bom = bom;
-        new bootstrap.Modal(document.getElementById('modalAlasanPrint')).show();
-      } else {
-        eksekusiPrint('', bom);
-      }
+      // ... dst
     }
 
     if (!idItemPertama) { lanjut([], {bahan:[], tinta:[]}); return; }
 
     apiGet('getBOMFinishingSPK', {idItem: idItemPertama}).then(function(r) {
       var fin = (r && r.data) ? r.data : [];
+      alert('Step 2a - fin OK: ' + fin.length);
       apiGet('getBomV2', {id_item: idItemPertama}).then(function(b) {
+        alert('Step 2b - bom OK');
         lanjut(fin, b || {bahan:[], tinta:[]});
-      }).catch(function(){ lanjut(fin, {bahan:[], tinta:[]}); });
-    }).catch(function(){ lanjut([], {bahan:[], tinta:[]}); });
+      }).catch(function(e){ alert('GAGAL getBomV2: ' + e); lanjut(fin, {bahan:[], tinta:[]}); });
+    }).catch(function(e){ alert('GAGAL getBOMFinishing: ' + e); lanjut([], {bahan:[], tinta:[]}); });
 
-  }).catch(function() {
-    if (btnPrint) { btnPrint.disabled = false; btnPrint.innerHTML = '&#128438; Print SPK'; }
-    alert('Gagal memuat detail SPK.');
-  });
+  }).catch(function(e){ alert('GAGAL getSPKDetail: ' + e); });
 }
 
 function eksekusiPrint(alasanOverride, bomOverride) {
