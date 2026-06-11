@@ -71,13 +71,13 @@ function cekAkses(modul, levelMin) {
 function guardHalaman(modulRequired, levelMin) {
   var sesi = getSesi();
   if (!sesi) {
-    window.location.href = '/elim-web-app/pages/login.html';
+    window.location.href = '/pages/login.html';
     return null;
   }
   if (modulRequired && levelMin) {
     if (!cekAkses(modulRequired, levelMin)) {
       alert('Akses ditolak. Anda tidak memiliki izin untuk halaman ini.');
-      window.location.href = '/elim-web-app/index.html';
+      window.location.href = '/index.html';
       return null;
     }
   }
@@ -102,6 +102,6 @@ function renderUserInfo() {
 function logout() {
   if (confirm('Yakin ingin keluar?')) {
     hapusSesi();
-    window.location.href = '/elim-web-app/pages/login.html';
+    window.location.href = '/pages/login.html';
   }
 }
