@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pengiriman — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --navy:#1a2744;--navy-dark:#131e36;--navy-mid:#243257;--orange:#e8521a;
+      --bg:#eef1f7;--surface:#fff;--border:#d0d8e8;--text:#1a2744;--muted:#6b7a99;
+      --green:#1a9e5c;--green-bg:#e6f7ef;--green-bd:#a3d9be;--red:#dc3545;
+      --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:2rem;}
+
+    /* TOPBAR */
+    .topbar{background:var(--navy);border-bottom:3px solid var(--orange);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:200;}
+    .topbar-back{color:rgba(255,255,255,.7);font-size:.75rem;font-family:var(--mono);text-decoration:none;}
+    .topbar-back:hover{color:#fff;}
+    .topbar-title{font-family:var(--mono);font-weight:600;font-size:.88rem;letter-spacing:.05em;color:#fff;text-transform:uppercase;}
+    .topbar-sub{font-family:var(--mono);font-size:.65rem;color:rgba(255,255,255,.45);}
+
+    /* TOOLBAR */
+    .toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.1rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+    .toolbar input[type=text],.toolbar select{font-size:.82rem;font-family:var(--sans);border:1px solid var(--border);border-radius:6px;padding:.42rem .75rem;color:var(--text);background:var(--bg);outline:none;}
+    .toolbar input[type=text]{flex:1;min-width:150px;}
+    .toolbar input[type=text]:focus,.toolbar select:focus{border-color:var(--navy);background:#fff;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:.82rem;padding:.42rem 1rem;cursor:pointer;white-space:nowrap;margin-left:auto;}
+    .btn-tambah:hover{background:#c94416;}
+    .info-bar{padding:.4rem 1.1rem;font-family:var(--mono);font-size:.7rem;color:var(--muted);border-bottom:1px solid var(--border);}
+
+    /* TABEL */
+    .tbl-wrap{padding:.75rem 1.1rem;overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:.8rem;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(26,39,68,.07);}
+    thead tr{background:var(--navy);color:#fff;}
+    thead th{font-family:var(--mono);font-weight:600;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:.65rem .75rem;white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);cursor:pointer;}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:#f4f7fc;}
+    tbody td{padding:.6rem .75rem;vertical-align:middle;}
+    .td-id{font-family:var(--mono);font-size:.7rem;color:var(--muted);}
+    .td-mono{font-family:var(--mono);font-size:.75rem;}
+    .td-tgl{font-family:var(--mono);font-size:.72rem;white-space:nowrap;}
+    .badge-status{font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.05em;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
+    .s-terkirim{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-retur_sebagian{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .s-retur_semua{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    .empty-state{text-align:center;padding:2.5rem;color:var(--muted);font-family:var(--mono);font-size:.8rem;}
+
+    /* MODAL UMUM */
+    .modal-header{background:var(--navy);color:#fff;border-bottom:none;padding:.85rem 1.1rem;}
+    .modal-title{font-family:var(--mono);font-weight:600;font-size:.88rem;letter-spacing:.04em;}
+    .modal-header .btn-close{filter:invert(1);opacity:.7;}
+    .modal-body{padding:1.1rem;}
+    .modal-footer{border-top:1px solid var(--border);padding:.75rem 1.1rem;gap:.5rem;}
+    .form-label{font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;}
+    .form-control,.form-select{font-size:.82rem;font-family:var(--sans);border:1px solid var(--border);border-radius:6px;padding:.45rem .75rem;color:var(--text);}
+    .form-control:focus,.form-select:focus{border-color:var(--navy);box-shadow:none;outline:none;}
+    .form-control[readonly]{background:#f4f7fc;color:var(--muted);}
+
+    /* SECTION LABEL */
+    .sec-label{font-family:var(--mono);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--navy);background:var(--bg);border-radius:5px;padding:.35rem .7rem;margin-bottom:.65rem;}
+
+    /* TABEL ITEM INPUT */
+    .item-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:.75rem;}
+    .item-hdr{display:grid;grid-template-columns:2fr 1.5fr 80px 80px 90px 90px 36px;gap:.4rem;background:var(--navy);padding:.45rem .6rem;}
+    .item-hdr span{font-family:var(--mono);font-size:.62rem;font-weight:600;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:.05em;}
+    .item-row{display:grid;grid-template-columns:2fr 1.5fr 80px 80px 90px 90px 36px;gap:.4rem;padding:.45rem .6rem;border-bottom:1px solid var(--border);align-items:center;background:var(--surface);}
+    .item-row:last-child{border-bottom:none;}
+    .item-row input,.item-row select{font-family:var(--mono);font-size:.75rem;border:1px solid var(--border);border-radius:4px;padding:.3rem .45rem;width:100%;color:var(--text);}
+    .item-row input:focus,.item-row select:focus{border-color:var(--navy);outline:none;}
+    .item-row input[readonly]{background:#f4f7fc;color:var(--muted);}
+    .btn-del-row{background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;padding:0;line-height:1;}
+    .btn-del-row:hover{color:#900;}
+    .sisa-hint{font-family:var(--mono);font-size:.6rem;margin-top:.15rem;}
+    .sisa-ok{color:var(--green);}
+    .sisa-warn{color:var(--red);}
+    .btn-add-item{background:var(--bg);border:1px dashed var(--border);border-radius:6px;width:100%;padding:.45rem;font-family:var(--mono);font-size:.75rem;color:var(--muted);cursor:pointer;margin-top:.5rem;}
+    .btn-add-item:hover{border-color:var(--navy);color:var(--navy);}
+
+    /* AUTOCOMPLETE */
+    .ac-dropdown{position:fixed;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(26,39,68,.13);z-index:9999;max-height:220px;overflow-y:auto;min-width:220px;}
+    .ac-item{padding:.45rem .75rem;font-size:.8rem;font-family:var(--sans);cursor:pointer;border-bottom:1px solid #f0f3f8;}
+    .ac-item:last-child{border-bottom:none;}
+    .ac-item:hover,.ac-item.active{background:#eef1f7;}
+    .ac-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);}
+
+    /* MODAL DETAIL */
+    .det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+    .det-row:last-child{border-bottom:none;}
+    .det-label{font-family:var(--mono);font-size:.68rem;color:var(--muted);min-width:110px;}
+    .det-val{font-family:var(--mono);font-size:.78rem;text-align:right;word-break:break-all;}
+    .det-tbl{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:.5rem;}
+    .det-tbl th{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;padding:.3rem .5rem;border-bottom:1px solid var(--border);text-align:left;}
+    .det-tbl td{padding:.35rem .5rem;border-bottom:1px solid #f0f3f8;font-family:var(--mono);font-size:.72rem;}
+    .det-tbl tr:last-child td{border-bottom:none;}
+    .total-row{display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;border-top:2px solid var(--navy);margin-top:.5rem;font-weight:600;}
+    .total-label{font-family:var(--mono);font-size:.78rem;color:var(--navy);}
+    .total-val{font-family:var(--mono);font-size:.88rem;color:var(--orange);}
+
+    /* PRINT BADGES */
+    .print-badge{font-family:var(--mono);font-size:.6rem;padding:.15rem .4rem;border-radius:3px;margin-left:.3rem;}
+    .print-yes{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .print-no{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+
+    /* TOMBOL AKSI */
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-orange{background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
+    .btn-orange:hover{background:#c94416;}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.8rem;font-family:var(--mono);padding:.42rem .9rem;cursor:pointer;}
+    .btn-outline:hover{border-color:var(--navy);}
+    .btn-print{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;border-radius:6px;font-size:.75rem;font-family:var(--mono);font-weight:600;padding:.35rem .8rem;cursor:pointer;}
+    .btn-print:hover{background:#d0e2ff;}
+
+    /* SPINNER */
+    .loading{text-align:center;padding:2rem;font-family:var(--mono);font-size:.78rem;color:var(--muted);}
+    .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    /* REPRINT MODAL */
+    .reprint-warn{background:#fff3cd;border:1px solid #ffe083;border-radius:6px;padding:.6rem .85rem;font-family:var(--mono);font-size:.75rem;color:#856404;margin-bottom:.75rem;}
+
+    /* PRINT */
+    #printArea{display:none;}
+    .sj-page{width:21cm;min-height:16cm;padding:.45cm .6cm;box-sizing:border-box;
+             font-family:'Courier New',Courier,monospace;font-size:7.8pt;color:#000;background:#fff;
+             page-break-after:always;}
+    .sj-page:last-child{page-break-after:auto;}
+    @media print {
+      @page{size:21cm 16cm;margin:0;}
+    }
+    /* Saat printing: sembunyikan semua kecuali printArea */
+    body.printing > *{display:none !important;}
+    body.printing #printArea{display:block !important;position:fixed;left:0;top:0;width:100%;z-index:99999;background:#fff;}
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <a href="../index.html" class="topbar-back">← SIEO</a>
+  <div>
+    <div class="topbar-title">Pengiriman</div>
+    <div class="topbar-sub" id="userInfo">—</div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <input type="text" id="cariInput" placeholder="Cari pelanggan / no. SJ / nota…" oninput="filterTabel()"/>
+  <select id="filterStatus" onchange="filterTabel()">
+    <option value="">Semua Status</option>
+    <option value="TERKIRIM">TERKIRIM</option>
+    <option value="RETUR_SEBAGIAN">RETUR SEBAGIAN</option>
+    <option value="RETUR_SEMUA">RETUR SEMUA</option>
+  </select>
+  <select id="filterEntitas" onchange="filterTabel()">
+    <option value="">PT & DK</option>
+    <option value="PT">PT Elim</option>
+    <option value="DK">DK Offset</option>
+  </select>
+  <button class="btn-tambah" onclick="bukaBuatPengiriman()">+ Buat Pengiriman</button>
+</div>
+<div class="info-bar" id="infoBar">Memuat data…</div>
+
+<!-- TABEL LIST SJ -->
+<div class="tbl-wrap">
+  <table id="tblSJ">
+    <thead>
+      <tr>
+        <th>No. SJ / Nota</th>
+        <th>Tanggal</th>
+        <th>Pelanggan</th>
+        <th>Entitas</th>
+        <th>Items</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Print SJ</th>
+        <th>Print Inv</th>
+      </tr>
+    </thead>
+    <tbody id="tbodySJ"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     MODAL: BUAT PENGIRIMAN BARU
+     ============================================================ -->
+<div class="modal fade" id="modalBuat" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Buat Pengiriman Baru</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertBuat"></div>
+
+        <!-- HEADER -->
+        <div class="sec-label">Informasi Pengiriman</div>
+        <div class="row g-2 mb-3">
+          <div class="col-12">
+            <label class="form-label">Pelanggan *</label>
+            <input type="text" class="form-control" id="inpPelanggan" placeholder="Ketik nama pelanggan…" autocomplete="off" oninput="acPelanggan(this)"/>
+            <input type="hidden" id="hidPelangganId"/>
+            <input type="hidden" id="hidPelangganNama"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Entitas</label>
+            <div id="inpEntitasInfo" style="font-family:var(--mono);font-size:.8rem;padding:.45rem .75rem;background:#f4f7fc;border:1px solid var(--border);border-radius:6px;color:var(--muted)">— dipilih dari order</div>
+            <input type="hidden" id="hidEntitas"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Tanggal *</label>
+            <input type="date" class="form-control" id="inpTgl"/>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="inpKet" placeholder="Opsional"/>
+          </div>
+        </div>
+
+        <!-- PILIH ORDER -->
+        <div class="sec-label">Tambah Item dari Order</div>
+        <div class="row g-2 mb-2">
+          <div class="col-12">
+            <label class="form-label">Pilih Order Aktif</label>
+            <select class="form-select" id="selOrder" onchange="onPilihOrder()" disabled>
+              <option value="">— Pilih pelanggan dulu —</option>
+            </select>
+          </div>
+        </div>
+        <div id="subitemPicker" style="display:none;margin-bottom:.75rem;">
+          <label class="form-label">Pilih Subitem</label>
+          <div id="subitemList"></div>
+        </div>
+
+        <!-- TABEL ITEM YANG AKAN DIKIRIM -->
+        <div class="sec-label" style="margin-top:.75rem;">Daftar Item Pengiriman <span id="jumlahItemBadge" style="font-size:.65rem;color:var(--muted);font-weight:400"></span></div>
+        <div class="item-wrap">
+          <div class="item-hdr">
+            <span>Item / Subitem</span>
+            <span>Order</span>
+            <span>Satuan</span>
+            <span>Sisa</span>
+            <span>Qty Kirim</span>
+            <span>Harga</span>
+            <span></span>
+          </div>
+          <div id="itemRows"></div>
+        </div>
+        <div id="totalPreview" style="font-family:var(--mono);font-size:.8rem;color:var(--navy);text-align:right;padding:.3rem 0;display:none;">
+          Total: <strong id="totalPreviewVal">Rp 0</strong>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-orange" onclick="submitPengiriman(this)">Generate &amp; Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     MODAL: DETAIL SJ
+     ============================================================ -->
+<div class="modal fade" id="modalDetail" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="detTitle">Detail Pengiriman</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detBody">
+        <div class="loading">Memuat…</div>
+      </div>
+      <div class="modal-footer" id="detFooter"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     MODAL: PRINT / REPRINT
+     ============================================================ -->
+<div class="modal fade" id="modalPrint" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="printTitle">Cetak Dokumen</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertPrint"></div>
+        <div id="printWarnBox" class="reprint-warn" style="display:none"></div>
+        <div class="mb-3">
+          <label class="form-label">Cetak</label>
+          <select class="form-select" id="selJenisPrint">
+            <option value="SJ">Surat Jalan (SJ)</option>
+            <option value="INVOICE">Invoice / Nota</option>
+            <option value="KEDUANYA">SJ + Invoice (Keduanya)</option>
+          </select>
+        </div>
+        <div id="alasanBox" style="display:none">
+          <label class="form-label">Alasan Reprint *</label>
+          <input type="text" class="form-control" id="inpAlasan" placeholder="Wajib diisi untuk reprint"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-orange" onclick="submitPrint(this)">Cetak</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- AC DROPDOWN -->
+<div id="acDropdown" class="ac-dropdown" style="display:none"></div>
+
+<!-- PRINT AREA -->
+<div id="printArea"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+'use strict';
+
+// ── STATE ───────────────────────────────────────────────────
+var semuaSJ      = [];
+var semuaPelanggan = [];
+var orderAktif   = [];   // order aktif pelanggan terpilih
+var itemBaris    = [];   // item yang akan dikirim [{idOrderDetail,idItem,namaItem,subitem,satuan,sisa,qtyKirim,harga,jenis,dariStok}]
+var printInfo    = null; // data dari initPrintSJ
+var sjAktif      = null; // SJ yang sedang dilihat detail/print
+var acTimeout    = null;
+
+// ── INIT ────────────────────────────────────────────────────
+(function init() {
+  // Auth check
+  var sesi = null;
+  try { sesi = JSON.parse(localStorage.getItem('sieo_sesi')||'null'); } catch(e){}
+  if (!sesi || !sesi.email) { window.location.href = 'login.html'; return; }
+  // Render user info
+  document.getElementById('userInfo').textContent = (sesi.nama||'') + ' · ' + (sesi.role||'');
+
+  var tgl = new Date();
+  document.getElementById('inpTgl').value = tgl.toISOString().slice(0,10);
+  muatSJ();
+  muatPelanggan();
+  document.addEventListener('click', tutupAC);
+})();
+
+function getNamaUser() { try{ return JSON.parse(localStorage.getItem('sieo_sesi')||'{}').nama||''; }catch(e){return '';} }
+function getRoleUser()  { try{ return JSON.parse(localStorage.getItem('sieo_sesi')||'{}').role||''; }catch(e){return '';} }
+function esc(s){ if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtTgl(s){ if(!s)return'—'; var d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtTglPanjang(s){ if(!s)return'—'; var d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}); }
+function fmtAngka(n){ return Number(n||0).toLocaleString('id-ID'); }
+function fmtRupiah(n){ return 'Rp '+Number(n||0).toLocaleString('id-ID'); }
+
+// ── MUAT DATA ───────────────────────────────────────────────
+function muatPelanggan() {
+  apiGet('getPelanggan', { status:'AKTIF' }).then(function(res) {
+    semuaPelanggan = Array.isArray(res) ? res : (res.data||[]);
+  }).catch(function(){});
+}
+
+function muatSJ() {
+  document.getElementById('tbodySJ').innerHTML = '<tr><td colspan="9" class="loading">Memuat…</td></tr>';
+  apiGet('getPengiriman').then(function(res) {
+    semuaSJ = (res && res.status==='ok') ? res.data : [];
+    renderTabel(semuaSJ);
+  }).catch(function() {
+    document.getElementById('tbodySJ').innerHTML = '<tr><td colspan="9" class="loading">Gagal memuat data.</td></tr>';
+  });
+}
+
+// ── RENDER TABEL ─────────────────────────────────────────────
+function renderTabel(data) {
+  var bar = document.getElementById('infoBar');
+  bar.textContent = data.length + ' SJ ditemukan';
+  var tb = document.getElementById('tbodySJ');
+  if (!data.length) {
+    tb.innerHTML = '<tr><td colspan="9" class="empty-state">Belum ada data pengiriman.</td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(function(r) {
+    var stCls = 's-' + (r.status||'').toLowerCase().replace(/_/g,'-');
+    return '<tr onclick="bukaDetail(\''+esc(r.id_sj)+'\')">'+
+      '<td><div class="td-mono">'+esc(r.no_sj)+'</div><div class="td-id">'+esc(r.no_nota)+'</div></td>'+
+      '<td class="td-tgl">'+fmtTgl(r.tgl)+'</td>'+
+      '<td>'+esc(r.nama_pelanggan)+'</td>'+
+      '<td><span class="badge-status" style="background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9">'+esc(r.entitas)+'</span></td>'+
+      '<td class="td-mono" style="text-align:center">—</td>'+
+      '<td class="td-mono">'+fmtRupiah(r.total)+'</td>'+
+      '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td>'+
+      '<td id="pSJ_'+esc(r.id_sj)+'">—</td>'+
+      '<td id="pINV_'+esc(r.id_sj)+'">—</td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ── FILTER ───────────────────────────────────────────────────
+function filterTabel() {
+  var q   = document.getElementById('cariInput').value.toLowerCase();
+  var st  = document.getElementById('filterStatus').value;
+  var ent = document.getElementById('filterEntitas').value;
+  var filtered = semuaSJ.filter(function(r) {
+    var cari = (r.no_sj+' '+r.no_nota+' '+r.nama_pelanggan).toLowerCase();
+    return (!q || cari.indexOf(q)>=0) &&
+           (!st  || r.status === st) &&
+           (!ent || r.entitas === ent);
+  });
+  renderTabel(filtered);
+}
+
+// ── AUTOCOMPLETE PELANGGAN ───────────────────────────────────
+function acPelanggan(inp) {
+  clearTimeout(acTimeout);
+  document.getElementById('hidPelangganId').value   = '';
+  document.getElementById('hidPelangganNama').value = '';
+  resetOrderPicker();
+  var q = inp.value.toLowerCase().trim();
+  if (!q) { tutupAC(); return; }
+  acTimeout = setTimeout(function() {
+    var hits = semuaPelanggan.filter(function(p) {
+      return (p.nama||'').toLowerCase().indexOf(q)>=0 || (p.id_pelanggan||'').toLowerCase().indexOf(q)>=0;
+    }).slice(0,8);
+    tampilAC(inp, hits, function(p) {
+      document.getElementById('inpPelanggan').value    = p.nama;
+      document.getElementById('hidPelangganId').value  = p.id_pelanggan;
+      document.getElementById('hidPelangganNama').value= p.nama;
+      tutupAC();
+      muatOrderPelanggan(p.id_pelanggan);
+    }, function(p) {
+      return '<div>'+esc(p.nama)+'</div><div class="ac-sub">'+esc(p.id_pelanggan)+'</div>';
+    });
+  }, 220);
+}
+
+function tampilAC(inp, items, onPilih, renderFn) {
+  var ac = document.getElementById('acDropdown');
+  if (!items.length) { ac.style.display='none'; return; }
+  var rect = inp.getBoundingClientRect();
+  ac.style.left   = rect.left + window.scrollX + 'px';
+  ac.style.top    = (rect.bottom + window.scrollY + 2) + 'px';
+  ac.style.width  = Math.max(rect.width, 220) + 'px';
+  ac.style.display= 'block';
+  ac.innerHTML    = items.map(function(it,i) {
+    return '<div class="ac-item" data-idx="'+i+'">'+renderFn(it)+'</div>';
+  }).join('');
+  ac.querySelectorAll('.ac-item').forEach(function(el,i) {
+    el.addEventListener('mousedown', function(ev){ ev.preventDefault(); onPilih(items[i]); });
+    el.addEventListener('touchend',  function(ev){ ev.preventDefault(); onPilih(items[i]); });
+  });
+}
+
+function tutupAC(ev) {
+  if (ev && ev.target && ev.target.closest && ev.target.closest('#acDropdown')) return;
+  document.getElementById('acDropdown').style.display = 'none';
+}
+
+// ── ORDER PICKER ─────────────────────────────────────────────
+function muatOrderPelanggan(idPelanggan) {
+  var sel = document.getElementById('selOrder');
+  sel.innerHTML = '<option value="">Memuat order…</option>';
+  sel.disabled  = true;
+  document.getElementById('hidEntitas').value = '';
+  document.getElementById('inpEntitasInfo').textContent = '— dipilih dari order';
+  document.getElementById('inpEntitasInfo').style.color = 'var(--muted)';
+
+  apiGet('getOrder', { idPelanggan: idPelanggan }).then(function(res) {
+    var data = Array.isArray(res) ? res : (res.data||[]);
+    var aktif = data.filter(function(o) {
+      return ['BARU','PROSES','PRODUKSI','ANTRI_KIRIM','SEBAGIAN_KIRIM'].indexOf(o.STATUS||o.status)>=0;
+    });
+    sel.innerHTML = '<option value="">— Pilih Order —</option>';
+    aktif.forEach(function(o) {
+      var id  = o.ID_ORDER   || o.id_order;
+      var nm  = o.NAMA_ITEM  || o.nama_item || '';
+      var tgl = o.TGL_ORDER  || o.tgl_order || '';
+      var ent = o.ENTITAS    || o.entitas   || 'PT';
+      var opt = document.createElement('option');
+      opt.value       = id;
+      opt.textContent = '['+ent+'] ' + id + ' — ' + nm + ' (' + fmtTgl(tgl) + ')';
+      opt._entitas    = ent;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+  }).catch(function() {
+    sel.innerHTML = '<option value="">Gagal memuat order</option>';
+  });
+}
+
+function resetOrderPicker() {
+  var sel = document.getElementById('selOrder');
+  sel.innerHTML = '<option value="">— Pilih pelanggan dulu —</option>';
+  sel.disabled  = true;
+  document.getElementById('hidEntitas').value = '';
+  document.getElementById('inpEntitasInfo').textContent = '— dipilih dari order';
+  document.getElementById('inpEntitasInfo').style.color = 'var(--muted)';
+  document.getElementById('subitemPicker').style.display = 'none';
+  document.getElementById('subitemList').innerHTML = '';
+}
+
+function onPilihOrder() {
+  var sel     = document.getElementById('selOrder');
+  var idOrder = sel.value;
+  if (!idOrder) { document.getElementById('subitemPicker').style.display='none'; return; }
+
+  // Ambil entitas dari option yang dipilih
+  var optEl   = sel.options[sel.selectedIndex];
+  var entBaru = optEl._entitas || 'PT';
+  var entLama = document.getElementById('hidEntitas').value;
+
+  // Validasi: tidak boleh campur entitas
+  if (entLama && entLama !== entBaru) {
+    alert('Tidak bisa campur entitas dalam 1 pengiriman.\nOrder ini adalah ['+entBaru+'], tapi item yang sudah ada adalah ['+entLama+'].\nBuat pengiriman terpisah untuk masing-masing entitas.');
+    sel.value = '';
+    document.getElementById('subitemPicker').style.display = 'none';
+    return;
+  }
+
+  // Set entitas
+  document.getElementById('hidEntitas').value = entBaru;
+  var infoEl = document.getElementById('inpEntitasInfo');
+  infoEl.textContent = entBaru === 'PT' ? 'PT Elim Citra Offset' : 'DK Offset';
+  infoEl.style.color = 'var(--navy)';
+
+  document.getElementById('subitemList').innerHTML = '<div class="loading" style="padding:.5rem">Memuat subitem…</div>';
+  document.getElementById('subitemPicker').style.display = 'block';
+
+  apiGet('getOrderDetail', { idOrder: idOrder }).then(function(res) {
+    var data = Array.isArray(res) ? res : (res.data||[]);
+    if (!data.length) { document.getElementById('subitemList').innerHTML='<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada detail order.</div>'; return; }
+    var html = '';
+    data.forEach(function(d) {
+      var idDet = d.ID_DETAIL   || d.id_detail;
+      var idItm = d.ID_ITEM     || d.id_item;
+      var nmItm = d.NAMA_ITEM   || d.nama_item || '';
+      var sub   = d.SUBITEM     || d.subitem   || '';
+      var qty   = parseFloat(d.QTY     || d.qty)      || 0;
+      var qKirim= parseFloat(d.QTY_KIRIM || d.qty_kirim) || 0;
+      var qRusak= parseFloat(d.QTY_RUSAK || d.qty_rusak) || 0;
+      var sat   = d.SATUAN || d.satuan || '';
+      var harga = parseFloat(d.HARGA   || d.harga)   || 0;
+      var sisa  = Math.max(0, qty - qKirim - qRusak);
+      var sudahAda = itemBaris.some(function(b){ return b.idOrderDetail===idDet; });
+      if (sisa <= 0 || sudahAda) return;
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem .6rem;border-bottom:1px solid var(--border);background:#fff;border-radius:4px;margin-bottom:.3rem;">'+
+        '<div>'+
+          '<div style="font-family:var(--mono);font-size:.75rem;font-weight:600">'+esc(nmItm)+'</div>'+
+          '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+esc(sub)+' | Sisa: '+fmtAngka(sisa)+' '+esc(sat)+'</div>'+
+        '</div>'+
+        '<button class="btn-navy" style="font-size:.7rem;padding:.28rem .65rem" onclick="tambahItemBaris(\''+esc(idDet)+'\',\''+esc(idItm)+'\',\''+esc(nmItm)+'\',\''+esc(sub)+'\',\''+esc(sat)+'\','+sisa+','+harga+',\'ORDER\',false)">+ Tambah</button>'+
+      '</div>';
+    });
+    if (!html) html = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);padding:.4rem">Semua subitem sudah ter-kirim atau sudah ada di daftar.</div>';
+    document.getElementById('subitemList').innerHTML = html;
+  }).catch(function() {
+    document.getElementById('subitemList').innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:.75rem">Gagal memuat.</div>';
+  });
+}
+
+// ── ITEM BARIS ───────────────────────────────────────────────
+function tambahItemBaris(idOrderDetail, idItem, namaItem, subitem, satuan, sisa, harga, jenis, dariStok) {
+  itemBaris.push({ idOrderDetail:idOrderDetail, idItem:idItem, namaItem:namaItem,
+    subitem:subitem, satuan:satuan, sisa:sisa, qtyKirim:0, harga:harga, jenis:jenis, dariStok:dariStok||false });
+  renderItemRows();
+  // Refresh subitem picker agar tombol yang sudah ditambah hilang
+  if (document.getElementById('selOrder').value) onPilihOrder();
+}
+
+function hapusItemBaris(idx) {
+  itemBaris.splice(idx, 1);
+  renderItemRows();
+  if (document.getElementById('selOrder').value) onPilihOrder();
+}
+
+function renderItemRows() {
+  var wrap = document.getElementById('itemRows');
+  var badge= document.getElementById('jumlahItemBadge');
+  badge.textContent = '('+itemBaris.length+' item)';
+  if (!itemBaris.length) {
+    wrap.innerHTML = '<div style="padding:.75rem;font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center">Belum ada item. Pilih dari order di atas.</div>';
+    document.getElementById('totalPreview').style.display='none';
+    return;
+  }
+  wrap.innerHTML = itemBaris.map(function(b,i) {
+    var sisaOk = b.qtyKirim > 0 && b.qtyKirim <= b.sisa;
+    var hint   = b.qtyKirim > b.sisa
+      ? '<div class="sisa-hint sisa-warn">Melebihi sisa! Max '+fmtAngka(b.sisa)+'</div>'
+      : (b.sisa > 0 ? '<div class="sisa-hint sisa-ok">Sisa: '+fmtAngka(b.sisa)+'</div>' : '');
+    return '<div class="item-row">'+
+      '<div><div style="font-family:var(--mono);font-size:.72rem;font-weight:600">'+esc(b.namaItem)+'</div>'+
+           '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+esc(b.subitem)+'</div></div>'+
+      '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+esc(b.idOrderDetail||'STOK')+'</div>'+
+      '<div style="font-family:var(--mono);font-size:.72rem">'+esc(b.satuan)+'</div>'+
+      '<div style="font-family:var(--mono);font-size:.72rem">'+fmtAngka(b.sisa)+'</div>'+
+      '<div>'+
+        '<input type="number" min="1" max="'+b.sisa+'" value="'+(b.qtyKirim||'')+'" placeholder="0" '+
+          'oninput="updateQtyKirim('+i+',this.value)" style="width:80px"/>'+
+        hint+
+      '</div>'+
+      '<div style="font-family:var(--mono);font-size:.72rem">'+fmtRupiah(b.harga)+'</div>'+
+      '<div><button class="btn-del-row" onclick="hapusItemBaris('+i+')">✕</button></div>'+
+    '</div>';
+  }).join('');
+  hitungTotal();
+}
+
+function updateQtyKirim(idx, val) {
+  itemBaris[idx].qtyKirim = parseFloat(val)||0;
+  hitungTotal();
+  // Update hint langsung tanpa re-render penuh
+  var rows = document.getElementById('itemRows').querySelectorAll('.item-row');
+  if (rows[idx]) {
+    var b    = itemBaris[idx];
+    var hint = rows[idx].querySelector('.sisa-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.className = 'sisa-hint';
+      rows[idx].querySelectorAll('div')[4].appendChild(hint);
+    }
+    if (b.qtyKirim > b.sisa) {
+      hint.className = 'sisa-hint sisa-warn';
+      hint.textContent = 'Melebihi sisa! Max '+fmtAngka(b.sisa);
+    } else {
+      hint.className = 'sisa-hint sisa-ok';
+      hint.textContent = 'Sisa: '+fmtAngka(b.sisa);
+    }
+  }
+}
+
+function hitungTotal() {
+  var total = itemBaris.reduce(function(s,b){ return s + (b.qtyKirim * b.harga); }, 0);
+  var el = document.getElementById('totalPreview');
+  el.style.display = itemBaris.length ? 'block' : 'none';
+  document.getElementById('totalPreviewVal').textContent = fmtRupiah(total);
+}
+
+// ── BUKA MODAL BUAT ─────────────────────────────────────────
+function bukaBuatPengiriman() {
+  itemBaris = [];
+  document.getElementById('inpPelanggan').value    = '';
+  document.getElementById('hidPelangganId').value  = '';
+  document.getElementById('hidPelangganNama').value= '';
+  document.getElementById('hidEntitas').value      = '';
+  document.getElementById('inpEntitasInfo').textContent = '— dipilih dari order';
+  document.getElementById('inpEntitasInfo').style.color = 'var(--muted)';
+  document.getElementById('inpKet').value          = '';
+  document.getElementById('alertBuat').innerHTML   = '';
+  document.getElementById('itemRows').innerHTML    = '<div style="padding:.75rem;font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center">Belum ada item.</div>';
+  document.getElementById('jumlahItemBadge').textContent = '';
+  document.getElementById('totalPreview').style.display = 'none';
+  resetOrderPicker();
+  var tgl = new Date();
+  document.getElementById('inpTgl').value = tgl.toISOString().slice(0,10);
+  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+}
+
+// ── SUBMIT PENGIRIMAN ────────────────────────────────────────
+function submitPengiriman(btn) {
+  var idPel  = document.getElementById('hidPelangganId').value.trim();
+  var nmPel  = document.getElementById('hidPelangganNama').value.trim();
+  var entitas= document.getElementById('hidEntitas').value;
+  var tgl    = document.getElementById('inpTgl').value;
+  var ket    = document.getElementById('inpKet').value.trim();
+  var user   = getNamaUser();
+
+  if (!idPel)   { showAlert('alertBuat','Pelanggan wajib dipilih.'); return; }
+  if (!entitas) { showAlert('alertBuat','Pilih minimal 1 order untuk menentukan entitas.'); return; }
+  if (!tgl)     { showAlert('alertBuat','Tanggal wajib diisi.'); return; }
+  if (!itemBaris.length){ showAlert('alertBuat','Minimal 1 item harus ditambahkan.'); return; }
+
+  // Validasi qty
+  for (var i=0;i<itemBaris.length;i++) {
+    if (!(itemBaris[i].qtyKirim>0)) { showAlert('alertBuat','Qty kirim item ke-'+(i+1)+' harus > 0.'); return; }
+    if (itemBaris[i].qtyKirim > itemBaris[i].sisa) { showAlert('alertBuat','Qty kirim item ke-'+(i+1)+' melebihi sisa.'); return; }
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Menyimpan…';
+
+  var payload = {
+    tgl:            tgl,
+    idPelanggan:    idPel,
+    namaPelanggan:  nmPel,
+    entitas:        entitas,
+    keterangan:     ket,
+    userInput:      user,
+    items: itemBaris.map(function(b) {
+      return {
+        idOrderDetail: b.idOrderDetail,
+        idItem:        b.idItem,
+        namaItem:      b.namaItem,
+        subitem:       b.subitem,
+        qtyKirim:      b.qtyKirim,
+        satuan:        b.satuan,
+        harga:         b.harga,
+        jenis:         b.jenis,
+        dariStok:      b.dariStok
+      };
+    })
+  };
+
+  apiPost('generateSJ', payload).then(function(res) {
+    btn.disabled = false;
+    btn.innerHTML = 'Generate &amp; Simpan';
+    if (res && res.status === 'ok') {
+      var info = res.data.map(function(s){ return s.noSJ+' / '+s.noNota+' ('+s.jumlahItem+' item)'; }).join('\n');
+      bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
+      alert('Berhasil! SJ diterbitkan:\n'+info);
+      muatSJ();
+    } else {
+      showAlert('alertBuat', 'Gagal: '+(res&&res.message||'Error tidak diketahui.'));
+    }
+  }).catch(function() {
+    btn.disabled = false;
+    btn.innerHTML = 'Generate &amp; Simpan';
+    showAlert('alertBuat','Gagal koneksi ke server.');
+  });
+}
+
+// ── BUKA DETAIL SJ ───────────────────────────────────────────
+function bukaDetail(idSJ) {
+  sjAktif = semuaSJ.find(function(s){ return s.id_sj === idSJ; });
+  if (!sjAktif) return;
+  document.getElementById('detTitle').textContent = sjAktif.no_sj + ' / ' + sjAktif.no_nota;
+  document.getElementById('detBody').innerHTML  = '<div class="loading">Memuat…</div>';
+  document.getElementById('detFooter').innerHTML = '';
+  var mDet = new bootstrap.Modal(document.getElementById('modalDetail'));
+  mDet.show();
+
+  apiGet('getPengirimanDetail', { idSJ: idSJ }).then(function(res) {
+    var items  = (res && res.status==='ok') ? res.data : [];
+    var isPT   = sjAktif.entitas === 'PT';
+    var stCls  = 's-'+(sjAktif.status||'').toLowerCase().replace(/_/g,'-');
+    var html   =
+      '<div class="det-row"><span class="det-label">No. SJ</span><span class="det-val td-mono">'+esc(sjAktif.no_sj)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">No. Nota</span><span class="det-val td-mono">'+esc(sjAktif.no_nota)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Tanggal</span><span class="det-val">'+fmtTgl(sjAktif.tgl)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Pelanggan</span><span class="det-val">'+esc(sjAktif.nama_pelanggan)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Entitas</span><span class="det-val">'+esc(sjAktif.entitas)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Status</span><span class="det-val"><span class="badge-status '+stCls+'">'+esc(sjAktif.status)+'</span></span></div>'+
+      '<div class="det-row"><span class="det-label">Keterangan</span><span class="det-val">'+esc(sjAktif.keterangan||'—')+'</span></div>'+
+      '<div style="margin-top:.75rem">'+
+      '<table class="det-tbl"><thead><tr>'+
+        '<th>Item / Subitem</th><th>Qty</th><th>Sat</th><th>Harga</th><th>Subtotal</th>'+
+        (isPT ? '<th style="color:#c45a00">DPP Nilai Lain</th>' : '')+
+        '<th>Jenis</th>'+
+      '</tr></thead><tbody>';
+    var totalSbt = 0;
+    items.forEach(function(it) {
+      var hrg = parseFloat(it.harga||0);
+      var sbt = parseFloat(it.subtotal||0);
+      var dpp = isPT ? Math.round(sbt * 11 / 12) : 0;
+      totalSbt += sbt;
+      html += '<tr>'+
+        '<td><b>'+esc(it.nama_item||'')+'</b><br>'+esc(it.subitem||'')+'</td>'+
+        '<td>'+fmtAngka(it.qty_kirim||0)+'</td>'+
+        '<td>'+esc(it.satuan||'')+'</td>'+
+        '<td>'+fmtRupiah(hrg)+'</td>'+
+        '<td>'+fmtRupiah(sbt)+'</td>'+
+        (isPT ? '<td style="font-family:var(--mono);font-size:.7rem;color:#c45a00">'+fmtRupiah(dpp)+'</td>' : '')+
+        '<td><span style="font-family:var(--mono);font-size:.65rem">'+esc(it.jenis||'')+'</span></td>'+
+      '</tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // Summary: berbeda untuk PT (ada PPN) vs DK (tidak ada PPN)
+    if (isPT) {
+      var totalDpp = Math.round(totalSbt * 11 / 12);
+      var ppn      = Math.round(totalDpp * 12 / 100);
+      var totalTagihan = totalSbt + ppn;
+      html +=
+        '<div style="margin-top:.65rem;border-top:1px solid var(--border);padding-top:.5rem;">'+
+          '<div style="display:flex;justify-content:space-between;padding:.25rem 0;font-size:.8rem;">'+
+            '<span style="font-family:var(--mono);color:var(--muted)">Subtotal</span>'+
+            '<span style="font-family:var(--mono)">'+fmtRupiah(totalSbt)+'</span>'+
+          '</div>'+
+          '<div style="display:flex;justify-content:space-between;padding:.25rem 0;font-size:.8rem;">'+
+            '<span style="font-family:var(--mono);color:var(--muted)">PPN 11%</span>'+
+            '<span style="font-family:var(--mono)">'+fmtRupiah(ppn)+'</span>'+
+          '</div>'+
+          '<div style="display:flex;justify-content:space-between;padding:.3rem 0;border-top:2px solid var(--navy);margin-top:.2rem;font-weight:600;">'+
+            '<span style="font-family:var(--mono);color:var(--navy)">TOTAL TAGIHAN</span>'+
+            '<span style="font-family:var(--mono);color:var(--orange);font-size:.95rem">'+fmtRupiah(totalTagihan)+'</span>'+
+          '</div>'+
+          '<div style="margin-top:.4rem;padding:.4rem .6rem;background:#fff8f0;border:1px solid #ffd699;border-radius:5px;font-family:var(--mono);font-size:.65rem;color:#c45a00;">'+
+            '📋 Faktur Pajak &nbsp;|&nbsp; DPP Nilai Lain: <b>'+fmtRupiah(totalDpp)+'</b> &nbsp;|&nbsp; PPN 12% dari DPP: <b>'+fmtRupiah(ppn)+'</b>'+
+          '</div>'+
+        '</div>';
+    } else {
+      html +=
+        '<div class="total-row"><span class="total-label">TOTAL</span><span class="total-val">'+fmtRupiah(totalSbt)+'</span></div>';
+    }
+
+    // Info print
+    apiGet('initPrintSJ', { idSJ: idSJ }).then(function(pr) {
+      printInfo = (pr && pr.status==='ok') ? pr.data : null;
+      if (printInfo) {
+        html += '<div style="margin-top:.75rem;border-top:1px solid var(--border);padding-top:.65rem;">'+
+          '<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.3rem">STATUS CETAK</div>'+
+          '<div style="font-size:.78rem">SJ: <span class="print-badge '+(printInfo.sudah_print_sj?'print-yes':'print-no')+'">'+(printInfo.sudah_print_sj?'Sudah '+printInfo.print_sj+'x':'Belum')+'</span></div>'+
+          '<div style="font-size:.78rem;margin-top:.25rem">Invoice: <span class="print-badge '+(printInfo.sudah_print_invoice?'print-yes':'print-no')+'">'+(printInfo.sudah_print_invoice?'Sudah '+printInfo.print_invoice+'x':'Belum')+'</span></div>'+
+        '</div>';
+      }
+      document.getElementById('detBody').innerHTML = html;
+      // Footer: tombol print
+      var role = getRoleUser();
+      var btnPrint = '<button class="btn-print" onclick="bukaPrint()">🖨 Cetak</button>';
+      document.getElementById('detFooter').innerHTML = btnPrint;
+    }).catch(function() {
+      document.getElementById('detBody').innerHTML = html;
+    });
+  }).catch(function() {
+    document.getElementById('detBody').innerHTML = '<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat detail.</div>';
+  });
+}
+
+// ── PRINT ────────────────────────────────────────────────────
+function bukaPrint() {
+  if (!sjAktif || !printInfo) return;
+  var role = getRoleUser();
+  document.getElementById('alertPrint').innerHTML = '';
+  document.getElementById('inpAlasan').value      = '';
+  document.getElementById('alasanBox').style.display = 'none';
+  document.getElementById('printWarnBox').style.display = 'none';
+  document.getElementById('printTitle').textContent = 'Cetak — '+sjAktif.no_sj;
+  document.getElementById('selJenisPrint').value  = 'SJ';
+
+  // Cek apakah reprint — jika iya, harus Direktur
+  document.getElementById('selJenisPrint').onchange = function() {
+    cekReprint();
+  };
+  cekReprint();
+
+  new bootstrap.Modal(document.getElementById('modalPrint')).show();
+}
+
+function cekReprint() {
+  if (!printInfo) return;
+  var jenis = document.getElementById('selJenisPrint').value;
+  var sudah = false;
+  if (jenis==='SJ')       sudah = printInfo.sudah_print_sj;
+  if (jenis==='INVOICE')  sudah = printInfo.sudah_print_invoice;
+  if (jenis==='KEDUANYA') sudah = printInfo.sudah_print_sj || printInfo.sudah_print_invoice;
+
+  var role = getRoleUser();
+  var warnBox  = document.getElementById('printWarnBox');
+  var alasanBox= document.getElementById('alasanBox');
+
+  if (sudah) {
+    if (role !== 'DIREKTUR') {
+      warnBox.innerHTML  = '⚠ Dokumen ini sudah pernah dicetak. Reprint hanya boleh dilakukan oleh Direktur.';
+      warnBox.style.display = 'block';
+      alasanBox.style.display = 'none';
+      document.querySelector('#modalPrint .btn-orange').disabled = true;
+    } else {
+      warnBox.innerHTML  = '⚠ Reprint — dokumen sudah pernah dicetak. Wajib isi alasan.';
+      warnBox.style.display = 'block';
+      alasanBox.style.display = 'block';
+      document.querySelector('#modalPrint .btn-orange').disabled = false;
+    }
+  } else {
+    warnBox.style.display   = 'none';
+    alasanBox.style.display = 'none';
+    document.querySelector('#modalPrint .btn-orange').disabled = false;
+  }
+}
+
+function submitPrint(btn) {
+  var jenis  = document.getElementById('selJenisPrint').value;
+  var alasan = document.getElementById('inpAlasan').value.trim();
+  var role   = getRoleUser();
+  var user   = getNamaUser();
+
+  // Cek reprint + alasan
+  var sudah = false;
+  if (jenis==='SJ')       sudah = printInfo && printInfo.sudah_print_sj;
+  if (jenis==='INVOICE')  sudah = printInfo && printInfo.sudah_print_invoice;
+  if (jenis==='KEDUANYA') sudah = printInfo && (printInfo.sudah_print_sj || printInfo.sudah_print_invoice);
+
+  if (sudah && role !== 'DIREKTUR') { showAlert('alertPrint','Reprint hanya boleh Direktur.'); return; }
+  if (sudah && !alasan) { showAlert('alertPrint','Alasan reprint wajib diisi.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span>';
+
+  apiPost('catatPrintSJ', {
+    idSJ:         sjAktif.id_sj,
+    jenisPrint:   jenis,
+    user:         user,
+    alasanReprint:alasan
+  }).then(function(res) {
+    btn.disabled = false;
+    btn.innerHTML = 'Cetak';
+    if (res && res.status==='ok') {
+      bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
+      // Buka print window
+      cetakDokumen(sjAktif, jenis);
+      // Refresh info
+      apiGet('initPrintSJ', { idSJ: sjAktif.id_sj }).then(function(pr) {
+        printInfo = (pr && pr.status==='ok') ? pr.data : printInfo;
+      });
+    } else {
+      showAlert('alertPrint','Gagal: '+(res&&res.message||'Error.'));
+    }
+  }).catch(function() {
+    btn.disabled = false;
+    btn.innerHTML = 'Cetak';
+    showAlert('alertPrint','Gagal koneksi.');
+  });
+}
+
+// ── CETAK DOKUMEN ────────────────────────────────────────────
+function cetakDokumen(sj, jenis) {
+  apiGet('getPengirimanDetail', { idSJ: sj.id_sj }).then(function(res) {
+    var items = (res && res.status==='ok') ? res.data : [];
+    var html  = '';
+    if (jenis==='SJ' || jenis==='KEDUANYA') html += layoutSJ(sj, items);
+    if (jenis==='INVOICE' || jenis==='KEDUANYA') html += layoutInvoice(sj, items);
+
+    var pa = document.getElementById('printArea');
+    pa.innerHTML = html;
+
+    // Tambah class printing ke body — sembunyikan semua kecuali printArea
+    document.body.classList.add('printing');
+
+    // Bersihkan setelah print selesai (afterprint event)
+    function cleanup() {
+      document.body.classList.remove('printing');
+      pa.innerHTML = '';
+      window.removeEventListener('afterprint', cleanup);
+    }
+    window.addEventListener('afterprint', cleanup);
+
+    // setTimeout agar browser sempat render sebelum print dialog muncul
+    setTimeout(function() { window.print(); }, 400);
+  });
+}
+
+function layoutSJ(sj, items) {
+  var isPT   = sj.entitas === 'PT';
+  var coName = isPT ? 'PT. ELIM CITRA OFFSET' : 'DK OFFSET';
+  var coAddr = isPT ? 'Jl. Rinjani Utara IV No. 2, Mojosongo, Surakarta 57127' : '';
+  var alamat = esc(sj.alamat_pelanggan || '');
+  var tglStr = 'Surakarta, ' + fmtTglPanjang(sj.tgl);
+
+  var thS = 'border-bottom:1px solid #000;padding:.05cm .1cm;font-size:7pt;font-weight:700;text-align:left;';
+  var tdS = 'padding:.04cm .1cm;vertical-align:top;font-size:7.5pt;line-height:1.3;';
+
+  var rows = items.map(function(it, i) {
+    return '<tr>' +
+      '<td style="'+tdS+';width:.5cm">' + (i+1) + '</td>' +
+      '<td style="'+tdS+'">' + esc(it.nama_item||'') + (it.subitem ? ' \u2014 ' + esc(it.subitem) : '') + '</td>' +
+      '<td style="'+tdS+';text-align:right;width:1.8cm">' + fmtAngka(it.qty_kirim||0) + '</td>' +
+      '<td style="'+tdS+';width:.8cm">' + esc(it.satuan||'') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  return '<div class="sj-page">' +
+    // Header
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;">' +
+      '<div>' +
+        '<div style="font-size:9.5pt;font-weight:700;letter-spacing:.02em;">' + coName + '</div>' +
+        (coAddr ? '<div style="font-size:6.2pt;color:#444;margin-top:1px;">' + coAddr + '</div>' : '') +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        '<div style="font-size:9pt;font-weight:700;letter-spacing:.05em;">SURAT JALAN</div>' +
+        '<div style="font-size:8pt;font-weight:600;margin-top:1px;">' + esc(sj.no_sj) + '</div>' +
+        '<div style="font-size:7pt;color:#444;margin-top:1px;">' + tglStr + '</div>' +
+      '</div>' +
+    '</div>' +
+    // Kepada
+    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start;">' +
+      '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm;">Kepada Yth.</div>' +
+      '<div>' +
+        '<div style="font-weight:600;">' + esc(sj.nama_pelanggan||'') + '</div>' +
+        (alamat ? '<div style="font-size:6.3pt;color:#555;line-height:1.3;">' + alamat + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+    // Tabel
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:.2cm;">' +
+      '<thead><tr>' +
+        '<th style="'+thS+';width:.5cm">No.</th>' +
+        '<th style="'+thS+'">Nama Barang</th>' +
+        '<th style="'+thS+';text-align:right;width:1.8cm">Jumlah</th>' +
+        '<th style="'+thS+';width:.8cm">Sat.</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>' +
+    // TTD
+    '<div style="display:flex;justify-content:space-between;margin-top:.3cm;font-size:6.8pt;">' +
+      '<div style="text-align:center;width:3.8cm;"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm;"></div>Penerima</div>' +
+      '<div style="text-align:center;width:3.8cm;"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm;"></div>Pengirim</div>' +
+      '<div style="text-align:center;width:3.8cm;"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm;"></div>Hormat Kami</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function layoutInvoice(sj, items) {
+  var isPT   = sj.entitas === 'PT';
+  var coName = isPT ? 'PT. ELIM CITRA OFFSET' : 'DK OFFSET';
+  var coAddr = isPT ? 'Jl. Rinjani Utara IV No. 2, Mojosongo, Surakarta 57127' : '';
+  var rekStr = isPT
+    ? 'Pembayaran ke: BCA 0158001515 a/n PT. Elim Citra Offset'
+    : 'Pembayaran ke: BCA 8175057770 a/n Dionisius Krisnata';
+  var alamat = esc(sj.alamat_pelanggan || '');
+  var tglStr = 'Surakarta, ' + fmtTglPanjang(sj.tgl);
+
+  var subtotal = items.reduce(function(s,it){ return s + parseFloat(it.subtotal||0); }, 0);
+  var ppn      = isPT ? Math.round(Math.round(subtotal * 11/12) * 12/100) : 0;
+  var total    = subtotal + ppn;
+
+  var thS = 'border-bottom:1px solid #000;padding:.05cm .1cm;font-size:7pt;font-weight:700;text-align:left;';
+  var tdS = 'padding:.04cm .1cm;vertical-align:top;font-size:7.5pt;line-height:1.3;';
+
+  var rows = items.map(function(it, i) {
+    var harga = parseFloat(it.harga||0);
+    var sbt   = parseFloat(it.subtotal||0);
+    return '<tr>' +
+      '<td style="'+tdS+';width:.5cm">' + (i+1) + '</td>' +
+      '<td style="'+tdS+'">' + esc(it.nama_item||'') + (it.subitem ? ' \u2014 ' + esc(it.subitem) : '') + '</td>' +
+      '<td style="'+tdS+';text-align:right;width:1.5cm">' + fmtAngka(it.qty_kirim||0) + '</td>' +
+      '<td style="'+tdS+';width:.8cm">' + esc(it.satuan||'') + '</td>' +
+      '<td style="'+tdS+';text-align:right;width:1.8cm">' + fmtAngka(harga) + '</td>' +
+      '<td style="'+tdS+';text-align:right;width:2cm">' + fmtAngka(sbt) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  // Footer tabel
+  var footerRows = '';
+  if (isPT) {
+    footerRows =
+      '<tr><td colspan="5" style="'+tdS+';text-align:right;font-size:7pt;">Subtotal</td>' +
+        '<td style="'+tdS+';text-align:right">' + fmtAngka(subtotal) + '</td></tr>' +
+      '<tr><td colspan="5" style="'+tdS+';text-align:right;font-size:7pt;color:#333;">PPN 11%</td>' +
+        '<td style="'+tdS+';text-align:right;color:#333;">' + fmtAngka(ppn) + '</td></tr>' +
+      '<tr style="border-top:1.5px solid #000;">' +
+        '<td colspan="5" style="'+tdS+';font-weight:700;">TOTAL TAGIHAN</td>' +
+        '<td style="'+tdS+';text-align:right;font-weight:700;">' + fmtAngka(total) + '</td></tr>';
+  } else {
+    footerRows =
+      '<tr style="border-top:1.5px solid #000;">' +
+        '<td colspan="5" style="'+tdS+';font-weight:700;">TOTAL</td>' +
+        '<td style="'+tdS+';text-align:right;font-weight:700;">' + fmtAngka(total) + '</td></tr>';
+  }
+
+  return '<div class="sj-page">' +
+    // Header
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;">' +
+      '<div>' +
+        '<div style="font-size:9.5pt;font-weight:700;letter-spacing:.02em;">' + coName + '</div>' +
+        (coAddr ? '<div style="font-size:6.2pt;color:#444;margin-top:1px;">' + coAddr + '</div>' : '') +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        '<div style="font-size:9pt;font-weight:700;letter-spacing:.05em;">NOTA / INVOICE</div>' +
+        '<div style="font-size:8pt;font-weight:600;margin-top:1px;">' + esc(sj.no_nota) + '</div>' +
+        '<div style="font-size:7pt;color:#444;margin-top:1px;">' + tglStr + '</div>' +
+      '</div>' +
+    '</div>' +
+    // Kepada
+    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start;">' +
+      '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm;">Kepada Yth.</div>' +
+      '<div>' +
+        '<div style="font-weight:600;">' + esc(sj.nama_pelanggan||'') + '</div>' +
+        (alamat ? '<div style="font-size:6.3pt;color:#555;line-height:1.3;">' + alamat + '</div>' : '') +
+      '</div>' +
+    '</div>' +
+    // Tabel
+    '<table style="width:100%;border-collapse:collapse;margin-bottom:.15cm;">' +
+      '<thead><tr>' +
+        '<th style="'+thS+';width:.5cm">No.</th>' +
+        '<th style="'+thS+'">Nama Barang</th>' +
+        '<th style="'+thS+';text-align:right;width:1.5cm">Qty</th>' +
+        '<th style="'+thS+';width:.8cm">Sat.</th>' +
+        '<th style="'+thS+';text-align:right;width:1.8cm">Harga</th>' +
+        '<th style="'+thS+';text-align:right;width:2cm">Subtotal</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+      '<tfoot>' + footerRows + '</tfoot>' +
+    '</table>' +
+    // Rekening
+    '<div style="font-size:6.3pt;color:#444;border-top:.5px solid #ccc;padding-top:.08cm;margin-bottom:.15cm;">' +
+      rekStr +
+    '</div>' +
+    // TTD
+    '<div style="display:flex;justify-content:space-between;margin-top:.2cm;font-size:6.8pt;">' +
+      '<div style="text-align:center;width:3.8cm;"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm;"></div>Hormat Kami</div>' +
+      '<div style="text-align:center;width:3.8cm;"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm;"></div>Penerima</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function showAlert(elId, pesan, tipe) {
+  tipe = tipe||'danger';
+  document.getElementById(elId).innerHTML = '<div class="alert alert-'+tipe+' py-2 mb-0" style="font-size:.8rem">'+pesan+'</div>';
+}
+</script>
+</body>
+</html>
