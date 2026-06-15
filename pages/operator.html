@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Master Operator — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --navy:#1a2744;--navy-dk:#131e36;--navy-mid:#243257;--orange:#e8521a;
+      --bg:#eef1f7;--surface:#ffffff;--border:#d0d8e8;--text:#1a2744;
+      --muted:#6b7a99;--green:#1a9e5c;--green-bg:#e6f7ef;--green-bd:#a3d9be;
+      --red:#dc3545;--yellow:#f59e0b;
+      --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:2rem;}
+    .topbar{background:var(--navy);border-bottom:3px solid var(--orange);padding:0.7rem 1.1rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+    .topbar-left{display:flex;align-items:center;gap:0.75rem;}
+    .topbar-back{color:rgba(255,255,255,0.7);font-size:0.75rem;font-family:var(--mono);text-decoration:none;}
+    .topbar-back:hover{color:#fff;}
+    .topbar-divider{color:rgba(255,255,255,0.2);}
+    .topbar-title{font-family:var(--mono);font-weight:600;font-size:0.88rem;letter-spacing:0.05em;color:#fff;text-transform:uppercase;}
+    .main{padding:1.1rem;}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:0.5rem;flex-wrap:wrap;}
+    .toolbar-left{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;}
+    .toolbar-left input,.toolbar-left select{font-family:var(--mono);font-size:0.75rem;border:1px solid var(--border);border-radius:6px;padding:0.45rem 0.65rem;background:var(--surface);color:var(--text);}
+    .toolbar-left input{min-width:160px;}
+    .btn-buat{background:var(--orange);color:#fff;border:none;font-family:var(--mono);font-size:0.75rem;font-weight:600;padding:0.5rem 0.9rem;border-radius:6px;cursor:pointer;white-space:nowrap;}
+    .btn-buat:hover{background:#d04515;}
+    .counter-bar{font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-bottom:0.6rem;}
+    .tbl-wrap{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:0.68rem;font-weight:600;letter-spacing:0.05em;padding:0.6rem 0.75rem;text-align:left;white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:#f5f7fb;}
+    tbody td{padding:0.55rem 0.75rem;vertical-align:middle;}
+    .td-mono{font-family:var(--mono);font-size:0.72rem;color:var(--muted);white-space:nowrap;}
+    .td-nama{font-weight:500;}
+    .badge-status{font-family:var(--mono);font-size:0.63rem;font-weight:600;padding:0.2rem 0.5rem;border-radius:4px;letter-spacing:0.04em;white-space:nowrap;}
+    .bd-internal{background:#e8f0fe;color:#1a56b0;}
+    .bd-vendor{background:#fff3e0;color:#c45a00;}
+    .bd-aktif{background:var(--green-bg);color:var(--green);}
+    .bd-nonaktif{background:#fff0f0;color:var(--red);}
+    .btn-edit{background:#fff;color:var(--navy);border:1px solid var(--border);font-family:var(--mono);font-size:0.7rem;padding:0.3rem 0.65rem;border-radius:5px;cursor:pointer;}
+    .btn-edit:hover{background:var(--bg);}
+    .loading{text-align:center;padding:2rem;font-family:var(--mono);font-size:0.8rem;color:var(--muted);}
+    .modal-content{border-radius:12px;border:1px solid var(--border);}
+    .modal-header{background:var(--navy);color:#fff;border-radius:12px 12px 0 0;padding:0.8rem 1.1rem;border-bottom:none;}
+    .modal-title{font-family:var(--mono);font-size:0.85rem;font-weight:600;letter-spacing:0.04em;}
+    .modal-header .btn-close{filter:invert(1);opacity:0.7;}
+    .modal-body{padding:1.1rem;}
+    .form-label{font-family:var(--mono);font-size:0.7rem;font-weight:600;color:var(--muted);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:0.3rem;display:block;}
+    .form-control,.form-select{font-family:var(--mono);font-size:0.8rem;border:1px solid var(--border);border-radius:6px;padding:0.5rem 0.7rem;width:100%;color:var(--text);background:var(--surface);}
+    .form-control:focus,.form-select:focus{border-color:var(--navy);outline:none;box-shadow:0 0 0 2px rgba(26,39,68,0.1);}
+    .mb-3{margin-bottom:0.85rem;}
+    .btn-simpan{background:var(--navy);color:#fff;border:none;font-family:var(--mono);font-size:0.75rem;font-weight:600;padding:0.55rem 1.1rem;border-radius:6px;cursor:pointer;}
+    .btn-simpan:hover{background:var(--navy-dk);}
+    .btn-simpan:disabled{opacity:0.5;cursor:not-allowed;}
+    .btn-batal{background:transparent;color:var(--muted);border:1px solid var(--border);font-family:var(--mono);font-size:0.75rem;padding:0.55rem 1rem;border-radius:6px;cursor:pointer;}
+    .alert-box{font-family:var(--mono);font-size:0.75rem;padding:0.5rem 0.75rem;border-radius:6px;margin-bottom:0.6rem;}
+    .alert-err{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="../index.html" class="topbar-back">&#8592; Menu</a>
+    <span class="topbar-divider">|</span>
+    <span class="topbar-title">Master Operator</span>
+  </div>
+  <div>
+    <button class="btn-buat" id="btnTambah" onclick="bukaModalTambah()" style="display:none">+ Tambah</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <input type="text" id="searchNama" placeholder="Cari nama operator..." oninput="renderTabel()"/>
+      <select id="filterTipe" onchange="renderTabel()">
+        <option value="">Semua Tipe</option>
+        <option value="INTERNAL">Internal</option>
+        <option value="VENDOR">Vendor</option>
+      </select>
+      <select id="filterStatus" onchange="renderTabel()">
+        <option value="">Semua Status</option>
+        <option value="AKTIF">Aktif</option>
+        <option value="NONAKTIF">Nonaktif</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="counter-bar" id="counterBar">Memuat data…</div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Nama Operator</th><th>Tipe</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="tbody">
+        <tr><td colspan="5" class="loading">Memuat data…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ MODAL TAMBAH/EDIT ══════════════════════════════════════ -->
+<div class="modal fade" id="modalOperator" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modalJudul">Tambah Operator</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertForm"></div>
+        <input type="hidden" id="fId"/>
+
+        <div class="mb-3">
+          <label class="form-label">Nama Operator *</label>
+          <input type="text" class="form-control" id="fNama" placeholder="cth: WARDI"/>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Tipe</label>
+          <select class="form-select" id="fTipe">
+            <option value="INTERNAL">Internal</option>
+            <option value="VENDOR">Vendor</option>
+          </select>
+        </div>
+
+        <div class="mb-3" id="statusGroup" style="display:none">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="fStatus">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+          </select>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+          <button class="btn-simpan" id="btnSimpan" onclick="simpanOperator()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script>
+var semuaOperator = [];
+var modalInstance;
+var bisaKelola = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+  modalInstance = new bootstrap.Modal(document.getElementById('modalOperator'));
+  bisaKelola = ['MANAGER','DIREKTUR'].indexOf(getRoleUser()) >= 0;
+  if (bisaKelola) document.getElementById('btnTambah').style.display = '';
+  muatData();
+});
+
+function getRoleUser() {
+  try { var s = JSON.parse(localStorage.getItem('sieo_sesi') || '{}'); return (s.role || '').toUpperCase(); }
+  catch (e) { return ''; }
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function muatData() {
+  apiGet('getOperator', {}).then(function(res) {
+    semuaOperator = Array.isArray(res) ? res : (res && res.data ? res.data : []);
+    renderTabel();
+  }).catch(function() {
+    document.getElementById('tbody').innerHTML =
+      '<tr><td colspan="5" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
+    document.getElementById('counterBar').textContent = 'Gagal memuat data.';
+  });
+}
+
+function renderTabel() {
+  var cari   = document.getElementById('searchNama').value.toLowerCase().trim();
+  var tipe   = document.getElementById('filterTipe').value;
+  var status = document.getElementById('filterStatus').value;
+
+  var data = semuaOperator.filter(function(o) {
+    return (!cari   || (o.nama_operator||'').toLowerCase().indexOf(cari) >= 0) &&
+           (!tipe   || o.tipe   === tipe) &&
+           (!status || o.status === status);
+  });
+
+  if (!data.length) {
+    document.getElementById('tbody').innerHTML =
+      '<tr><td colspan="5" class="loading">Tidak ada data.</td></tr>';
+    document.getElementById('counterBar').textContent = '0 dari ' + semuaOperator.length + ' operator';
+    return;
+  }
+
+  var html = '';
+  data.forEach(function(o) {
+    var bdTipe = o.tipe === 'VENDOR' ? 'bd-vendor' : 'bd-internal';
+    var bdStat = o.status === 'AKTIF' ? 'bd-aktif' : 'bd-nonaktif';
+    html += '<tr>' +
+      '<td class="td-mono">' + escHtml(o.id_operator) + '</td>' +
+      '<td class="td-nama">' + escHtml(o.nama_operator) + '</td>' +
+      '<td><span class="badge-status ' + bdTipe + '">' + escHtml(o.tipe) + '</span></td>' +
+      '<td><span class="badge-status ' + bdStat + '">' + escHtml(o.status) + '</span></td>' +
+      '<td>' + (bisaKelola
+        ? '<button class="btn-edit" onclick=\'bukaModalEdit(' + JSON.stringify(o) + ')\'>Edit</button>'
+        : '') + '</td>' +
+    '</tr>';
+  });
+  document.getElementById('tbody').innerHTML = html;
+  document.getElementById('counterBar').textContent = data.length + ' dari ' + semuaOperator.length + ' operator';
+}
+
+function bukaModalTambah() {
+  document.getElementById('modalJudul').textContent = 'Tambah Operator';
+  document.getElementById('alertForm').innerHTML = '';
+  document.getElementById('fId').value = '';
+  document.getElementById('fNama').value = '';
+  document.getElementById('fTipe').value = 'INTERNAL';
+  document.getElementById('statusGroup').style.display = 'none';
+  modalInstance.show();
+}
+
+function bukaModalEdit(o) {
+  document.getElementById('modalJudul').textContent = 'Edit Operator — ' + o.id_operator;
+  document.getElementById('alertForm').innerHTML = '';
+  document.getElementById('fId').value = o.id_operator;
+  document.getElementById('fNama').value = o.nama_operator;
+  document.getElementById('fTipe').value = o.tipe || 'INTERNAL';
+  document.getElementById('fStatus').value = o.status || 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'block';
+  modalInstance.show();
+}
+
+function simpanOperator() {
+  var alertEl = document.getElementById('alertForm');
+  alertEl.innerHTML = '';
+
+  var id     = document.getElementById('fId').value;
+  var nama   = document.getElementById('fNama').value.trim();
+  var tipe   = document.getElementById('fTipe').value;
+  var status = document.getElementById('fStatus').value;
+
+  if (!nama) {
+    alertEl.innerHTML = '<div class="alert-box alert-err">Nama Operator wajib diisi.</div>';
+    return;
+  }
+
+  var payload = { nama_operator: nama, tipe: tipe };
+  var action  = id ? 'editOperator' : 'tambahOperator';
+  if (id) { payload.id_operator = id; payload.status = status; }
+
+  var btn = document.getElementById('btnSimpan');
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+
+  apiPost(action, payload).then(function(res) {
+    if (res && res.error) {
+      alertEl.innerHTML = '<div class="alert-box alert-err">' + escHtml(res.error) + '</div>';
+    } else {
+      modalInstance.hide();
+      muatData();
+    }
+  }).catch(function() {
+    alertEl.innerHTML = '<div class="alert-box alert-err">Gagal menyimpan. Coba lagi.</div>';
+  }).finally(function() {
+    btn.disabled = false; btn.textContent = 'Simpan';
+  });
+}
+</script>
+</body>
+</html>
