@@ -1,0 +1,629 @@
+git <!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Retur Pengiriman — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --navy:#1a2744;--navy-dark:#131e36;--navy-mid:#243257;--orange:#e8521a;
+      --bg:#eef1f7;--surface:#fff;--border:#d0d8e8;--text:#1a2744;--muted:#6b7a99;
+      --green:#1a9e5c;--green-bg:#e6f7ef;--green-bd:#a3d9be;--red:#dc3545;
+      --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:2rem;}
+
+    .topbar{background:var(--navy);border-bottom:3px solid var(--orange);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:200;}
+    .topbar-back{color:rgba(255,255,255,.7);font-size:.75rem;font-family:var(--mono);text-decoration:none;}
+    .topbar-back:hover{color:#fff;}
+    .topbar-title{font-family:var(--mono);font-weight:600;font-size:.88rem;letter-spacing:.05em;color:#fff;text-transform:uppercase;}
+    .topbar-sub{font-family:var(--mono);font-size:.65rem;color:rgba(255,255,255,.45);}
+
+    .toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.1rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+    .toolbar input[type=text],.toolbar select{font-size:.82rem;font-family:var(--sans);border:1px solid var(--border);border-radius:6px;padding:.42rem .75rem;color:var(--text);background:var(--bg);outline:none;}
+    .toolbar input[type=text]{flex:1;min-width:150px;}
+    .toolbar input[type=text]:focus,.toolbar select:focus{border-color:var(--navy);background:#fff;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:.82rem;padding:.42rem 1rem;cursor:pointer;white-space:nowrap;margin-left:auto;}
+    .btn-tambah:hover{background:#c94416;}
+    .info-bar{padding:.4rem 1.1rem;font-family:var(--mono);font-size:.7rem;color:var(--muted);border-bottom:1px solid var(--border);}
+
+    .tbl-wrap{padding:.75rem 1.1rem;overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:.8rem;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(26,39,68,.07);}
+    thead tr{background:var(--navy);color:#fff;}
+    thead th{font-family:var(--mono);font-weight:600;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:.65rem .75rem;white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);cursor:pointer;}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:#f4f7fc;}
+    tbody td{padding:.6rem .75rem;vertical-align:middle;}
+    .td-id{font-family:var(--mono);font-size:.7rem;color:var(--muted);}
+    .td-mono{font-family:var(--mono);font-size:.75rem;}
+    .td-tgl{font-family:var(--mono);font-size:.72rem;white-space:nowrap;}
+    .badge-status{font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.05em;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
+    .badge-entitas{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;}
+    .s-pending{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .s-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    .badge-jenis{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;white-space:nowrap;}
+    .j-bagus{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .j-rusak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    .empty-state{text-align:center;padding:2.5rem;color:var(--muted);font-family:var(--mono);font-size:.8rem;}
+
+    .modal-header{background:var(--navy);color:#fff;border-bottom:none;padding:.85rem 1.1rem;}
+    .modal-title{font-family:var(--mono);font-weight:600;font-size:.88rem;letter-spacing:.04em;}
+    .modal-header .btn-close{filter:invert(1);opacity:.7;}
+    .modal-body{padding:1.1rem;}
+    .modal-footer{border-top:1px solid var(--border);padding:.75rem 1.1rem;gap:.5rem;}
+    .form-label{font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;display:block;}
+    .form-control,.form-select{font-size:.82rem;font-family:var(--sans);border:1px solid var(--border);border-radius:6px;padding:.45rem .75rem;color:var(--text);width:100%;}
+    .form-control:focus,.form-select:focus{border-color:var(--navy);box-shadow:none;outline:none;}
+    .form-control[readonly]{background:#f4f7fc;color:var(--muted);}
+    .mb-3{margin-bottom:.85rem;}
+
+    .sec-label{font-family:var(--mono);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--navy);background:var(--bg);border-radius:5px;padding:.35rem .7rem;margin-bottom:.65rem;}
+
+    /* SJ PICKER */
+    .sj-pick-list{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:.85rem;max-height:180px;overflow-y:auto;}
+    .sj-pick-item{padding:.55rem .75rem;border-bottom:1px solid var(--border);cursor:pointer;font-size:.8rem;}
+    .sj-pick-item:last-child{border-bottom:none;}
+    .sj-pick-item:hover{background:#f4f7fc;}
+    .sj-pick-item.aktif{background:var(--bg);border-left:3px solid var(--orange);}
+    .sj-pick-mono{font-family:var(--mono);font-size:.7rem;color:var(--muted);}
+
+    /* ITEM ROWS RETUR */
+    .ret-item{border:1px solid var(--border);border-radius:8px;padding:.6rem .7rem;margin-bottom:.5rem;background:var(--surface);}
+    .ret-item-nama{font-size:.82rem;font-weight:500;}
+    .ret-item-sub{font-family:var(--mono);font-size:.65rem;color:var(--orange);}
+    .ret-item-info{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin:.2rem 0 .5rem;}
+    .ret-item-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+
+    /* AUTOCOMPLETE */
+    .ac-dropdown{position:fixed;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(26,39,68,.13);z-index:9999;max-height:220px;overflow-y:auto;min-width:220px;display:none;}
+    .ac-item{padding:.45rem .75rem;font-size:.8rem;font-family:var(--sans);cursor:pointer;border-bottom:1px solid #f0f3f8;}
+    .ac-item:last-child{border-bottom:none;}
+    .ac-item:hover{background:#eef1f7;}
+    .ac-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);}
+
+    /* DETAIL */
+    .det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+    .det-row:last-child{border-bottom:none;}
+    .det-label{font-family:var(--mono);font-size:.68rem;color:var(--muted);min-width:110px;}
+    .det-val{font-family:var(--mono);font-size:.78rem;text-align:right;word-break:break-word;}
+    .det-tbl{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:.5rem;}
+    .det-tbl th{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;padding:.3rem .5rem;border-bottom:1px solid var(--border);text-align:left;}
+    .det-tbl td{padding:.35rem .5rem;border-bottom:1px solid #f0f3f8;font-family:var(--mono);font-size:.72rem;}
+    .det-tbl tr:last-child td{border-bottom:none;}
+    .total-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;font-size:.78rem;}
+    .total-row.grand{border-top:2px solid var(--navy);margin-top:.4rem;padding-top:.5rem;font-weight:600;}
+    .total-label{font-family:var(--mono);color:var(--navy);}
+    .total-val{font-family:var(--mono);}
+    .total-row.grand .total-val{color:var(--orange);font-size:.92rem;}
+
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-orange{background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
+    .btn-orange:hover{background:#c94416;}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.8rem;font-family:var(--mono);padding:.42rem .9rem;cursor:pointer;}
+    .btn-outline:hover{border-color:var(--navy);}
+    .btn-approve{background:var(--green);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
+    .btn-approve:hover{background:#158a4e;}
+    .btn-tolak{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
+    .btn-tolak:hover{background:#ffe0e0;}
+    .btn-navy:disabled,.btn-orange:disabled,.btn-approve:disabled,.btn-tolak:disabled{opacity:.5;cursor:not-allowed;}
+
+    .alert-box{font-family:var(--mono);font-size:.75rem;padding:.5rem .75rem;border-radius:6px;margin-bottom:.6rem;}
+    .alert-err{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;}
+    .alert-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+
+    .loading{text-align:center;padding:2rem;font-family:var(--mono);font-size:.78rem;color:var(--muted);}
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <a href="../index.html" class="topbar-back">&#8592; SIEO</a>
+  <div>
+    <div class="topbar-title">Retur Pengiriman</div>
+    <div class="topbar-sub" id="userInfo">—</div>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <input type="text" id="cariInput" placeholder="Cari pelanggan / no. SJ…" oninput="filterTabel()"/>
+  <select id="filterStatus" onchange="filterTabel()">
+    <option value="">Semua Status</option>
+    <option value="PENDING">Pending</option>
+    <option value="APPROVED">Approved</option>
+    <option value="DITOLAK">Ditolak</option>
+  </select>
+  <button class="btn-tambah" id="btnTambah" onclick="bukaBuatRetur()" style="display:none">+ Buat Retur</button>
+</div>
+<div class="info-bar" id="infoBar">Memuat data…</div>
+
+<!-- TABEL LIST RETUR -->
+<div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID Retur</th>
+        <th>Tanggal</th>
+        <th>SJ Ref</th>
+        <th>Pelanggan</th>
+        <th>Entitas</th>
+        <th>Total Retur</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="tbodyRetur"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+  </table>
+</div>
+
+<!-- ============================================================
+     MODAL: BUAT RETUR BARU
+     ============================================================ -->
+<div class="modal fade" id="modalBuat" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Ajukan Retur</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertBuat"></div>
+
+        <div class="sec-label">1. Pelanggan &amp; SJ</div>
+        <div class="mb-3">
+          <label class="form-label">Pelanggan *</label>
+          <input type="text" class="form-control" id="inpPelanggan" placeholder="Ketik nama pelanggan…" autocomplete="off" oninput="acPelanggan(this)"/>
+          <input type="hidden" id="hidPelangganId"/>
+        </div>
+
+        <div id="sjPickerWrap" style="display:none">
+          <label class="form-label">Pilih SJ Terkirim *</label>
+          <div class="sj-pick-list" id="sjPickList"></div>
+        </div>
+
+        <div id="itemPickerWrap" style="display:none">
+          <div class="sec-label" style="margin-top:.85rem">2. Item yang Diretur</div>
+          <div id="retItemList"></div>
+
+          <div class="sec-label" style="margin-top:.85rem">3. Alasan</div>
+          <div class="mb-3">
+            <textarea class="form-control" id="inpAlasan" rows="2" placeholder="cth: Salah cetak warna, kelebihan kirim, dll"></textarea>
+          </div>
+
+          <div class="total-row grand">
+            <span class="total-label">Estimasi Total Retur</span>
+            <span class="total-val" id="previewTotal">Rp 0</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-orange" id="btnSubmitRetur" onclick="submitRetur()" style="display:none">Ajukan Retur</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: DETAIL / APPROVE RETUR
+     ============================================================ -->
+<div class="modal fade" id="modalDetail" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="detailJudul">Detail Retur</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertDetail"></div>
+        <div id="detailHeader"></div>
+        <div class="sec-label" style="margin-top:.85rem">Item Retur</div>
+        <table class="det-tbl">
+          <thead><tr><th>Item</th><th>Jenis</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
+          <tbody id="detailItems"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
+        </table>
+        <div id="detailTotals" style="margin-top:.5rem"></div>
+      </div>
+      <div class="modal-footer" id="detailFooter"></div>
+    </div>
+  </div>
+</div>
+
+<div id="acDropdown" class="ac-dropdown"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+var semuaRetur     = [];
+var semuaPelanggan = [];
+var sjListAktif    = [];   // SJ TERKIRIM milik pelanggan yang dipilih
+var sjDipilih      = null; // SJ yang sedang dipilih untuk retur
+var itemSJAktif    = [];   // item dari getPengirimanDetail
+var acTimeout      = null;
+var bisaApprove    = false;
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+  var sesi = null;
+  try { sesi = JSON.parse(localStorage.getItem('sieo_sesi')||'null'); } catch(e){}
+  if (!sesi || !sesi.email) { window.location.href = '../login.html'; return; }
+  document.getElementById('userInfo').textContent = (sesi.nama||'') + ' · ' + (sesi.role||'');
+
+  var role = (sesi.role||'').toUpperCase();
+  bisaApprove = ['MANAGER','DIREKTUR'].indexOf(role) >= 0;
+  if (role !== 'SALES') document.getElementById('btnTambah').style.display = '';
+
+  muatRetur();
+  muatPelanggan();
+  document.addEventListener('click', tutupAC);
+});
+
+function getNamaUser() { try{ return JSON.parse(localStorage.getItem('sieo_sesi')||'{}').nama||''; }catch(e){return '';} }
+function esc(s){ if(s===null||s===undefined) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtTgl(s){ if(!s) return '—'; var d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtAngka(n){ return Number(n||0).toLocaleString('id-ID'); }
+function fmtRupiah(n){ return 'Rp '+Number(n||0).toLocaleString('id-ID'); }
+
+// ════════════════════════════════════════════════════════════
+// MUAT & RENDER TABEL
+// ════════════════════════════════════════════════════════════
+function muatRetur() {
+  document.getElementById('tbodyRetur').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  apiGet('getRetur', {}).then(function(res) {
+    semuaRetur = (res && res.status==='ok') ? res.data : [];
+    renderTabel(semuaRetur);
+  }).catch(function() {
+    document.getElementById('tbodyRetur').innerHTML = '<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
+  });
+}
+
+function renderTabel(data) {
+  document.getElementById('infoBar').textContent = data.length + ' retur ditemukan';
+  var tb = document.getElementById('tbodyRetur');
+  if (!data.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty-state">Belum ada data retur.</td></tr>';
+    return;
+  }
+  tb.innerHTML = data.map(function(r) {
+    var stCls = 's-' + String(r.STATUS||'').toLowerCase();
+    return '<tr onclick="bukaDetail(\''+esc(r.ID_RETUR)+'\')">'+
+      '<td class="td-mono">'+esc(r.ID_RETUR)+'</td>'+
+      '<td class="td-tgl">'+fmtTgl(r.TGL_RETUR)+'</td>'+
+      '<td><div class="td-mono">'+esc(r.NO_SJ_REF)+'</div><div class="td-id">'+esc(r.NO_NOTA_REF)+'</div></td>'+
+      '<td>'+esc(r.NAMA_PELANGGAN)+'</td>'+
+      '<td><span class="badge-status badge-entitas">'+esc(r.ENTITAS)+'</span></td>'+
+      '<td class="td-mono">'+fmtRupiah(r.TOTAL_RETUR)+'</td>'+
+      '<td><span class="badge-status '+stCls+'">'+esc(r.STATUS)+'</span></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function filterTabel() {
+  var q  = document.getElementById('cariInput').value.toLowerCase();
+  var st = document.getElementById('filterStatus').value;
+  var filtered = semuaRetur.filter(function(r) {
+    var cari = (String(r.NO_SJ_REF||'')+' '+String(r.NO_NOTA_REF||'')+' '+String(r.NAMA_PELANGGAN||'')).toLowerCase();
+    return (!q || cari.indexOf(q)>=0) && (!st || r.STATUS === st);
+  });
+  renderTabel(filtered);
+}
+
+// ════════════════════════════════════════════════════════════
+// AUTOCOMPLETE PELANGGAN
+// ════════════════════════════════════════════════════════════
+function muatPelanggan() {
+  apiGet('getPelanggan', { status:'AKTIF' }).then(function(res) {
+    semuaPelanggan = Array.isArray(res) ? res : (res.data||[]);
+  }).catch(function(){});
+}
+
+function acPelanggan(inp) {
+  clearTimeout(acTimeout);
+  document.getElementById('hidPelangganId').value = '';
+  resetSJPicker();
+  var q = inp.value.toLowerCase().trim();
+  if (!q) { tutupAC(); return; }
+  acTimeout = setTimeout(function() {
+    var hits = semuaPelanggan.filter(function(p) {
+      return (p.nama||'').toLowerCase().indexOf(q)>=0 || (p.id_pelanggan||'').toLowerCase().indexOf(q)>=0;
+    }).slice(0,8);
+    tampilAC(inp, hits, function(p) {
+      document.getElementById('inpPelanggan').value   = p.nama;
+      document.getElementById('hidPelangganId').value = p.id_pelanggan;
+      tutupAC();
+      muatSJPelanggan(p.id_pelanggan);
+    }, function(p) {
+      return '<div>'+esc(p.nama)+'</div><div class="ac-sub">'+esc(p.id_pelanggan)+'</div>';
+    });
+  }, 200);
+}
+
+function tampilAC(inp, items, onPilih, renderFn) {
+  var ac = document.getElementById('acDropdown');
+  if (!items.length) { ac.style.display='none'; return; }
+  var rect = inp.getBoundingClientRect();
+  ac.style.left   = rect.left + window.scrollX + 'px';
+  ac.style.top    = (rect.bottom + window.scrollY + 2) + 'px';
+  ac.style.width  = Math.max(rect.width, 220) + 'px';
+  ac.style.display= 'block';
+  ac.innerHTML    = items.map(function(it,i) {
+    return '<div class="ac-item" data-idx="'+i+'">'+renderFn(it)+'</div>';
+  }).join('');
+  ac.querySelectorAll('.ac-item').forEach(function(el,i) {
+    el.addEventListener('mousedown', function(ev){ ev.preventDefault(); onPilih(items[i]); });
+    el.addEventListener('touchend',  function(ev){ ev.preventDefault(); onPilih(items[i]); });
+  });
+}
+
+function tutupAC(ev) {
+  if (ev && ev.target && ev.target.closest && ev.target.closest('#acDropdown')) return;
+  document.getElementById('acDropdown').style.display = 'none';
+}
+
+// ════════════════════════════════════════════════════════════
+// PILIH SJ
+// ════════════════════════════════════════════════════════════
+function resetSJPicker() {
+  sjListAktif = []; sjDipilih = null; itemSJAktif = [];
+  document.getElementById('sjPickerWrap').style.display = 'none';
+  document.getElementById('itemPickerWrap').style.display = 'none';
+  document.getElementById('btnSubmitRetur').style.display = 'none';
+  document.getElementById('sjPickList').innerHTML = '';
+  document.getElementById('retItemList').innerHTML = '';
+  document.getElementById('previewTotal').textContent = 'Rp 0';
+}
+
+function muatSJPelanggan(idPelanggan) {
+  document.getElementById('sjPickerWrap').style.display = 'none';
+  document.getElementById('itemPickerWrap').style.display = 'none';
+  document.getElementById('btnSubmitRetur').style.display = 'none';
+  apiGet('getPengiriman', { idPelanggan: idPelanggan, status: 'TERKIRIM' }).then(function(res) {
+    sjListAktif = (res && res.status==='ok') ? res.data : [];
+    renderSJPickList();
+  }).catch(function() {
+    document.getElementById('alertBuat').innerHTML = '<div class="alert-box alert-err">Gagal memuat data SJ.</div>';
+  });
+}
+
+function renderSJPickList() {
+  var wrap = document.getElementById('sjPickerWrap');
+  var list = document.getElementById('sjPickList');
+  if (!sjListAktif.length) {
+    list.innerHTML = '<div class="sj-pick-item" style="cursor:default;color:var(--muted)">Tidak ada SJ terkirim untuk pelanggan ini.</div>';
+    wrap.style.display = '';
+    return;
+  }
+  list.innerHTML = sjListAktif.map(function(sj,i) {
+    return '<div class="sj-pick-item" data-idx="'+i+'" onclick="pilihSJ('+i+')">'+
+      '<div class="sj-pick-mono">'+esc(sj.no_sj)+' &middot; '+esc(sj.no_nota)+' &middot; '+fmtTgl(sj.tgl)+'</div>'+
+      '<div>'+fmtRupiah(sj.total_tagihan||sj.total)+'</div>'+
+    '</div>';
+  }).join('');
+  wrap.style.display = '';
+}
+
+function pilihSJ(idx) {
+  sjDipilih = sjListAktif[idx];
+  document.querySelectorAll('#sjPickList .sj-pick-item').forEach(function(el,i){
+    el.classList.toggle('aktif', i===idx);
+  });
+  document.getElementById('alertBuat').innerHTML = '';
+  document.getElementById('itemPickerWrap').style.display = 'none';
+  document.getElementById('retItemList').innerHTML = '<div class="loading">Memuat item SJ…</div>';
+  document.getElementById('itemPickerWrap').style.display = '';
+
+  apiGet('getPengirimanDetail', { idSJ: sjDipilih.id_sj }).then(function(res) {
+    itemSJAktif = (res && res.status==='ok') ? res.data : [];
+    renderRetItemList();
+  }).catch(function() {
+    document.getElementById('retItemList').innerHTML = '<div class="alert-box alert-err">Gagal memuat item SJ.</div>';
+  });
+}
+
+function renderRetItemList() {
+  var wrap = document.getElementById('retItemList');
+  if (!itemSJAktif.length) {
+    wrap.innerHTML = '<div class="alert-box alert-err">SJ ini tidak punya item.</div>';
+    document.getElementById('btnSubmitRetur').style.display = 'none';
+    return;
+  }
+  wrap.innerHTML = itemSJAktif.map(function(it,i) {
+    var qtyKirim = parseFloat(it.qty_kirim)||0;
+    return '<div class="ret-item" data-idx="'+i+'">'+
+      '<div class="ret-item-nama">'+esc(it.nama_item)+'</div>'+
+      (it.subitem ? '<div class="ret-item-sub">'+esc(it.subitem)+'</div>' : '')+
+      '<div class="ret-item-info">Qty Kirim: '+fmtAngka(qtyKirim)+' '+esc(it.satuan)+' &middot; Harga: '+fmtRupiah(it.harga)+'</div>'+
+      '<div class="ret-item-row">'+
+        '<div>'+
+          '<label class="form-label">Qty Retur</label>'+
+          '<input type="number" class="form-control" id="qtyRet_'+i+'" min="0" max="'+qtyKirim+'" placeholder="0" oninput="updatePreviewTotal()"/>'+
+        '</div>'+
+        '<div>'+
+          '<label class="form-label">Jenis</label>'+
+          '<select class="form-select" id="jenisRet_'+i+'">'+
+            '<option value="BAGUS">Bagus (balik stok)</option>'+
+            '<option value="RUSAK">Rusak (tidak balik stok)</option>'+
+          '</select>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  document.getElementById('btnSubmitRetur').style.display = '';
+  updatePreviewTotal();
+}
+
+function updatePreviewTotal() {
+  var subtotal = 0;
+  itemSJAktif.forEach(function(it,i) {
+    var qty = parseFloat((document.getElementById('qtyRet_'+i)||{}).value)||0;
+    var harga = parseFloat(it.harga)||0;
+    subtotal += qty * harga;
+  });
+  var entitas = sjDipilih ? sjDipilih.entitas : 'PT';
+  var ppn = entitas === 'PT' ? Math.round(subtotal * 0.11) : 0;
+  document.getElementById('previewTotal').textContent = fmtRupiah(subtotal + ppn) +
+    (entitas==='PT' ? ' (termasuk PPN '+fmtRupiah(ppn)+')' : '');
+}
+
+// ════════════════════════════════════════════════════════════
+// BUKA / SUBMIT MODAL BUAT RETUR
+// ════════════════════════════════════════════════════════════
+function bukaBuatRetur() {
+  document.getElementById('alertBuat').innerHTML = '';
+  document.getElementById('inpPelanggan').value = '';
+  document.getElementById('hidPelangganId').value = '';
+  document.getElementById('inpAlasan').value = '';
+  resetSJPicker();
+  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+}
+
+function submitRetur() {
+  var alertEl = document.getElementById('alertBuat');
+  alertEl.innerHTML = '';
+
+  if (!sjDipilih) { alertEl.innerHTML = '<div class="alert-box alert-err">Pilih SJ terlebih dahulu.</div>'; return; }
+  var alasan = document.getElementById('inpAlasan').value.trim();
+  if (!alasan) { alertEl.innerHTML = '<div class="alert-box alert-err">Alasan retur wajib diisi.</div>'; return; }
+
+  var items = [];
+  for (var i=0; i<itemSJAktif.length; i++) {
+    var qty = parseFloat((document.getElementById('qtyRet_'+i)||{}).value)||0;
+    if (qty <= 0) continue;
+    var it = itemSJAktif[i];
+    var qtyKirim = parseFloat(it.qty_kirim)||0;
+    if (qty > qtyKirim) {
+      alertEl.innerHTML = '<div class="alert-box alert-err">Qty retur "'+esc(it.nama_item)+'" ('+fmtAngka(qty)+') melebihi qty kirim ('+fmtAngka(qtyKirim)+').</div>';
+      return;
+    }
+    items.push({
+      idOrderDetail: it.id_order_detail || '',
+      idItem: it.id_item || '',
+      namaItem: it.nama_item || '',
+      subitem: it.subitem || '',
+      qtyRetur: qty,
+      satuan: it.satuan || '',
+      harga: parseFloat(it.harga)||0,
+      jenisRetur: document.getElementById('jenisRet_'+i).value
+    });
+  }
+  if (!items.length) { alertEl.innerHTML = '<div class="alert-box alert-err">Isi minimal 1 qty retur.</div>'; return; }
+
+  var btn = document.getElementById('btnSubmitRetur');
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+
+  apiPost('ajukanRetur', {
+    idSJ: sjDipilih.id_sj,
+    alasan: alasan,
+    userInput: getNamaUser(),
+    items: items
+  }).then(function(res) {
+    if (res && res.status === 'ok') {
+      bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
+      muatRetur();
+    } else {
+      alertEl.innerHTML = '<div class="alert-box alert-err">'+esc((res&&res.message)||'Gagal menyimpan.')+'</div>';
+    }
+  }).catch(function() {
+    alertEl.innerHTML = '<div class="alert-box alert-err">Gagal menyimpan. Coba lagi.</div>';
+  }).finally(function() {
+    btn.disabled = false; btn.textContent = 'Ajukan Retur';
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// DETAIL / APPROVE
+// ════════════════════════════════════════════════════════════
+function bukaDetail(idRetur) {
+  var r = semuaRetur.find(function(x){ return x.ID_RETUR === idRetur; });
+  if (!r) return;
+  document.getElementById('alertDetail').innerHTML = '';
+  document.getElementById('detailJudul').textContent = 'Retur ' + r.ID_RETUR;
+
+  document.getElementById('detailHeader').innerHTML =
+    '<div class="det-row"><span class="det-label">SJ Ref</span><span class="det-val">'+esc(r.NO_SJ_REF)+' / '+esc(r.NO_NOTA_REF)+'</span></div>'+
+    '<div class="det-row"><span class="det-label">Pelanggan</span><span class="det-val">'+esc(r.NAMA_PELANGGAN)+'</span></div>'+
+    '<div class="det-row"><span class="det-label">Entitas</span><span class="det-val">'+esc(r.ENTITAS)+'</span></div>'+
+    '<div class="det-row"><span class="det-label">Tanggal</span><span class="det-val">'+fmtTgl(r.TGL_RETUR)+'</span></div>'+
+    '<div class="det-row"><span class="det-label">Alasan</span><span class="det-val">'+esc(r.ALASAN)+'</span></div>'+
+    '<div class="det-row"><span class="det-label">Diajukan oleh</span><span class="det-val">'+esc(r.USER_INPUT)+'</span></div>'+
+    (r.STATUS !== 'PENDING' ? '<div class="det-row"><span class="det-label">'+(r.STATUS==='APPROVED'?'Disetujui':'Ditolak')+' oleh</span><span class="det-val">'+esc(r.APPROVER)+' &middot; '+fmtTgl(r.TGL_APPROVE)+'</span></div>' : '');
+
+  document.getElementById('detailItems').innerHTML = '<tr><td colspan="5" class="loading">Memuat…</td></tr>';
+  document.getElementById('detailTotals').innerHTML = '';
+
+  var footer = document.getElementById('detailFooter');
+  if (r.STATUS === 'PENDING' && bisaApprove) {
+    footer.innerHTML =
+      '<button class="btn-tolak" onclick="prosesRetur(\''+esc(r.ID_RETUR)+'\',\'TOLAK\')">Tolak</button>'+
+      '<button class="btn-approve" onclick="prosesRetur(\''+esc(r.ID_RETUR)+'\',\'APPROVE\')">Approve</button>';
+  } else {
+    footer.innerHTML = '<button class="btn-outline" data-bs-dismiss="modal">Tutup</button>';
+  }
+
+  new bootstrap.Modal(document.getElementById('modalDetail')).show();
+
+  apiGet('getReturDetail', { idRetur: idRetur }).then(function(res) {
+    var items = (res && res.status==='ok') ? res.data : [];
+    if (!items.length) {
+      document.getElementById('detailItems').innerHTML = '<tr><td colspan="5" class="empty-state">Tidak ada item.</td></tr>';
+      return;
+    }
+    document.getElementById('detailItems').innerHTML = items.map(function(it) {
+      var jCls = it.JENIS_RETUR === 'BAGUS' ? 'j-bagus' : 'j-rusak';
+      return '<tr>'+
+        '<td>'+esc(it.NAMA_ITEM)+(it.SUBITEM?' <span style="color:var(--orange)">'+esc(it.SUBITEM)+'</span>':'')+'</td>'+
+        '<td><span class="badge-jenis '+jCls+'">'+esc(it.JENIS_RETUR)+'</span></td>'+
+        '<td>'+fmtAngka(it.QTY_RETUR)+' '+esc(it.SATUAN)+'</td>'+
+        '<td>'+fmtRupiah(it.HARGA)+'</td>'+
+        '<td>'+fmtRupiah(it.SUBTOTAL)+'</td>'+
+      '</tr>';
+    }).join('');
+
+    var totalsHtml =
+      '<div class="total-row"><span class="total-label">Total Nilai Retur</span><span class="total-val">'+fmtRupiah(r.TOTAL_NILAI_RETUR)+'</span></div>';
+    if (r.ENTITAS === 'PT') {
+      totalsHtml += '<div class="total-row"><span class="total-label">PPN 11%</span><span class="total-val">'+fmtRupiah(r.PPN_RETUR)+'</span></div>';
+    }
+    totalsHtml += '<div class="total-row grand"><span class="total-label">Total Retur (kredit piutang)</span><span class="total-val">'+fmtRupiah(r.TOTAL_RETUR)+'</span></div>';
+    document.getElementById('detailTotals').innerHTML = totalsHtml;
+  }).catch(function() {
+    document.getElementById('detailItems').innerHTML = '<tr><td colspan="5" class="loading" style="color:var(--red)">Gagal memuat item.</td></tr>';
+  });
+}
+
+function prosesRetur(idRetur, aksi) {
+  if (aksi === 'TOLAK' && !confirm('Tolak retur ' + idRetur + '?')) return;
+  if (aksi === 'APPROVE' && !confirm('Approve retur ' + idRetur + '? Stok & sisa kirim akan diperbarui.')) return;
+
+  var alertEl = document.getElementById('alertDetail');
+  alertEl.innerHTML = '';
+  var footer = document.getElementById('detailFooter');
+  footer.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
+
+  apiPost('approveRetur', { idRetur: idRetur, aksi: aksi, approvedBy: getNamaUser() }).then(function(res) {
+    if (res && res.status === 'ok') {
+      bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
+      muatRetur();
+    } else {
+      alertEl.innerHTML = '<div class="alert-box alert-err">'+esc((res&&res.message)||'Gagal memproses.')+'</div>';
+      footer.querySelectorAll('button').forEach(function(b){ b.disabled = false; });
+    }
+  }).catch(function() {
+    alertEl.innerHTML = '<div class="alert-box alert-err">Gagal memproses. Coba lagi.</div>';
+    footer.querySelectorAll('button').forEach(function(b){ b.disabled = false; });
+  });
+}
+</script>
+</body>
+</html>
