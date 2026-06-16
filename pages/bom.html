@@ -15,6 +15,7 @@
     .page-header .subtitle{font-size:11px;opacity:.6;margin-top:2px;font-family:var(--mono);}
     .btn-back{color:#fff;text-decoration:none;font-size:13px;opacity:.8;}
     .btn-back:hover{opacity:1;color:#fff;}
+    #userPill{font-family:var(--mono);font-size:11px;opacity:.7;}
 
     .panel{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;}
     .panel label{font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);display:block;margin-bottom:6px;}
@@ -29,7 +30,6 @@
     .warna-count{font-family:var(--mono);font-size:11px;color:var(--accent);margin-left:6px;font-weight:400;text-transform:none;letter-spacing:0;}
     .bom-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:12px;margin-bottom:8px;}
 
-    /* ROW */
     .row-item{display:flex;gap:6px;align-items:flex-start;margin-bottom:6px;}
     .row-item .ac-wrap{flex:1;}
     .ket-input{font-size:12px;border:1px solid var(--border);border-radius:3px;padding:6px 8px;background:var(--bg);width:140px;font-family:var(--sans);}
@@ -39,12 +39,11 @@
     .btn-add-row{background:none;border:1px dashed var(--border);color:var(--muted);border-radius:3px;padding:5px 12px;font-size:12px;font-family:var(--mono);cursor:pointer;width:100%;margin-top:4px;}
     .btn-add-row:hover{border-color:var(--accent);color:var(--accent);}
 
-    /* AUTOCOMPLETE */
     .ac-wrap{position:relative;}
     .ac-input{width:100%;font-size:13px;border:1px solid var(--border);border-radius:3px;padding:6px 10px;background:var(--bg);font-family:var(--sans);color:var(--text);}
     .ac-input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px rgba(26,58,92,.12);}
     .ac-input.selected{border-color:#15803d;background:#f0fdf4;}
-    .ac-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1.5px solid var(--accent);border-top:none;border-radius:0 0 4px 4px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+    .ac-dropdown{position:fixed;background:var(--surface);border:1.5px solid var(--accent);border-radius:4px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.15);}
     .ac-dropdown.open{display:block;}
     .ac-item{padding:8px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:2px;}
     .ac-item:last-child{border-bottom:none;}
@@ -52,9 +51,7 @@
     .ac-item-id{font-family:var(--mono);font-size:10px;color:var(--muted);}
     .ac-item-nama{font-size:13px;font-weight:500;}
     .ac-empty{padding:10px;font-size:12px;color:var(--muted);font-family:var(--mono);text-align:center;}
-    .ac-hint{font-size:11px;color:var(--accent2);font-family:var(--mono);margin-top:3px;display:none;}
 
-    /* FINISHING */
     .fin-row{display:flex;gap:6px;align-items:flex-start;margin-bottom:6px;}
     .fin-row .ac-wrap{flex:1;}
 
@@ -74,7 +71,10 @@
     <div class="title">BOM — Bill of Materials</div>
     <div class="subtitle">SIEO — PT. Elim Citra Offset</div>
   </div>
-  <a href="../index.html" class="btn-back">← Kembali</a>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+    <a href="../index.html" class="btn-back">← Kembali</a>
+    <span id="userPill"></span>
+  </div>
 </div>
 
 <div class="panel">
@@ -128,17 +128,25 @@
 <script src="../js/utils.js"></script>
 <script>
   let dataItem = [], dataTinta = [], dataBahan = [];
+  let idBomAktif = null; // id_bom dari m_bom yang sedang diedit
   const FINISHING_LIST = ['POTONG','LAMINASI DOFF','LAMINASI GLOSSY','PON','FOIL','LEM','NOMERATOR','PERFORASI ATAS','PERFORASI SAMPING','BLOK LEM','SPIRAL','JILID','PACKING'];
 
-  // ===================== AUTOCOMPLETE ENGINE =====================
+  // ===================== AUTOCOMPLETE ENGINE (fixed position, Android safe) =====================
   function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect) {
     let selectedId = null;
+
+    function positionDrop() {
+      const r = inputEl.getBoundingClientRect();
+      dropEl.style.top    = (r.bottom + window.scrollY) + 'px';
+      dropEl.style.left   = (r.left   + window.scrollX) + 'px';
+      dropEl.style.width  = r.width + 'px';
+    }
 
     function filter(q) {
       q = q.toLowerCase();
       return dataArr.filter(d =>
-        d[idKey].toLowerCase().includes(q) ||
-        d[namaKey].toLowerCase().includes(q)
+        (d[idKey]   || '').toLowerCase().includes(q) ||
+        (d[namaKey] || '').toLowerCase().includes(q)
       ).slice(0, 30);
     }
 
@@ -152,10 +160,11 @@
           div.className = 'ac-item';
           div.innerHTML = `<span class="ac-item-id">${escHtml(d[idKey])}</span><span class="ac-item-nama">${escHtml(d[namaKey])}</span>`;
           div.addEventListener('mousedown', e => { e.preventDefault(); pilih(d); });
-          div.addEventListener('touchend', e => { e.preventDefault(); pilih(d); });
+          div.addEventListener('touchend',  e => { e.preventDefault(); pilih(d); });
           dropEl.appendChild(div);
         });
       }
+      positionDrop();
       dropEl.classList.add('open');
     }
 
@@ -167,9 +176,7 @@
       if (onSelect) onSelect(d);
     }
 
-    function tutup() {
-      dropEl.classList.remove('open');
-    }
+    function tutup() { dropEl.classList.remove('open'); }
 
     inputEl.addEventListener('input', () => {
       selectedId = null;
@@ -184,13 +191,10 @@
       if (q.length > 0 && !selectedId) render(filter(q));
     });
 
-    inputEl.addEventListener('blur', () => {
-      setTimeout(tutup, 200);
-    });
+    inputEl.addEventListener('blur', () => { setTimeout(tutup, 200); });
 
-    // expose getter
     inputEl._getSelectedId = () => selectedId;
-    inputEl._setItem = (d) => { if(d) pilih(d); };
+    inputEl._setItem = (d) => { if (d) pilih(d); };
     inputEl._clear = () => {
       selectedId = null;
       inputEl.value = '';
@@ -200,17 +204,18 @@
   }
 
   // ===================== INIT =====================
-  window.onload = function() {
-    Promise.all([
-      apiGet('getItem'),
-      apiGet('getTinta'),
-      apiGet('getBahan')
-    ]).then(([ri, rt, rb]) => {
-      dataItem  = Array.isArray(ri) ? ri.filter(i => i.status === 'AKTIF') : [];
-      dataTinta = Array.isArray(rt) ? rt.filter(t => t.status === 'AKTIF') : [];
-      dataBahan = Array.isArray(rb) ? rb.filter(b => b.status === 'AKTIF') : [];
+  window.addEventListener('load', function() {
+    if (!guardHalaman()) return;
 
-      // setup AC untuk item
+    Promise.all([
+      dbGet('m_item',  { status: 'eq.AKTIF', order: 'nama_item.asc' }),
+      dbGet('m_tinta', { status: 'eq.AKTIF', order: 'nama_tinta.asc' }),
+      dbGet('m_bahan', { status: 'eq.AKTIF', order: 'nama_bahan.asc' })
+    ]).then(([ri, rt, rb]) => {
+      dataItem  = Array.isArray(ri) ? ri : [];
+      dataTinta = Array.isArray(rt) ? rt : [];
+      dataBahan = Array.isArray(rb) ? rb : [];
+
       buatAC(
         document.getElementById('inputItem'),
         document.getElementById('acDropItem'),
@@ -221,13 +226,13 @@
           document.getElementById('bomWrap').style.display = 'none';
           document.getElementById('saveBar').style.display = 'none';
           document.getElementById('alertBar').innerHTML = '';
+          idBomAktif = null;
         }
       );
     }).catch(() => {
-      document.getElementById('alertBar').innerHTML =
-        '<div class="alert alert-danger py-2" style="font-size:12px">Gagal memuat data master. Refresh halaman.</div>';
+      tampilAlert('Gagal memuat data master. Refresh halaman.', 'danger');
     });
-  };
+  });
 
   // ===================== MUAT BOM =====================
   function muatBom() {
@@ -238,49 +243,73 @@
     document.getElementById('loadingBom').style.display = 'block';
     document.getElementById('bomWrap').style.display = 'none';
     document.getElementById('alertBar').innerHTML = '';
+    idBomAktif = null;
 
-    apiGet('getBomV2', { id_item: idItem }).then(res => {
-      document.getElementById('loadingBom').style.display = 'none';
-      document.getElementById('bomWrap').style.display = 'block';
-      document.getElementById('saveBar').style.display = 'flex';
-      renderBom(res);
+    // Ambil header BOM
+    dbGet('m_bom', { id_item: 'eq.' + idItem }).then(resBom => {
+      const bom = Array.isArray(resBom) && resBom.length > 0 ? resBom[0] : null;
+      idBomAktif = bom ? bom.id_bom : null;
+
+      document.getElementById('inputKeterangan').value = bom ? (bom.keterangan || '') : '';
+
+      if (!bom) {
+        // BOM baru — kosong
+        document.getElementById('listTinta').innerHTML = '';
+        document.getElementById('listBahan').innerHTML = '';
+        document.getElementById('listFinishing').innerHTML = '';
+        tambahRowTinta();
+        tambahRowBahan();
+        tambahRowFinishing();
+        tambahRowFinishing('PACKING');
+        updateWarnaCount();
+        document.getElementById('loadingBom').style.display = 'none';
+        document.getElementById('bomWrap').style.display = 'block';
+        document.getElementById('saveBar').style.display = 'flex';
+        return;
+      }
+
+      // Ambil semua detail BOM sekaligus
+      return Promise.all([
+        dbGet('m_bom_tinta',     { id_bom: 'eq.' + bom.id_bom }),
+        dbGet('m_bom_bahan',     { id_bom: 'eq.' + bom.id_bom }),
+        dbGet('m_bom_finishing', { id_bom: 'eq.' + bom.id_bom })
+      ]).then(([tinta, bahan, finishing]) => {
+        document.getElementById('listTinta').innerHTML = '';
+        const tArr = Array.isArray(tinta) ? tinta : [];
+        if (tArr.length > 0) {
+          tArr.forEach(t => {
+            const obj = dataTinta.find(x => x.id_tinta === t.id_tinta);
+            tambahRowTinta(obj || null);
+          });
+        } else { tambahRowTinta(); }
+
+        document.getElementById('listBahan').innerHTML = '';
+        const bArr = Array.isArray(bahan) ? bahan : [];
+        if (bArr.length > 0) {
+          bArr.forEach(b => {
+            const obj = dataBahan.find(x => x.id_bahan === b.id_bahan);
+            tambahRowBahan(obj || null, b.keterangan);
+          });
+        } else { tambahRowBahan(); }
+
+        document.getElementById('listFinishing').innerHTML = '';
+        const fArr = Array.isArray(finishing) ? finishing : [];
+        if (fArr.length > 0) {
+          fArr.forEach(f => tambahRowFinishing(f.jenis_finishing));
+        } else {
+          tambahRowFinishing();
+          tambahRowFinishing('PACKING');
+        }
+
+        updateWarnaCount();
+        document.getElementById('loadingBom').style.display = 'none';
+        document.getElementById('bomWrap').style.display = 'block';
+        document.getElementById('saveBar').style.display = 'flex';
+      });
     }).catch(() => {
       document.getElementById('loadingBom').style.display = 'none';
       tampilAlert('Gagal memuat BOM.', 'danger');
     });
-  }
-
-  function renderBom(res) {
-    const bom = res.bom && res.bom.length > 0 ? res.bom[0] : null;
-    document.getElementById('inputKeterangan').value = bom ? bom.keterangan : '';
-
-    document.getElementById('listTinta').innerHTML = '';
-    const tinta = res.tinta || [];
-    if (tinta.length > 0) {
-      tinta.forEach(t => {
-        const obj = dataTinta.find(x => x.id_tinta === t.id_tinta);
-        tambahRowTinta(obj || null);
-      });
-    } else { tambahRowTinta(); }
-
-    document.getElementById('listBahan').innerHTML = '';
-    const bahan = res.bahan || [];
-    if (bahan.length > 0) {
-      bahan.forEach(b => {
-        const obj = dataBahan.find(x => x.id_bahan === b.id_bahan);
-        tambahRowBahan(obj || null, b.keterangan);
-      });
-    } else { tambahRowBahan(); }
-
-    document.getElementById('listFinishing').innerHTML = '';
-    const fin = res.finishing || [];
-    if (fin.length > 0) {
-      fin.forEach(f => tambahRowFinishing(f.jenis_finishing));
-    } else {
-      tambahRowFinishing();
-      tambahRowFinishing('PACKING');
-    }
-    updateWarnaCount();
   }
 
   // ===================== ROW BUILDERS =====================
@@ -299,8 +328,9 @@
       <button class="btn-del" onclick="document.getElementById('${id}').remove();updateWarnaCount()">Hapus</button>
     `;
     document.getElementById('listTinta').appendChild(div);
-    const inp = div.querySelector('.ac-input');
+    const inp  = div.querySelector('.ac-input');
     const drop = div.querySelector('.ac-dropdown');
+    document.body.appendChild(drop); // append to body agar tidak terpotong modal
     buatAC(inp, drop, dataTinta, 'id_tinta', 'nama_tinta', updateWarnaCount);
     if (tintaObj) inp._setItem(tintaObj);
     updateWarnaCount();
@@ -320,8 +350,9 @@
       <button class="btn-del" onclick="document.getElementById('${id}').remove()">Hapus</button>
     `;
     document.getElementById('listBahan').appendChild(div);
-    const inp = div.querySelector('.ac-input');
+    const inp  = div.querySelector('.ac-input');
     const drop = div.querySelector('.ac-dropdown');
+    document.body.appendChild(drop);
     buatAC(inp, drop, dataBahan, 'id_bahan', 'nama_bahan', null);
     if (bahanObj) inp._setItem(bahanObj);
   }
@@ -339,18 +370,16 @@
       <button class="btn-del" onclick="document.getElementById('${id}').remove()">Hapus</button>
     `;
     document.getElementById('listFinishing').appendChild(div);
-    const inp = div.querySelector('.ac-input');
+    const inp  = div.querySelector('.ac-input');
     const drop = div.querySelector('.ac-dropdown');
-    // finishing pakai data array sederhana
+    document.body.appendChild(drop);
     const finData = FINISHING_LIST.map(f => ({ id: f, nama: f }));
-    buatAC(inp, drop, finData, 'id', 'nama', d => { inp.value = d.id; });
-    // kalau sudah ada value, tandai sebagai selected
+    buatAC(inp, drop, finData, 'id', 'nama', d => { inp.value = d.id; inp.classList.add('selected'); });
     if (val) {
       inp.classList.add('selected');
       inp._getSelectedId = () => val;
     }
-    // override agar teks bebas juga valid
-    inp._getFinVal = () => inp.value.trim();
+    inp._getFinVal = () => inp.value.trim().toUpperCase();
   }
 
   function updateWarnaCount() {
@@ -359,58 +388,87 @@
     document.getElementById('warnaCount').textContent = isi > 0 ? isi + ' warna' : '';
   }
 
-  // ===================== SIMPAN =====================
-  function simpanBom() {
+  // ===================== SIMPAN BOM =====================
+  async function simpanBom() {
     const inputItem = document.getElementById('inputItem');
     const idItem = inputItem._getSelectedId ? inputItem._getSelectedId() : null;
     if (!idItem) return tampilAlert('Pilih item dari daftar terlebih dahulu.', 'warning');
 
-    // tinta
+    // Kumpulkan tinta
     const tinta = [];
     let tintaError = false;
     document.querySelectorAll('#listTinta .tinta-row .ac-input').forEach(inp => {
-      const id = inp._getSelectedId ? inp._getSelectedId() : null;
       if (!inp.value.trim()) return;
+      const id = inp._getSelectedId ? inp._getSelectedId() : null;
       if (!id) { tintaError = true; return; }
-      tinta.push({ id_tinta: id });
+      tinta.push(id);
     });
-    if (tintaError) return tampilAlert('Ada tinta yang tidak dikenali. Pilih dari daftar, atau tambah di Master Tinta dulu.', 'danger');
-    if (tinta.length === 0) return tampilAlert('Minimal 1 tinta wajib diisi.', 'danger');
+    if (tintaError)  return tampilAlert('Ada tinta yang tidak dikenali. Pilih dari daftar.', 'danger');
+    if (!tinta.length) return tampilAlert('Minimal 1 tinta wajib diisi.', 'danger');
 
-    // bahan
+    // Kumpulkan bahan
     const bahan = [];
     let bahanError = false;
     document.querySelectorAll('#listBahan .bahan-row').forEach(row => {
       const inp = row.querySelector('.ac-input');
       const ket = row.querySelector('.ket-input');
-      const id  = inp._getSelectedId ? inp._getSelectedId() : null;
       if (!inp.value.trim()) return;
+      const id = inp._getSelectedId ? inp._getSelectedId() : null;
       if (!id) { bahanError = true; return; }
       bahan.push({ id_bahan: id, keterangan: ket ? ket.value.trim() : '' });
     });
-    if (bahanError) return tampilAlert('Ada bahan yang tidak dikenali. Pilih dari daftar, atau tambah di Master Bahan dulu.', 'danger');
-    if (bahan.length === 0) return tampilAlert('Minimal 1 bahan wajib diisi.', 'danger');
+    if (bahanError)  return tampilAlert('Ada bahan yang tidak dikenali. Pilih dari daftar.', 'danger');
+    if (!bahan.length) return tampilAlert('Minimal 1 bahan wajib diisi.', 'danger');
 
-    // finishing
+    // Kumpulkan finishing
     const finishing = [];
     document.querySelectorAll('#listFinishing .fin-row').forEach(row => {
       const inp = row.querySelector('.ac-input');
-      const val = inp._getFinVal ? inp._getFinVal() : inp.value.trim();
-      if (val) finishing.push({ jenis_finishing: val });
+      const val = inp._getFinVal ? inp._getFinVal() : inp.value.trim().toUpperCase();
+      if (val) finishing.push(val);
     });
-    if (finishing.length === 0) return tampilAlert('Minimal 1 finishing wajib diisi.', 'danger');
+    if (!finishing.length) return tampilAlert('Minimal 1 finishing wajib diisi.', 'danger');
 
     const keterangan = document.getElementById('inputKeterangan').value.trim();
-    const payload = { id_item: idItem, keterangan, bahan, tinta, finishing };
-
     const btn = document.getElementById('btnSimpan');
     btn.textContent = 'Menyimpan...'; btn.disabled = true;
 
-    apiPost('simpanBomV2', payload).then(res => {
-      if (res.error) tampilAlert(res.error, 'danger');
-      else tampilAlert('BOM berhasil disimpan.', 'success');
-    }).catch(() => tampilAlert('Gagal menyimpan. Coba lagi.', 'danger'))
-    .finally(() => { btn.textContent = 'Simpan BOM'; btn.disabled = false; });
+    try {
+      let idBom = idBomAktif;
+
+      if (idBom) {
+        // Update header
+        await dbUpdate('m_bom', { id_bom: 'eq.' + idBom }, { keterangan });
+        // Hapus semua detail lama
+        await Promise.all([
+          dbDelete('m_bom_tinta',     { id_bom: 'eq.' + idBom }),
+          dbDelete('m_bom_bahan',     { id_bom: 'eq.' + idBom }),
+          dbDelete('m_bom_finishing', { id_bom: 'eq.' + idBom })
+        ]);
+      } else {
+        // Insert header baru — id_bom pakai id_item (1:1)
+        idBom = idItem;
+        await dbInsert('m_bom', { id_bom: idBom, id_item: idItem, keterangan });
+        idBomAktif = idBom;
+      }
+
+      // Insert detail baru (satu per satu karena RLS, bukan bulk)
+      await Promise.all(
+        tinta.map(id_tinta => dbInsert('m_bom_tinta', { id_bom: idBom, id_tinta }))
+      );
+      await Promise.all(
+        bahan.map(b => dbInsert('m_bom_bahan', { id_bom: idBom, id_bahan: b.id_bahan, keterangan: b.keterangan }))
+      );
+      await Promise.all(
+        finishing.map(jenis_finishing => dbInsert('m_bom_finishing', { id_bom: idBom, jenis_finishing }))
+      );
+
+      tampilAlert('BOM berhasil disimpan.', 'success');
+    } catch (e) {
+      tampilAlert('Gagal menyimpan: ' + (e.message || 'Coba lagi.'), 'danger');
+    } finally {
+      btn.textContent = 'Simpan BOM'; btn.disabled = false;
+    }
   }
 
   function tampilAlert(msg, tipe) {
@@ -418,23 +476,6 @@
       `<div class="alert alert-${tipe} py-2" style="font-size:12px">${msg}</div>`;
     window.scrollTo(0, 0);
   }
-
-  function escHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  function apiGet(action, params) {
-    let url = GAS_URL + '?action=' + action;
-    if (params) Object.keys(params).forEach(k => url += '&' + k + '=' + encodeURIComponent(params[k]));
-    return fetch(url).then(r => r.json());
-  }
-</script>
-<script>
-window.addEventListener("load", function(){
-  guardHalaman();
-  renderUserInfo();
-});
 </script>
 </body>
 </html>
