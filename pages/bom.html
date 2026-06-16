@@ -128,7 +128,7 @@
 <script src="../js/utils.js"></script>
 <script>
   let dataItem = [], dataTinta = [], dataBahan = [];
-  let idBomAktif = null; // id_bom dari m_bom yang sedang diedit
+  let idItemAktif = null; // id_item dari BOM yang sedang diedit
   const FINISHING_LIST = ['POTONG','LAMINASI DOFF','LAMINASI GLOSSY','PON','FOIL','LEM','NOMERATOR','PERFORASI ATAS','PERFORASI SAMPING','BLOK LEM','SPIRAL','JILID','PACKING'];
 
   // ===================== AUTOCOMPLETE ENGINE (fixed position, Android safe) =====================
@@ -245,12 +245,12 @@
     document.getElementById('loadingBom').style.display = 'block';
     document.getElementById('bomWrap').style.display = 'none';
     document.getElementById('alertBar').innerHTML = '';
-    idBomAktif = null;
+    idItemAktif = null;
 
     // Ambil header BOM
     dbGet('m_bom', { id_item: 'eq.' + idItem }).then(resBom => {
       const bom = Array.isArray(resBom) && resBom.length > 0 ? resBom[0] : null;
-      idBomAktif = bom ? bom.id_bom : null;
+      idItemAktif = bom ? idItem : null;
 
       document.getElementById('inputKeterangan').value = bom ? (bom.keterangan || '') : '';
 
@@ -272,9 +272,9 @@
 
       // Ambil semua detail BOM sekaligus
       return Promise.all([
-        dbGet('m_bom_tinta',     { id_bom: 'eq.' + bom.id_bom }),
-        dbGet('m_bom_bahan',     { id_bom: 'eq.' + bom.id_bom }),
-        dbGet('m_bom_finishing', { id_bom: 'eq.' + bom.id_bom })
+        dbGet('m_bom_tinta',     { id_item: 'eq.' + idItem, order: 'urut.asc' }),
+        dbGet('m_bom_bahan',     { id_item: 'eq.' + idItem, order: 'urut.asc' }),
+        dbGet('m_bom_finishing', { id_item: 'eq.' + idItem, order: 'urut.asc' })
       ]).then(([tinta, bahan, finishing]) => {
         document.getElementById('listTinta').innerHTML = '';
         const tArr = Array.isArray(tinta) ? tinta : [];
@@ -436,34 +436,40 @@
     btn.textContent = 'Menyimpan...'; btn.disabled = true;
 
     try {
-      let idBom = idBomAktif;
+      let idItem = inputItem._getSelectedId();
 
-      if (idBom) {
+      if (idItemAktif) {
         // Update header
-        await dbUpdate('m_bom', { id_bom: 'eq.' + idBom }, { keterangan });
+        const resUpd = await dbUpdate('m_bom', { id_item: 'eq.' + idItem }, { keterangan });
+        if (resUpd && resUpd.code) throw new Error('Update header: ' + resUpd.message);
         // Hapus semua detail lama
-        await Promise.all([
-          dbDelete('m_bom_tinta',     { id_bom: 'eq.' + idBom }),
-          dbDelete('m_bom_bahan',     { id_bom: 'eq.' + idBom }),
-          dbDelete('m_bom_finishing', { id_bom: 'eq.' + idBom })
+        await Promise.allSettled([
+          dbDelete('m_bom_tinta',     { id_item: 'eq.' + idItem }),
+          dbDelete('m_bom_bahan',     { id_item: 'eq.' + idItem }),
+          dbDelete('m_bom_finishing', { id_item: 'eq.' + idItem })
         ]);
       } else {
-        // Insert header baru — id_bom pakai id_item (1:1)
-        idBom = idItem;
-        await dbInsert('m_bom', { id_bom: idBom, id_item: idItem, keterangan });
-        idBomAktif = idBom;
+        // Insert header baru
+        const resIns = await dbInsert('m_bom', { id_item: idItem, keterangan });
+        if (resIns && resIns.code) throw new Error('Insert header: ' + resIns.message);
+        idItemAktif = idItem;
       }
 
-      // Insert detail baru (satu per satu karena RLS, bukan bulk)
-      await Promise.all(
-        tinta.map(id_tinta => dbInsert('m_bom_tinta', { id_bom: idBom, id_tinta }))
+      // Bulk insert detail dengan urut
+      const resTinta = await dbInsert('m_bom_tinta',
+        tinta.map((id_tinta, i) => ({ id_item: idItem, urut: i + 1, id_tinta }))
       );
-      await Promise.all(
-        bahan.map(b => dbInsert('m_bom_bahan', { id_bom: idBom, id_bahan: b.id_bahan, keterangan: b.keterangan }))
+      if (resTinta && resTinta.code) throw new Error('Insert tinta: ' + resTinta.message);
+
+      const resBahan = await dbInsert('m_bom_bahan',
+        bahan.map((b, i) => ({ id_item: idItem, urut: i + 1, id_bahan: b.id_bahan, keterangan: b.keterangan }))
       );
-      await Promise.all(
-        finishing.map(jenis_finishing => dbInsert('m_bom_finishing', { id_bom: idBom, jenis_finishing }))
+      if (resBahan && resBahan.code) throw new Error('Insert bahan: ' + resBahan.message);
+
+      const resFin = await dbInsert('m_bom_finishing',
+        finishing.map((jenis_finishing, i) => ({ id_item: idItem, urut: i + 1, jenis_finishing }))
       );
+      if (resFin && resFin.code) throw new Error('Insert finishing: ' + resFin.message);
 
       tampilAlert('BOM berhasil disimpan.', 'success');
     } catch (e) {
