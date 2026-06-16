@@ -399,7 +399,7 @@
 <script src="../js/utils.js"></script>
 <script>
 // ── STATE ──
-var semuaSPK=[], semuaOrdDtl=[], sdetAktif=[], daftarItem=[];
+var semuaSPK=[], semuaOrdDtl=[], sdetAktif=[], daftarItem=[], semuaOperator=[];
 var filterAktif='OPEN', idSpkAktif=null, itemDipilih=null, maxPpsForm=0, tabLogAktif='CETAK';
 var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]};
 
@@ -416,6 +416,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   muatSPK();
   muatOrderDetail();
+  dbGet('m_operator',{status:'eq.AKTIF',order:'nama_operator.asc'}).then(function(r){semuaOperator=Array.isArray(r)?r:[];});
   initAcItem();
   var hari=new Date().toISOString().split('T')[0];
   ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl'].forEach(function(id){
@@ -572,6 +573,34 @@ function pilihItem(d,inputEl,dropEl){
   }
 }
 function tutupAC(){var d=document.getElementById('dropItem');if(d)d.style.display='none';}
+
+// ── AUTOCOMPLETE OPERATOR ──
+function buatAcOperator(inputEl){
+  if(!inputEl||inputEl._acOprInit) return; // pasang sekali saja
+  inputEl._acOprInit=true;
+  var dropEl=document.createElement('div');
+  dropEl.className='ac-dropdown';
+  document.body.appendChild(dropEl);
+
+  function posisi(){var r=inputEl.getBoundingClientRect();dropEl.style.top=r.bottom+'px';dropEl.style.left=r.left+'px';dropEl.style.width=r.width+'px';}
+  function render(data){
+    dropEl.innerHTML='';
+    if(!data.length){dropEl.innerHTML='<div class="ac-empty">Tidak ditemukan</div>';}
+    else{data.forEach(function(op){
+      var div=document.createElement('div');div.className='ac-item';
+      div.innerHTML='<span class="ac-item-id">'+esc(op.id_operator)+'</span><span class="ac-item-nama">'+esc(op.nama_operator)+'</span>';
+      div.addEventListener('mousedown',function(e){e.preventDefault();pilih(op);});
+      div.addEventListener('touchend',function(e){e.preventDefault();pilih(op);});
+      dropEl.appendChild(div);
+    });}
+    posisi(); dropEl.style.display='block';
+  }
+  function pilih(op){inputEl.value=op.nama_operator;dropEl.style.display='none';}
+  function filter(q){return semuaOperator.filter(function(op){return (op.nama_operator||'').toLowerCase().includes(q)||(op.id_operator||'').toLowerCase().includes(q);}).slice(0,20);}
+  inputEl.addEventListener('input',function(){var q=this.value.toLowerCase().trim();if(!q){dropEl.style.display='none';return;}render(filter(q));});
+  inputEl.addEventListener('focus',function(){var q=this.value.toLowerCase().trim();if(q) render(filter(q));});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){dropEl.style.display='none';},200);});
+}
 
 function hitungQty(oplah,pps,satuan,isiBuku){
   var s=(satuan||'').toUpperCase();
@@ -802,6 +831,10 @@ function bukaProgress(idSpk){
   document.getElementById('btnProgressTolak').style.display=(isMP&&status==='MENUNGGU_APPROVE')?'':'none';
   gantiTabLog('CETAK',document.querySelector('#modalProgress .log-tab'));
   resetFormLog();
+  // Pasang AC operator ke semua field operator
+  ['logCetakOperator','logPotongOperator','logFinishingOperator','logPackingOperator'].forEach(function(id){
+    buatAcOperator(document.getElementById(id));
+  });
   dbGet('in_spk_detail',{id_spk:'eq.'+idSpk}).then(function(res){
     sdetAktif=Array.isArray(res)?res:[];
     renderPackingItemList();
