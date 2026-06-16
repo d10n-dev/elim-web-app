@@ -218,7 +218,7 @@
       <div class="modal-header"><span class="modal-title" id="detailTitle">Detail SPK</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body" id="detailBody"><div class="loading">Memuat…</div></div>
       <div class="modal-footer">
-        <button class="btn-print" id="btnPrintSPK" onclick="printSPK()">🖨 Print SPK</button>
+        <button class="btn-print" id="btnPrintSPK" onclick="printSPK()">🔍 Preview SPK</button>
         <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
         <button class="btn-tolak" id="btnTolakSPK" onclick="bukaModalTolak()" style="display:none">✗ Tolak</button>
         <button class="btn-approve" id="btnApproveSPK" onclick="bukaModalApprove()" style="display:none">✓ Approve</button>
@@ -1208,7 +1208,7 @@ function printSPK(){
   btn.disabled=true; btn.textContent='Memuat…';
   _spkPrint=spk; _sdetPrint=sdetAktif;
   var idItem=sdetAktif.length?sdetAktif[0].id_item:null;
-  if(!idItem){_finPrint=[];_bomPrint={bahan:[],tinta:[]};btn.disabled=false;btn.innerHTML='🖨 Print SPK';prosesLog();return;}
+  if(!idItem){_finPrint=[];_bomPrint={bahan:[],tinta:[]};btn.disabled=false;btn.innerHTML='🔍 Preview SPK';prosesLog();return;}
   Promise.all([
     dbGet('m_bom_finishing',{id_item:'eq.'+idItem,order:'urut.asc'}),
     dbGet('m_bom_tinta',    {id_item:'eq.'+idItem,order:'urut.asc'}),
@@ -1216,11 +1216,11 @@ function printSPK(){
   ]).then(function(r){
     _finPrint=Array.isArray(r[0])?r[0]:[];
     _bomPrint={tinta:Array.isArray(r[1])?r[1]:[],bahan:Array.isArray(r[2])?r[2]:[]};
-    btn.disabled=false;btn.innerHTML='🖨 Print SPK';
+    btn.disabled=false;btn.innerHTML='🔍 Preview SPK';
     prosesLog();
   }).catch(function(){
     _finPrint=[];_bomPrint={bahan:[],tinta:[]};
-    btn.disabled=false;btn.innerHTML='🖨 Print SPK';
+    btn.disabled=false;btn.innerHTML='🔍 Preview SPK';
     prosesLog();
   });
 }
@@ -1320,10 +1320,28 @@ function renderDanCetak(printKe){
       '<div style="font-size:9pt;color:#555;border:1px solid #888;padding:1px 7px;">Lanjutan — Hal 2/2</div></div>'+
       '<div style="'+secC+'">Daftar Item (lanjutan)</div>'+tdRow()+rowsH2+tblFoot()+footerLine(2,2)+'</div>';
   }
-  var pa=document.getElementById('printArea');
-  pa.innerHTML=page1+page2; pa.style.display='block';
-  window.print();
-  pa.style.display='none';
+  var fullHtml='<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/>'+
+    '<title>Preview SPK — '+esc(spk.id_spk)+'</title>'+
+    '<style>'+
+    'body{margin:0;padding:16px;background:#e5e5e5;font-family:\'Courier New\',Courier,monospace;}'+
+    '.spk-page{background:#fff;width:210mm;min-height:148mm;margin:0 auto 24px;padding:10mm 12mm;box-shadow:0 2px 12px rgba(0,0,0,.18);page-break-after:always;}'+
+    '.toolbar-preview{position:sticky;top:0;z-index:99;background:#1a2744;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;margin:-16px -16px 16px;}'+
+    '.toolbar-preview span{font-family:\'Courier New\',monospace;font-size:13px;opacity:.8;}'+
+    '.btn-pr{background:#e8521a;color:#fff;border:none;padding:6px 18px;border-radius:5px;font-size:13px;font-weight:700;cursor:pointer;}'+
+    '.btn-pr:hover{background:#c94416;}'+
+    '.btn-close-pr{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);padding:6px 14px;border-radius:5px;font-size:13px;cursor:pointer;}'+
+    '@media print{.toolbar-preview{display:none!important;}.spk-page{box-shadow:none;margin:0;padding:10mm 12mm;}}'+
+    '</style></head><body>'+
+    '<div class="toolbar-preview">'+
+    '<span>PREVIEW SPK — '+esc(spk.id_spk)+'</span>'+
+    '<button class="btn-pr" onclick="window.print()">🖨 Print</button>'+
+    '<button class="btn-close-pr" onclick="window.close()">✕ Tutup</button>'+
+    '</div>'+
+    page1+page2+
+    '</body></html>';
+  var tab=window.open('','_blank');
+  if(tab){tab.document.write(fullHtml);tab.document.close();}
+  else{alert('Pop-up diblokir browser. Izinkan pop-up untuk sieo.my.id lalu coba lagi.');}
 }
 
 // ── HELPERS ──
