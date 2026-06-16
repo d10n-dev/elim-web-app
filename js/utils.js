@@ -1,9 +1,7 @@
 // ============================================================
-// SIEO — utils.js (Supabase Auth + UI Helpers)
+// SIEO — utils.js (Auth + UI Helpers)
+// SUPA_URL dan SUPA_KEY didefinisikan di api.js — load api.js DULU
 // ============================================================
-
-const SUPA_URL = 'https://sodwffpzgwocujsqrncd.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZHdmZnB6Z3dvY3Vqc3FybmNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NDkwNjAsImV4cCI6MjA5NzEyNTA2MH0.hMUyH2Td64AMstyh0j3HQGOMaIqRk8h2V_tfj6QiBK4';
 
 // ============================================================
 // AUTH HELPERS
@@ -48,7 +46,6 @@ function isManager()  { return getRoleUser() === 'MANAGER'; }
 function sesiValid() {
   const sesi = getSesi();
   if (!sesi || !sesi.access_token) return false;
-  // Cek expiry
   if (sesi.expires_at && Date.now() / 1000 > sesi.expires_at) return false;
   return true;
 }
@@ -72,64 +69,23 @@ function renderUserInfo() {
   if (el) el.textContent = `👤 ${info.nama || info.email} (${info.role || ''})`;
 }
 
-// Login via Google OAuth — redirect ke Supabase
-function loginGoogle() {
-  const redirectTo = encodeURIComponent('https://sieo.my.id/pages/login.html');
-  window.location.href = 
-    `${SUPA_URL}/auth/v1/authorize?provider=google&redirect_to=${redirectTo}`;
-}
-
 // Logout
 function logout() {
   hapusSesi();
   window.location.href = '/pages/login.html';
 }
 
-// Handle callback dari Supabase OAuth
-// Dipanggil di login.html setelah redirect balik
-async function handleAuthCallback() {
-  // Supabase taruh token di URL hash (#access_token=...&refresh_token=...)
-  const hash = window.location.hash;
-  if (!hash) return false;
-
-  const params = new URLSearchParams(hash.substring(1));
-  const accessToken  = params.get('access_token');
-  const refreshToken = params.get('refresh_token');
-  const expiresAt    = params.get('expires_at');
-
-  if (!accessToken) return false;
-
-  // Ambil data user dari Supabase
-  const res = await fetch(`${SUPA_URL}/auth/v1/user`, {
-    headers: {
-      'apikey': SUPA_KEY,
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-  const userData = await res.json();
-
-  // Ambil data user dari tabel m_user (role, status)
-  const resUser = await fetch(
-    `${SUPA_URL}/rest/v1/m_user?email=eq.${encodeURIComponent(userData.email)}&select=*`,
-    { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${accessToken}` } }
-  );
-  const userRows = await resUser.json();
-  const userDb = userRows && userRows[0] ? userRows[0] : null;
-
-  // Simpan sesi
-  setSesi({
-    access_token:  accessToken,
-    refresh_token: refreshToken,
-    expires_at:    expiresAt ? parseInt(expiresAt) : null,
-    user_info: {
-      email: userData.email,
-      nama:  userData.user_metadata?.full_name || userData.email,
-      role:  userDb ? userDb.role : null,
-      status: userDb ? userDb.status : 'PENDING'
-    }
-  });
-
-  return userDb;
+// ============================================================
+// ID GENERATOR — mirip GAS generateId_
+// Ambil max ID dari array data, prefix + padStart
+// Contoh: generateIdLokal(data, 'PLE', 'id_pelanggan', 3)
+// ============================================================
+function generateIdLokal(dataArr, prefix, idKey, padLen) {
+  const nums = dataArr
+    .map(r => parseInt((r[idKey] || '').replace(prefix, '')) || 0)
+    .filter(n => !isNaN(n));
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  return prefix + String(next).padStart(padLen, '0');
 }
 
 // ============================================================
