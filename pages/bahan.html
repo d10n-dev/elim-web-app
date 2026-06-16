@@ -7,10 +7,10 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root { --bg:#f5f4f0;--surface:#fff;--border:#d0cec8;--accent:#1a3a5c;--accent2:#c8401a;--text:#1c1c1c;--muted:#777;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif; }
+    :root{--bg:#eef1f7;--surface:#fff;--border:#d0cec8;--navy:#1a2744;--orange:#e8521a;--text:#1c1c1c;--muted:#777;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;}
     *{box-sizing:border-box;}
     body{background:var(--bg);font-family:var(--sans);color:var(--text);font-size:14px;}
-    .page-header{background:var(--accent);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--accent2);}
+    .page-header{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--orange);}
     .page-header .title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
     .page-header .subtitle{font-size:11px;opacity:.6;margin-top:2px;font-family:var(--mono);}
     .btn-back{color:#fff;text-decoration:none;font-size:13px;opacity:.8;}
@@ -19,13 +19,13 @@
     .filter-bar input,.filter-bar select{font-size:13px;border:1px solid var(--border);border-radius:3px;padding:6px 10px;background:var(--bg);color:var(--text);font-family:var(--sans);}
     .filter-bar input{flex:1;min-width:160px;}
     .filter-bar select{min-width:120px;}
-    .btn-tambah{background:var(--accent2);color:#fff;border:none;border-radius:3px;padding:6px 14px;font-size:13px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap;}
-    .btn-tambah:hover{background:#a83314;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:3px;padding:6px 14px;font-size:13px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-tambah:hover{background:#c8401a;}
     .counter-bar{padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg);}
     .table-wrap{overflow-x:auto;padding:0 0 80px 0;}
     table{width:100%;border-collapse:collapse;background:var(--surface);}
-    thead th{background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;}
-    tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
     tbody tr:hover{background:#f0ede8;}
     tbody td{padding:8px 10px;font-size:13px;vertical-align:middle;}
     .td-id{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
@@ -36,21 +36,21 @@
     .badge-sat{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;background:#f3f4f6;color:#374151;}
     .badge-AKTIF{background:#dcfce7;color:#15803d;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;}
     .badge-NONAKTIF{background:#fee2e2;color:#991b1b;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;}
-    .btn-edit{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:2px;padding:3px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
-    .btn-edit:hover{background:var(--accent);color:#fff;}
+    .btn-edit{background:none;border:1px solid var(--navy);color:var(--navy);border-radius:2px;padding:3px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
+    .btn-edit:hover{background:var(--navy);color:#fff;}
     .loading-state{text-align:center;padding:40px;font-family:var(--mono);font-size:12px;color:var(--muted);}
-    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
     @keyframes spin{to{transform:rotate(360deg);}}
-    .modal-content{border-radius:4px;border:2px solid var(--accent);}
-    .modal-header{background:var(--accent);color:#fff;border-radius:0;padding:10px 16px;}
+    .modal-content{border-radius:4px;border:2px solid var(--navy);}
+    .modal-header{background:var(--navy);color:#fff;border-radius:0;padding:10px 16px;}
     .modal-title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.06em;}
     .modal-header .btn-close{filter:invert(1);}
     .modal-body{padding:16px;}
     .form-label{font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px;}
     .form-control,.form-select{font-size:13px;border:1px solid var(--border);border-radius:3px;font-family:var(--sans);}
-    .form-control:focus,.form-select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(26,58,92,.15);}
-    .btn-simpan{background:var(--accent);color:#fff;border:none;border-radius:3px;padding:8px 20px;font-family:var(--mono);font-size:13px;font-weight:600;cursor:pointer;}
-    .btn-simpan:hover{background:#142d4a;}
+    .form-control:focus,.form-select:focus{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,39,68,.15);}
+    .btn-simpan{background:var(--navy);color:#fff;border:none;border-radius:3px;padding:8px 20px;font-family:var(--mono);font-size:13px;font-weight:600;cursor:pointer;}
+    .btn-simpan:hover{background:#243257;}
     .btn-batal{background:none;border:1px solid var(--border);border-radius:3px;padding:8px 16px;font-family:var(--mono);font-size:13px;cursor:pointer;color:var(--text);}
   </style>
 </head>
@@ -60,7 +60,10 @@
     <div class="title">Master Bahan</div>
     <div class="subtitle">SIEO — PT. Elim Citra Offset</div>
   </div>
-  <a href="../index.html" class="btn-back">← Kembali</a>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span id="userPill" style="font-family:var(--mono);font-size:11px;opacity:0.7"></span>
+    <a href="../index.html" class="btn-back">← Kembali</a>
+  </div>
 </div>
 
 <div class="filter-bar">
@@ -84,23 +87,13 @@
 <div class="table-wrap">
   <div class="loading-state" id="loadingState"><span class="spinner"></span> Mengambil data bahan...</div>
   <table id="tabelBahan" style="display:none">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Nama Bahan</th>
-        <th>Kategori</th>
-        <th>Satuan</th>
-        <th>Status</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
+    <thead><tr><th>ID</th><th>Nama Bahan</th><th>Kategori</th><th>Satuan</th><th>Status</th><th>Aksi</th></tr></thead>
     <tbody id="tbodyBahan"></tbody>
   </table>
 </div>
 
-<!-- MODAL -->
 <div class="modal fade" id="modalBahan" tabindex="-1">
-  <div class="modal-dialog modal-dialog-scrollable">
+  <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
         <span class="modal-title" id="modalJudul">TAMBAH BAHAN</span>
@@ -109,12 +102,10 @@
       <div class="modal-body">
         <div id="alert-form"></div>
         <input type="hidden" id="fId">
-
         <div class="mb-3">
           <label class="form-label">Nama Bahan *</label>
           <input type="text" class="form-control" id="fNama" placeholder="Misal: HVS 70 GR F4">
         </div>
-
         <div class="mb-3">
           <label class="form-label">Kategori *</label>
           <select class="form-select" id="fKategori">
@@ -124,7 +115,6 @@
             <option value="PACKING">Packing</option>
           </select>
         </div>
-
         <div class="mb-3">
           <label class="form-label">Satuan *</label>
           <select class="form-select" id="fSatuan">
@@ -137,7 +127,6 @@
             <option value="BAL">BAL</option>
           </select>
         </div>
-
         <div class="mb-3" id="statusGroup" style="display:none">
           <label class="form-label">Status</label>
           <select class="form-select" id="fStatus">
@@ -145,10 +134,9 @@
             <option value="NONAKTIF">Nonaktif</option>
           </select>
         </div>
-
         <div class="d-flex gap-2 justify-content-end mt-3">
           <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
-          <button class="btn-simpan" onclick="simpanBahan()">Simpan</button>
+          <button class="btn-simpan" id="btnSimpan" onclick="simpanBahan()">Simpan</button>
         </div>
       </div>
     </div>
@@ -159,121 +147,119 @@
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script>
-  let dataBahan = [];
-  let modalInstance;
+'use strict';
+let dataBahan = [];
+let modalInst;
 
-  window.onload = function() {
-    modalInstance = new bootstrap.Modal(document.getElementById('modalBahan'));
-    muatData();
-  };
-
-  function muatData() {
-    apiGet('getBahan').then(res => {
-      dataBahan = Array.isArray(res) ? res : [];
-      renderTabel(dataBahan);
-      document.getElementById('loadingState').style.display = 'none';
-      document.getElementById('tabelBahan').style.display = 'table';
-    }).catch(err => {
-      document.getElementById('loadingState').innerHTML =
-        '<span style="color:#c8401a;font-family:var(--mono)">Gagal: ' + err.message + '</span>';
-    });
-  }
-
-  function renderTabel(data) {
-    const tbody = document.getElementById('tbodyBahan');
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
-      document.getElementById('counterBar').textContent = '0 bahan ditemukan';
-      return;
-    }
-    tbody.innerHTML = data.map(b => `
-      <tr>
-        <td class="td-id">${String(b.id_bahan)}</td>
-        <td style="font-weight:500">${escHtml(b.nama_bahan)}</td>
-        <td><span class="badge-kat badge-${b.kategori}">${escHtml(b.kategori)}</span></td>
-        <td><span class="badge-sat">${escHtml(b.satuan)}</span></td>
-        <td><span class="badge-${b.status}">${b.status}</span></td>
-        <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(b)})'>Edit</button></td>
-      </tr>
-    `).join('');
-    document.getElementById('counterBar').textContent = data.length + ' dari ' + dataBahan.length + ' bahan';
-  }
-
-  function filterTabel() {
-    const cari   = document.getElementById('searchNama').value.toLowerCase();
-    const kat    = document.getElementById('filterKategori').value;
-    const status = document.getElementById('filterStatus').value;
-    renderTabel(dataBahan.filter(b =>
-      (!cari   || b.nama_bahan.toLowerCase().includes(cari)) &&
-      (!kat    || b.kategori === kat) &&
-      (!status || b.status === status)
-    ));
-  }
-
-  function bukaModalTambah() {
-    document.getElementById('modalJudul').textContent = 'TAMBAH BAHAN';
-    document.getElementById('alert-form').innerHTML = '';
-    document.getElementById('fId').value = '';
-    document.getElementById('fNama').value = '';
-    document.getElementById('fKategori').value = '';
-    document.getElementById('fSatuan').value = '';
-    document.getElementById('fStatus').value = 'AKTIF';
-    document.getElementById('statusGroup').style.display = 'none';
-    modalInstance.show();
-  }
-
-  function bukaModalEdit(b) {
-    document.getElementById('modalJudul').textContent = 'EDIT BAHAN — ' + b.id_bahan;
-    document.getElementById('alert-form').innerHTML = '';
-    document.getElementById('fId').value = b.id_bahan;
-    document.getElementById('fNama').value = b.nama_bahan;
-    document.getElementById('fKategori').value = b.kategori;
-    document.getElementById('fSatuan').value = b.satuan;
-    document.getElementById('fStatus').value = b.status || 'AKTIF';
-    document.getElementById('statusGroup').style.display = 'block';
-    modalInstance.show();
-  }
-
-  function simpanBahan() {
-    const id     = document.getElementById('fId').value;
-    const nama   = document.getElementById('fNama').value.trim();
-    const kat    = document.getElementById('fKategori').value;
-    const satuan = document.getElementById('fSatuan').value;
-    const status = document.getElementById('fStatus').value;
-
-    if (!nama)   return tampilError('Nama Bahan wajib diisi');
-    if (!kat)    return tampilError('Kategori wajib dipilih');
-    if (!satuan) return tampilError('Satuan wajib dipilih');
-
-    const payload = { nama_bahan: nama, kategori: kat, satuan, status };
-    const action  = id ? 'editBahan' : 'tambahBahan';
-    if (id) payload.id_bahan = id;
-
-    const btn = document.querySelector('.btn-simpan');
-    btn.textContent = 'Menyimpan...'; btn.disabled = true;
-
-    apiPost(action, payload).then(res => {
-      if (res.error) { tampilError(res.error); }
-      else { modalInstance.hide(); muatData(); }
-    }).catch(() => tampilError('Gagal menyimpan. Coba lagi.'))
-    .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
-  }
-
-  function tampilError(msg) {
-    document.getElementById('alert-form').innerHTML =
-      `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
-  }
-
-  function escHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-</script>
-<script>
-window.addEventListener("load", function(){
+window.addEventListener('load', function() {
   guardHalaman();
-  renderUserInfo();
+  modalInst = new bootstrap.Modal(document.getElementById('modalBahan'));
+  muatData();
 });
+
+function muatData() {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('tabelBahan').style.display = 'none';
+  dbGet('m_bahan', { order: 'id_bahan.asc' }).then(res => {
+    dataBahan = Array.isArray(res) ? res : [];
+    renderTabel(dataBahan);
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tabelBahan').style.display = 'table';
+  }).catch(err => {
+    document.getElementById('loadingState').innerHTML =
+      '<span style="color:var(--orange);font-family:var(--mono)">Gagal: ' + err.message + '</span>';
+  });
+}
+
+function renderTabel(data) {
+  const tbody = document.getElementById('tbodyBahan');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
+    document.getElementById('counterBar').textContent = '0 bahan';
+    return;
+  }
+  tbody.innerHTML = data.map(b => `
+    <tr>
+      <td class="td-id">${escHtml(b.id_bahan)}</td>
+      <td style="font-weight:500">${escHtml(b.nama_bahan)}</td>
+      <td><span class="badge-kat badge-${b.kategori}">${escHtml(b.kategori)}</span></td>
+      <td><span class="badge-sat">${escHtml(b.satuan)}</span></td>
+      <td><span class="badge-${b.status}">${b.status}</span></td>
+      <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(b)})'>Edit</button></td>
+    </tr>
+  `).join('');
+  document.getElementById('counterBar').textContent = data.length + ' dari ' + dataBahan.length + ' bahan';
+}
+
+function filterTabel() {
+  const cari   = document.getElementById('searchNama').value.toLowerCase();
+  const kat    = document.getElementById('filterKategori').value;
+  const status = document.getElementById('filterStatus').value;
+  renderTabel(dataBahan.filter(b =>
+    (!cari   || b.nama_bahan.toLowerCase().includes(cari)) &&
+    (!kat    || b.kategori === kat) &&
+    (!status || b.status === status)
+  ));
+}
+
+function bukaModalTambah() {
+  document.getElementById('modalJudul').textContent = 'TAMBAH BAHAN';
+  document.getElementById('alert-form').innerHTML = '';
+  document.getElementById('fId').value = '';
+  document.getElementById('fNama').value = '';
+  document.getElementById('fKategori').value = '';
+  document.getElementById('fSatuan').value = '';
+  document.getElementById('fStatus').value = 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'none';
+  modalInst.show();
+}
+
+function bukaModalEdit(b) {
+  document.getElementById('modalJudul').textContent = 'EDIT BAHAN — ' + b.id_bahan;
+  document.getElementById('alert-form').innerHTML = '';
+  document.getElementById('fId').value      = b.id_bahan;
+  document.getElementById('fNama').value    = b.nama_bahan;
+  document.getElementById('fKategori').value = b.kategori;
+  document.getElementById('fSatuan').value  = b.satuan;
+  document.getElementById('fStatus').value  = b.status || 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'block';
+  modalInst.show();
+}
+
+function simpanBahan() {
+  const id     = document.getElementById('fId').value;
+  const nama   = document.getElementById('fNama').value.trim().toUpperCase();
+  const kat    = document.getElementById('fKategori').value;
+  const satuan = document.getElementById('fSatuan').value;
+  const status = document.getElementById('fStatus').value;
+
+  if (!nama)   return tampilError('Nama Bahan wajib diisi');
+  if (!kat)    return tampilError('Kategori wajib dipilih');
+  if (!satuan) return tampilError('Satuan wajib dipilih');
+
+  const btn = document.getElementById('btnSimpan');
+  btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+  const payload = { nama_bahan: nama, kategori: kat, satuan, status };
+  let p;
+  if (id) {
+    p = dbUpdate('m_bahan', { id_bahan: 'eq.' + id }, payload);
+  } else {
+    payload.id_bahan = generateIdLokal(dataBahan, 'KER', 'id_bahan', 3);
+    p = dbInsert('m_bahan', payload);
+  }
+
+  p.then(res => {
+    if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
+    modalInst.hide(); muatData();
+  }).catch(err => tampilError(err.message || 'Gagal menyimpan'))
+  .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
+}
+
+function tampilError(msg) {
+  document.getElementById('alert-form').innerHTML =
+    `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
+}
 </script>
 </body>
 </html>
