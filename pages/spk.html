@@ -980,12 +980,28 @@ async function simpanLog(jenis){
       });
       var resLog=await dbInsert('log_produksi',logRows);
       if(resLog&&resLog.code) throw new Error(resLog.message);
-      // Update qty_pack di in_spk_detail
+      // Update qty_pack di in_spk_detail + insert MASUK_PACKING ke log_stok_bj
+      var nowIso=new Date().toISOString();
       for(var i=0;i<packItems.length;i++){
         var pk=packItems[i];
         var newPack=(parseInt(pk.sdet.qty_pack,10)||0)+pk.qty;
         await dbUpdate('in_spk_detail',{id_sdet:'eq.'+pk.sdet.id_sdet},{qty_pack:newPack});
-        pk.sdet.qty_pack=newPack; // update local
+        pk.sdet.qty_pack=newPack;
+        await dbInsert('log_stok_bj',{
+          id_log_bj:'LBJ'+Date.now()+Math.floor(Math.random()*1000),
+          tgl:nowIso,
+          jenis:'MASUK_PACKING',
+          id_ref:idSpkAktif,
+          id_item:pk.sdet.id_item,
+          nama_item:pk.sdet.nama_item,
+          subitem:pk.sdet.subitem||null,
+          qty:pk.qty,
+          satuan:pk.sdet.satuan||'',
+          user_input:data.user_input,
+          status_approval:'APPROVED',
+          approved_by:data.user_input,
+          tgl_approve:nowIso
+        });
       }
       // Cek apakah semua sudah penuh → update status SPK
       var semuaPenuh=sdetAktif.every(function(r){return (parseInt(r.qty_pack,10)||0)>=(parseInt(r.qty_spk,10)||0);});
@@ -1126,16 +1142,16 @@ async function konfirmasiClosing(){
 }
 
 async function closeSPK(idSpk,approver){
+  var now=new Date().toISOString();
   // Update status in_spk
-  await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{status:'SELESAI',approver_close:approver,tgl_approve_close:new Date().toISOString()});
+  await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{status:'SELESAI',approver_close:approver,tgl_approve_close:now});
   // Update in_spk_detail status → SELESAI
+  var sdetFull=await dbGet('in_spk_detail',{id_spk:'eq.'+idSpk,select:'id_detail'});
+  sdetFull=Array.isArray(sdetFull)?sdetFull:[];
   await dbUpdate('in_spk_detail',{id_spk:'eq.'+idSpk},{status:'SELESAI'});
-  // Update in_order_detail status_spk → DONE untuk detail yang terkait
-  var sdet=await dbGet('in_spk_detail',{id_spk:'eq.'+idSpk,select:'id_detail'});
-  if(Array.isArray(sdet)&&sdet.length){
-    for(var i=0;i<sdet.length;i++){
-      await dbUpdate('in_order_detail',{id_detail:'eq.'+sdet[i].id_detail},{status_spk:'DONE'});
-    }
+  // Update in_order_detail status_spk → DONE
+  for(var i=0;i<sdetFull.length;i++){
+    if(sdetFull[i].id_detail) await dbUpdate('in_order_detail',{id_detail:'eq.'+sdetFull[i].id_detail},{status_spk:'DONE'});
   }
   var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpk;});
   if(si>=0) semuaSPK[si].status='SELESAI';
