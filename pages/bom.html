@@ -137,9 +137,9 @@
 
     function positionDrop() {
       const r = inputEl.getBoundingClientRect();
-      dropEl.style.top    = (r.bottom + window.scrollY) + 'px';
-      dropEl.style.left   = (r.left   + window.scrollX) + 'px';
-      dropEl.style.width  = r.width + 'px';
+      dropEl.style.top   = r.bottom + 'px';
+      dropEl.style.left  = r.left + 'px';
+      dropEl.style.width = r.width + 'px';
     }
 
     function filter(q) {
@@ -158,7 +158,9 @@
         items.forEach(d => {
           const div = document.createElement('div');
           div.className = 'ac-item';
-          div.innerHTML = `<span class="ac-item-id">${escHtml(d[idKey])}</span><span class="ac-item-nama">${escHtml(d[namaKey])}</span>`;
+          div.innerHTML = d[idKey] === d[namaKey]
+            ? `<span class="ac-item-nama">${escHtml(d[namaKey])}</span>`
+            : `<span class="ac-item-id">${escHtml(d[idKey])}</span><span class="ac-item-nama">${escHtml(d[namaKey])}</span>`;
           div.addEventListener('mousedown', e => { e.preventDefault(); pilih(d); });
           div.addEventListener('touchend',  e => { e.preventDefault(); pilih(d); });
           dropEl.appendChild(div);
@@ -170,7 +172,7 @@
 
     function pilih(d) {
       selectedId = d[idKey];
-      inputEl.value = d[idKey] + ' | ' + d[namaKey];
+      inputEl.value = d[idKey] === d[namaKey] ? d[namaKey] : (d[idKey] + ' | ' + d[namaKey]);
       inputEl.classList.add('selected');
       dropEl.classList.remove('open');
       if (onSelect) onSelect(d);
