@@ -7,67 +7,62 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #f5f4f0; --surface: #ffffff; --border: #d0cec8;
-      --accent: #1a3a5c; --accent2: #c8401a; --text: #1c1c1c;
-      --muted: #777; --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
-    }
-    * { box-sizing: border-box; }
-    body { background: var(--bg); font-family: var(--sans); color: var(--text); font-size: 14px; }
-    .page-header { background: var(--accent); color: #fff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--accent2); }
-    .page-header .title { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-    .page-header .subtitle { font-size: 11px; opacity: 0.6; margin-top: 2px; font-family: var(--mono); }
-    .btn-back { color: #fff; text-decoration: none; font-size: 13px; opacity: 0.8; }
-    .btn-back:hover { opacity: 1; color: #fff; }
-    .filter-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .filter-bar input, .filter-bar select { font-size: 13px; border: 1px solid var(--border); border-radius: 3px; padding: 6px 10px; background: var(--bg); color: var(--text); font-family: var(--sans); }
-    .filter-bar input { flex: 1; min-width: 160px; }
-    .filter-bar select { min-width: 130px; }
-    .btn-tambah { background: var(--accent2); color: #fff; border: none; border-radius: 3px; padding: 6px 14px; font-size: 13px; font-family: var(--mono); font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .btn-tambah:hover { background: #a83314; }
-    .counter-bar { padding: 6px 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--bg); }
-    .table-wrap { overflow-x: auto; padding: 0 0 80px 0; }
-    table { width: 100%; border-collapse: collapse; background: var(--surface); }
-    thead th { background: var(--accent); color: #fff; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 9px 10px; border-right: 1px solid rgba(255,255,255,0.1); white-space: nowrap; }
-    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
-    tbody tr:hover { background: #f0ede8; }
-    tbody td { padding: 8px 10px; font-size: 13px; vertical-align: middle; }
-    .td-id { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
-    .td-pps { font-family: var(--mono); font-size: 12px; text-align: center; }
-    .badge-kat { font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 2px; background: #e0e7ff; color: #3730a3; }
-    .badge-sat { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 2px; background: #f3f4f6; color: #374151; }
-    .badge-AKTIF { background: #dcfce7; color: #15803d; font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 2px; }
-    .badge-NONAKTIF { background: #fee2e2; color: #991b1b; font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 2px; }
-    .btn-edit { background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 2px; padding: 3px 10px; font-size: 11px; font-family: var(--mono); cursor: pointer; white-space: nowrap; }
-    .btn-edit:hover { background: var(--accent); color: #fff; }
-    .loading-state { text-align: center; padding: 40px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
-    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px; vertical-align: middle; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .modal-content { border-radius: 4px; border: 2px solid var(--accent); }
-    .modal-header { background: var(--accent); color: #fff; border-radius: 0; padding: 10px 16px; }
-    .modal-title { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; }
-    .modal-header .btn-close { filter: invert(1); }
-    .modal-body { padding: 16px; }
-    .form-label { font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 4px; }
-    .form-control, .form-select { font-size: 13px; border: 1px solid var(--border); border-radius: 3px; font-family: var(--sans); }
-    .form-control:focus, .form-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(26,58,92,0.15); }
-    .btn-simpan { background: var(--accent); color: #fff; border: none; border-radius: 3px; padding: 8px 20px; font-family: var(--mono); font-size: 13px; font-weight: 600; cursor: pointer; }
-    .btn-simpan:hover { background: #142d4a; }
-    .btn-batal { background: none; border: 1px solid var(--border); border-radius: 3px; padding: 8px 16px; font-family: var(--mono); font-size: 13px; cursor: pointer; color: var(--text); }
-    .pps-hint { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 4px; }
-    @media (max-width: 600px) {
-      thead th:nth-child(4), tbody td:nth-child(4) { display: none; }
-    }
+    :root{--bg:#eef1f7;--surface:#fff;--border:#d0cec8;--navy:#1a2744;--orange:#e8521a;--text:#1c1c1c;--muted:#777;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;}
+    *{box-sizing:border-box;}
+    body{background:var(--bg);font-family:var(--sans);color:var(--text);font-size:14px;}
+    .page-header{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--orange);}
+    .page-header .title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+    .page-header .subtitle{font-size:11px;opacity:.6;margin-top:2px;font-family:var(--mono);}
+    .btn-back{color:#fff;text-decoration:none;font-size:13px;opacity:.8;}
+    .btn-back:hover{opacity:1;color:#fff;}
+    .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .filter-bar input,.filter-bar select{font-size:13px;border:1px solid var(--border);border-radius:3px;padding:6px 10px;background:var(--bg);color:var(--text);font-family:var(--sans);}
+    .filter-bar input{flex:1;min-width:160px;}
+    .filter-bar select{min-width:120px;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:3px;padding:6px 14px;font-size:13px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-tambah:hover{background:#c8401a;}
+    .counter-bar{padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg);}
+    .table-wrap{overflow-x:auto;padding:0 0 80px 0;}
+    table{width:100%;border-collapse:collapse;background:var(--surface);}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:hover{background:#f0ede8;}
+    tbody td{padding:8px 10px;font-size:13px;vertical-align:middle;}
+    .td-id{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+    .td-pps{font-family:var(--mono);font-size:12px;text-align:right;}
+    .badge-kat{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;background:#e8f0fe;color:#1e40af;font-weight:600;}
+    .badge-sat{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;background:#f3f4f6;color:#374151;}
+    .badge-AKTIF{background:#dcfce7;color:#15803d;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;}
+    .badge-NONAKTIF{background:#fee2e2;color:#991b1b;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;}
+    .btn-edit{background:none;border:1px solid var(--navy);color:var(--navy);border-radius:2px;padding:3px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
+    .btn-edit:hover{background:var(--navy);color:#fff;}
+    .loading-state{text-align:center;padding:40px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .modal-content{border-radius:4px;border:2px solid var(--navy);}
+    .modal-header{background:var(--navy);color:#fff;border-radius:0;padding:10px 16px;}
+    .modal-title{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.06em;}
+    .modal-header .btn-close{filter:invert(1);}
+    .modal-body{padding:16px;}
+    .form-label{font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px;}
+    .form-control,.form-select{font-size:13px;border:1px solid var(--border);border-radius:3px;font-family:var(--sans);}
+    .form-control:focus,.form-select:focus{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,39,68,.15);}
+    .btn-simpan{background:var(--navy);color:#fff;border:none;border-radius:3px;padding:8px 20px;font-family:var(--mono);font-size:13px;font-weight:600;cursor:pointer;}
+    .btn-simpan:hover{background:#243257;}
+    .btn-batal{background:none;border:1px solid var(--border);border-radius:3px;padding:8px 16px;font-family:var(--mono);font-size:13px;cursor:pointer;color:var(--text);}
+    .form-text{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px;}
   </style>
 </head>
 <body>
-
 <div class="page-header">
   <div>
     <div class="title">Master Item</div>
     <div class="subtitle">SIEO — PT. Elim Citra Offset</div>
   </div>
-  <a href="../index.html" class="btn-back">← Kembali</a>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span id="userPill" style="font-family:var(--mono);font-size:11px;opacity:0.7"></span>
+    <a href="../index.html" class="btn-back">← Kembali</a>
+  </div>
 </div>
 
 <div class="filter-bar">
@@ -86,28 +81,15 @@
 <div class="counter-bar" id="counterBar">Memuat data...</div>
 
 <div class="table-wrap">
-  <div class="loading-state" id="loadingState">
-    <span class="spinner"></span> Mengambil data item...
-  </div>
+  <div class="loading-state" id="loadingState"><span class="spinner"></span> Mengambil data item...</div>
   <table id="tabelItem" style="display:none">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Nama Item</th>
-        <th>Kategori</th>
-        <th>Satuan</th>
-        <th>PPS</th>
-        <th>Status</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
+    <thead><tr><th>ID</th><th>Nama Item</th><th>Kategori</th><th>Satuan</th><th>PPS</th><th>Status</th><th>Aksi</th></tr></thead>
     <tbody id="tbodyItem"></tbody>
   </table>
 </div>
 
-<!-- MODAL -->
 <div class="modal fade" id="modalItem" tabindex="-1">
-  <div class="modal-dialog modal-dialog-scrollable">
+  <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
         <span class="modal-title" id="modalJudul">TAMBAH ITEM</span>
@@ -116,40 +98,38 @@
       <div class="modal-body">
         <div id="alert-form"></div>
         <input type="hidden" id="fId">
-
         <div class="mb-3">
           <label class="form-label">Nama Item *</label>
-          <input type="text" class="form-control" id="fNama" placeholder="Misal: NOTA 3 PLY, ETIKET PP">
+          <input type="text" class="form-control" id="fNama" placeholder="Misal: NOTA 2PLY NCR F4">
         </div>
-
         <div class="mb-3">
           <label class="form-label">Kategori *</label>
-          <div class="d-flex gap-2">
-            <select class="form-select" id="fKategoriPilih" onchange="pilihKategori()">
-              <option value="">-- Pilih kategori --</option>
-            </select>
-          </div>
-          <input type="text" class="form-control mt-2" id="fKategori" placeholder="Atau ketik kategori baru...">
-          <div class="pps-hint">Pilih dari daftar atau ketik langsung untuk kategori baru</div>
+          <select class="form-select" id="fKategori">
+            <option value="">-- Pilih --</option>
+            <option value="NOTA / FORM">NOTA / FORM</option>
+            <option value="BUKU">BUKU</option>
+            <option value="ETIKET">ETIKET</option>
+            <option value="BOX MAKANAN">BOX MAKANAN</option>
+            <option value="BOX PRODUK">BOX PRODUK</option>
+            <option value="HARDBOX">HARDBOX</option>
+            <option value="PAPERBAG">PAPERBAG</option>
+            <option value="LAINNYA">LAINNYA</option>
+          </select>
         </div>
-
         <div class="mb-3">
           <label class="form-label">Satuan *</label>
           <select class="form-select" id="fSatuan">
             <option value="">-- Pilih --</option>
+            <option value="PCS">PCS</option>
             <option value="BUKU">BUKU</option>
             <option value="RIM">RIM</option>
-            <option value="LBR">LBR</option>
-            <option value="PCS">PCS</option>
           </select>
         </div>
-
         <div class="mb-3">
-          <label class="form-label">PPS (Piece Per Sheet) *</label>
-          <input type="number" class="form-control" id="fPps" min="1" placeholder="Misal: 4">
-          <div class="pps-hint">Jumlah item per lembar cetak. Jika 1 lembar = 1 item, isi 1.</div>
+          <label class="form-label">PPS (Produk Per Set) *</label>
+          <input type="number" class="form-control" id="fPps" placeholder="cth: 2" min="1">
+          <div class="form-text">Jumlah lembar/rangkap per 1 produk jadi</div>
         </div>
-
         <div class="mb-3" id="statusGroup" style="display:none">
           <label class="form-label">Status</label>
           <select class="form-select" id="fStatus">
@@ -157,10 +137,9 @@
             <option value="NONAKTIF">Nonaktif</option>
           </select>
         </div>
-
         <div class="d-flex gap-2 justify-content-end mt-3">
           <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
-          <button class="btn-simpan" onclick="simpanItem()">Simpan</button>
+          <button class="btn-simpan" id="btnSimpan" onclick="simpanItem()">Simpan</button>
         </div>
       </div>
     </div>
@@ -171,162 +150,130 @@
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script>
-  let dataItem = [];
-  let dataKategori = [];
-  let modalInstance;
+'use strict';
+let dataItem = [];
+let modalInst;
 
-  window.onload = function() {
-    modalInstance = new bootstrap.Modal(document.getElementById('modalItem'));
-    muatData();
-  };
+const KATEGORI_LIST = ['NOTA / FORM','BUKU','ETIKET','BOX MAKANAN','BOX PRODUK','HARDBOX','PAPERBAG','LAINNYA'];
 
-  function muatData() {
-    Promise.all([
-      apiGet('getItem'),
-      apiGet('getKategoriItem')
-    ]).then(([resItem, resKat]) => {
-      dataItem = Array.isArray(resItem) ? resItem : [];
-      dataKategori = Array.isArray(resKat) ? resKat : [];
-      isiDropdownKategori();
-      renderTabel(dataItem);
-      document.getElementById('loadingState').style.display = 'none';
-      document.getElementById('tabelItem').style.display = 'table';
-    }).catch(err => {
-      document.getElementById('loadingState').innerHTML =
-        '<span style="color:#c8401a;font-family:var(--mono)">Gagal: ' + err.message + '</span>';
-    });
-  }
-
-  function isiDropdownKategori() {
-    const selFilter = document.getElementById('filterKategori');
-    const selForm   = document.getElementById('fKategoriPilih');
-    // hapus opsi lama kecuali yang pertama
-    while (selFilter.options.length > 1) selFilter.remove(1);
-    while (selForm.options.length > 1) selForm.remove(1);
-    dataKategori.forEach(k => {
-      selFilter.add(new Option(k, k));
-      selForm.add(new Option(k, k));
-    });
-  }
-
-  function pilihKategori() {
-    const val = document.getElementById('fKategoriPilih').value;
-    if (val) document.getElementById('fKategori').value = val;
-  }
-
-  function renderTabel(data) {
-    const tbody = document.getElementById('tbodyItem');
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
-      document.getElementById('counterBar').textContent = '0 item ditemukan';
-      return;
-    }
-    tbody.innerHTML = data.map(p => `
-      <tr>
-        <td class="td-id">${String(p.id_item)}</td>
-        <td style="font-weight:500">${escHtml(p.nama_item)}</td>
-        <td><span class="badge-kat">${escHtml(p.kategori)}</span></td>
-        <td><span class="badge-sat">${escHtml(p.satuan)}</span></td>
-        <td class="td-pps">${p.pps}</td>
-        <td><span class="badge-${p.status}">${p.status}</span></td>
-        <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(p)})'>Edit</button></td>
-      </tr>
-    `).join('');
-    document.getElementById('counterBar').textContent =
-      data.length + ' dari ' + dataItem.length + ' item';
-  }
-
-  function filterTabel() {
-    const cari   = document.getElementById('searchNama').value.toLowerCase();
-    const kat    = document.getElementById('filterKategori').value;
-    const status = document.getElementById('filterStatus').value;
-    const hasil  = dataItem.filter(p => {
-      return (!cari   || p.nama_item.toLowerCase().includes(cari)) &&
-             (!kat    || p.kategori === kat) &&
-             (!status || p.status === status);
-    });
-    renderTabel(hasil);
-  }
-
-  function bukaModalTambah() {
-    document.getElementById('modalJudul').textContent = 'TAMBAH ITEM';
-    document.getElementById('alert-form').innerHTML = '';
-    document.getElementById('fId').value = '';
-    document.getElementById('fNama').value = '';
-    document.getElementById('fKategoriPilih').value = '';
-    document.getElementById('fKategori').value = '';
-    document.getElementById('fSatuan').value = '';
-    document.getElementById('fPps').value = '';
-    document.getElementById('fStatus').value = 'AKTIF';
-    document.getElementById('statusGroup').style.display = 'none';
-    modalInstance.show();
-  }
-
-  function bukaModalEdit(p) {
-    document.getElementById('modalJudul').textContent = 'EDIT ITEM — ' + p.id_item;
-    document.getElementById('alert-form').innerHTML = '';
-    document.getElementById('fId').value = p.id_item;
-    document.getElementById('fNama').value = p.nama_item;
-    document.getElementById('fKategori').value = p.kategori;
-    document.getElementById('fKategoriPilih').value = p.kategori || '';
-    document.getElementById('fSatuan').value = p.satuan;
-    document.getElementById('fPps').value = p.pps;
-    document.getElementById('fStatus').value = p.status || 'AKTIF';
-    document.getElementById('statusGroup').style.display = 'block';
-    modalInstance.show();
-  }
-
-  function simpanItem() {
-    const id     = document.getElementById('fId').value;
-    const nama   = document.getElementById('fNama').value.trim();
-    const kat    = document.getElementById('fKategori').value.trim();
-    const satuan = document.getElementById('fSatuan').value;
-    const pps    = document.getElementById('fPps').value;
-    const status = document.getElementById('fStatus').value;
-
-    if (!nama)   return tampilError('Nama Item wajib diisi');
-    if (!kat)    return tampilError('Kategori wajib diisi');
-    if (!satuan) return tampilError('Satuan wajib dipilih');
-    if (!pps || isNaN(pps) || Number(pps) < 1) return tampilError('PPS wajib diisi dan harus angka >= 1');
-
-    const payload = { nama_item: nama, kategori: kat, satuan, pps: Number(pps), status };
-    const action  = id ? 'editItem' : 'tambahItem';
-    if (id) payload.id_item = id;
-
-    const btn = document.querySelector('.btn-simpan');
-    btn.textContent = 'Menyimpan...';
-    btn.disabled = true;
-
-    apiPost(action, payload).then(res => {
-      if (res.error) {
-        tampilError(res.error);
-      } else {
-        modalInstance.hide();
-        muatData();
-      }
-    }).catch(() => {
-      tampilError('Gagal menyimpan. Coba lagi.');
-    }).finally(() => {
-      btn.textContent = 'Simpan';
-      btn.disabled = false;
-    });
-  }
-
-  function tampilError(msg) {
-    document.getElementById('alert-form').innerHTML =
-      `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
-  }
-
-  function escHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-</script>
-<script>
-window.addEventListener("load", function(){
+window.addEventListener('load', function() {
   guardHalaman();
-  renderUserInfo();
+  modalInst = new bootstrap.Modal(document.getElementById('modalItem'));
+  isiFilterKategori();
+  muatData();
 });
+
+function isiFilterKategori() {
+  const sel = document.getElementById('filterKategori');
+  KATEGORI_LIST.forEach(k => sel.add(new Option(k, k)));
+}
+
+function muatData() {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('tabelItem').style.display = 'none';
+  dbGet('m_item', { order: 'id_item.asc' }).then(res => {
+    dataItem = Array.isArray(res) ? res : [];
+    renderTabel(dataItem);
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tabelItem').style.display = 'table';
+  }).catch(err => {
+    document.getElementById('loadingState').innerHTML =
+      '<span style="color:var(--orange);font-family:var(--mono)">Gagal: ' + err.message + '</span>';
+  });
+}
+
+function renderTabel(data) {
+  const tbody = document.getElementById('tbodyItem');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
+    document.getElementById('counterBar').textContent = '0 item';
+    return;
+  }
+  tbody.innerHTML = data.map(p => `
+    <tr>
+      <td class="td-id">${escHtml(p.id_item)}</td>
+      <td style="font-weight:500">${escHtml(p.nama_item)}</td>
+      <td><span class="badge-kat">${escHtml(p.kategori)}</span></td>
+      <td><span class="badge-sat">${escHtml(p.satuan)}</span></td>
+      <td class="td-pps">${p.pps}</td>
+      <td><span class="badge-${p.status}">${p.status}</span></td>
+      <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(p)})'>Edit</button></td>
+    </tr>
+  `).join('');
+  document.getElementById('counterBar').textContent = data.length + ' dari ' + dataItem.length + ' item';
+}
+
+function filterTabel() {
+  const cari   = document.getElementById('searchNama').value.toLowerCase();
+  const kat    = document.getElementById('filterKategori').value;
+  const status = document.getElementById('filterStatus').value;
+  renderTabel(dataItem.filter(p =>
+    (!cari   || p.nama_item.toLowerCase().includes(cari)) &&
+    (!kat    || p.kategori === kat) &&
+    (!status || p.status === status)
+  ));
+}
+
+function bukaModalTambah() {
+  document.getElementById('modalJudul').textContent = 'TAMBAH ITEM';
+  document.getElementById('alert-form').innerHTML = '';
+  ['fId','fNama','fPps'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fKategori').value = '';
+  document.getElementById('fSatuan').value   = '';
+  document.getElementById('fStatus').value   = 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'none';
+  modalInst.show();
+}
+
+function bukaModalEdit(p) {
+  document.getElementById('modalJudul').textContent = 'EDIT ITEM — ' + p.id_item;
+  document.getElementById('alert-form').innerHTML = '';
+  document.getElementById('fId').value       = p.id_item;
+  document.getElementById('fNama').value     = p.nama_item;
+  document.getElementById('fKategori').value = p.kategori;
+  document.getElementById('fSatuan').value   = p.satuan;
+  document.getElementById('fPps').value      = p.pps;
+  document.getElementById('fStatus').value   = p.status || 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'block';
+  modalInst.show();
+}
+
+function simpanItem() {
+  const id     = document.getElementById('fId').value;
+  const nama   = document.getElementById('fNama').value.trim().toUpperCase();
+  const kat    = document.getElementById('fKategori').value;
+  const satuan = document.getElementById('fSatuan').value;
+  const pps    = document.getElementById('fPps').value;
+  const status = document.getElementById('fStatus').value;
+
+  if (!nama)   return tampilError('Nama Item wajib diisi');
+  if (!kat)    return tampilError('Kategori wajib dipilih');
+  if (!satuan) return tampilError('Satuan wajib dipilih');
+  if (!pps || isNaN(pps) || Number(pps) < 1) return tampilError('PPS wajib diisi dan harus >= 1');
+
+  const btn = document.getElementById('btnSimpan');
+  btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+  const payload = { nama_item: nama, kategori: kat, satuan, pps: Number(pps), status };
+  let p;
+  if (id) {
+    p = dbUpdate('m_item', { id_item: 'eq.' + id }, payload);
+  } else {
+    payload.id_item = generateIdLokal(dataItem, 'ITM', 'id_item', 3);
+    p = dbInsert('m_item', payload);
+  }
+
+  p.then(res => {
+    if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
+    modalInst.hide(); muatData();
+  }).catch(err => tampilError(err.message || 'Gagal menyimpan'))
+  .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
+}
+
+function tampilError(msg) {
+  document.getElementById('alert-form').innerHTML =
+    `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
+}
 </script>
 </body>
 </html>
