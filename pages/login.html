@@ -1,228 +1,234 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login — SIEO</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
-<style>
-  body { background:#eef1f7; font-family:'IBM Plex Sans',sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; }
-  .login-card { background:#fff; border-radius:12px; box-shadow:0 4px 24px rgba(26,39,68,0.10); padding:40px 32px 32px; width:100%; max-width:400px; }
-  .logo-bar { background:#1a2744; border-bottom:4px solid #e8521a; border-radius:12px 12px 0 0; padding:18px 24px; margin:-40px -32px 28px; }
-  .logo-bar h1 { font-family:'IBM Plex Mono',monospace; color:#fff; font-size:1.5rem; margin:0; letter-spacing:2px; }
-  .logo-bar p  { color:#adb9d6; font-size:0.78rem; margin:4px 0 0; }
-  .status-box  { border-radius:8px; padding:14px 16px; font-size:0.88rem; margin-bottom:16px; display:none; }
-  .status-box.show { display:block; word-break:break-all; }
-  #btnGoogle {
-    width:100%; background:#fff; border:2px solid #1a2744; color:#1a2744;
-    font-family:'IBM Plex Sans',sans-serif; font-weight:600; font-size:0.95rem;
-    padding:12px; border-radius:8px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:10px;
-  }
-  #btnGoogle:disabled { opacity:0.5; cursor:not-allowed; }
-  .divider { border:none; border-top:1px solid #e0e4ef; margin:20px 0; }
-  #formDaftar { display:none; }
-  #formDaftar.show { display:block; }
-  .form-label { font-size:0.85rem; font-weight:600; color:#1a2744; }
-  .form-control:focus { border-color:#1a2744; box-shadow:0 0 0 2px rgba(26,39,68,0.15); }
-  .btn-navy { background:#1a2744; border:none; color:#fff; font-weight:600; width:100%; padding:10px; border-radius:8px; }
-  .btn-link-sm { font-size:0.82rem; color:#6c757d; cursor:pointer; display:inline-block; margin-top:8px; }
-  #debugBox { background:#f8f9fa; border:1px solid #dee2e6; border-radius:6px; padding:10px; font-size:0.75rem; font-family:monospace; margin-top:12px; display:none; word-break:break-all; max-height:200px; overflow-y:auto; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIEO — Login</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy:   #1a2744;
+      --orange: #e8521a;
+      --bg:     #eef1f7;
+      --mono:   'IBM Plex Mono', monospace;
+      --sans:   'IBM Plex Sans', sans-serif;
+    }
+    body {
+      background: var(--bg);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-card {
+      background: #fff;
+      border: 1px solid #d0d8e8;
+      border-top: 4px solid var(--orange);
+      border-radius: 10px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 4px 24px rgba(26,39,68,0.10);
+    }
+    .logo-text {
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 1.5rem;
+      color: var(--navy);
+      letter-spacing: 0.08em;
+    }
+    .logo-sub {
+      font-size: 0.75rem;
+      color: #6b7a99;
+      font-family: var(--mono);
+      margin-top: 0.2rem;
+    }
+    .btn-google {
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-google:hover { background: #243257; }
+    .btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
+    .status-box {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: 6px;
+      margin-top: 1rem;
+    }
+  </style>
 </head>
 <body>
+  <div class="login-card">
+    <div class="text-center mb-4">
+      <div class="logo-text">SIEO</div>
+      <div class="logo-sub">PT. Elim Citra Offset</div>
+    </div>
 
-<div class="login-card">
-  <div class="logo-bar">
-    <h1>SIEO</h1>
-    <p>Sistem Informasi Elim Offset</p>
-  </div>
+    <div id="statusBox"></div>
 
-  <div id="statusBox" class="status-box"></div>
-  <div id="debugBox"></div>
-
-  <div id="sectionLogin">
-    <p class="text-muted mb-3" style="font-size:0.88rem;">Masuk menggunakan akun Google yang terdaftar.</p>
-    <button id="btnGoogle" onclick="loginGoogle()">
-      <svg width="20" height="20" viewBox="0 0 48 48">
-        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    <button class="btn-google mt-3" id="btnLogin" onclick="loginGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <path fill="#EA4335" d="M9 3.48c1.69 0 2.83.73 3.48 1.34l2.54-2.48C13.46.89 11.43 0 9 0 5.48 0 2.44 2.07.96 5.07l2.91 2.26C4.6 5.05 6.62 3.48 9 3.48z"/>
+        <path fill="#FBBC05" d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.1.83-.66 2.08-1.9 2.92l2.9 2.25c1.7-1.57 2.68-3.88 2.68-6.67z"/>
+        <path fill="#34A853" d="M3.88 10.67A5.54 5.54 0 0 1 3.48 9c0-.58.1-1.14.39-1.67L.96 5.07A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.03l2.92-2.36z"/>
+        <path fill="#4285F4" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.25c-.78.54-1.83.9-3.06.9-2.38 0-4.4-1.57-5.12-3.73L.97 12.93C2.45 15.93 5.48 18 9 18z"/>
       </svg>
       Masuk dengan Google
     </button>
+
+    <div class="text-center mt-3" style="font-size:0.68rem;color:#6b7a99;font-family:var(--mono)">
+      Hanya akun yang sudah disetujui Direktur dapat masuk
+    </div>
   </div>
 
-  <div id="formDaftar">
-    <hr class="divider">
-    <p style="font-size:0.88rem; color:#1a2744; font-weight:600;">Email belum terdaftar. Lengkapi data untuk mendaftar:</p>
-    <div class="mb-3">
-      <label class="form-label">Email</label>
-      <input type="text" id="inputEmailDaftar" class="form-control" readonly>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Nama Lengkap</label>
-      <input type="text" id="inputNama" class="form-control" placeholder="Nama sesuai identitas">
-    </div>
-    <button class="btn btn-navy" onclick="daftarUser()">Kirim Permohonan</button>
-    <br><span class="btn-link-sm" onclick="resetLogin()">← Kembali</span>
-  </div>
-</div>
+  <script>
+    const SUPA_URL = 'https://sodwffpzgwocujsqrncd.supabase.co';
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZHdmZnB6Z3dvY3Vqc3FybmNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NDkwNjAsImV4cCI6MjA5NzEyNTA2MH0.hMUyH2Td64AMstyh0j3HQGOMaIqRk8h2V_tfj6QiBK4';
 
-<script src="../js/utils.js"></script>
-<script src="../js/api.js"></script>
-<script>
-const CLIENT_ID    = '177308402957-5s8pvglbtbb9pg73p7kg1acq8o3h8p31.apps.googleusercontent.com';
-const REDIRECT_URI = 'https://sieo.my.id/pages/login.html';
+    function setStatus(pesan, tipe = 'info') {
+      const warna = { info: '#eef1f7', ok: '#e6f7ef', err: '#fdecea' };
+      const teks  = { info: '#1a2744', ok: '#1a9e5c', err: '#dc3545' };
+      document.getElementById('statusBox').innerHTML = `
+        <div class="status-box" style="background:${warna[tipe]};color:${teks[tipe]}">${pesan}</div>`;
+    }
 
-let _idToken = null;
-let _email   = null;
+    function getSesi() {
+      try { return JSON.parse(localStorage.getItem('sieo_sesi')); } catch(e) { return null; }
+    }
 
-function debug(msg) {
-  var box = document.getElementById('debugBox');
-  box.style.display = 'block';
-  box.innerHTML += '<div>' + new Date().toLocaleTimeString('id-ID') + ' — ' + escHtml(String(msg)) + '</div>';
-}
+    function loginGoogle() {
+      const redirectTo = encodeURIComponent(window.location.origin + '/pages/login.html');
+      window.location.href =
+        `${SUPA_URL}/auth/v1/authorize?provider=google&redirect_to=${redirectTo}`;
+    }
 
-(function init() {
-  var sesi = getSesi();
-  if (sesi) { redirectByRole(sesi.role); return; }
-  var hash = window.location.hash;
-  if (hash && hash.length > 1) {
-    prosesHash(hash);
-  }
-})();
+    async function handleCallback() {
+      const hash = window.location.hash;
+      if (!hash || !hash.includes('access_token')) return;
 
-function parseHash(hash) {
-  var raw    = hash.replace(/^#/, '');
-  var params = {};
-  raw.split('&').forEach(function(part) {
-    var eq  = part.indexOf('=');
-    if (eq < 0) return;
-    var key = decodeURIComponent(part.substring(0, eq));
-    var val = part.substring(eq + 1);
-    params[key] = val;
-  });
-  return params;
-}
+      setStatus('Memverifikasi akun…', 'info');
+      document.getElementById('btnLogin').disabled = true;
 
-function prosesHash(hash) {
-  tampilStatus('secondary', 'Memverifikasi akun...');
-  document.getElementById('btnGoogle').disabled = true;
+      try {
+        const params       = new URLSearchParams(hash.substring(1));
+        const accessToken  = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const expiresAt    = params.get('expires_at');
 
-  var params = parseHash(hash);
-  debug('Hash keys: ' + Object.keys(params).join(', '));
+        if (!accessToken) throw new Error('Token tidak ditemukan');
 
-  _idToken = params['id_token'] || null;
-  history.replaceState(null, '', window.location.pathname);
+        // Ambil data user dari Supabase Auth
+        const resAuth = await fetch(`${SUPA_URL}/auth/v1/user`, {
+          headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${accessToken}` }
+        });
+        const userData = await resAuth.json();
+        if (!userData.email) throw new Error('Gagal ambil data akun Google');
 
-  if (!_idToken) {
-    debug('id_token tidak ditemukan di hash');
-    tampilStatus('danger', 'Login gagal: token tidak diterima. Coba lagi.');
-    document.getElementById('btnGoogle').disabled = false;
-    return;
-  }
+        // Cek di tabel m_user
+        const resUser = await fetch(
+          `${SUPA_URL}/rest/v1/m_user?email=eq.${encodeURIComponent(userData.email)}&select=*`,
+          { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${accessToken}` } }
+        );
+        const userRows = await resUser.json();
+        const userDb   = userRows && userRows[0] ? userRows[0] : null;
 
-  debug('Token ditemukan, panjang: ' + _idToken.length);
+        // Direktur hardcode — selalu bisa masuk
+        const isDirektur = userData.email === 'dion.krisnata@gmail.com';
 
-  try {
-    var parts   = _idToken.split('.');
-    var b64     = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    while (b64.length % 4) b64 += '=';
-    var payload = JSON.parse(atob(b64));
-    _email = payload.email || '';
-    debug('Email: ' + _email);
-  } catch(e) {
-    debug('Gagal decode JWT: ' + e.message);
-    _email = '';
-  }
+        if (!userDb && !isDirektur) {
+          // User belum terdaftar — daftarkan sebagai PENDING
+          await fetch(`${SUPA_URL}/rest/v1/m_user`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPA_KEY,
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              email:      userData.email,
+              nama:       userData.user_metadata?.full_name || userData.email,
+              role:       null,
+              status:     'PENDING',
+              tgl_daftar: new Date().toISOString()
+            })
+          });
+          setStatus('Akun kamu belum disetujui. Hubungi Direktur untuk aktivasi.', 'err');
+          document.getElementById('btnLogin').disabled = false;
+          return;
+        }
 
-  debug('Mengirim ke GAS...');
-  apiPost('cekUser', { idToken: _idToken })
-    .then(function(res) {
-      debug('GAS response: ' + JSON.stringify(res));
-      if (res.status === 'ok') {
-        simpanSesi(res.user);
-        localStorage.setItem('sieo_idtoken', _idToken);
-        tampilStatus('success', 'Login berhasil! Mengalihkan...');
-        setTimeout(function(){ redirectByRole(res.user.role); }, 800);
+        if (!isDirektur && userDb.status !== 'AKTIF') {
+          setStatus('Akun belum aktif. Status: ' + userDb.status, 'err');
+          document.getElementById('btnLogin').disabled = false;
+          return;
+        }
 
-      } else if (res.status === 'pending_daftar') {
-        document.getElementById('inputEmailDaftar').value = _email;
-        document.getElementById('sectionLogin').style.display = 'none';
-        document.getElementById('formDaftar').classList.add('show');
-        tampilStatus('info', 'Email belum terdaftar. Lengkapi form pendaftaran.');
-        document.getElementById('btnGoogle').disabled = false;
+        // Update last_login
+        const roleUser = isDirektur ? 'DIREKTUR' : userDb.role;
+        if (!isDirektur) {
+          await fetch(
+            `${SUPA_URL}/rest/v1/m_user?email=eq.${encodeURIComponent(userData.email)}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPA_KEY,
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ last_login: new Date().toISOString() })
+            }
+          );
+        }
 
-      } else if (res.status === 'pending') {
-        tampilStatus('warning', res.message);
-        document.getElementById('btnGoogle').disabled = false;
+        // Simpan sesi
+        localStorage.setItem('sieo_sesi', JSON.stringify({
+          access_token:  accessToken,
+          refresh_token: refreshToken,
+          expires_at:    expiresAt ? parseInt(expiresAt) : null,
+          user_info: {
+            email:  userData.email,
+            nama:   isDirektur ? 'Direktur' : (userDb.nama || userData.user_metadata?.full_name || userData.email),
+            role:   roleUser,
+            status: isDirektur ? 'AKTIF' : userDb.status
+          }
+        }));
 
-      } else if (res.status === 'nonaktif') {
-        tampilStatus('danger', res.message);
-        document.getElementById('btnGoogle').disabled = false;
+        // Bersihkan hash dari URL
+        history.replaceState(null, '', window.location.pathname);
 
-      } else {
-        tampilStatus('danger', res.message || 'Terjadi kesalahan.');
-        document.getElementById('btnGoogle').disabled = false;
+        setStatus('Login berhasil. Mengalihkan…', 'ok');
+        setTimeout(() => { window.location.href = '/index.html'; }, 800);
+
+      } catch(err) {
+        setStatus('Error: ' + err.message, 'err');
+        document.getElementById('btnLogin').disabled = false;
       }
-    })
-    .catch(function(err) {
-      debug('Fetch error: ' + err.message);
-      tampilStatus('danger', 'Gagal menghubungi server.');
-      document.getElementById('btnGoogle').disabled = false;
-    });
-}
+    }
 
-function loginGoogle() {
-  var nonce  = Math.random().toString(36).substring(2);
-  var state  = Math.random().toString(36).substring(2) + Date.now().toString(36);
-  sessionStorage.setItem('oauth_state', state);
-  var p = new URLSearchParams({
-    client_id: CLIENT_ID, redirect_uri: REDIRECT_URI,
-    response_type: 'id_token', scope: 'openid email profile',
-    nonce: nonce, state: state, prompt: 'select_account'
-  });
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + p.toString();
-}
-
-function daftarUser() {
-  var nama = document.getElementById('inputNama').value.trim();
-  if (!nama) { tampilStatus('warning', 'Nama lengkap wajib diisi.'); return; }
-  tampilStatus('secondary', 'Mengirim permohonan...');
-  apiPost('daftarUser', { idToken: _idToken, nama: nama })
-    .then(function(res) {
-      if (res.status === 'ok') {
-        document.getElementById('formDaftar').classList.remove('show');
-        document.getElementById('sectionLogin').style.display = 'block';
-        tampilStatus('success', 'Permohonan terkirim. Tunggu persetujuan Direktur.');
-      } else {
-        tampilStatus('danger', res.message || 'Gagal mendaftar.');
-      }
-    })
-    .catch(function(){ tampilStatus('danger', 'Gagal menghubungi server.'); });
-}
-
-function tampilStatus(tipe, pesan) {
-  var box = document.getElementById('statusBox');
-  box.className = 'status-box show alert alert-' + tipe;
-  box.textContent = pesan;
-}
-
-function resetLogin() {
-  _idToken = null; _email = null;
-  document.getElementById('formDaftar').classList.remove('show');
-  document.getElementById('sectionLogin').style.display = 'block';
-  document.getElementById('inputNama').value = '';
-  document.getElementById('statusBox').className = 'status-box';
-  document.getElementById('btnGoogle').disabled = false;
-}
-
-function redirectByRole(role) {
-  window.location.href = (role === 'SALES') ? '../pages/harga.html' : '../index.html';
-}
-</script>
+    // Cek kalau sudah login
+    const sesiAda = getSesi();
+    if (sesiAda && sesiAda.access_token) {
+      window.location.href = '/index.html';
+    } else {
+      handleCallback();
+    }
+  </script>
 </body>
 </html>
