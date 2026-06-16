@@ -57,7 +57,7 @@ function sesiValid() {
 function guardHalaman() {
   if (!sesiValid()) {
     hapusSesi();
-    window.location.href = '/login.html';
+    window.location.href = '/pages/login.html';
     return false;
   }
   renderUserInfo();
@@ -74,7 +74,7 @@ function renderUserInfo() {
 
 // Login via Google OAuth — redirect ke Supabase
 function loginGoogle() {
-  const redirectTo = encodeURIComponent('https://sieo.my.id/login.html');
+  const redirectTo = encodeURIComponent('https://sieo.my.id/pages/login.html');
   window.location.href = 
     `${SUPA_URL}/auth/v1/authorize?provider=google&redirect_to=${redirectTo}`;
 }
@@ -82,7 +82,7 @@ function loginGoogle() {
 // Logout
 function logout() {
   hapusSesi();
-  window.location.href = '/login.html';
+  window.location.href = '/pages/login.html';
 }
 
 // Handle callback dari Supabase OAuth
