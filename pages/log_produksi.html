@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Log Produksi — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--navy:#1a2744;--navy-dk:#131e36;--navy-mid:#243257;--orange:#e8521a;--bg:#eef1f7;--surface:#fff;--border:#d0d8e8;--text:#1a2744;--muted:#6b7a99;--green:#1a9e5c;--green-bg:#e6f7ef;--green-bd:#a3d9be;--red:#dc3545;--yellow:#f59e0b;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:2rem;}
+    .topbar{background:var(--navy);border-bottom:3px solid var(--orange);padding:.7rem 1.1rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+    .topbar-left{display:flex;align-items:center;gap:.75rem;}
+    .topbar-back{color:rgba(255,255,255,.7);font-size:.75rem;font-family:var(--mono);text-decoration:none;}
+    .topbar-back:hover{color:#fff;}
+    .topbar-title{font-family:var(--mono);font-weight:600;font-size:.88rem;letter-spacing:.05em;color:#fff;text-transform:uppercase;}
+    #userPill{font-family:var(--mono);font-size:.65rem;color:rgba(255,255,255,.55);}
+    .main{padding:1.1rem;}
+    /* Tabs */
+    .tab-bar{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1rem;border-bottom:2px solid var(--border);padding-bottom:.5rem;}
+    .tab-btn{font-family:var(--mono);font-size:.75rem;padding:.4rem .85rem;border-radius:6px 6px 0 0;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;border-bottom:none;position:relative;bottom:-2px;}
+    .tab-btn.aktif{background:var(--navy);color:#fff;border-color:var(--navy);}
+    .tab-panel{display:none;}
+    .tab-panel.aktif{display:block;}
+    /* Filter bar */
+    .filter-bar{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.85rem;align-items:flex-end;}
+    .filter-group{display:flex;flex-direction:column;gap:.25rem;}
+    .filter-label{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;color:var(--muted);}
+    .filter-input{font-family:var(--sans);font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;background:var(--surface);color:var(--text);outline:none;}
+    .filter-input:focus{border-color:var(--navy);}
+    .btn-filter{font-family:var(--mono);font-size:.72rem;padding:.38rem .8rem;border-radius:6px;border:none;background:var(--navy);color:#fff;cursor:pointer;}
+    .btn-filter:hover{background:var(--navy-dk);}
+    .btn-reset{font-family:var(--mono);font-size:.72rem;padding:.38rem .8rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;}
+    /* Tabel */
+    .tbl-wrap{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:.8rem;}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:.66rem;font-weight:600;letter-spacing:.05em;padding:.6rem .75rem;text-align:left;white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:#f5f7fb;}
+    tbody td{padding:.5rem .75rem;vertical-align:middle;}
+    .td-mono{font-family:var(--mono);font-size:.72rem;}
+    .td-muted{color:var(--muted);font-size:.75rem;}
+    /* Badge jenis */
+    .badge-jenis{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.2rem .5rem;border-radius:4px;letter-spacing:.04em;white-space:nowrap;}
+    .bj-cetak{background:#dbeafe;color:#1d4ed8;}
+    .bj-potong{background:#ede9fe;color:#6d28d9;}
+    .bj-finishing{background:#d1fae5;color:#065f46;}
+    .bj-packing{background:#fce7f3;color:#9d174d;}
+    .bj-pending{background:#fef9c3;color:#713f12;border:1px solid #fde68a;}
+    /* Alert */
+    .alert-box{font-family:var(--mono);font-size:.75rem;padding:.5rem .75rem;border-radius:6px;margin-bottom:.6rem;}
+    .alert-err{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;}
+    .alert-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .alert-warn{background:#fef9c3;color:#713f12;border:1px solid #fde68a;}
+    /* Buttons */
+    .btn-edit{background:#e8f0fe;color:var(--navy);border:1px solid #c3d3f7;font-family:var(--mono);font-size:.68rem;padding:.2rem .55rem;border-radius:4px;cursor:pointer;white-space:nowrap;}
+    .btn-edit:hover{background:#c3d3f7;}
+    .btn-edit:disabled{opacity:.4;cursor:not-allowed;}
+    .btn-approve{background:var(--green);color:#fff;border:none;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.45rem .85rem;border-radius:6px;cursor:pointer;}
+    .btn-tolak{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.45rem .85rem;border-radius:6px;cursor:pointer;}
+    .btn-simpan{background:var(--navy);color:#fff;border:none;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.45rem .85rem;border-radius:6px;cursor:pointer;}
+    .btn-simpan:hover{background:var(--navy-dk);}
+    .btn-simpan:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-batal{background:transparent;color:var(--muted);border:1px solid var(--border);font-family:var(--mono);font-size:.75rem;padding:.45rem .85rem;border-radius:6px;cursor:pointer;}
+    /* Rekap card */
+    .rekap-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;margin-bottom:.75rem;}
+    .rekap-card-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem;}
+    .rekap-spk-id{font-family:var(--mono);font-size:.72rem;color:var(--muted);}
+    .rekap-spk-status{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;}
+    .rs-open{background:#f3f4f6;color:#4b5563;}
+    .rs-cetak{background:#dbeafe;color:#1d4ed8;}
+    .rs-potong{background:#ede9fe;color:#6d28d9;}
+    .rs-finishing{background:#d1fae5;color:#065f46;}
+    .rs-packing{background:#fce7f3;color:#9d174d;}
+    .rs-siap_close{background:#fef3c7;color:#92400e;}
+    .rs-menunggu_approve{background:#fef9c3;color:#713f12;}
+    .rs-selesai{background:var(--green-bg);color:var(--green);}
+    .rekap-bars{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .75rem;}
+    .rekap-bar-row{font-size:.75rem;}
+    .rekap-bar-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-bottom:.2rem;display:flex;justify-content:space-between;}
+    .rekap-bar-track{background:#e5e7eb;border-radius:3px;height:6px;overflow:hidden;}
+    .rekap-bar-fill{height:100%;border-radius:3px;transition:width .3s;}
+    .fill-cetak{background:#3b82f6;}
+    .fill-potong{background:#8b5cf6;}
+    .fill-finishing{background:#10b981;}
+    .fill-packing{background:#ec4899;}
+    /* Modal */
+    .modal-content{border:none;border-radius:10px;box-shadow:0 8px 32px rgba(26,39,68,.18);}
+    .modal-header{background:var(--navy);color:#fff;border-radius:10px 10px 0 0;padding:.85rem 1.1rem;border-bottom:3px solid var(--orange);}
+    .modal-title{font-family:var(--mono);font-weight:600;font-size:.88rem;color:#fff;text-transform:uppercase;}
+    .modal-header .btn-close{filter:invert(1);opacity:.7;}
+    .modal-body{padding:1.1rem;background:#f8fafc;}
+    .modal-footer{background:var(--bg);border-top:1px solid var(--border);padding:.75rem 1.1rem;border-radius:0 0 10px 10px;}
+    .form-label{font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;display:block;}
+    .form-control{font-family:var(--sans);font-size:.82rem;border:1px solid var(--border);border-radius:6px;padding:.45rem .75rem;color:var(--text);background:var(--surface);width:100%;outline:none;}
+    .form-control:focus{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,39,68,.1);}
+    .form-row{display:grid;grid-template-columns:1fr;gap:.6rem;margin-bottom:.7rem;}
+    .form-row-2{grid-template-columns:1fr 1fr;}
+    @media(max-width:540px){.form-row-2{grid-template-columns:1fr;}}
+    .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .85rem;margin-bottom:.75rem;}
+    .kv-item label{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;color:var(--muted);display:block;}
+    .kv-item span{font-size:.82rem;font-weight:500;}
+    .diff-old{color:var(--red);text-decoration:line-through;font-size:.78rem;}
+    .diff-new{color:var(--green);font-size:.78rem;font-weight:600;}
+    .loading{text-align:center;padding:2rem;color:var(--muted);font-family:var(--mono);font-size:.78rem;}
+    /* AC dropdown */
+    .ac-dropdown{position:fixed;background:var(--surface);border:1.5px solid var(--navy);border-radius:4px;max-height:220px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+    .ac-item{padding:.5rem .75rem;font-size:.8rem;cursor:pointer;border-bottom:1px solid var(--border);}
+    .ac-item:last-child{border-bottom:none;}
+    .ac-item:hover{background:#e8edf7;}
+    .ac-item-id{font-family:var(--mono);font-size:.65rem;color:var(--muted);display:block;}
+    .ac-empty{padding:.5rem .75rem;font-size:.78rem;color:var(--muted);font-family:var(--mono);}
+    .badge-pending-count{background:var(--orange);color:#fff;font-family:var(--mono);font-size:.62rem;font-weight:700;padding:.1rem .4rem;border-radius:10px;margin-left:.35rem;}
+  </style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="../index.html" class="topbar-back">← Kembali</a>
+    <span style="color:rgba(255,255,255,.2)">|</span>
+    <div><div class="topbar-title">Log Produksi</div></div>
+  </div>
+  <span id="userPill"></span>
+</div>
+
+<div class="main">
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn aktif" onclick="gantiTab('riwayat',this)">Riwayat Log</button>
+    <button class="tab-btn" onclick="gantiTab('rekap',this)">Rekap SPK</button>
+    <button class="tab-btn" id="tabPendingBtn" onclick="gantiTab('pending',this)">
+      Pending Approval<span class="badge-pending-count" id="pendingCount" style="display:none">0</span>
+    </button>
+  </div>
+
+  <!-- ══ TAB: RIWAYAT LOG ══ -->
+  <div class="tab-panel aktif" id="panelRiwayat">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">SPK</span>
+        <input type="text" id="filterSpk" class="filter-input" placeholder="Cari ID SPK…" style="width:160px" oninput="initSpkAC(this)"/>
+        <div class="ac-dropdown" id="acSpkRiwayat"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Jenis</span>
+        <select id="filterJenis" class="filter-input">
+          <option value="">Semua</option>
+          <option>CETAK</option><option>POTONG</option><option>FINISHING</option><option>PACKING</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Operator</span>
+        <input type="text" id="filterOperator" class="filter-input" placeholder="Nama operator…" style="width:150px"/>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Dari</span>
+        <input type="date" id="filterDari" class="filter-input"/>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Sampai</span>
+        <input type="date" id="filterSampai" class="filter-input"/>
+      </div>
+      <button class="btn-filter" onclick="muatRiwayat()">Cari</button>
+      <button class="btn-reset" onclick="resetFilterRiwayat()">Reset</button>
+    </div>
+    <div id="alertRiwayat"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Tgl Produksi</th><th>ID SPK</th><th>Jenis</th><th>Qty</th><th>Insheet</th>
+          <th>Mesin/Vendor</th><th>Operator</th><th>Keterangan</th><th>Input</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="tblRiwayat"><tr><td colspan="11" class="loading">Pilih filter lalu klik Cari</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ TAB: REKAP ══ -->
+  <div class="tab-panel" id="panelRekap">
+    <div class="filter-bar">
+      <div class="filter-group">
+        <span class="filter-label">Status SPK</span>
+        <select id="rekapFilterStatus" class="filter-input">
+          <option value="">Semua</option>
+          <option>OPEN</option><option>CETAK</option><option>POTONG</option>
+          <option>FINISHING</option><option>PACKING</option><option>SIAP_CLOSE</option>
+          <option>MENUNGGU_APPROVE</option><option>SELESAI</option>
+        </select>
+      </div>
+      <button class="btn-filter" onclick="muatRekap()">Tampilkan</button>
+    </div>
+    <div id="alertRekap"></div>
+    <div id="rekapList"><div class="loading">Klik Tampilkan untuk memuat rekap</div></div>
+  </div>
+
+  <!-- ══ TAB: PENDING APPROVAL ══ -->
+  <div class="tab-panel" id="panelPending">
+    <div id="alertPending"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Tgl Produksi</th><th>ID SPK</th><th>Jenis</th><th>Perubahan</th>
+          <th>Diajukan Oleh</th><th>Tgl Ajukan</th><th></th>
+        </tr></thead>
+        <tbody id="tblPending"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT LOG -->
+<div class="modal fade" id="modalEdit" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Edit Log Produksi</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertEdit"></div>
+        <div class="kv-grid" id="editInfoGrid"></div>
+        <div class="form-row form-row-2">
+          <div>
+            <label class="form-label">Tgl Produksi</label>
+            <input type="date" id="editTgl" class="form-control"/>
+          </div>
+          <div>
+            <label class="form-label">Qty</label>
+            <input type="number" id="editQty" class="form-control" min="0"/>
+          </div>
+        </div>
+        <div class="form-row form-row-2" id="editRowInsheet">
+          <div>
+            <label class="form-label">Insheet</label>
+            <input type="number" id="editInsheet" class="form-control" min="0"/>
+          </div>
+          <div>
+            <label class="form-label">Mesin / Vendor</label>
+            <input type="text" id="editMesin" class="form-control"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Operator</label>
+            <input type="text" id="editOperator" class="form-control"/>
+            <div class="ac-dropdown" id="acEditOperator"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Keterangan</label>
+            <input type="text" id="editKeterangan" class="form-control"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Alasan Edit <span style="color:var(--red)">*</span></label>
+            <textarea id="editAlasan" class="form-control" rows="2" placeholder="Wajib isi alasan edit…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-simpan" id="btnSimpanEdit" onclick="simpanEdit()">Ajukan Edit → Manager</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APPROVE -->
+<div class="modal fade" id="modalApprove" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--green)">
+        <span class="modal-title">Approve Edit Log</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertApprove"></div>
+        <div class="alert-box alert-warn" style="margin-bottom:.75rem">⚠ Periksa perubahan sebelum menyetujui.</div>
+        <div class="kv-grid" id="approveInfoGrid"></div>
+        <div id="approveDiffWrap" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.75rem;margin-bottom:.75rem;font-size:.8rem;"></div>
+        <div>
+          <label class="form-label">Alasan pengaju</label>
+          <div id="approveAlasanText" class="form-control" style="background:#f5f7fb;min-height:2.5rem;font-size:.8rem;"></div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-tolak" id="btnTolakApprove" onclick="tolakEdit()">✕ Tolak</button>
+        <button class="btn-approve" id="btnKonfirmasiApprove" onclick="konfirmasiApprove()">✓ Approve</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TOLAK -->
+<div class="modal fade" id="modalTolak" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--red)">
+        <span class="modal-title">Tolak Edit Log</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertTolak"></div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Alasan penolakan <span style="color:var(--red)">*</span></label>
+            <textarea id="tolakAlasan" class="form-control" rows="3" placeholder="Wajib isi alasan…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-tolak" id="btnKonfirmasiTolak" onclick="konfirmasiTolak()">✕ Tolak Edit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+// ── STATE ──
+var semuaSPK=[], semuaOperator=[], logAktif=null;
+var isMP=false; // Manager atau Direktur
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', function(){
+  if (!guardHalaman()) return;
+  var role=getRoleUser();
+  isMP=(role==='MANAGER'||role==='DIREKTUR');
+  if (!isMP) {
+    // sembunyikan tab pending tapi biarkan klik tetap kerja (akan terlihat kosong)
+    document.getElementById('tabPendingBtn').style.opacity='.45';
+  }
+  // Default filter tanggal: hari ini
+  var hariIni=new Date().toISOString().slice(0,10);
+  document.getElementById('filterDari').value=hariIni;
+  document.getElementById('filterSampai').value=hariIni;
+
+  Promise.all([
+    dbGet('in_spk',{order:'id_spk.desc',select:'id_spk,status,total_oplah,keterangan'}),
+    dbGet('m_operator',{status:'eq.AKTIF',order:'nama.asc'})
+  ]).then(function(res){
+    semuaSPK=Array.isArray(res[0])?res[0]:[];
+    semuaOperator=Array.isArray(res[1])?res[1]:[];
+    initSpkAC(document.getElementById('filterSpk'));
+    initEditOperatorAC();
+    muatPendingCount();
+  });
+});
+
+// ── TAB ──
+function gantiTab(nama,btn){
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('aktif');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('aktif');});
+  document.getElementById('panel'+nama.charAt(0).toUpperCase()+nama.slice(1)).classList.add('aktif');
+  btn.classList.add('aktif');
+  if (nama==='pending') muatPending();
+  if (nama==='rekap') muatRekap();
+}
+
+// ── FORMAT HELPERS ──
+function fmtTgl(d){if(!d)return'—';var dt=new Date(d);return dt.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'2-digit'});}
+function fmtWaktu(d){if(!d)return'—';return new Date(d).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
+function esc(s){return escHtml(s);}
+function badgeJenis(j){var k=(j||'').toLowerCase();return '<span class="badge-jenis bj-'+k+'">'+esc(j)+'</span>';}
+
+// ── AC SPK ──
+var _spkAcEl=null, _spkAcDrop=null;
+function initSpkAC(inputEl){
+  if (_spkAcEl===inputEl) return; // sudah terpasang
+  _spkAcEl=inputEl;
+  _spkAcDrop=document.getElementById('acSpkRiwayat');
+  document.body.appendChild(_spkAcDrop);
+  inputEl.addEventListener('input',function(){renderSpkDrop(inputEl.value);posisiDrop(inputEl,_spkAcDrop);});
+  inputEl.addEventListener('focus',function(){renderSpkDrop(inputEl.value);posisiDrop(inputEl,_spkAcDrop);_spkAcDrop.style.display='block';});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){_spkAcDrop.style.display='none';},200);});
+}
+function renderSpkDrop(q){
+  q=q.toLowerCase();
+  var hasil=semuaSPK.filter(function(s){return s.id_spk.toLowerCase().indexOf(q)>=0;}).slice(0,20);
+  _spkAcDrop.innerHTML=hasil.length?hasil.map(function(s){
+    return '<div class="ac-item" onmousedown="event.preventDefault();pilihSpk(\''+esc(s.id_spk)+'\')" ontouchend="event.preventDefault();pilihSpk(\''+esc(s.id_spk)+'\')">'+
+      '<span class="ac-item-id">'+esc(s.id_spk)+'</span>'+
+      '<span style="font-size:.72rem;color:var(--muted)">'+esc(s.status)+'</span>'+
+    '</div>';
+  }).join(''):'<div class="ac-empty">Tidak ditemukan</div>';
+}
+function pilihSpk(id){
+  document.getElementById('filterSpk').value=id;
+  _spkAcDrop.style.display='none';
+}
+
+// ── AC OPERATOR (modal edit) ──
+function initEditOperatorAC(){
+  var inp=document.getElementById('editOperator');
+  var drop=document.getElementById('acEditOperator');
+  document.body.appendChild(drop);
+  inp.addEventListener('input',function(){renderOpDrop(inp.value,drop);posisiDrop(inp,drop);});
+  inp.addEventListener('focus',function(){renderOpDrop(inp.value,drop);posisiDrop(inp,drop);drop.style.display='block';});
+  inp.addEventListener('blur',function(){setTimeout(function(){drop.style.display='none';},200);});
+}
+function renderOpDrop(q,drop){
+  q=q.toLowerCase();
+  var hasil=semuaOperator.filter(function(o){return (o.nama||'').toLowerCase().indexOf(q)>=0;}).slice(0,15);
+  drop.innerHTML=hasil.length?hasil.map(function(o){
+    return '<div class="ac-item" onmousedown="event.preventDefault();pilihOpEdit(\''+esc(o.nama)+'\')" ontouchend="event.preventDefault();pilihOpEdit(\''+esc(o.nama)+'\')">'+
+      '<span style="font-size:.8rem">'+esc(o.nama)+'</span>'+
+    '</div>';
+  }).join(''):'<div class="ac-empty">Tidak ditemukan</div>';
+}
+function pilihOpEdit(nama){
+  document.getElementById('editOperator').value=nama;
+  document.getElementById('acEditOperator').style.display='none';
+}
+
+function posisiDrop(inputEl,drop){
+  var r=inputEl.getBoundingClientRect();
+  drop.style.top=r.bottom+'px';
+  drop.style.left=r.left+'px';
+  drop.style.width=r.width+'px';
+  drop.style.display='block';
+}
+
+// ── RIWAYAT ──
+function resetFilterRiwayat(){
+  document.getElementById('filterSpk').value='';
+  document.getElementById('filterJenis').value='';
+  document.getElementById('filterOperator').value='';
+  var h=new Date().toISOString().slice(0,10);
+  document.getElementById('filterDari').value=h;
+  document.getElementById('filterSampai').value=h;
+  document.getElementById('tblRiwayat').innerHTML='<tr><td colspan="11" class="loading">Pilih filter lalu klik Cari</td></tr>';
+}
+
+function muatRiwayat(){
+  var params={order:'tgl_produksi.desc,tgl_input.desc'};
+  var spk=document.getElementById('filterSpk').value.trim();
+  var jenis=document.getElementById('filterJenis').value;
+  var op=document.getElementById('filterOperator').value.trim();
+  var dari=document.getElementById('filterDari').value;
+  var sampai=document.getElementById('filterSampai').value;
+  if (spk) params['id_spk']='eq.'+spk;
+  if (jenis) params['jenis']='eq.'+jenis;
+  if (op) params['operator']='ilike.*'+op+'*';
+  if (dari) params['tgl_produksi']='gte.'+dari+'T00:00:00+07:00';
+  if (sampai) {
+    // kalau sudah ada gte di tgl_produksi, perlu workaround — pakai range
+    if (params['tgl_produksi']) {
+      params['tgl_produksi']='gte.'+dari+'T00:00:00+07:00';
+      params['tgl_produksi2']='lte.'+sampai+'T23:59:59+07:00'; // tidak valid, tangani di bawah
+    } else {
+      params['tgl_produksi']='lte.'+sampai+'T23:59:59+07:00';
+    }
+  }
+
+  // Build query manual agar bisa pakai dua kondisi tgl_produksi
+  var qArr=[];
+  if (spk) qArr.push('id_spk=eq.'+encodeURIComponent(spk));
+  if (jenis) qArr.push('jenis=eq.'+encodeURIComponent(jenis));
+  if (op) qArr.push('operator=ilike.*'+encodeURIComponent(op)+'*');
+  if (dari) qArr.push('tgl_produksi=gte.'+encodeURIComponent(dari+'T00:00:00+07:00'));
+  if (sampai) qArr.push('tgl_produksi=lte.'+encodeURIComponent(sampai+'T23:59:59+07:00'));
+  qArr.push('order=tgl_produksi.desc,tgl_input.desc');
+
+  var url=SUPA_URL+'/rest/v1/log_produksi?'+qArr.join('&');
+  var tbody=document.getElementById('tblRiwayat');
+  tbody.innerHTML='<tr><td colspan="11" class="loading">Memuat…</td></tr>';
+  document.getElementById('alertRiwayat').innerHTML='';
+
+  fetch(url,{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+(getSupaToken()||SUPA_KEY)}})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      var logs=Array.isArray(res)?res:[];
+      if (!logs.length){tbody.innerHTML='<tr><td colspan="11" class="loading">Tidak ada data</td></tr>';return;}
+      tbody.innerHTML=logs.map(function(l){
+        var isPending=l.status==='PENDING_EDIT';
+        var catObj=null;
+        if (isPending){try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}}
+        return '<tr>'+
+          '<td class="td-mono">'+fmtTgl(l.tgl_produksi)+'</td>'+
+          '<td class="td-mono" style="font-size:.7rem">'+esc(l.id_spk)+'</td>'+
+          '<td>'+badgeJenis(l.jenis)+(isPending?'<br><span class="badge-jenis bj-pending" style="margin-top:.2rem">PENDING</span>':'')+'</td>'+
+          '<td class="td-mono">'+fmtAngka(l.qty)+' '+(l.satuan||'')+'</td>'+
+          '<td class="td-mono">'+(l.insheet||'—')+'</td>'+
+          '<td class="td-muted">'+esc(l.mesin_vendor||'—')+'</td>'+
+          '<td class="td-muted">'+esc(l.operator||'—')+'</td>'+
+          '<td class="td-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(l.keterangan||'—')+'</td>'+
+          '<td class="td-mono" style="font-size:.65rem">'+esc(l.user_input||'')+'<br><span style="color:var(--muted)">'+fmtWaktu(l.tgl_input)+'</span></td>'+
+          '<td class="td-mono" style="font-size:.65rem">'+(isPending?'<span style="color:#713f12">PENDING</span>':'<span style="color:var(--green)">AKTIF</span>')+'</td>'+
+          '<td><button class="btn-edit" '+(isPending?'disabled title="Sedang menunggu approval"':'')+' onclick="bukaEdit(\''+esc(l.id_log)+'\')">Edit</button></td>'+
+        '</tr>';
+      }).join('');
+    })
+    .catch(function(){
+      tbody.innerHTML='<tr><td colspan="11" class="loading" style="color:var(--red)">Gagal memuat data</td></tr>';
+    });
+}
+
+// ── EDIT LOG ──
+var _logEdit=null;
+function bukaEdit(idLog){
+  // Ambil data log dari tabel
+  dbGet('log_produksi',{id_log:'eq.'+idLog}).then(function(res){
+    var logs=Array.isArray(res)?res:[];
+    if (!logs.length){alert('Log tidak ditemukan');return;}
+    _logEdit=logs[0];
+    var l=_logEdit;
+    var jenis=l.jenis||'';
+
+    document.getElementById('alertEdit').innerHTML='';
+    document.getElementById('editInfoGrid').innerHTML=
+      '<div class="kv-item"><label>ID Log</label><span class="td-mono" style="font-size:.72rem">'+esc(l.id_log)+'</span></div>'+
+      '<div class="kv-item"><label>ID SPK</label><span class="td-mono" style="font-size:.72rem">'+esc(l.id_spk)+'</span></div>'+
+      '<div class="kv-item"><label>Jenis</label><span>'+badgeJenis(jenis)+'</span></div>'+
+      '<div class="kv-item"><label>Input oleh</label><span style="font-size:.78rem">'+esc(l.user_input||'—')+'</span></div>';
+
+    // Set nilai form
+    document.getElementById('editTgl').value=l.tgl_produksi?(new Date(l.tgl_produksi).toISOString().slice(0,10)):'';
+    document.getElementById('editQty').value=l.qty||0;
+    document.getElementById('editInsheet').value=l.insheet||0;
+    document.getElementById('editMesin').value=l.mesin_vendor||'';
+    document.getElementById('editOperator').value=l.operator||'';
+    document.getElementById('editKeterangan').value=l.keterangan||'';
+    document.getElementById('editAlasan').value='';
+
+    // Sembunyikan insheet/mesin untuk POTONG & PACKING
+    var rowInsheet=document.getElementById('editRowInsheet');
+    rowInsheet.style.display=(jenis==='POTONG'||jenis==='PACKING')?'none':'grid';
+    // Qty tidak editable untuk PACKING (qty_pack dikelola otomatis)
+    document.getElementById('editQty').disabled=(jenis==='PACKING');
+
+    var modal=new bootstrap.Modal(document.getElementById('modalEdit'));
+    modal.show();
+  });
+}
+
+function simpanEdit(){
+  if (!_logEdit){return;}
+  var alasan=document.getElementById('editAlasan').value.trim();
+  if (!alasan){document.getElementById('alertEdit').innerHTML='<div class="alert-box alert-err">Alasan edit wajib diisi.</div>';return;}
+
+  var tglBaru=document.getElementById('editTgl').value;
+  var qtyBaru=parseInt(document.getElementById('editQty').value,10)||0;
+  var insheetBaru=parseInt(document.getElementById('editInsheet').value,10)||0;
+  var mesinBaru=document.getElementById('editMesin').value.trim();
+  var opBaru=document.getElementById('editOperator').value.trim();
+  var ketBaru=document.getElementById('editKeterangan').value.trim();
+
+  // Simpan data lama + baru ke kolom catatan sebagai JSON
+  var l=_logEdit;
+  var perubahan={
+    lama:{tgl_produksi:l.tgl_produksi,qty:l.qty,insheet:l.insheet,mesin_vendor:l.mesin_vendor,operator:l.operator,keterangan:l.keterangan},
+    baru:{tgl_produksi:tglBaru?tglBaru+'T00:00:00+07:00':l.tgl_produksi,qty:qtyBaru,insheet:insheetBaru,mesin_vendor:mesinBaru,operator:opBaru,keterangan:ketBaru},
+    alasan:alasan,
+    user_ajukan:getNamaUser(),
+    tgl_ajukan:new Date().toISOString()
+  };
+
+  var btn=document.getElementById('btnSimpanEdit');
+  btn.disabled=true; btn.textContent='Menyimpan…';
+  dbUpdate('log_produksi',{id_log:'eq.'+l.id_log},{status:'PENDING_EDIT',catatan:JSON.stringify(perubahan)})
+    .then(function(res){
+      if (res&&res.code) throw new Error(res.message||'Gagal');
+      document.getElementById('alertEdit').innerHTML='<div class="alert-box alert-ok">Berhasil diajukan. Menunggu approval Manager.</div>';
+      btn.textContent='✓ Diajukan';
+      muatPendingCount();
+      setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();muatRiwayat();},1200);
+    })
+    .catch(function(e){
+      document.getElementById('alertEdit').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='Ajukan Edit → Manager';
+    });
+}
+
+// ── PENDING APPROVAL ──
+var _logApprove=null;
+function muatPendingCount(){
+  dbGet('log_produksi',{status:'eq.PENDING_EDIT',select:'id_log'}).then(function(res){
+    var n=Array.isArray(res)?res.length:0;
+    var el=document.getElementById('pendingCount');
+    if (n>0){el.textContent=n;el.style.display='';}
+    else {el.style.display='none';}
+  });
+}
+
+function muatPending(){
+  var tbody=document.getElementById('tblPending');
+  tbody.innerHTML='<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  document.getElementById('alertPending').innerHTML='';
+  dbGet('log_produksi',{status:'eq.PENDING_EDIT',order:'tgl_input.desc'}).then(function(res){
+    var logs=Array.isArray(res)?res:[];
+    if (!logs.length){tbody.innerHTML='<tr><td colspan="7" class="loading">Tidak ada yang menunggu approval</td></tr>';return;}
+    tbody.innerHTML=logs.map(function(l){
+      var catObj={}; try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}
+      var baru=catObj.baru||{};
+      var lama=catObj.lama||{};
+      var diffHtml=[];
+      if (baru.tgl_produksi!==lama.tgl_produksi) diffHtml.push('Tgl: <span class="diff-old">'+fmtTgl(lama.tgl_produksi)+'</span> → <span class="diff-new">'+fmtTgl(baru.tgl_produksi)+'</span>');
+      if (baru.qty!==lama.qty) diffHtml.push('Qty: <span class="diff-old">'+fmtAngka(lama.qty)+'</span> → <span class="diff-new">'+fmtAngka(baru.qty)+'</span>');
+      if (baru.operator!==lama.operator) diffHtml.push('Operator: <span class="diff-old">'+esc(lama.operator)+'</span> → <span class="diff-new">'+esc(baru.operator)+'</span>');
+      if (baru.mesin_vendor!==lama.mesin_vendor) diffHtml.push('Mesin: <span class="diff-old">'+esc(lama.mesin_vendor)+'</span> → <span class="diff-new">'+esc(baru.mesin_vendor)+'</span>');
+      if (baru.keterangan!==lama.keterangan) diffHtml.push('Ket: <span class="diff-old">'+esc(lama.keterangan)+'</span> → <span class="diff-new">'+esc(baru.keterangan)+'</span>');
+      return '<tr>'+
+        '<td class="td-mono">'+fmtTgl(l.tgl_produksi)+'</td>'+
+        '<td class="td-mono" style="font-size:.7rem">'+esc(l.id_spk)+'</td>'+
+        '<td>'+badgeJenis(l.jenis)+'</td>'+
+        '<td style="font-size:.75rem;line-height:1.6">'+diffHtml.join('<br>')+'</td>'+
+        '<td class="td-muted">'+esc(catObj.user_ajukan||l.user_input||'—')+'</td>'+
+        '<td class="td-mono" style="font-size:.65rem">'+fmtWaktu(catObj.tgl_ajukan||l.tgl_input)+'</td>'+
+        '<td>'+(isMP?'<button class="btn-approve" style="font-size:.68rem;padding:.2rem .5rem" onclick="bukaApprove(\''+esc(l.id_log)+'\')">Periksa</button>':'<span style="font-size:.72rem;color:var(--muted)">—</span>')+'</td>'+
+      '</tr>';
+    }).join('');
+  }).catch(function(){
+    tbody.innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat</td></tr>';
+  });
+}
+
+function bukaApprove(idLog){
+  dbGet('log_produksi',{id_log:'eq.'+idLog}).then(function(res){
+    var logs=Array.isArray(res)?res:[];
+    if (!logs.length) return;
+    _logApprove=logs[0];
+    var l=_logApprove;
+    var catObj={}; try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}
+    var lama=catObj.lama||{};
+    var baru=catObj.baru||{};
+
+    document.getElementById('alertApprove').innerHTML='';
+    document.getElementById('approveInfoGrid').innerHTML=
+      '<div class="kv-item"><label>ID Log</label><span class="td-mono" style="font-size:.7rem">'+esc(l.id_log)+'</span></div>'+
+      '<div class="kv-item"><label>ID SPK</label><span class="td-mono" style="font-size:.7rem">'+esc(l.id_spk)+'</span></div>'+
+      '<div class="kv-item"><label>Jenis</label><span>'+badgeJenis(l.jenis)+'</span></div>'+
+      '<div class="kv-item"><label>Diajukan</label><span style="font-size:.78rem">'+esc(catObj.user_ajukan||'—')+'</span></div>';
+
+    var diffRows=[];
+    function cekDiff(label,k){
+      if (JSON.stringify(baru[k])!==JSON.stringify(lama[k])){
+        diffRows.push('<div style="margin-bottom:.4rem"><span style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+label+'</span><br>'+
+          '<span class="diff-old">'+(k.includes('tgl')?fmtTgl(lama[k]):esc(String(lama[k]||'—')))+'</span> '+
+          '<span style="font-size:.78rem">→</span> '+
+          '<span class="diff-new">'+(k.includes('tgl')?fmtTgl(baru[k]):esc(String(baru[k]||'—')))+'</span></div>');
+      }
+    }
+    cekDiff('Tgl Produksi','tgl_produksi');
+    cekDiff('Qty','qty');
+    cekDiff('Insheet','insheet');
+    cekDiff('Mesin/Vendor','mesin_vendor');
+    cekDiff('Operator','operator');
+    cekDiff('Keterangan','keterangan');
+    document.getElementById('approveDiffWrap').innerHTML=diffRows.length?diffRows.join(''):'<span style="color:var(--muted);font-size:.78rem">Tidak ada perubahan terdeteksi</span>';
+    document.getElementById('approveAlasanText').textContent=catObj.alasan||'—';
+
+    var modal=new bootstrap.Modal(document.getElementById('modalApprove'));
+    modal.show();
+  });
+}
+
+function konfirmasiApprove(){
+  if (!_logApprove) return;
+  var l=_logApprove;
+  var catObj={}; try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}
+  var baru=catObj.baru||{};
+  var btn=document.getElementById('btnKonfirmasiApprove');
+  btn.disabled=true; btn.textContent='Memproses…';
+  document.getElementById('alertApprove').innerHTML='';
+
+  // Update field aktual + kembalikan status AKTIF
+  var updateData={
+    status:'AKTIF',
+    catatan:'APPROVED by '+getNamaUser()+' '+new Date().toISOString()
+  };
+  if (baru.tgl_produksi) updateData.tgl_produksi=baru.tgl_produksi;
+  if (baru.qty!==undefined&&l.jenis!=='PACKING') updateData.qty=baru.qty;
+  if (baru.insheet!==undefined) updateData.insheet=baru.insheet;
+  if (baru.mesin_vendor!==undefined) updateData.mesin_vendor=baru.mesin_vendor;
+  if (baru.operator!==undefined) updateData.operator=baru.operator;
+  if (baru.keterangan!==undefined) updateData.keterangan=baru.keterangan;
+
+  dbUpdate('log_produksi',{id_log:'eq.'+l.id_log},updateData)
+    .then(function(res){
+      if (res&&res.code) throw new Error(res.message);
+      // Jika PACKING dan qty berubah → recalculate qty_pack di in_spk_detail
+      if (l.jenis==='PACKING'&&l.id_spk_detail&&baru.qty!==undefined&&baru.qty!==l.qty){
+        return recalcQtyPack(l.id_spk_detail,l.id_spk);
+      }
+    })
+    .then(function(){
+      document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-ok">Approved. Data log diperbarui.</div>';
+      muatPendingCount();
+      setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalApprove')).hide();muatPending();},1000);
+    })
+    .catch(function(e){
+      document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='✓ Approve';
+    });
+}
+
+async function recalcQtyPack(idSdet, idSpk){
+  // Hitung ulang total qty dari semua log PACKING AKTIF untuk sdet ini
+  var url=SUPA_URL+'/rest/v1/log_produksi?id_spk_detail=eq.'+encodeURIComponent(idSdet)+'&jenis=eq.PACKING&status=eq.AKTIF&select=qty';
+  var res=await fetch(url,{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+(getSupaToken()||SUPA_KEY)}}).then(function(r){return r.json();});
+  var total=(Array.isArray(res)?res:[]).reduce(function(s,r){return s+(parseInt(r.qty,10)||0);},0);
+  return dbUpdate('in_spk_detail',{id_sdet:'eq.'+idSdet},{qty_pack:total});
+}
+
+function tolakEdit(){
+  bootstrap.Modal.getInstance(document.getElementById('modalApprove')).hide();
+  document.getElementById('tolakAlasan').value='';
+  document.getElementById('alertTolak').innerHTML='';
+  setTimeout(function(){new bootstrap.Modal(document.getElementById('modalTolak')).show();},350);
+}
+
+function konfirmasiTolak(){
+  if (!_logApprove) return;
+  var alasan=document.getElementById('tolakAlasan').value.trim();
+  if (!alasan){document.getElementById('alertTolak').innerHTML='<div class="alert-box alert-err">Alasan wajib diisi.</div>';return;}
+  var btn=document.getElementById('btnKonfirmasiTolak');
+  btn.disabled=true; btn.textContent='Memproses…';
+  dbUpdate('log_produksi',{id_log:'eq.'+_logApprove.id_log},{status:'AKTIF',catatan:'DITOLAK oleh '+getNamaUser()+': '+alasan})
+    .then(function(res){
+      if (res&&res.code) throw new Error(res.message);
+      document.getElementById('alertTolak').innerHTML='<div class="alert-box alert-ok">Edit ditolak.</div>';
+      muatPendingCount();
+      setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalTolak')).hide();muatPending();},900);
+    })
+    .catch(function(e){
+      document.getElementById('alertTolak').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='✕ Tolak Edit';
+    });
+}
+
+// ── REKAP ──
+function muatRekap(){
+  var filterStatus=document.getElementById('rekapFilterStatus').value;
+  var listEl=document.getElementById('rekapList');
+  listEl.innerHTML='<div class="loading">Memuat…</div>';
+  document.getElementById('alertRekap').innerHTML='';
+
+  // Ambil semua SPK + log sekaligus
+  var spkParams={order:'id_spk.desc',select:'id_spk,status,total_oplah,keterangan'};
+  if (filterStatus) spkParams['status']='eq.'+filterStatus;
+
+  Promise.all([
+    dbGet('in_spk',spkParams),
+    dbGet('log_produksi',{status:'neq.PENDING_EDIT',select:'id_spk,jenis,qty',order:'id_spk.asc'})
+  ]).then(function(res){
+    var spks=Array.isArray(res[0])?res[0]:[];
+    var logs=Array.isArray(res[1])?res[1]:[];
+
+    if (!spks.length){listEl.innerHTML='<div class="loading">Tidak ada data SPK</div>';return;}
+
+    // Group log by id_spk + jenis
+    var mapLog={};
+    logs.forEach(function(l){
+      if (!mapLog[l.id_spk]) mapLog[l.id_spk]={CETAK:0,POTONG:0,FINISHING:0,PACKING:0};
+      mapLog[l.id_spk][l.jenis]=(mapLog[l.id_spk][l.jenis]||0)+(parseInt(l.qty,10)||0);
+    });
+
+    listEl.innerHTML=spks.map(function(s){
+      var m=mapLog[s.id_spk]||{CETAK:0,POTONG:0,FINISHING:0,PACKING:0};
+      var oplah=parseInt(s.total_oplah,10)||1;
+      function pct(v){return Math.min(100,Math.round((v/oplah)*100));}
+      var stLow=(s.status||'').toLowerCase();
+      return '<div class="rekap-card">'+
+        '<div class="rekap-card-hdr">'+
+          '<div>'+
+            '<div class="rekap-spk-id">'+esc(s.id_spk)+'</div>'+
+            '<div style="font-size:.82rem;font-weight:500;margin-top:.15rem">'+(s.keterangan?esc(s.keterangan):'<span style="color:var(--muted)">—</span>')+'</div>'+
+          '</div>'+
+          '<span class="rekap-spk-status rs-'+stLow+'">'+esc(s.status||'—')+'</span>'+
+        '</div>'+
+        '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-bottom:.5rem">Oplah: '+fmtAngka(oplah)+'</div>'+
+        '<div class="rekap-bars">'+
+          rekapBar('CETAK','fill-cetak',m.CETAK,oplah,pct(m.CETAK))+
+          rekapBar('POTONG','fill-potong',m.POTONG,oplah,pct(m.POTONG))+
+          rekapBar('FINISHING','fill-finishing',m.FINISHING,oplah,pct(m.FINISHING))+
+          rekapBar('PACKING','fill-packing',m.PACKING,oplah,pct(m.PACKING))+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }).catch(function(){
+    listEl.innerHTML='<div class="loading" style="color:var(--red)">Gagal memuat data</div>';
+  });
+}
+
+function rekapBar(label,fillClass,val,oplah,pct){
+  return '<div class="rekap-bar-row">'+
+    '<div class="rekap-bar-label"><span>'+label+'</span><span>'+fmtAngka(val)+' ('+pct+'%)</span></div>'+
+    '<div class="rekap-bar-track"><div class="rekap-bar-fill '+fillClass+'" style="width:'+pct+'%"></div></div>'+
+  '</div>';
+}
+</script>
+</body>
+</html>
