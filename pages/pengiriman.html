@@ -542,7 +542,7 @@ async function submitPengiriman(btn){
     if(!(b.qtyKirim>0)){showAlert('alertBuat','Qty kirim item ke-'+(i+1)+' harus > 0.');return;}
     // Hard block: tidak boleh melebihi oplah tercetak (qty_pack)
     if(b.qtyPack>0&&b.qtyKirim>b.qtyPack){
-      showAlert('alertBuat','Qty kirim "'+b.namaItem+(b.subitem?' ('+b.subitem+')'':'')+'" melebihi oplah tercetak ('+fmtAngka(b.qtyPack)+').');
+      showAlert('alertBuat','Qty kirim "'+b.namaItem+(b.subitem?' ('+b.subitem+')'':'');+'" melebihi oplah tercetak ('+fmtAngka(b.qtyPack)+').');
       return;
     }
     // Soft warning: melebihi sisa order tapi masih dalam batas oplah
