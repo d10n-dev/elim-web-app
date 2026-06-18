@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Order Masuk — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --navy:#1a2744;--navy-dark:#131e36;--navy-mid:#243257;--orange:#e8521a;
+      --bg:#eef1f7;--surface:#fff;--border:#d0d8e8;--text:#1a2744;--muted:#6b7a99;
+      --green:#1a9e5c;--green-bg:#e6f7ef;--green-bd:#a3d9be;--red:#dc3545;
+      --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding-bottom:2rem;}
+    .topbar{background:var(--navy);border-bottom:3px solid var(--orange);padding:.7rem 1.1rem;display:flex;align-items:center;gap:.75rem;position:sticky;top:0;z-index:200;}
+    .topbar-back{color:rgba(255,255,255,.7);font-size:.75rem;font-family:var(--mono);text-decoration:none;}
+    .topbar-back:hover{color:#fff;}
+    .topbar-title{font-family:var(--mono);font-weight:600;font-size:.88rem;letter-spacing:.05em;color:#fff;text-transform:uppercase;}
+    .topbar-sub{font-family:var(--mono);font-size:.65rem;color:rgba(255,255,255,.45);}
+    #userPill{font-family:var(--mono);font-size:.65rem;color:rgba(255,255,255,.55);margin-left:auto;}
+    .toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.1rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+    .toolbar input[type=text]{flex:1;min-width:160px;font-size:.82rem;font-family:var(--sans);border:1px solid var(--border);border-radius:6px;padding:.42rem .75rem;color:var(--text);background:var(--bg);outline:none;}
+    .toolbar input[type=text]:focus{border-color:var(--navy);background:#fff;}
+    .toolbar select{font-size:.8rem;font-family:var(--sans);border:1px solid var(--border);border-radius:6px;padding:.42rem .6rem;color:var(--text);background:var(--bg);outline:none;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:.82rem;padding:.42rem 1rem;cursor:pointer;white-space:nowrap;margin-left:auto;}
+    .btn-tambah:hover{background:#c94416;}
+    .info-bar{padding:.4rem 1.1rem;font-family:var(--mono);font-size:.7rem;color:var(--muted);border-bottom:1px solid var(--border);}
+    .tbl-wrap{padding:.75rem 1.1rem;overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:.8rem;background:var(--surface);border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(26,39,68,.07);}
+    thead tr{background:var(--navy);color:#fff;}
+    thead th{font-family:var(--mono);font-weight:600;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:.65rem .75rem;white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:#f4f7fc;}
+    tbody td{padding:.6rem .75rem;vertical-align:middle;}
+    .td-id{font-family:var(--mono);font-size:.7rem;color:var(--muted);white-space:nowrap;}
+    .td-tgl{font-family:var(--mono);font-size:.72rem;white-space:nowrap;}
+    .badge-status{font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.05em;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
+    .s-baru{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;}
+    .s-proses{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .s-produksi{background:#fff3e0;color:#c45a00;border:1px solid #ffd699;}
+    .s-antri_kirim{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7;}
+    .s-sebagian_kirim{background:#e0f2f1;color:#00695c;border:1px solid #80cbc4;}
+    .s-selesai{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-batal{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    .s-menunggu_approve_tutup{background:#fff9c4;color:#827717;border:1px solid #ffe082;}
+    .badge-kekurangan{display:inline-block;background:#fff3cd;color:#856404;border:1px solid #ffe083;font-family:var(--mono);font-size:.58rem;font-weight:600;padding:.1rem .4rem;border-radius:3px;margin-left:.3rem;white-space:nowrap;}
+    .btn-detail{font-size:.72rem;padding:.25rem .65rem;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);cursor:pointer;}
+    .btn-detail:hover{background:var(--navy);color:#fff;border-color:var(--navy);}
+    .empty-row td,.loading{text-align:center;padding:2rem;color:var(--muted);font-family:var(--mono);font-size:.78rem;}
+    .pending-badge{display:inline-block;background:var(--red);color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;padding:.1rem .4rem;border-radius:10px;margin-left:.3rem;vertical-align:middle;}
+    .btn-pending{background:#fff3cd;color:#856404;border:1px solid #ffe083;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.38rem .85rem;cursor:pointer;white-space:nowrap;}
+    .btn-pending:hover{background:#ffe69c;}
+    /* SPK chips */
+    .spk-chip{display:inline-flex;align-items:center;font-family:var(--mono);font-size:.58rem;font-weight:600;padding:.15rem .4rem;border-radius:3px;margin:.1rem;white-space:nowrap;}
+    .spk-open{background:#e8f0fe;color:#1a56b0;}.spk-cetak{background:#fff3e0;color:#c45a00;}
+    .spk-potong{background:#f3e5f5;color:#7b1fa2;}.spk-finishing{background:#e0f2f1;color:#00695c;}
+    .spk-packing{background:#fce4ec;color:#c62828;}.spk-siap_close{background:#e8f5e9;color:#1b5e20;}
+    .spk-menunggu{background:#fff9c4;color:#827717;}.spk-selesai{background:var(--green-bg);color:var(--green);}
+    .dtl-belum-spk{font-family:var(--mono);font-size:.6rem;color:var(--red);background:#fff0f0;border:1px solid #ffc9c9;border-radius:3px;padding:.1rem .35rem;}
+    .dtl-progress{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.2rem;}
+    .dtl-sisa-ok{color:var(--green);font-weight:600;}.dtl-sisa-warn{color:var(--red);font-weight:600;}
+    /* Tutup panel */
+    .tutup-panel{margin-top:.85rem;padding:.7rem .85rem;border-radius:8px;border:1px solid var(--border);background:var(--bg);}
+    .tutup-panel.warn{border-color:#ffe083;background:#fffbea;}
+    .tutup-panel-label{font-family:var(--mono);font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.5rem;}
+    .tutup-panel textarea{width:100%;font-family:var(--sans);font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.5rem .6rem;margin-bottom:.5rem;}
+    .btn-tutup{background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:.75rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-approve-sm{background:var(--green);color:#fff;border:none;border-radius:6px;font-size:.75rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;margin-right:.4rem;}
+    .btn-tolak-sm{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;border-radius:6px;font-size:.75rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-tutup:disabled,.btn-approve-sm:disabled,.btn-tolak-sm:disabled{opacity:.5;cursor:not-allowed;}
+    /* Modal */
+    .modal-content{border:none;border-radius:10px;box-shadow:0 8px 32px rgba(26,39,68,.18);}
+    .modal-header{background:var(--navy);color:#fff;border-radius:10px 10px 0 0;padding:.85rem 1.1rem;border-bottom:3px solid var(--orange);}
+    .modal-title{font-family:var(--mono);font-weight:600;font-size:.88rem;letter-spacing:.04em;text-transform:uppercase;color:#fff;}
+    .modal-header .btn-close{filter:invert(1);opacity:.7;}
+    .modal-body{padding:1.1rem;background:#f8fafc;}
+    .modal-footer{background:var(--bg);border-top:1px solid var(--border);padding:.75rem 1.1rem;border-radius:0 0 10px 10px;}
+    .modal-section{font-family:var(--mono);font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--navy-mid);padding:.35rem .75rem;border-radius:4px;margin:1rem 0 .75rem;}
+    .form-label{font-family:var(--mono);font-size:.7rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:.3rem;display:block;}
+    .form-control,.form-select{font-family:var(--sans);font-size:.82rem;border:1px solid var(--border);border-radius:6px;padding:.45rem .75rem;color:var(--text);background:var(--surface);width:100%;outline:none;}
+    .form-control:focus,.form-select:focus{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,39,68,.1);}
+    .form-group{margin-bottom:.85rem;}
+    .item-info-bar{background:var(--navy-mid);color:#fff;border-radius:6px;padding:.4rem .75rem;font-family:var(--mono);font-size:.72rem;margin-top:.35rem;display:none;}
+    .subitem-wrap{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-top:.25rem;}
+    .subitem-header{display:grid;grid-template-columns:2fr 1fr 1fr 32px;background:var(--navy);color:#fff;font-family:var(--mono);font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:.4rem .6rem;gap:.5rem;}
+    .subitem-row{display:grid;grid-template-columns:2fr 1fr 1fr 32px;padding:.35rem .6rem;gap:.5rem;border-top:1px solid var(--border);align-items:center;}
+    .subitem-row input{font-family:var(--sans);font-size:.82rem;border:1px solid var(--border);border-radius:4px;padding:.3rem .5rem;color:var(--text);background:var(--bg);outline:none;width:100%;}
+    .subitem-row input:focus{border-color:var(--navy);background:#fff;}
+    .btn-hapus-sub{background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:0;line-height:1;}
+    .btn-tambah-sub{width:100%;background:var(--bg);border:none;border-top:1px dashed var(--border);padding:.45rem;font-family:var(--mono);font-size:.72rem;color:var(--muted);cursor:pointer;}
+    .btn-tambah-sub:hover{color:var(--navy);}
+    .komisi-row{display:none;}
+    .btn-batal{font-size:.82rem;padding:.45rem 1.1rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);cursor:pointer;}
+    .btn-simpan{font-weight:600;font-size:.82rem;padding:.45rem 1.4rem;border:none;border-radius:6px;background:var(--navy);color:#fff;cursor:pointer;}
+    .btn-simpan:hover{background:var(--navy-mid);}
+    .btn-simpan:disabled{opacity:.6;cursor:not-allowed;}
+    .btn-edit-order{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;border-radius:6px;font-size:.75rem;font-family:var(--mono);font-weight:600;padding:.3rem .75rem;cursor:pointer;}
+    .btn-log{background:#f3e5f5;color:#7b1fa2;border:1px solid #ce93d8;border-radius:6px;font-size:.72rem;font-family:var(--mono);padding:.25rem .6rem;cursor:pointer;}
+    /* AC */
+    .ac-wrap{position:relative;}
+    .ac-dropdown{position:fixed;background:var(--surface);border:1.5px solid var(--navy);border-radius:4px;max-height:200px;overflow-y:auto;z-index:9999;display:none;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+    .ac-dropdown.open{display:block;}
+    .ac-item{padding:.5rem .75rem;font-size:.8rem;cursor:pointer;border-bottom:1px solid var(--border);}
+    .ac-item:last-child{border-bottom:none;}
+    .ac-item:hover{background:#e8edf7;}
+    .ac-item-id{font-family:var(--mono);font-size:.68rem;color:var(--muted);display:block;}
+    .ac-item-nama{display:block;font-weight:500;}
+    .ac-empty{padding:.5rem .75rem;font-size:.78rem;color:var(--muted);font-family:var(--mono);}
+    input.ac-selected{border-color:var(--green)!important;background:#f0faf5!important;}
+    /* Detail modal */
+    .kv-list{display:grid;grid-template-columns:1fr 1fr;gap:.5rem 1rem;margin-bottom:.75rem;}
+    .kv-item label{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;color:var(--muted);display:block;}
+    .kv-item span{font-size:.82rem;font-weight:500;}
+    .detail-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+    .detail-table th{font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:.4rem .6rem;border-bottom:2px solid var(--border);}
+    .detail-table td{padding:.5rem .6rem;border-bottom:1px solid var(--border);}
+    .detail-table tr:last-child td{border-bottom:none;}
+    /* Edit modal */
+    .edit-subitem-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;align-items:start;margin-bottom:.4rem;}
+    .edit-subitem-row input{font-family:var(--mono);font-size:.78rem;border:1px solid var(--border);border-radius:5px;padding:.38rem .55rem;width:100%;color:var(--text);}
+    .edit-subitem-hdr{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;margin-bottom:.3rem;}
+    .edit-subitem-hdr span{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+    .stok-hint{font-family:var(--mono);font-size:.62rem;color:var(--green);margin-top:.15rem;}
+    .stok-hint.warn{color:var(--red);}
+    /* Pending */
+    .pending-item{background:#fffde7;border:1px solid #ffe082;border-radius:8px;padding:.65rem .85rem;margin-bottom:.6rem;}
+    .pending-item-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.35rem;}
+    .pending-item-id{font-family:var(--mono);font-size:.7rem;font-weight:600;color:var(--navy);}
+    .pending-item-tgl{font-family:var(--mono);font-size:.62rem;color:var(--muted);}
+    .pending-item-field{font-size:.75rem;margin-bottom:.2rem;}
+    .pending-item-field label{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;display:block;}
+    .pending-diff{display:flex;gap:.5rem;align-items:center;font-family:var(--mono);font-size:.72rem;}
+    .diff-lama{color:var(--red);text-decoration:line-through;}
+    .diff-baru{color:var(--green);font-weight:600;}
+    /* Log */
+    .log-item{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.55rem .75rem;margin-bottom:.45rem;}
+    .log-item-hdr{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-bottom:.25rem;}
+    .log-item-status{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.1rem .4rem;border-radius:3px;}
+    .log-approved{background:var(--green-bg);color:var(--green);}
+    .log-tolak{background:#fdecea;color:var(--red);}
+    .log-pending{background:#fff9c4;color:#827717;}
+    .alert-box{font-family:var(--mono);font-size:.75rem;padding:.5rem .75rem;border-radius:6px;margin-bottom:.6rem;}
+    .alert-err{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;}
+    .alert-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .form-control-edit{font-family:var(--mono);font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;width:100%;color:var(--text);background:var(--surface);}
+    .form-control-edit:focus{border-color:var(--navy);outline:none;}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../index.html" class="topbar-back">← Kembali</a>
+  <span style="color:rgba(255,255,255,.2)">|</span>
+  <div>
+    <div class="topbar-title">Order Masuk</div>
+    <div class="topbar-sub">SIEO — PT. Elim Citra Offset</div>
+  </div>
+  <span id="userPill"></span>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="cariInput" placeholder="Cari pelanggan atau No. PO…" oninput="filterTabel()"/>
+  <select id="filterStatus" onchange="filterTabel()">
+    <option value="">Semua Status</option>
+    <option value="BARU">Baru</option>
+    <option value="PROSES">Proses</option>
+    <option value="PRODUKSI">Produksi</option>
+    <option value="ANTRI_KIRIM">Antri Kirim</option>
+    <option value="SEBAGIAN_KIRIM">Sebagian Kirim</option>
+    <option value="MENUNGGU_APPROVE_TUTUP">Menunggu Tutup</option>
+    <option value="SELESAI">Selesai</option>
+    <option value="BATAL">Batal</option>
+  </select>
+  <button class="btn-tambah" onclick="bukaModalTambah()">+ Tambah Order</button>
+  <button class="btn-pending" onclick="bukaModalPending()">⏳ Pending Edit<span class="pending-badge" id="pendingCount" style="display:none">0</span></button>
+</div>
+<div class="info-bar" id="infoBar">Memuat data…</div>
+
+<div class="tbl-wrap">
+  <table>
+    <thead><tr>
+      <th>ID Order</th><th>Pelanggan</th><th>Item</th><th>No. PO</th>
+      <th>Tgl Order</th><th>Deadline</th><th>Status</th><th></th>
+    </tr></thead>
+    <tbody id="bodyOrder"><tr class="empty-row"><td colspan="8">Memuat…</td></tr></tbody>
+  </table>
+</div>
+
+<!-- MODAL TAMBAH -->
+<div class="modal fade" id="modalTambah" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Tambah Order Masuk</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertForm"></div>
+        <div class="modal-section">Data Order</div>
+        <div class="form-group">
+          <label class="form-label">Pelanggan *</label>
+          <div class="ac-wrap">
+            <input type="text" class="form-control" id="inputPelanggan" placeholder="Ketik nama pelanggan…" autocomplete="off"/>
+            <div class="ac-dropdown" id="acDropPelanggan"></div>
+          </div>
+          <input type="hidden" id="hidIdPelanggan"/>
+          <input type="hidden" id="hidIdAgen"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Entitas *</label>
+          <select class="form-control" id="inputEntitas" style="font-family:var(--mono);font-size:.82rem;">
+            <option value="">— Pilih Entitas —</option>
+            <option value="PT">PT Elim Citra Offset</option>
+            <option value="DK">DK Offset</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">No. PO <span style="font-weight:400;text-transform:none;font-size:.65rem">(opsional)</span></label>
+          <input type="text" class="form-control" id="inputNoPo" placeholder="Contoh: PO-2026-001"/>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Tgl. Order *</label>
+              <input type="date" class="form-control" id="inputTglOrder" onchange="setDefaultDeadline()"/>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="form-group">
+              <label class="form-label">Deadline *</label>
+              <input type="date" class="form-control" id="inputDeadline"/>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keterangan <span style="font-weight:400;text-transform:none;font-size:.65rem">(opsional)</span></label>
+          <input type="text" class="form-control" id="inputKeterangan" placeholder="Catatan order…"/>
+        </div>
+        <div class="form-group komisi-row" id="rowKomisi">
+          <label class="form-label">Komisi Agen (Rp) *</label>
+          <input type="number" class="form-control" id="inputKomisi" placeholder="Nominal potongan rupiah" min="0"/>
+          <div style="font-size:.68rem;color:var(--muted);font-family:var(--mono);margin-top:.3rem" id="labelAgen"></div>
+        </div>
+        <div class="modal-section">Item &amp; Subitem</div>
+        <div class="form-group">
+          <label class="form-label">Item *</label>
+          <div class="ac-wrap">
+            <input type="text" class="form-control" id="inputItem" placeholder="Ketik nama item…" autocomplete="off"/>
+            <div class="ac-dropdown" id="acDropItem"></div>
+          </div>
+          <input type="hidden" id="hidIdItem"/>
+          <input type="hidden" id="hidSatuan"/>
+          <div class="item-info-bar" id="itemInfoBar">
+            <span>Satuan:</span><strong id="itemSatuan">—</strong>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Harga (Rp) *</label>
+          <input type="number" class="form-control" id="inputHarga" placeholder="Harga per satuan" min="0"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subitem &amp; Qty *</label>
+          <div class="subitem-wrap">
+            <div class="subitem-header"><div>Subitem</div><div>QTY Order</div><div>Dari Stok</div><div></div></div>
+            <div id="containerSubitem"></div>
+            <button class="btn-tambah-sub" onclick="tambahSubitem()">+ Tambah Subitem</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-simpan" id="btnSimpan" onclick="simpanOrder()">Simpan Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETAIL -->
+<div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="detailTitle">Detail Order</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detailBody"><div class="loading">Memuat…</div></div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
+        <button class="btn-log" id="btnLog" onclick="bukaModalLog()" style="display:none">📋 Log</button>
+        <button class="btn-edit-order" id="btnEdit" onclick="bukaModalEdit()" style="display:none">✏️ Edit</button>
+        <button class="btn-simpan" id="btnClose" onclick="closeOrderModal()" style="background:var(--green);display:none">✓ Close Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT -->
+<div class="modal fade" id="modalEdit" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="editTitle">Edit Order</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertEdit"></div>
+        <div class="alert-box" style="background:#fff8e1;border:1px solid #ffe082;color:#9a6500;margin-bottom:.75rem">
+          ⚠️ Perubahan memerlukan approval Manager sebelum berlaku.
+        </div>
+        <div class="modal-section">Data Order</div>
+        <div class="row g-2">
+          <div class="col-6"><div class="form-group"><label class="form-label">No. PO</label><input type="text" class="form-control-edit" id="editNoPo"/></div></div>
+          <div class="col-6"><div class="form-group"><label class="form-label">Deadline</label><input type="date" class="form-control-edit" id="editDeadline"/></div></div>
+        </div>
+        <div class="form-group"><label class="form-label">Keterangan</label><input type="text" class="form-control-edit" id="editKeterangan"/></div>
+        <div class="modal-section">Item &amp; Harga</div>
+        <div class="row g-2">
+          <div class="col-8"><div class="form-group"><label class="form-label">Nama Item</label><input type="text" class="form-control-edit" id="editNamaItem" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div></div>
+          <div class="col-4"><div class="form-group"><label class="form-label">Harga (Rp)</label><input type="number" class="form-control-edit" id="editHarga" min="0"/></div></div>
+        </div>
+        <div class="modal-section">Subitem &amp; Qty</div>
+        <div class="edit-subitem-hdr"><span>Subitem</span><span>QTY Order</span><span>Dari Stok</span><span></span></div>
+        <div id="editSubitemContainer"></div>
+        <div class="form-group" style="margin-top:.75rem">
+          <label class="form-label">Alasan Perubahan *</label>
+          <input type="text" class="form-control-edit" id="editAlasan" placeholder="Wajib diisi"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-simpan" id="btnSimpanEdit" onclick="simpanEdit()">Ajukan Perubahan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PENDING -->
+<div class="modal fade" id="modalPending" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><span class="modal-title">Pending Approval — Edit Order</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="pendingBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOG -->
+<div class="modal fade" id="modalLog" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><span class="modal-title" id="logTitle">Log Perubahan</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="logBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+var semuaOrder=[], semuaPelanggan=[], semuaItem=[], stokRekap=[], semuaOrderDetail=[];
+var subitemCounter=0, editSubCounter=0;
+var idOrderDetail=null, orderAktif=null, detailCache=[];
+
+// ── AUTOCOMPLETE (position:fixed, Android safe) ──
+function buatAC(inputEl, dropEl, data, idKey, namaKey, onPilih) {
+  function posisi() {
+    var r = inputEl.getBoundingClientRect();
+    dropEl.style.top   = r.bottom + 'px';
+    dropEl.style.left  = r.left   + 'px';
+    dropEl.style.width = r.width  + 'px';
+  }
+  function filter(q) {
+    q=q.toLowerCase();
+    return data.filter(function(d){
+      return (d[idKey]||'').toLowerCase().includes(q)||(d[namaKey]||'').toLowerCase().includes(q);
+    }).slice(0,30);
+  }
+  function render(items) {
+    dropEl.innerHTML='';
+    if (!items.length) { dropEl.innerHTML='<div class="ac-empty">Tidak ditemukan</div>'; }
+    else {
+      items.forEach(function(d){
+        var div=document.createElement('div');
+        div.className='ac-item';
+        div.innerHTML='<span class="ac-item-id">'+esc(d[idKey])+'</span><span class="ac-item-nama">'+esc(d[namaKey])+'</span>';
+        div.addEventListener('mousedown',function(e){e.preventDefault();pilih(d);});
+        div.addEventListener('touchend', function(e){e.preventDefault();pilih(d);});
+        dropEl.appendChild(div);
+      });
+    }
+    posisi();
+    dropEl.classList.add('open');
+  }
+  function pilih(d) {
+    inputEl.value=d[idKey]+' | '+d[namaKey];
+    inputEl.classList.add('ac-selected');
+    dropEl.classList.remove('open');
+    if (onPilih) onPilih(d);
+  }
+  function tutup(){dropEl.classList.remove('open');}
+  inputEl.addEventListener('input',function(){
+    inputEl.classList.remove('ac-selected');
+    var q=inputEl.value.trim();
+    if(!q){tutup();return;}
+    render(filter(q));
+  });
+  inputEl.addEventListener('focus',function(){
+    var q=inputEl.value.trim();
+    if(q&&!inputEl.classList.contains('ac-selected')) render(filter(q));
+  });
+  inputEl.addEventListener('blur',function(){setTimeout(tutup,200);});
+  inputEl._getId=function(){
+    if(!inputEl.classList.contains('ac-selected')) return '';
+    return inputEl.value.split(' | ')[0].trim();
+  };
+  inputEl._clear=function(){inputEl.value='';inputEl.classList.remove('ac-selected');tutup();};
+}
+
+// ── INIT ──
+window.addEventListener('load', function(){
+  if (!guardHalaman()) return;
+  setTglHariIni();
+  Promise.all([
+    dbGet('in_order', { order: 'tgl_order.desc' }),
+    dbGet('m_pelanggan', { status: 'eq.AKTIF', order: 'nama.asc' }),
+    dbGet('m_item', { status: 'eq.AKTIF', order: 'nama_item.asc' }),
+    dbRpc('get_rekap_stok_bj', {}).catch(function(){ return []; }),
+    dbGet('in_order_detail', { select: 'id_detail,id_order,id_item,subitem,qty_dari_stok' }).catch(function(){ return []; })
+  ]).then(function(r){
+    semuaOrder     = Array.isArray(r[0]) ? r[0] : [];
+    semuaPelanggan = Array.isArray(r[1]) ? r[1] : [];
+    semuaItem      = Array.isArray(r[2]) ? r[2] : [];
+    stokRekap      = Array.isArray(r[3]) ? r[3] : [];
+    semuaOrderDetail = Array.isArray(r[4]) ? r[4] : [];
+    renderTabel(semuaOrder);
+    muatPendingEdit();
+  }).catch(function(){
+    document.getElementById('infoBar').textContent='Gagal memuat data.';
+  });
+});
+
+function setTglHariIni(){
+  var today=new Date().toISOString().slice(0,10);
+  document.getElementById('inputTglOrder').value=today;
+  setDefaultDeadline();
+}
+function setDefaultDeadline(){
+  var tgl=document.getElementById('inputTglOrder').value;
+  if(!tgl)return;
+  var d=new Date(tgl);d.setDate(d.getDate()+10);
+  document.getElementById('inputDeadline').value=d.toISOString().slice(0,10);
+}
+
+// ── TABEL ──
+function renderTabel(data){
+  document.getElementById('infoBar').textContent=data.length+' dari '+semuaOrder.length+' order';
+  var tbody=document.getElementById('bodyOrder');
+  if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">Tidak ada data order.</td></tr>';return;}
+  tbody.innerHTML=data.map(function(o){
+    return '<tr>'+
+      '<td class="td-id">'+esc(o.id_order)+'</td>'+
+      '<td style="font-weight:500">'+esc(o.nama_pelanggan)+'</td>'+
+      '<td style="font-size:.78rem">'+esc(o.nama_item||'—')+'</td>'+
+      '<td style="font-family:var(--mono);font-size:.72rem">'+(o.no_po||'<span style="color:var(--muted)">—</span>')+'</td>'+
+      '<td class="td-tgl">'+fmtTgl(o.tgl_order)+'</td>'+
+      '<td class="td-tgl">'+fmtTgl(o.deadline)+'</td>'+
+      '<td><span class="badge-status '+kelasBadge(o.status)+'">'+esc(o.status)+'</span>'+
+        (o.status==='SELESAI'&&o.alasan_tutup?'<span class="badge-kekurangan">⚠ Kekurangan</span>':'')+
+      '</td>'+
+      '<td><button class="btn-detail" onclick="bukaDetail(\''+esc(o.id_order)+'\')">Detail</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function kelasBadge(s){
+  var m={'BARU':'s-baru','PROSES':'s-proses','PRODUKSI':'s-produksi','ANTRI_KIRIM':'s-antri_kirim',
+    'SEBAGIAN_KIRIM':'s-sebagian_kirim','MENUNGGU_APPROVE_TUTUP':'s-menunggu_approve_tutup',
+    'SELESAI':'s-selesai','BATAL':'s-batal'};
+  return m[s]||'s-baru';
+}
+
+function filterTabel(){
+  var q=document.getElementById('cariInput').value.toLowerCase();
+  var st=document.getElementById('filterStatus').value;
+  renderTabel(semuaOrder.filter(function(o){
+    return(!q||(o.nama_pelanggan||'').toLowerCase().includes(q)||(o.no_po||'').toLowerCase().includes(q)||(o.id_order||'').toLowerCase().includes(q))
+      &&(!st||o.status===st);
+  }));
+}
+
+// ── MODAL TAMBAH ──
+function bukaModalTambah(){
+  resetForm();
+  var m=new bootstrap.Modal(document.getElementById('modalTambah'));
+  m.show();
+  document.getElementById('modalTambah').addEventListener('shown.bs.modal',function(){
+    var inpP=document.getElementById('inputPelanggan');
+    var drpP=document.getElementById('acDropPelanggan');
+    document.body.appendChild(drpP);
+    buatAC(inpP, drpP, semuaPelanggan, 'id_pelanggan', 'nama', function(d){
+      document.getElementById('hidIdPelanggan').value=d.id_pelanggan;
+      document.getElementById('hidIdAgen').value=d.id_agen||'';
+      if(d.id_agen){
+        document.getElementById('rowKomisi').style.display='block';
+        document.getElementById('labelAgen').textContent='Agen: '+d.id_agen;
+      } else {
+        document.getElementById('rowKomisi').style.display='none';
+        document.getElementById('inputKomisi').value='';
+      }
+    });
+    var inpI=document.getElementById('inputItem');
+    var drpI=document.getElementById('acDropItem');
+    document.body.appendChild(drpI);
+    buatAC(inpI, drpI, semuaItem, 'id_item', 'nama_item', function(d){
+      document.getElementById('hidIdItem').value=d.id_item;
+      document.getElementById('hidSatuan').value=d.satuan||'';
+      document.getElementById('itemSatuan').textContent=d.satuan||'—';
+      document.getElementById('itemInfoBar').style.display='block';
+    });
+  },{once:true});
+}
+
+function resetForm(){
+  document.getElementById('alertForm').innerHTML='';
+  ['inputPelanggan','inputNoPo','inputKeterangan','inputHarga','inputItem'].forEach(function(id){
+    var el=document.getElementById(id);
+    el.value='';
+    el.classList&&el.classList.remove('ac-selected');
+  });
+  document.getElementById('inputEntitas').value='';
+  document.getElementById('hidIdPelanggan').value='';
+  document.getElementById('hidIdAgen').value='';
+  document.getElementById('hidIdItem').value='';
+  document.getElementById('hidSatuan').value='';
+  document.getElementById('itemInfoBar').style.display='none';
+  document.getElementById('itemSatuan').textContent='—';
+  document.getElementById('rowKomisi').style.display='none';
+  document.getElementById('inputKomisi').value='';
+  document.getElementById('labelAgen').textContent='';
+  document.getElementById('containerSubitem').innerHTML='';
+  subitemCounter=0;
+  setTglHariIni();
+  tambahSubitem();
+  document.getElementById('btnSimpan').disabled=false;
+  document.getElementById('btnSimpan').textContent='Simpan Order';
+}
+
+// ── SUBITEM ROWS ──
+function tambahSubitem(){
+  subitemCounter++;
+  var n=subitemCounter;
+  var div=document.createElement('div');
+  div.className='subitem-row';
+  div.id='sub-row-'+n;
+  div.innerHTML=
+    '<input type="text" id="subNama'+n+'" placeholder="Contoh: 14X25…" style="font-family:var(--mono);text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>'+
+    '<input type="number" id="subQty'+n+'" placeholder="0" min="1"/>'+
+    '<input type="number" id="subDariStok'+n+'" placeholder="0" min="0" value="0" oninput="cekStokHint('+n+')" title="Qty dari stok BJ"/>'+
+    '<button class="btn-hapus-sub" onclick="hapusSub('+n+')">✕</button>';
+  document.getElementById('containerSubitem').appendChild(div);
+}
+function hapusSub(n){ var el=document.getElementById('sub-row-'+n); if(el)el.remove(); }
+
+function cekStokHint(n){
+  var idItem=(document.getElementById('hidIdItem').value||'').trim();
+  var subitem=(document.getElementById('subNama'+n).value||'').trim();
+  var qtyDari=parseFloat(document.getElementById('subDariStok'+n).value)||0;
+  if(!idItem||!subitem||!qtyDari)return;
+  var saldo=getSaldoAvailable(idItem,subitem);
+  var inp=document.getElementById('subDariStok'+n);
+  inp.style.borderColor=qtyDari>saldo?'var(--red)':'var(--green)';
+  inp.title='Saldo available: '+fmtAngka(saldo);
+}
+function getSaldoAvailable(idItem,subitem,skipIdOrder){
+  var f=stokRekap.find(function(r){
+    return (r.id_item||'').toUpperCase()===(idItem||'').toUpperCase()&&
+           (r.subitem||'').toUpperCase()===(subitem||'').toUpperCase();
+  });
+  var saldoBJ=f?(parseFloat(f.saldo)||0):0;
+  // Kurangi dengan reservasi order aktif (BARU/PRODUKSI), kecuali order yang sedang diedit
+  var statusAktif=['BARU','PRODUKSI'];
+  var reserved=0;
+  semuaOrderDetail.forEach(function(d){
+    if(skipIdOrder&&d.id_order===skipIdOrder) return;
+    var ord=semuaOrder.find(function(o){return o.id_order===d.id_order;});
+    if(!ord||statusAktif.indexOf(ord.status)<0) return;
+    if((d.id_item||'').toUpperCase()!==(idItem||'').toUpperCase()) return;
+    if((d.subitem||'').toUpperCase()!==(subitem||'').toUpperCase()) return;
+    reserved+=parseFloat(d.qty_dari_stok)||0;
+  });
+  return Math.max(0, saldoBJ-reserved);
+}
+
+// ── GENERATE ID ──
+function genIdOrder(){
+  var now=new Date();
+  var ym=now.getFullYear().toString()+String(now.getMonth()+1).padStart(2,'0');
+  var prefix='ORD-'+ym+'-';
+  var nums=semuaOrder
+    .map(function(o){ return o.id_order||''; })
+    .filter(function(id){ return id.startsWith(prefix); })
+    .map(function(id){ return parseInt(id.replace(prefix,''))||0; });
+  var next=nums.length?Math.max.apply(null,nums)+1:1;
+  return prefix+String(next).padStart(4,'0');
+}
+function genIdDetail(){
+  var now=new Date();
+  var ym=now.getFullYear().toString()+String(now.getMonth()+1).padStart(2,'0');
+  return 'DTL-'+ym+'-'+Date.now().toString().slice(-6)+Math.floor(Math.random()*1000);
+}
+
+// ── SIMPAN ORDER ──
+function simpanOrder(){
+  var idPelanggan=document.getElementById('hidIdPelanggan').value.trim();
+  var idItem=document.getElementById('hidIdItem').value.trim();
+  var satuan=document.getElementById('hidSatuan').value.trim();
+  var harga=parseFloat(document.getElementById('inputHarga').value);
+  var tglOrder=document.getElementById('inputTglOrder').value;
+  var deadline=document.getElementById('inputDeadline').value;
+  var entitas=document.getElementById('inputEntitas').value;
+
+  if(!idPelanggan){tampilAlert('Pilih pelanggan dari daftar.');return;}
+  if(!idItem){tampilAlert('Pilih item dari daftar.');return;}
+  if(!harga||harga<0){tampilAlert('Harga wajib diisi.');return;}
+  if(!tglOrder){tampilAlert('Tgl. Order wajib diisi.');return;}
+  if(!deadline){tampilAlert('Deadline wajib diisi.');return;}
+  if(!entitas){tampilAlert('Entitas wajib dipilih.');return;}
+
+  var pelObj=semuaPelanggan.find(function(p){return p.id_pelanggan===idPelanggan;});
+  var itemObj=semuaItem.find(function(i){return i.id_item===idItem;});
+  var namaPelanggan=pelObj?pelObj.nama:'';
+  var namaItem=itemObj?itemObj.nama_item:'';
+  var idAgen=document.getElementById('hidIdAgen').value;
+  var komisi=idAgen?(parseFloat(document.getElementById('inputKomisi').value)||0):0;
+
+  var items=[];
+  var valid=true;
+  document.getElementById('containerSubitem').querySelectorAll('.subitem-row').forEach(function(row){
+    if(!valid)return;
+    var n=row.id.replace('sub-row-','');
+    var nama=(document.getElementById('subNama'+n).value.trim()||namaItem).toUpperCase();
+    var qty=parseFloat(document.getElementById('subQty'+n).value);
+    var dariStok=parseFloat(document.getElementById('subDariStok'+n).value)||0;
+    if(!qty||qty<1){tampilAlert('QTY subitem wajib diisi.');valid=false;return;}
+    if(dariStok>0){
+      var saldo=getSaldoAvailable(idItem,nama);
+      if(dariStok>saldo){tampilAlert('QTY dari stok "'+nama+'" melebihi saldo ('+fmtAngka(saldo)+').');valid=false;return;}
+    }
+    items.push({subitem:nama,qty:qty,dari_stok:dariStok});
+  });
+  if(!valid)return;
+  if(!items.length){tampilAlert('Tambahkan minimal 1 subitem.');return;}
+
+  var btn=document.getElementById('btnSimpan');
+  btn.disabled=true;btn.textContent='Menyimpan…';
+
+  var idOrder=genIdOrder();
+  var rowOrder={
+    id_order:idOrder,
+    id_pelanggan:idPelanggan,
+    nama_pelanggan:namaPelanggan,
+    no_po:document.getElementById('inputNoPo').value.trim(),
+    tgl_order:tglOrder,
+    deadline:deadline,
+    keterangan:document.getElementById('inputKeterangan').value.trim(),
+    status:'BARU',
+    id_agen:idAgen||null,
+    nama_item:namaItem,
+    entitas:entitas
+  };
+
+  dbInsert('in_order', rowOrder).then(function(res){
+    if(res&&res.code) throw new Error(res.message);
+    // Insert detail
+    var details=items.map(function(it){
+      return {
+        id_detail: genIdDetail(),
+        id_order: idOrder,
+        id_item: idItem,
+        nama_item: namaItem,
+        subitem: it.subitem,
+        qty: it.qty + it.dari_stok,
+        satuan: satuan,
+        harga: harga,
+        komisi_agen: komisi,
+        qty_dari_stok: it.dari_stok,
+        qty_produksi:0, qty_kirim:0, qty_rusak:0, qty_retur:0, qty_spk:0,
+        status_spk:'BELUM'
+      };
+    });
+    // Insert detail satu per satu untuk hindari constraint race
+    return details.reduce(function(p,det){
+      return p.then(function(){ return dbInsert('in_order_detail',det); });
+    }, Promise.resolve());
+  }).then(function(){
+    bootstrap.Modal.getInstance(document.getElementById('modalTambah')).hide();
+    return dbGet('in_order',{order:'tgl_order.desc'});
+  }).then(function(r){
+    semuaOrder=Array.isArray(r)?r:[];
+    renderTabel(semuaOrder);
+  }).catch(function(e){
+    tampilAlert('Gagal: '+(e.message||'Error'));
+    btn.disabled=false;btn.textContent='Simpan Order';
+  });
+}
+
+function tampilAlert(msg){
+  document.getElementById('alertForm').innerHTML=
+    '<div style="background:#fdecea;border:1px solid #f5a9a0;border-radius:6px;padding:.5rem .75rem;font-size:.78rem;color:#a00;margin-bottom:.75rem;font-family:var(--mono)">'+msg+'</div>';
+}
+
+// ── DETAIL ──
+function bukaDetail(idOrder){
+  idOrderDetail=idOrder;
+  orderAktif=semuaOrder.find(function(o){return o.id_order===idOrder;})||null;
+  document.getElementById('detailTitle').textContent='Detail — '+idOrder;
+  document.getElementById('detailBody').innerHTML='<div class="loading">Memuat…</div>';
+  var bisaClose=orderAktif&&orderAktif.status==='ANTRI_KIRIM';
+  var bisaEdit=orderAktif&&['BARU','PROSES'].indexOf(orderAktif.status)>=0;
+  document.getElementById('btnClose').style.display=bisaClose?'':'none';
+  document.getElementById('btnEdit').style.display=bisaEdit?'':'none';
+  document.getElementById('btnLog').style.display='';
+  new bootstrap.Modal(document.getElementById('modalDetail')).show();
+
+  // Ambil detail + spk_detail sekaligus
+  Promise.all([
+    dbGet('in_order_detail',{id_order:'eq.'+idOrder}),
+    dbGet('in_spk_detail',  {id_order:'eq.'+idOrder,select:'id_order_detail,id_spk,status_spk'})
+  ]).then(function(r){
+    detailCache=Array.isArray(r[0])?r[0]:[];
+    var spkRows=Array.isArray(r[1])?r[1]:[];
+    // Gabungkan spk_list ke masing-masing detail
+    detailCache.forEach(function(d){
+      d.spk_list=spkRows
+        .filter(function(s){return s.id_order_detail===d.id_detail;})
+        .map(function(s){return {id_spk:s.id_spk,status:s.status_spk};});
+    });
+    renderDetail(orderAktif,detailCache);
+  }).catch(function(){
+    document.getElementById('detailBody').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem;padding:1rem">Gagal memuat detail.</div>';
+  });
+}
+
+function spkKelasChip(st){
+  var m={'OPEN':'spk-open','CETAK':'spk-cetak','POTONG':'spk-potong','FINISHING':'spk-finishing',
+    'PACKING':'spk-packing','SIAP_CLOSE':'spk-siap_close','MENUNGGU_APPROVE':'spk-menunggu','SELESAI':'spk-selesai'};
+  return m[st]||'spk-open';
+}
+
+function renderDetail(order,details){
+  if(!order)return;
+  var satuan=details.length?esc(details[0].satuan||''):'';
+  var harga=details.length?(details[0].harga||0):0;
+  var namaItem=order.nama_item||(details.length?(details[0].nama_item||''):'')|| '—';
+  var html='<div class="kv-list">'+
+    kv('Pelanggan',order.nama_pelanggan)+kv('Item',namaItem)+
+    kv('No. PO',order.no_po||'—')+kv('Tgl. Order',fmtTgl(order.tgl_order))+
+    kv('Deadline',fmtTgl(order.deadline))+
+    kv('Status','<span class="badge-status '+kelasBadge(order.status)+'">'+esc(order.status)+'</span>')+
+    kv('Harga',fmtRupiah(harga)+' / '+satuan)+kv('Keterangan',order.keterangan||'—')+
+  '</div>'+
+  '<div style="font-family:var(--mono);font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)">Subitem & Progress SPK</div>';
+
+  if(!details.length){
+    html+='<div style="font-family:var(--mono);font-size:.75rem;color:var(--muted);padding:.5rem 0">Belum ada subitem.</div>';
+  } else {
+    html+='<table class="detail-table"><thead><tr><th>#</th><th>Subitem</th><th>QTY</th><th>Terkirim</th><th>Sisa</th><th>Sat</th><th>Status SPK</th><th>SPK</th></tr></thead><tbody>';
+    var sisaTotal=0;
+    details.forEach(function(d,i){
+      var stSpk=String(d.status_spk||'BELUM');
+      var qtySPK=parseInt(d.qty_spk||0,10);
+      var qtyOrder=parseInt(d.qty||0,10);
+      var qtyKirim=parseFloat(d.qty_kirim)||0;
+      var qtyRusak=parseFloat(d.qty_rusak)||0;
+      var qtyRetur=parseFloat(d.qty_retur)||0;
+      var sisaItem=qtyOrder-qtyKirim-qtyRusak+qtyRetur;
+      sisaTotal+=sisaItem;
+      var spkList=d.spk_list||[];
+      var chipsHtml=spkList.length
+        ?spkList.map(function(s){return '<span class="spk-chip '+spkKelasChip(s.status)+'">'+esc(s.id_spk)+'</span>';}).join('')
+        :'<span class="dtl-belum-spk">Belum ada SPK</span>';
+      var stBadge=stSpk==='DONE'?'<span class="badge-status s-selesai">DONE</span>'
+        :stSpk==='SELESAI'?'<span class="badge-status s-produksi">Ter-SPK</span>'
+        :stSpk==='SEBAGIAN'?'<span class="badge-status s-proses">Sebagian SPK</span>'
+        :'<span class="badge-status s-baru">Belum SPK</span>';
+      var progressHtml=qtySPK>0?'<div class="dtl-progress">SPK: <strong>'+fmtAngka(qtySPK)+'</strong>/'+fmtAngka(qtyOrder)+' ('+Math.round((qtySPK/qtyOrder)*100)+'%)</div>':'';
+      html+='<tr>'+
+        '<td style="color:var(--muted);font-family:var(--mono);font-size:.68rem">'+(i+1)+'</td>'+
+        '<td style="font-weight:500">'+esc(d.subitem||'—')+'</td>'+
+        '<td style="font-family:var(--mono)">'+fmtAngka(qtyOrder)+(d.qty_dari_stok>0?'<div style="font-size:.62rem;color:var(--muted)">stok: '+fmtAngka(d.qty_dari_stok)+'</div>':'')+'</td>'+
+        '<td style="font-family:var(--mono)">'+fmtAngka(qtyKirim)+'</td>'+
+        '<td style="font-family:var(--mono)" class="'+(sisaItem>0?'dtl-sisa-warn':'dtl-sisa-ok')+'">'+fmtAngka(Math.max(0,sisaItem))+'</td>'+
+        '<td style="font-family:var(--mono)">'+esc(d.satuan)+'</td>'+
+        '<td>'+stBadge+progressHtml+'</td>'+
+        '<td style="white-space:normal">'+chipsHtml+'</td>'+
+      '</tr>';
+    });
+    html+='</tbody></table>';
+    html+=renderTutupPanel(order,sisaTotal);
+  }
+  document.getElementById('detailBody').innerHTML=html;
+}
+function kv(l,v){return '<div class="kv-item"><label>'+l+'</label><span>'+v+'</span></div>';}
+
+// ── TUTUP KEKURANGAN ──
+var STATUS_AKTIF_KIRIM_=['BARU','PROSES','PRODUKSI','SEBAGIAN_KIRIM','ANTRI_KIRIM'];
+
+function renderTutupPanel(order,sisaTotal){
+  var role=getRoleUser();
+  var isApprover=(role==='MANAGER'||role==='DIREKTUR');
+  if(order.status==='MENUNGGU_APPROVE_TUTUP'){
+    var html='<div class="tutup-panel warn"><div class="tutup-panel-label">⚠ Menunggu Approval Tutup-Kekurangan</div>'+
+      '<div style="font-size:.8rem;margin-bottom:.4rem"><strong>Alasan:</strong> '+esc(order.alasan_tutup||'—')+'</div>'+
+      '<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.5rem">Diajukan oleh: '+esc(order.user_ajukan_tutup||'—')+'</div>';
+    if(isApprover){
+      html+='<button class="btn-approve-sm" onclick="prosesTutupKekurangan(\''+esc(order.id_order)+'\',\'APPROVE\',this)">✓ Approve</button>'+
+            '<button class="btn-tolak-sm" onclick="prosesTutupKekurangan(\''+esc(order.id_order)+'\',\'TOLAK\',this)">✗ Tolak</button>';
+    } else {
+      html+='<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">Menunggu approval Manager/Direktur.</div>';
+    }
+    return html+'</div>';
+  }
+  if(order.status==='SELESAI'&&order.alasan_tutup){
+    return '<div class="tutup-panel"><div class="tutup-panel-label">Ditutup dengan Kekurangan</div>'+
+      '<div style="font-size:.8rem;margin-bottom:.3rem"><strong>Alasan:</strong> '+esc(order.alasan_tutup)+'</div>'+
+      '<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">Disetujui oleh '+esc(order.approver_tutup||'—')+' · '+fmtTgl(order.tgl_approve_tutup)+'</div></div>';
+  }
+  if(sisaTotal>0&&STATUS_AKTIF_KIRIM_.indexOf(order.status)>=0){
+    return '<div class="tutup-panel"><div class="tutup-panel-label">Sisa belum terkirim: '+fmtAngka(sisaTotal)+'</div>'+
+      '<textarea id="alasanTutup" rows="2" placeholder="Alasan tutup dengan kekurangan…"></textarea>'+
+      '<button class="btn-tutup" onclick="ajukanTutup(\''+esc(order.id_order)+'\',this)">Tutup dengan Kekurangan</button></div>';
+  }
+  return '';
+}
+
+function ajukanTutup(idOrder,btn){
+  var inp=document.getElementById('alasanTutup');
+  var alasan=inp?inp.value.trim():'';
+  if(!alasan){alert('Alasan wajib diisi.');return;}
+  if(!confirm('Ajukan tutup order ini dengan kekurangan?'))return;
+  btn.disabled=true;btn.textContent='Memproses…';
+  dbUpdate('in_order',{id_order:'eq.'+idOrder},{
+    status:'MENUNGGU_APPROVE_TUTUP',
+    alasan_tutup:alasan,
+    user_ajukan_tutup:getNamaUser()
+  }).then(function(res){
+    if(res&&res.code) throw new Error(res.message);
+    return dbGet('in_order',{order:'tgl_order.desc'});
+  }).then(function(r){
+    semuaOrder=Array.isArray(r)?r:[];
+    renderTabel(semuaOrder);
+    bukaDetail(idOrder);
+  }).catch(function(e){
+    alert('Gagal: '+(e.message||'Error'));
+    btn.disabled=false;btn.textContent='Tutup dengan Kekurangan';
+  });
+}
+
+function prosesTutupKekurangan(idOrder,aksi,btn){
+  if(!confirm((aksi==='APPROVE'?'Approve':'Tolak')+' tutup-kekurangan order '+idOrder+'?'))return;
+  btn.parentElement.querySelectorAll('button').forEach(function(b){b.disabled=true;});
+  var updateData=aksi==='APPROVE'
+    ?{status:'SELESAI',approver_tutup:getNamaUser(),tgl_approve_tutup:new Date().toISOString()}
+    :{status:'ANTRI_KIRIM',alasan_tutup:null,user_ajukan_tutup:null};
+  dbUpdate('in_order',{id_order:'eq.'+idOrder},updateData).then(function(res){
+    if(res&&res.code) throw new Error(res.message);
+    return dbGet('in_order',{order:'tgl_order.desc'});
+  }).then(function(r){
+    semuaOrder=Array.isArray(r)?r:[];
+    renderTabel(semuaOrder);
+    bukaDetail(idOrder);
+  }).catch(function(e){
+    alert('Gagal: '+(e.message||'Error'));
+    btn.parentElement.querySelectorAll('button').forEach(function(b){b.disabled=false;});
+  });
+}
+
+function closeOrderModal(){
+  if(!idOrderDetail)return;
+  if(!confirm('Close order '+idOrderDetail+'?'))return;
+  var btn=document.getElementById('btnClose');
+  btn.disabled=true;btn.textContent='Memproses…';
+  dbUpdate('in_order',{id_order:'eq.'+idOrderDetail},{status:'SELESAI'}).then(function(res){
+    if(res&&res.code) throw new Error(res.message);
+    bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
+    return dbGet('in_order',{order:'tgl_order.desc'});
+  }).then(function(r){
+    semuaOrder=Array.isArray(r)?r:[];
+    renderTabel(semuaOrder);
+  }).catch(function(e){
+    alert('Gagal: '+(e.message||'Error'));
+  }).finally(function(){
+    btn.disabled=false;btn.textContent='✓ Close Order';
+  });
+}
+
+// ── EDIT ORDER ──
+function bukaModalEdit(){
+  if(!orderAktif)return;
+  bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
+  document.getElementById('alertEdit').innerHTML='';
+  document.getElementById('editTitle').textContent='Edit — '+orderAktif.id_order;
+  document.getElementById('editNoPo').value=orderAktif.no_po||'';
+  document.getElementById('editDeadline').value=orderAktif.deadline?orderAktif.deadline.slice(0,10):'';
+  document.getElementById('editKeterangan').value=orderAktif.keterangan||'';
+  document.getElementById('editAlasan').value='';
+  var harga=detailCache.length?(detailCache[0].harga||0):0;
+  var namaItem=orderAktif.nama_item||(detailCache.length?detailCache[0].nama_item||'':'');
+  document.getElementById('editNamaItem').value=namaItem;
+  document.getElementById('editHarga').value=harga;
+  renderEditSubitem(detailCache);
+  new bootstrap.Modal(document.getElementById('modalEdit')).show();
+}
+
+function renderEditSubitem(details){
+  var container=document.getElementById('editSubitemContainer');
+  container.innerHTML='';
+  editSubCounter=0;
+  details.forEach(function(d){
+    editSubCounter++;
+    var n=editSubCounter;
+    var qtyDariStok=parseFloat(d.qty_dari_stok)||0;
+    var idItem=d.id_item||'';
+    var subitem=d.subitem||'';
+    var saldo=getSaldoAvailable(idItem,subitem,orderAktif?orderAktif.id_order:null);
+    var spkList=d.spk_list||[];
+    var adaSPK=spkList.some(function(s){return s.status!=='SELESAI';});
+    var ro=adaSPK?'readonly style="background:#f5f7fb;color:var(--muted)"':'';
+    var lockInfo=adaSPK?'<div style="font-family:var(--mono);font-size:.62rem;color:#856404;margin-top:.15rem">⚠ Sudah ada SPK aktif — terkunci</div>':'';
+    var div=document.createElement('div');
+    div.className='edit-subitem-row';
+    div.id='esub-'+n;
+    div.setAttribute('data-iddetail',d.id_detail||'');
+    div.setAttribute('data-iditem',idItem);
+    div.setAttribute('data-spk',adaSPK?'1':'0');
+    div.innerHTML=
+      '<div><input type="text" id="eSubNama'+n+'" value="'+esc(subitem)+'" '+ro+' style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>'+lockInfo+'</div>'+
+      '<input type="number" id="eSubQty'+n+'" value="'+(d.qty||0)+'" min="1" '+ro+'/>'+
+      '<div><input type="number" id="eSubStok'+n+'" value="'+qtyDariStok+'" min="0" oninput="cekEditStokHint('+n+')"/>'+
+      '<div class="stok-hint" id="eStokHint'+n+'">Saldo: '+fmtAngka(saldo)+'</div></div>'+
+      '<span style="color:var(--muted);font-size:.7rem;font-family:var(--mono)">#'+n+'</span>';
+    container.appendChild(div);
+  });
+}
+
+function cekEditStokHint(n){
+  var row=document.getElementById('esub-'+n);
+  if(!row)return;
+  var idItem=row.getAttribute('data-iditem');
+  var subitem=(document.getElementById('eSubNama'+n).value||'').trim();
+  var qtyDari=parseFloat(document.getElementById('eSubStok'+n).value)||0;
+  var saldo=getSaldoAvailable(idItem,subitem,orderAktif?orderAktif.id_order:null);
+  var hint=document.getElementById('eStokHint'+n);
+  var inp=document.getElementById('eSubStok'+n);
+  hint.textContent='Saldo: '+fmtAngka(saldo);
+  if(qtyDari>saldo){hint.classList.add('warn');inp.style.borderColor='var(--red)';}
+  else{hint.classList.remove('warn');inp.style.borderColor=qtyDari>0?'var(--green)':'';}
+}
+
+function simpanEdit(){
+  var alertEl=document.getElementById('alertEdit');
+  alertEl.innerHTML='';
+  var alasan=document.getElementById('editAlasan').value.trim();
+  if(!alasan){alertEl.innerHTML='<div class="alert-box alert-err">Alasan perubahan wajib diisi.</div>';return;}
+  var newItems=[];
+  var valid=true;
+  document.querySelectorAll('[id^="esub-"]').forEach(function(row){
+    if(!valid)return;
+    var n=row.id.replace('esub-','');
+    var idItem=row.getAttribute('data-iditem');
+    var idDetail=row.getAttribute('data-iddetail');
+    var adaSPK=row.getAttribute('data-spk')==='1';
+    var subitem=(document.getElementById('eSubNama'+n).value||'').trim().toUpperCase();
+    var qty=parseFloat(document.getElementById('eSubQty'+n).value)||0;
+    var dariStok=parseFloat(document.getElementById('eSubStok'+n).value)||0;
+    if(!qty||qty<1){alertEl.innerHTML='<div class="alert-box alert-err">QTY subitem wajib > 0.</div>';valid=false;return;}
+    if(dariStok>0){
+      var saldo=getSaldoAvailable(idItem,subitem,orderAktif?orderAktif.id_order:null);
+      if(dariStok>saldo){alertEl.innerHTML='<div class="alert-box alert-err">QTY dari stok "'+subitem+'" melebihi saldo tersedia ('+fmtAngka(saldo)+').</div>';valid=false;return;}
+    }
+    newItems.push({id_detail:idDetail,id_item:idItem,subitem:subitem,qty:qty+dariStok,qty_dari_stok:dariStok,locked:adaSPK});
+  });
+  if(!valid)return;
+
+  var btn=document.getElementById('btnSimpanEdit');
+  btn.disabled=true;btn.textContent='Menyimpan…';
+
+  // Hitung diff perubahan untuk log
+  var changes={};
+  var newNoPo=document.getElementById('editNoPo').value.trim();
+  var newDeadline=document.getElementById('editDeadline').value;
+  var newKet=document.getElementById('editKeterangan').value.trim();
+  var newNamaItem=document.getElementById('editNamaItem').value.trim().toUpperCase();
+  var newHarga=parseFloat(document.getElementById('editHarga').value)||0;
+  if(newNoPo!=(orderAktif.no_po||'')) changes['No PO']={lama:orderAktif.no_po||'',baru:newNoPo};
+  if(newDeadline!=(orderAktif.deadline||'').slice(0,10)) changes['Deadline']={lama:(orderAktif.deadline||'').slice(0,10),baru:newDeadline};
+  if(newKet!=(orderAktif.keterangan||'')) changes['Keterangan']={lama:orderAktif.keterangan||'',baru:newKet};
+  if(newNamaItem!=(orderAktif.nama_item||'')) changes['Nama Item']={lama:orderAktif.nama_item||'',baru:newNamaItem};
+  newItems.forEach(function(it){
+    if(!it.locked){
+      var old=detailCache.find(function(d){return d.id_detail===it.id_detail;});
+      if(old){
+        if(it.qty!=(old.qty||0)) changes['QTY '+it.subitem]={lama:old.qty||0,baru:it.qty};
+        if(it.qty_dari_stok!=(old.qty_dari_stok||0)) changes['Dari Stok ('+it.subitem+')']={lama:old.qty_dari_stok||0,baru:it.qty_dari_stok};
+      }
+    }
+  });
+
+  // Generate id log
+  var idLog='LED-'+new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,17)+'-'+Math.floor(Math.random()*900+100);
+
+  dbInsert('log_edit_order',{
+    id_log:idLog,
+    id_order:orderAktif.id_order,
+    tgl:new Date().toISOString(),
+    status:'PENDING',
+    alasan:alasan,
+    changes:JSON.stringify(changes),
+    user_input:getNamaUser()
+  }).then(function(res){
+    if(res&&res.code) throw new Error(res.message);
+    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Perubahan diajukan. Menunggu approval Manager.</div>';
+    muatPendingEdit();
+    setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();},1500);
+  }).catch(function(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">'+(e.message||'Gagal menyimpan.')+'</div>';
+  }).finally(function(){
+    btn.disabled=false;btn.textContent='Ajukan Perubahan';
+  });
+}
+
+// ── PENDING APPROVAL ──
+function muatPendingEdit(){
+  dbGet('log_edit_order',{status:'eq.PENDING'}).then(function(res){
+    var n=Array.isArray(res)?res.length:0;
+    var badge=document.getElementById('pendingCount');
+    badge.textContent=n;
+    badge.style.display=n>0?'':'none';
+  }).catch(function(){});
+}
+
+function bukaModalPending(){
+  document.getElementById('pendingBody').innerHTML='<div class="loading">Memuat…</div>';
+  new bootstrap.Modal(document.getElementById('modalPending')).show();
+  dbGet('log_edit_order',{status:'eq.PENDING',order:'tgl.desc'}).then(function(res){
+    renderPendingList(Array.isArray(res)?res:[]);
+  }).catch(function(){
+    document.getElementById('pendingBody').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat.</div>';
+  });
+}
+
+function renderPendingList(data){
+  var wrap=document.getElementById('pendingBody');
+  var isApprover=(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR');
+  if(!data.length){
+    wrap.innerHTML='<div style="font-family:var(--mono);font-size:.78rem;color:var(--muted);text-align:center;padding:1.5rem">Tidak ada perubahan yang menunggu approval.</div>';
+    return;
+  }
+  var html='';
+  if(!isApprover) html+='<div class="alert-box" style="background:#e8f0fe;border:1px solid #a4c0f9;color:#1a56b0;margin-bottom:.75rem">ℹ️ Hanya Manager/Direktur yang dapat menyetujui.</div>';
+  data.forEach(function(p){
+    html+='<div class="pending-item">'+
+      '<div class="pending-item-hdr">'+
+        '<div><div class="pending-item-id">'+esc(p.id_order)+'</div></div>'+
+        '<div class="pending-item-tgl">'+fmtTgl(p.tgl)+'</div>'+
+      '</div>'+
+      '<div class="pending-item-field"><label>Alasan</label>'+esc(p.alasan||'—')+'</div>'+
+      '<div class="pending-item-field"><label>Diajukan oleh</label>'+esc(p.user_input||'—')+'</div>';
+    if(p.changes){
+      try{
+        var ch=typeof p.changes==='string'?JSON.parse(p.changes):p.changes;
+        Object.keys(ch).forEach(function(k){
+          html+='<div class="pending-item-field"><label>'+k+'</label>'+
+            '<div class="pending-diff"><span class="diff-lama">'+esc(String(ch[k].lama))+'</span><span>→</span><span class="diff-baru">'+esc(String(ch[k].baru))+'</span></div></div>';
+        });
+      }catch(e){}
+    }
+    if(isApprover){
+      html+='<div style="display:flex;gap:.5rem;margin-top:.6rem">'+
+        '<button class="btn-simpan" style="font-size:.7rem;padding:.3rem .75rem;background:var(--green)" onclick="prosesApprovalEdit(\''+esc(p.id_log)+'\',\''+esc(p.id_order)+'\',\'APPROVE\',this)">✓ Approve</button>'+
+        '<button class="btn-batal" style="font-size:.7rem;padding:.3rem .75rem;color:var(--red);border-color:var(--red)" onclick="prosesApprovalEdit(\''+esc(p.id_log)+'\',\''+esc(p.id_order)+'\',\'TOLAK\',this)">✗ Tolak</button>'+
+      '</div>';
+    }
+    html+='</div>';
+  });
+  wrap.innerHTML=html;
+}
+
+function prosesApprovalEdit(idLog,idOrder,aksi,btnEl){
+  if(!confirm((aksi==='APPROVE'?'Approve':'Tolak')+' perubahan ini?'))return;
+  btnEl.disabled=true;
+  dbUpdate('log_edit_order',{id_log:'eq.'+idLog},{
+    status:aksi==='APPROVE'?'APPROVED':'DITOLAK',
+    approved_by:getNamaUser(),
+    tgl_approve:new Date().toISOString()
+  }).then(function(res){
+    if(res&&res.code) throw new Error(res.message);
+    if(aksi==='APPROVE'){
+      return dbGet('in_order',{order:'tgl_order.desc'}).then(function(r){
+        semuaOrder=Array.isArray(r)?r:[];
+        renderTabel(semuaOrder);
+      });
+    }
+  }).then(function(){
+    muatPendingEdit();
+    bukaModalPending();
+  }).catch(function(e){
+    alert('Gagal: '+(e.message||'Error'));
+    btnEl.disabled=false;
+  });
+}
+
+// ── LOG PERUBAHAN ──
+function bukaModalLog(){
+  if(!orderAktif)return;
+  document.getElementById('logTitle').textContent='Log Perubahan — '+orderAktif.id_order;
+  document.getElementById('logBody').innerHTML='<div class="loading">Memuat…</div>';
+  new bootstrap.Modal(document.getElementById('modalLog')).show();
+  dbGet('log_edit_order',{id_order:'eq.'+orderAktif.id_order,order:'tgl.desc'}).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    if(!data.length){
+      document.getElementById('logBody').innerHTML='<div style="font-family:var(--mono);font-size:.78rem;color:var(--muted);text-align:center;padding:1.5rem">Belum ada riwayat perubahan.</div>';
+      return;
+    }
+    var html='';
+    data.forEach(function(l){
+      var stCls=l.status==='APPROVED'?'log-approved':l.status==='DITOLAK'?'log-tolak':'log-pending';
+      html+='<div class="log-item">'+
+        '<div class="log-item-hdr"><span>'+fmtTgl(l.tgl)+'</span><span class="log-item-status '+stCls+'">'+esc(l.status)+'</span></div>'+
+        '<div style="font-size:.75rem;margin-bottom:.2rem"><b>Alasan:</b> '+esc(l.alasan||'—')+'</div>'+
+        '<div style="font-size:.72rem;color:var(--muted)">Oleh: '+esc(l.user_input||'—')+(l.approved_by?' | Approve: '+esc(l.approved_by):'')+'</div>';
+      if(l.changes){
+        try{
+          var ch=typeof l.changes==='string'?JSON.parse(l.changes):l.changes;
+          Object.keys(ch).forEach(function(k){
+            html+='<div style="font-size:.72rem;margin-top:.2rem;font-family:var(--mono)"><span style="color:var(--muted)">'+k+': </span><span class="diff-lama">'+esc(String(ch[k].lama))+'</span> → <span class="diff-baru">'+esc(String(ch[k].baru))+'</span></div>';
+          });
+        }catch(e){}
+      }
+      html+='</div>';
+    });
+    document.getElementById('logBody').innerHTML=html;
+  }).catch(function(){
+    document.getElementById('logBody').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat.</div>';
+  });
+}
+
+// ── HELPERS ──
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtTgl(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}
+function fmtAngka(n){return Number(n).toLocaleString('id-ID');}
+function fmtRupiah(n){return 'Rp '+Number(n).toLocaleString('id-ID');}
+</script>
+</body>
+</html>
