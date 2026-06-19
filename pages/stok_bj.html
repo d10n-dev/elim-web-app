@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stok Barang Jadi — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .main{padding:1.1rem;}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:.5rem;flex-wrap:wrap;}
+    .toolbar-left{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+    .btn-orange{background:var(--orange);color:#fff;border:none;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.5rem .9rem;border-radius:6px;cursor:pointer;}
+    .btn-orange:hover{background:#d04515;}
+    .btn-navy{background:var(--navy);color:#fff;border:none;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.5rem .9rem;border-radius:6px;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-dark);}
+    .btn-navy:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-outline{background:transparent;color:var(--muted);border:1px solid var(--border);font-family:var(--mono);font-size:.75rem;padding:.5rem .9rem;border-radius:6px;cursor:pointer;}
+    .btn-approve{background:var(--green);color:#fff;border:none;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.45rem .85rem;border-radius:6px;cursor:pointer;}
+    .btn-approve:hover{background:#158a4e;}
+    .btn-approve:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-tolak{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.45rem .85rem;border-radius:6px;cursor:pointer;}
+    .btn-tolak:hover{background:#ffe0e0;}
+    .filter-btn{font-family:var(--mono);font-size:.72rem;padding:.35rem .75rem;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;}
+    .filter-btn.aktif{background:var(--navy);color:#fff;border-color:var(--navy);}
+    /* Summary cards */
+    .summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1rem;}
+    .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;}
+    .sc-label{font-family:var(--mono);font-size:.63rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;}
+    .sc-val{font-family:var(--mono);font-size:1.2rem;font-weight:700;color:var(--text);}
+    .sc-val.green{color:var(--green);}
+    .sc-val.orange{color:var(--orange);}
+    .sc-val.red{color:var(--red);}
+    /* Tabel */
+    .tbl-wrap{background:var(--surface);border-radius:10px;border:1px solid var(--border);overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:.8rem;}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:.66rem;font-weight:600;letter-spacing:.05em;padding:.6rem .75rem;text-align:left;white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:last-child{border-bottom:none;}
+    tbody tr:hover{background:#f5f7fb;}
+    tbody td{padding:.5rem .75rem;vertical-align:middle;}
+    .td-mono{font-family:var(--mono);font-size:.72rem;}
+    .td-muted{color:var(--muted);font-size:.75rem;}
+    .saldo-ok{color:var(--green);font-weight:700;}
+    .saldo-warn{color:var(--yellow);font-weight:700;}
+    .saldo-zero{color:var(--muted);}
+    /* Badge */
+    .badge-jenis{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.18rem .45rem;border-radius:4px;letter-spacing:.04em;white-space:nowrap;}
+    .bj-masuk-packing{background:#e8f0fe;color:#1a56b0;}
+    .bj-masuk-retur{background:#e8f5e9;color:#1b5e20;}
+    .bj-keluar-kirim{background:#fff3e0;color:#c45a00;}
+    .bj-keluar-rusak{background:#fff0f0;color:var(--red);}
+    .bj-adjust-opname-masuk{background:#e8f5e9;color:#1b5e20;}
+    .bj-adjust-opname-keluar{background:#fff0f0;color:var(--red);}
+    .bj-pending{background:#fff9c4;color:#827717;}
+    .bj-approved{background:var(--green-bg);color:var(--green);}
+    .bj-ditolak{background:#fff0f0;color:var(--red);}
+    /* Alert */
+    .alert-warn{background:#fff8e1;color:#9a6500;border:1px solid #ffe082;}
+    .alert-info{background:#e8f0fe;color:#1a56b0;border:1px solid #b3c9f9;}
+    /* Log entry */
+    .log-entry{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.6rem .75rem;margin-bottom:.5rem;}
+    .log-entry-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.2rem;}
+    .log-entry-tgl{font-family:var(--mono);font-size:.63rem;color:var(--muted);}
+    .log-entry-qty{font-family:var(--mono);font-size:.8rem;font-weight:600;}
+    .log-entry-sub{font-size:.72rem;color:var(--muted);margin-top:.1rem;}
+    .form-control[readonly]{background:#f5f7fb;color:var(--muted);}
+    .form-row{display:grid;gap:.65rem;margin-bottom:.7rem;}
+    .form-row-2{grid-template-columns:1fr 1fr;}
+    @media(max-width:540px){.form-row-2{grid-template-columns:1fr;}}
+    .section-divider{font-family:var(--mono);font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-bottom:.35rem;border-bottom:1px solid var(--border);margin:.9rem 0 .65rem;}
+    .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .85rem;margin-bottom:.75rem;}
+    .kv-item label{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;color:var(--muted);display:block;}
+    .kv-item span{font-size:.82rem;font-weight:500;}
+    /* Pending badge */
+    .pending-badge{display:inline-block;background:var(--red);color:#fff;font-family:var(--mono);font-size:.6rem;font-weight:700;padding:.1rem .4rem;border-radius:10px;margin-left:.3rem;vertical-align:middle;}
+    .btn-history{background:#f0f4ff;color:var(--navy);border:1px solid var(--border);font-family:var(--mono);font-size:.68rem;padding:.25rem .55rem;border-radius:5px;cursor:pointer;white-space:nowrap;}
+    .btn-history:hover{background:#e0e8ff;}
+    .sdet-empty{text-align:center;font-family:var(--mono);font-size:.75rem;color:var(--muted);padding:.75rem 0;}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+
+<div class="main">
+  <!-- Summary Cards -->
+  <div class="summary-cards">
+    <div class="summary-card"><div class="sc-label">Total Item</div><div class="sc-val" id="scTotal">—</div></div>
+    <div class="summary-card"><div class="sc-label">Ada Stok</div><div class="sc-val green" id="scAda">—</div></div>
+    <div class="summary-card"><div class="sc-label">Stok Nol</div><div class="sc-val orange" id="scNol">—</div></div>
+    <div class="summary-card"><div class="sc-label">Pending</div><div class="sc-val red" id="scPending">—</div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="filter-btn aktif" onclick="setFilter('semua',this)">Semua</button>
+      <button class="filter-btn" onclick="setFilter('ada',this)">Ada Stok</button>
+      <button class="filter-btn" onclick="setFilter('nol',this)">Stok Nol</button>
+    </div>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+      <input type="text" id="inSearch" class="form-control" style="width:170px;font-size:.75rem;padding:.35rem .6rem" placeholder="Cari item…" oninput="renderTabel()"/>
+      <button class="btn-orange" onclick="bukaModalAdj()">+ Adjustment</button>
+      <button class="filter-btn" id="btnPending" onclick="bukaModalPending()" style="position:relative">
+        Pending<span class="pending-badge" id="pendingBadge" style="display:none">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabel Rekap -->
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>ID Item</th><th>Nama Item</th><th>Subitem</th>
+        <th style="text-align:right">Masuk</th>
+        <th style="text-align:right">Keluar</th>
+        <th style="text-align:right">Saldo</th>
+        <th>Satuan</th><th></th>
+      </tr></thead>
+      <tbody id="tblBody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL HISTORY -->
+<div class="modal fade" id="modalHistory" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="historyTitle">Riwayat Mutasi</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="historyBody"><div class="loading">Memuat…</div></div>
+      <div class="modal-footer"><button class="btn-outline" data-bs-dismiss="modal">Tutup</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADJUSTMENT -->
+<div class="modal fade" id="modalAdj" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Input Adjustment Stok</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertAdj"></div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Jenis Adjustment *</label>
+            <select class="form-select" id="adjJenis" onchange="onJenisChange()">
+              <option value="">— Pilih —</option>
+              <option value="MASUK_RETUR">MASUK_RETUR — Retur dari pelanggan</option>
+              <option value="KELUAR_RUSAK">KELUAR_RUSAK — Barang rusak / BS</option>
+              <option value="ADJUST_OPNAME">ADJUST_OPNAME — Stock Opname (input saldo fisik)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row form-row-2">
+          <div>
+            <label class="form-label">Item *</label>
+            <input type="text" class="form-control" id="adjItem" placeholder="Ketik ID atau nama…" autocomplete="off"/>
+            <div class="ac-dropdown" id="acAdjItem"></div>
+          </div>
+          <div>
+            <label class="form-label">Subitem</label>
+            <input type="text" class="form-control" id="adjSubitem" placeholder="Kosongkan jika tidak ada" oninput="onSubitemChange()"/>
+          </div>
+        </div>
+        <div id="adjInfoPanel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.65rem .85rem;margin-bottom:.7rem;font-size:.8rem;">
+          <div id="adjNamaText" style="font-weight:500;margin-bottom:.2rem;"></div>
+          <div id="adjSaldoText" style="font-family:var(--mono);font-size:.72rem;color:var(--muted);"></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div>
+            <label class="form-label" id="adjQtyLabel">QTY *</label>
+            <input type="number" class="form-control" id="adjQty" placeholder="0" min="0.01" step="0.01"/>
+          </div>
+          <div>
+            <label class="form-label">Satuan</label>
+            <input type="text" class="form-control" id="adjSatuan" placeholder="PCS, RIM, BUKU…"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="adjKet" placeholder="Opsional — alasan / nomor referensi"/>
+          </div>
+        </div>
+        <div id="adjOpnameInfo" class="alert-box alert-info" style="display:none">
+          ℹ Isi QTY dengan <strong>saldo fisik aktual</strong>. Sistem menghitung selisih otomatis dan membuat log MASUK atau KELUAR.
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="btnSimpanAdj" onclick="simpanAdj()">Simpan → Pending Approval</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PENDING -->
+<div class="modal fade" id="modalPending" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--navy-mid)">
+        <span class="modal-title">Pending Approval Adjustment</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="pendingBody"><div class="loading">Memuat…</div></div>
+      <div class="modal-footer"><button class="btn-outline" data-bs-dismiss="modal">Tutup</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+// ── STATE ──
+var rekapData=[], masterItem=[], filterAktif='semua';
+var _adjItem=null; // item terpilih di form adj
+var isMP=false;
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded',function(){
+  if(!guardHalaman()) return;
+  initNav('stok_bj');
+  var role=getRoleUser();
+  isMP=(role==='MANAGER'||role==='DIREKTUR');
+
+  // AC dropdown ke body (Android-safe)
+  document.body.appendChild(document.getElementById('acAdjItem'));
+
+  Promise.all([
+    muatRekap(),
+    muatPendingCount(),
+    dbGet('m_item',{status:'eq.AKTIF',order:'nama_item.asc',select:'id_item,nama_item,satuan'}).then(function(r){
+      masterItem=Array.isArray(r)?r:[];
+    })
+  ]).then(function(){
+    initAdjAC();
+  });
+});
+
+// ── HELPERS ──
+function esc(s){return escHtml(s);}
+function fmtAngka(n){var v=parseFloat(n)||0;return v%1===0?v.toLocaleString('id-ID'):v.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtTgl(d){if(!d)return'—';return new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'2-digit'});}
+function fmtWaktu(d){if(!d)return'—';return new Date(d).toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function badgeJenis(j){
+  var k=(j||'').toLowerCase().replace(/_/g,'-');
+  var label={
+    'MASUK_PACKING':'MASUK PACKING','MASUK_RETUR':'MASUK RETUR',
+    'KELUAR_KIRIM':'KELUAR KIRIM','KELUAR_RUSAK':'KELUAR RUSAK',
+    'ADJUST_OPNAME_MASUK':'OPNAME ↑','ADJUST_OPNAME_KELUAR':'OPNAME ↓'
+  }[j]||j;
+  return '<span class="badge-jenis bj-'+k+'">'+esc(label)+'</span>';
+}
+function badgeApproval(s){
+  var map={APPROVED:'bj-approved',PENDING:'bj-pending',DITOLAK:'bj-ditolak'};
+  return '<span class="badge-jenis '+(map[s]||'')+'">'+esc(s)+'</span>';
+}
+function isKeluar(j){return['KELUAR_KIRIM','KELUAR_RUSAK','ADJUST_OPNAME_KELUAR'].indexOf(j)>=0;}
+function isMasuk(j){return['MASUK_PACKING','MASUK_RETUR','ADJUST_OPNAME_MASUK'].indexOf(j)>=0;}
+function genIdLog(){return'LBJ'+Date.now()+Math.floor(Math.random()*1000);}
+
+// ── REKAP ──
+function muatRekap(){
+  document.getElementById('tblBody').innerHTML='<tr><td colspan="8" class="loading">Memuat…</td></tr>';
+  return dbRpc('get_rekap_stok_bj',{}).then(function(res){
+    rekapData=Array.isArray(res)?res:[];
+    updateCards();
+    renderTabel();
+  }).catch(function(){
+    document.getElementById('tblBody').innerHTML='<tr><td colspan="8" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
+  });
+}
+
+function updateCards(){
+  var ada=rekapData.filter(function(r){return r.saldo>0;}).length;
+  var nol=rekapData.filter(function(r){return r.saldo<=0;}).length;
+  document.getElementById('scTotal').textContent=rekapData.length;
+  document.getElementById('scAda').textContent=ada;
+  document.getElementById('scNol').textContent=nol;
+}
+
+function setFilter(val,el){
+  filterAktif=val;
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('aktif');});
+  el.classList.add('aktif');
+  renderTabel();
+}
+
+function renderTabel(){
+  var q=(document.getElementById('inSearch').value||'').toLowerCase().trim();
+  var data=rekapData.filter(function(r){
+    if(filterAktif==='ada'&&r.saldo<=0) return false;
+    if(filterAktif==='nol'&&r.saldo>0) return false;
+    if(q){var hay=(r.id_item+(r.nama_item||'')+(r.subitem||'')).toLowerCase();if(hay.indexOf(q)<0) return false;}
+    return true;
+  });
+  if(!data.length){document.getElementById('tblBody').innerHTML='<tr><td colspan="8" class="loading">Tidak ada data.</td></tr>';return;}
+  document.getElementById('tblBody').innerHTML=data.map(function(r){
+    var sc=r.saldo>0?'saldo-ok':(r.saldo===0?'saldo-zero':'saldo-warn');
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.id_item)+'</td>'+
+      '<td style="font-size:.8rem">'+esc(r.nama_item||'')+'</td>'+
+      '<td class="td-mono td-muted">'+esc(r.subitem||'—')+'</td>'+
+      '<td class="td-mono" style="text-align:right;color:var(--navy)">'+fmtAngka(r.masuk)+'</td>'+
+      '<td class="td-mono" style="text-align:right;color:var(--red)">'+fmtAngka(r.keluar)+'</td>'+
+      '<td class="td-mono '+sc+'" style="text-align:right">'+fmtAngka(r.saldo)+'</td>'+
+      '<td class="td-mono td-muted">'+esc(r.satuan||'')+'</td>'+
+      '<td><button class="btn-history" onclick="bukaHistory(\''+esc(r.id_item)+'\',\''+esc(r.subitem||'')+'\',\''+esc(r.nama_item||'')+'\')">📋 History</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ── HISTORY ──
+function bukaHistory(idItem,subitem,namaItem){
+  document.getElementById('historyTitle').textContent='Riwayat — '+namaItem+(subitem?' ('+subitem+')':'');
+  document.getElementById('historyBody').innerHTML='<div class="loading">Memuat…</div>';
+  new bootstrap.Modal(document.getElementById('modalHistory')).show();
+
+  var params={id_item:'eq.'+idItem,order:'tgl.desc'};
+  if(subitem) params['subitem']='eq.'+subitem;
+  else params['subitem']='is.null';
+
+  dbGet('log_stok_bj',params).then(function(res){
+    var logs=Array.isArray(res)?res:[];
+    if(!logs.length){document.getElementById('historyBody').innerHTML='<div class="sdet-empty">Belum ada mutasi untuk item ini.</div>';return;}
+    document.getElementById('historyBody').innerHTML=logs.map(function(l){
+      var keluar=isKeluar(l.jenis);
+      var masuk=isMasuk(l.jenis);
+      var qtyColor=keluar?'color:var(--red)':(masuk?'color:var(--green)':'color:#7b1fa2');
+      var prefix=keluar?'−':'+';
+      return '<div class="log-entry">'+
+        '<div class="log-entry-hdr">'+
+          '<div>'+badgeJenis(l.jenis)+' '+badgeApproval(l.status_approval||'—')+'</div>'+
+          '<div class="log-entry-tgl">'+fmtTgl(l.tgl)+'</div>'+
+        '</div>'+
+        '<div class="log-entry-qty" style="'+qtyColor+'">'+prefix+' '+fmtAngka(l.qty)+' '+esc(l.satuan||'')+'</div>'+
+        '<div class="log-entry-sub">'+
+          (l.id_ref?'Ref: '+esc(l.id_ref)+'&nbsp; ':'')+
+          'Input: '+esc(l.user_input||'—')+
+          (l.approved_by?'&nbsp;| Approve: '+esc(l.approved_by):'')+
+          (l.keterangan?'<br>'+esc(l.keterangan):'')+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('historyBody').innerHTML='<div class="sdet-empty" style="color:var(--red)">Gagal memuat riwayat.</div>';
+  });
+}
+
+// ── AC ITEM ADJUSTMENT ──
+function initAdjAC(){
+  var inp=document.getElementById('adjItem');
+  var drop=document.getElementById('acAdjItem');
+  inp.addEventListener('input',function(){
+    _adjItem=null;
+    inp.classList.remove('ac-selected');
+    document.getElementById('adjInfoPanel').style.display='none';
+    var q=inp.value.trim();
+    if(!q){drop.style.display='none';return;}
+    renderAcDrop(q,inp,drop);
+  });
+  inp.addEventListener('focus',function(){
+    if(inp.value.trim()&&!_adjItem) renderAcDrop(inp.value.trim(),inp,drop);
+  });
+  inp.addEventListener('blur',function(){setTimeout(function(){drop.style.display='none';},200);});
+}
+
+function renderAcDrop(q,inp,drop){
+  q=q.toLowerCase();
+  var hasil=masterItem.filter(function(d){
+    return d.id_item.toLowerCase().indexOf(q)>=0||d.nama_item.toLowerCase().indexOf(q)>=0;
+  }).slice(0,30);
+  drop.innerHTML=hasil.length?hasil.map(function(d){
+    return '<div class="ac-item" onmousedown="event.preventDefault();pilihItem(\''+esc(d.id_item)+'\')" ontouchend="event.preventDefault();pilihItem(\''+esc(d.id_item)+'\')">'+
+      '<span class="ac-item-id">'+esc(d.id_item)+'</span>'+
+      '<span class="ac-item-nama">'+esc(d.nama_item)+'</span>'+
+    '</div>';
+  }).join(''):'<div class="ac-empty">Tidak ditemukan</div>';
+  var r=inp.getBoundingClientRect();
+  drop.style.top=r.bottom+'px';
+  drop.style.left=r.left+'px';
+  drop.style.width=r.width+'px';
+  drop.style.display='block';
+}
+
+function pilihItem(idItem){
+  var d=masterItem.find(function(x){return x.id_item===idItem;});
+  if(!d) return;
+  _adjItem=d;
+  document.getElementById('adjItem').value=d.id_item+' | '+d.nama_item;
+  document.getElementById('adjItem').classList.add('ac-selected');
+  document.getElementById('acAdjItem').style.display='none';
+  document.getElementById('adjSatuan').value=d.satuan||'';
+  // Auto-isi subitem jika hanya ada 1 subitem di rekapData untuk item ini
+  var subItems=rekapData.filter(function(r){return r.id_item===idItem;});
+  if(subItems.length===1){
+    document.getElementById('adjSubitem').value=subItems[0].subitem||'';
+  } else {
+    document.getElementById('adjSubitem').value='';
+  }
+  updateAdjInfoPanel();
+}
+
+function onSubitemChange(){if(_adjItem) updateAdjInfoPanel();}
+
+function updateAdjInfoPanel(){
+  if(!_adjItem) return;
+  var sub=(document.getElementById('adjSubitem').value||'').trim();
+  document.getElementById('adjNamaText').textContent=_adjItem.nama_item+(sub?' — '+sub:'');
+  // Cari saldo dari rekapData
+  var saldo=0; var sat=_adjItem.satuan||'';
+  rekapData.forEach(function(r){
+    if(r.id_item===_adjItem.id_item&&(r.subitem||'')===(sub)){saldo=r.saldo;if(r.satuan) sat=r.satuan;}
+  });
+  document.getElementById('adjSaldoText').textContent='Saldo sistem: '+fmtAngka(saldo)+' '+sat;
+  document.getElementById('adjInfoPanel').style.display='';
+}
+
+function onJenisChange(){
+  var j=document.getElementById('adjJenis').value;
+  var isOpname=j==='ADJUST_OPNAME';
+  document.getElementById('adjOpnameInfo').style.display=isOpname?'':'none';
+  document.getElementById('adjQtyLabel').textContent=isOpname?'Saldo Fisik Aktual *':'QTY *';
+}
+
+// ── SIMPAN ADJUSTMENT ──
+function bukaModalAdj(){
+  document.getElementById('alertAdj').innerHTML='';
+  document.getElementById('adjJenis').value='';
+  document.getElementById('adjItem').value='';
+  document.getElementById('adjItem').classList.remove('ac-selected');
+  document.getElementById('adjSubitem').value='';
+  document.getElementById('adjQty').value='';
+  document.getElementById('adjSatuan').value='';
+  document.getElementById('adjKet').value='';
+  document.getElementById('adjInfoPanel').style.display='none';
+  document.getElementById('adjOpnameInfo').style.display='none';
+  document.getElementById('adjQtyLabel').textContent='QTY *';
+  _adjItem=null;
+  new bootstrap.Modal(document.getElementById('modalAdj')).show();
+}
+
+async function simpanAdj(){
+  var alertEl=document.getElementById('alertAdj');
+  alertEl.innerHTML='';
+  var jenis=document.getElementById('adjJenis').value;
+  var subitem=(document.getElementById('adjSubitem').value||'').trim();
+  var qtyInput=parseFloat(document.getElementById('adjQty').value)||0;
+  var satuan=(document.getElementById('adjSatuan').value||'').trim();
+  var ket=(document.getElementById('adjKet').value||'').trim();
+
+  if(!jenis){alertEl.innerHTML='<div class="alert-box alert-err">Jenis wajib dipilih.</div>';return;}
+  if(!_adjItem){alertEl.innerHTML='<div class="alert-box alert-err">Pilih item dari daftar.</div>';return;}
+  if(qtyInput<=0){alertEl.innerHTML='<div class="alert-box alert-err">QTY harus lebih dari 0.</div>';return;}
+  if(!satuan) satuan=_adjItem.satuan||'';
+
+  var btn=document.getElementById('btnSimpanAdj');
+  btn.disabled=true; btn.textContent='Menyimpan…';
+
+  try{
+    var rows=[];
+    var tgl=new Date().toISOString();
+    var user=getNamaUser();
+
+    if(jenis==='ADJUST_OPNAME'){
+      // Hitung selisih dari saldo sistem
+      var saldoSis=0;
+      rekapData.forEach(function(r){
+        if(r.id_item===_adjItem.id_item&&(r.subitem||'')===(subitem)) saldoSis=parseFloat(r.saldo)||0;
+      });
+      var selisih=qtyInput-saldoSis;
+      if(selisih===0){
+        alertEl.innerHTML='<div class="alert-box alert-warn">Saldo fisik sama dengan saldo sistem ('+fmtAngka(saldoSis)+' '+satuan+'). Tidak ada perubahan.</div>';
+        btn.disabled=false; btn.textContent='Simpan → Pending Approval';
+        return;
+      }
+      var jenisLog=selisih>0?'ADJUST_OPNAME_MASUK':'ADJUST_OPNAME_KELUAR';
+      rows.push({
+        id_log_bj:genIdLog(),tgl:tgl,jenis:jenisLog,
+        id_item:_adjItem.id_item,nama_item:_adjItem.nama_item,
+        subitem:subitem||null,qty:Math.abs(selisih),satuan:satuan,
+        user_input:user,status_approval:'PENDING',
+        keterangan:'Opname: saldo fisik='+fmtAngka(qtyInput)+', sistem='+fmtAngka(saldoSis)+'. '+(ket||'')
+      });
+    } else {
+      rows.push({
+        id_log_bj:genIdLog(),tgl:tgl,jenis:jenis,
+        id_item:_adjItem.id_item,nama_item:_adjItem.nama_item,
+        subitem:subitem||null,qty:qtyInput,satuan:satuan,
+        user_input:user,status_approval:'PENDING',keterangan:ket||null
+      });
+    }
+
+    var res=await dbInsert('log_stok_bj',rows[0]);
+    if(res&&res.code) throw new Error(res.message||'Gagal insert');
+    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Adjustment disimpan. Menunggu approval Manager/Direktur.</div>';
+    muatPendingCount();
+    setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalAdj')).hide();},1200);
+  }catch(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+    btn.disabled=false; btn.textContent='Simpan → Pending Approval';
+  }
+}
+
+// ── PENDING COUNT ──
+function muatPendingCount(){
+  return dbGet('log_stok_bj',{status_approval:'eq.PENDING',select:'id_log_bj'}).then(function(res){
+    var n=Array.isArray(res)?res.length:0;
+    document.getElementById('scPending').textContent=n;
+    var badge=document.getElementById('pendingBadge');
+    badge.textContent=n; badge.style.display=n>0?'':'none';
+  });
+}
+
+// ── PENDING MODAL ──
+function bukaModalPending(){
+  document.getElementById('pendingBody').innerHTML='<div class="loading">Memuat…</div>';
+  new bootstrap.Modal(document.getElementById('modalPending')).show();
+  muatPending();
+}
+
+function muatPending(){
+  dbGet('log_stok_bj',{status_approval:'eq.PENDING',order:'tgl.asc'}).then(function(res){
+    var logs=Array.isArray(res)?res:[];
+    var wrap=document.getElementById('pendingBody');
+    if(!logs.length){wrap.innerHTML='<div class="sdet-empty">Tidak ada yang menunggu approval.</div>';return;}
+
+    var html='';
+    if(!isMP) html+='<div class="alert-box alert-info" style="margin-bottom:.75rem">ℹ Hanya Manager/Direktur yang dapat menyetujui adjustment.</div>';
+
+    html+=logs.map(function(l){
+      var keluar=isKeluar(l.jenis);
+      var qtyColor=keluar?'color:var(--red)':'color:var(--green)';
+      var prefix=keluar?'−':'+';
+      return '<div class="log-entry" style="margin-bottom:.75rem">'+
+        '<div class="log-entry-hdr">'+
+          '<div>'+badgeJenis(l.jenis)+' <span class="badge-jenis bj-pending">PENDING</span></div>'+
+          '<div class="log-entry-tgl">'+fmtWaktu(l.tgl)+'</div>'+
+        '</div>'+
+        '<div style="font-size:.8rem;font-weight:500;margin:.2rem 0">'+esc(l.nama_item||l.id_item)+(l.subitem?' — '+esc(l.subitem):'')+'</div>'+
+        '<div class="log-entry-qty" style="'+qtyColor+'">'+prefix+' '+fmtAngka(l.qty)+' '+esc(l.satuan||'')+'</div>'+
+        '<div class="log-entry-sub">Input: '+esc(l.user_input||'—')+(l.keterangan?'<br>'+esc(l.keterangan):'')+'</div>'+
+        (isMP?
+          '<div style="display:flex;gap:.5rem;margin-top:.6rem">'+
+            '<button class="btn-approve" style="font-size:.7rem;padding:.3rem .7rem" onclick="prosesApproval(\''+esc(l.id_log_bj)+'\',\'APPROVE\',this)">✓ Approve</button>'+
+            '<button class="btn-tolak" style="font-size:.7rem;padding:.3rem .7rem" onclick="prosesApproval(\''+esc(l.id_log_bj)+'\',\'TOLAK\',this)">✕ Tolak</button>'+
+          '</div>':'')+
+      '</div>';
+    }).join('');
+    wrap.innerHTML=html;
+  }).catch(function(){
+    document.getElementById('pendingBody').innerHTML='<div class="sdet-empty" style="color:var(--red)">Gagal memuat data.</div>';
+  });
+}
+
+async function prosesApproval(idLog,aksi,btnEl){
+  if(!confirm((aksi==='APPROVE'?'Approve':'Tolak')+' adjustment ini?')) return;
+  btnEl.disabled=true;
+  try{
+    var updateData={
+      status_approval:aksi==='APPROVE'?'APPROVED':'DITOLAK',
+      approved_by:getNamaUser(),
+      tgl_approve:new Date().toISOString()
+    };
+    var res=await dbUpdate('log_stok_bj',{id_log_bj:'eq.'+idLog},updateData);
+    if(res&&res.code) throw new Error(res.message);
+    // Refresh semua
+    await Promise.all([muatRekap(),muatPendingCount()]);
+    muatPending();
+  }catch(e){
+    alert('Gagal: '+e.message);
+    btnEl.disabled=false;
+  }
+}
+</script>
+</body>
+</html>
