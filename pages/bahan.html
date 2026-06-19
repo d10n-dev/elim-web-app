@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIEO — Master Bahan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="../css/sieo.css" rel="stylesheet">
+  <style>
+    .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .filter-bar input,.filter-bar select{font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;background:var(--bg);color:var(--text);font-family:var(--sans);}
+    .filter-bar input{flex:1;min-width:160px;}
+    .filter-bar select{min-width:120px;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-tambah:hover{background:#c8401a;}
+    .counter-bar{padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg);}
+    .table-wrap{overflow-x:auto;padding:0 0 80px 0;}
+    table{width:100%;border-collapse:collapse;background:var(--surface);}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:hover{background:#f4f7fc;}
+    tbody td{padding:8px 10px;font-size:13px;vertical-align:middle;}
+    .td-id{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+    .badge-kat{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;}
+    .badge-KERTAS{background:#dbeafe;color:#1e40af;}
+    .badge-PLASTIK{background:#fef9c3;color:#854d0e;}
+    .badge-PACKING{background:#f3e8ff;color:#6b21a8;}
+    .badge-sat{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;background:#f3f4f6;color:#374151;}
+    .badge-AKTIF{background:#dcfce7;color:#15803d;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;}
+    .badge-NONAKTIF{background:#fee2e2;color:#991b1b;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;}
+    .btn-edit{background:none;border:1px solid var(--navy);color:var(--navy);border-radius:4px;padding:3px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
+    .btn-edit:hover{background:var(--navy);color:#fff;}
+    .loading-state{text-align:center;padding:40px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+  </style>
+</head>
+<body>
+<div id="navRoot"></div>
+
+<div class="filter-bar">
+  <input type="text" id="searchNama" placeholder="Cari nama bahan..." oninput="filterTabel()">
+  <select id="filterKategori" onchange="filterTabel()">
+    <option value="">Semua Kategori</option>
+    <option value="KERTAS">Kertas</option>
+    <option value="PLASTIK">Plastik</option>
+    <option value="PACKING">Packing</option>
+  </select>
+  <select id="filterStatus" onchange="filterTabel()">
+    <option value="">Semua Status</option>
+    <option value="AKTIF">Aktif</option>
+    <option value="NONAKTIF">Nonaktif</option>
+  </select>
+  <button class="btn-tambah" onclick="bukaModalTambah()">+ Tambah</button>
+</div>
+
+<div class="counter-bar" id="counterBar">Memuat data...</div>
+
+<div class="table-wrap">
+  <div class="loading-state" id="loadingState"><span class="spinner"></span> Mengambil data bahan...</div>
+  <table id="tabelBahan" style="display:none">
+    <thead><tr><th>ID</th><th>Nama Bahan</th><th>Kategori</th><th>Satuan</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody id="tbodyBahan"></tbody>
+  </table>
+</div>
+
+<div class="modal fade" id="modalBahan" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modalJudul">TAMBAH BAHAN</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alert-form"></div>
+        <input type="hidden" id="fId">
+        <div class="mb-3">
+          <label class="form-label">Nama Bahan *</label>
+          <input type="text" class="form-control" id="fNama" placeholder="Misal: HVS 70 GR F4">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Kategori *</label>
+          <select class="form-select" id="fKategori">
+            <option value="">-- Pilih --</option>
+            <option value="KERTAS">Kertas</option>
+            <option value="PLASTIK">Plastik</option>
+            <option value="PACKING">Packing</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Satuan *</label>
+          <select class="form-select" id="fSatuan">
+            <option value="">-- Pilih --</option>
+            <option value="LEMBAR">LEMBAR</option>
+            <option value="RIM">RIM</option>
+            <option value="PCS">PCS</option>
+            <option value="BOX">BOX</option>
+            <option value="PAK">PAK</option>
+            <option value="BAL">BAL</option>
+          </select>
+        </div>
+        <div class="mb-3" id="statusGroup" style="display:none">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="fStatus">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+          </select>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+          <button class="btn-simpan" id="btnSimpan" onclick="simpanBahan()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+'use strict';
+let dataBahan = [];
+let modalInst;
+
+window.addEventListener('load', function() {
+  if (!guardHalaman()) return;
+  initNav('bahan');
+  modalInst = new bootstrap.Modal(document.getElementById('modalBahan'));
+  muatData();
+});
+
+function muatData() {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('tabelBahan').style.display = 'none';
+  dbGet('m_bahan', { order: 'id_bahan.asc' }).then(res => {
+    dataBahan = Array.isArray(res) ? res : [];
+    renderTabel(dataBahan);
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tabelBahan').style.display = 'table';
+  }).catch(err => {
+    document.getElementById('loadingState').innerHTML =
+      '<span style="color:var(--orange);font-family:var(--mono)">Gagal: ' + err.message + '</span>';
+  });
+}
+
+function renderTabel(data) {
+  const tbody = document.getElementById('tbodyBahan');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
+    document.getElementById('counterBar').textContent = '0 bahan';
+    return;
+  }
+  tbody.innerHTML = data.map(b => `
+    <tr>
+      <td class="td-id">${escHtml(b.id_bahan)}</td>
+      <td style="font-weight:500">${escHtml(b.nama_bahan)}</td>
+      <td><span class="badge-kat badge-${b.kategori}">${escHtml(b.kategori)}</span></td>
+      <td><span class="badge-sat">${escHtml(b.satuan)}</span></td>
+      <td><span class="badge-${b.status}">${b.status}</span></td>
+      <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(b)})'>Edit</button></td>
+    </tr>
+  `).join('');
+  document.getElementById('counterBar').textContent = data.length + ' dari ' + dataBahan.length + ' bahan';
+}
+
+function filterTabel() {
+  const cari   = document.getElementById('searchNama').value.toLowerCase();
+  const kat    = document.getElementById('filterKategori').value;
+  const status = document.getElementById('filterStatus').value;
+  renderTabel(dataBahan.filter(b =>
+    (!cari   || b.nama_bahan.toLowerCase().includes(cari)) &&
+    (!kat    || b.kategori === kat) &&
+    (!status || b.status === status)
+  ));
+}
+
+function bukaModalTambah() {
+  document.getElementById('modalJudul').textContent = 'TAMBAH BAHAN';
+  document.getElementById('alert-form').innerHTML = '';
+  document.getElementById('fId').value = '';
+  document.getElementById('fNama').value = '';
+  document.getElementById('fKategori').value = '';
+  document.getElementById('fSatuan').value = '';
+  document.getElementById('fStatus').value = 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'none';
+  modalInst.show();
+}
+
+function bukaModalEdit(b) {
+  document.getElementById('modalJudul').textContent = 'EDIT BAHAN — ' + b.id_bahan;
+  document.getElementById('alert-form').innerHTML = '';
+  document.getElementById('fId').value      = b.id_bahan;
+  document.getElementById('fNama').value    = b.nama_bahan;
+  document.getElementById('fKategori').value = b.kategori;
+  document.getElementById('fSatuan').value  = b.satuan;
+  document.getElementById('fStatus').value  = b.status || 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'block';
+  modalInst.show();
+}
+
+function simpanBahan() {
+  const id     = document.getElementById('fId').value;
+  const nama   = document.getElementById('fNama').value.trim().toUpperCase();
+  const kat    = document.getElementById('fKategori').value;
+  const satuan = document.getElementById('fSatuan').value;
+  const status = document.getElementById('fStatus').value;
+
+  if (!nama)   return tampilError('Nama Bahan wajib diisi');
+  if (!kat)    return tampilError('Kategori wajib dipilih');
+  if (!satuan) return tampilError('Satuan wajib dipilih');
+
+  const btn = document.getElementById('btnSimpan');
+  btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+  const payload = { nama_bahan: nama, kategori: kat, satuan, status };
+  let p;
+  if (id) {
+    p = dbUpdate('m_bahan', { id_bahan: 'eq.' + id }, payload);
+  } else {
+    payload.id_bahan = generateIdLokal(dataBahan, 'KER', 'id_bahan', 3);
+    p = dbInsert('m_bahan', payload);
+  }
+
+  p.then(res => {
+    if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
+    modalInst.hide(); muatData();
+  }).catch(err => tampilError(err.message || 'Gagal menyimpan'))
+  .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
+}
+
+function tampilError(msg) {
+  document.getElementById('alert-form').innerHTML =
+    `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
+}
+</script>
+</body>
+</html>
