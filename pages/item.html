@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIEO — Master Item</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="../css/sieo.css" rel="stylesheet">
+  <style>
+    .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .filter-bar input,.filter-bar select{font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;background:var(--bg);color:var(--text);font-family:var(--sans);}
+    .filter-bar input{flex:1;min-width:160px;}
+    .filter-bar select{min-width:120px;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-tambah:hover{background:#c8401a;}
+    .counter-bar{padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg);}
+    .table-wrap{overflow-x:auto;padding:0 0 80px 0;}
+    table{width:100%;border-collapse:collapse;background:var(--surface);}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:hover{background:#f4f7fc;}
+    tbody td{padding:8px 10px;font-size:13px;vertical-align:middle;}
+    .td-id{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+    .td-pps{font-family:var(--mono);font-size:12px;text-align:right;}
+    .badge-kat{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;background:#e8f0fe;color:#1e40af;font-weight:600;}
+    .badge-sat{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;background:#f3f4f6;color:#374151;}
+    .badge-AKTIF{background:#dcfce7;color:#15803d;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;}
+    .badge-NONAKTIF{background:#fee2e2;color:#991b1b;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:3px;}
+    .btn-edit{background:none;border:1px solid var(--navy);color:var(--navy);border-radius:4px;padding:3px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
+    .btn-edit:hover{background:var(--navy);color:#fff;}
+    .loading-state{text-align:center;padding:40px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .form-text{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:3px;}
+  </style>
+</head>
+<body>
+<div id="navRoot"></div>
+
+<div class="filter-bar">
+  <input type="text" id="searchNama" placeholder="Cari nama item..." oninput="filterTabel()">
+  <select id="filterKategori" onchange="filterTabel()">
+    <option value="">Semua Kategori</option>
+  </select>
+  <select id="filterStatus" onchange="filterTabel()">
+    <option value="">Semua Status</option>
+    <option value="AKTIF">Aktif</option>
+    <option value="NONAKTIF">Nonaktif</option>
+  </select>
+  <button class="btn-tambah" onclick="bukaModalTambah()">+ Tambah</button>
+</div>
+
+<div class="counter-bar" id="counterBar">Memuat data...</div>
+
+<div class="table-wrap">
+  <div class="loading-state" id="loadingState"><span class="spinner"></span> Mengambil data item...</div>
+  <table id="tabelItem" style="display:none">
+    <thead><tr><th>ID</th><th>Nama Item</th><th>Kategori</th><th>Satuan</th><th>PPS</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody id="tbodyItem"></tbody>
+  </table>
+</div>
+
+<div class="modal fade" id="modalItem" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="modalJudul">TAMBAH ITEM</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alert-form"></div>
+        <input type="hidden" id="fId">
+        <div class="mb-3">
+          <label class="form-label">Nama Item *</label>
+          <input type="text" class="form-control" id="fNama" placeholder="Misal: NOTA 2PLY NCR F4">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Kategori *</label>
+          <select class="form-select" id="fKategori">
+            <option value="">-- Pilih --</option>
+            <option value="NOTA / FORM">NOTA / FORM</option>
+            <option value="BUKU">BUKU</option>
+            <option value="ETIKET">ETIKET</option>
+            <option value="BOX MAKANAN">BOX MAKANAN</option>
+            <option value="BOX PRODUK">BOX PRODUK</option>
+            <option value="HARDBOX">HARDBOX</option>
+            <option value="PAPERBAG">PAPERBAG</option>
+            <option value="LAINNYA">LAINNYA</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Satuan *</label>
+          <select class="form-select" id="fSatuan">
+            <option value="">-- Pilih --</option>
+            <option value="PCS">PCS</option>
+            <option value="BUKU">BUKU</option>
+            <option value="RIM">RIM</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">PPS (Produk Per Set) *</label>
+          <input type="number" class="form-control" id="fPps" placeholder="cth: 2" min="1">
+          <div class="form-text">Jumlah lembar/rangkap per 1 produk jadi</div>
+        </div>
+        <div class="mb-3" id="statusGroup" style="display:none">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="fStatus">
+            <option value="AKTIF">Aktif</option>
+            <option value="NONAKTIF">Nonaktif</option>
+          </select>
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+          <button class="btn-simpan" id="btnSimpan" onclick="simpanItem()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+'use strict';
+let dataItem = [];
+let modalInst;
+
+const KATEGORI_LIST = ['NOTA / FORM','BUKU','ETIKET','BOX MAKANAN','BOX PRODUK','HARDBOX','PAPERBAG','LAINNYA'];
+
+window.addEventListener('load', function() {
+  if (!guardHalaman()) return;
+  initNav('item');
+  modalInst = new bootstrap.Modal(document.getElementById('modalItem'));
+  isiFilterKategori();
+  muatData();
+});
+
+function isiFilterKategori() {
+  const sel = document.getElementById('filterKategori');
+  KATEGORI_LIST.forEach(k => sel.add(new Option(k, k)));
+}
+
+function muatData() {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('tabelItem').style.display = 'none';
+  dbGet('m_item', { order: 'id_item.asc' }).then(res => {
+    dataItem = Array.isArray(res) ? res : [];
+    renderTabel(dataItem);
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tabelItem').style.display = 'table';
+  }).catch(err => {
+    document.getElementById('loadingState').innerHTML =
+      '<span style="color:var(--orange);font-family:var(--mono)">Gagal: ' + err.message + '</span>';
+  });
+}
+
+function renderTabel(data) {
+  const tbody = document.getElementById('tbodyItem');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
+    document.getElementById('counterBar').textContent = '0 item';
+    return;
+  }
+  tbody.innerHTML = data.map(p => `
+    <tr>
+      <td class="td-id">${escHtml(p.id_item)}</td>
+      <td style="font-weight:500">${escHtml(p.nama_item)}</td>
+      <td><span class="badge-kat">${escHtml(p.kategori)}</span></td>
+      <td><span class="badge-sat">${escHtml(p.satuan)}</span></td>
+      <td class="td-pps">${p.pps}</td>
+      <td><span class="badge-${p.status}">${p.status}</span></td>
+      <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(p)})'>Edit</button></td>
+    </tr>
+  `).join('');
+  document.getElementById('counterBar').textContent = data.length + ' dari ' + dataItem.length + ' item';
+}
+
+function filterTabel() {
+  const cari   = document.getElementById('searchNama').value.toLowerCase();
+  const kat    = document.getElementById('filterKategori').value;
+  const status = document.getElementById('filterStatus').value;
+  renderTabel(dataItem.filter(p =>
+    (!cari   || p.nama_item.toLowerCase().includes(cari)) &&
+    (!kat    || p.kategori === kat) &&
+    (!status || p.status === status)
+  ));
+}
+
+function bukaModalTambah() {
+  document.getElementById('modalJudul').textContent = 'TAMBAH ITEM';
+  document.getElementById('alert-form').innerHTML = '';
+  ['fId','fNama','fPps'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fKategori').value = '';
+  document.getElementById('fSatuan').value   = '';
+  document.getElementById('fStatus').value   = 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'none';
+  modalInst.show();
+}
+
+function bukaModalEdit(p) {
+  document.getElementById('modalJudul').textContent = 'EDIT ITEM — ' + p.id_item;
+  document.getElementById('alert-form').innerHTML = '';
+  document.getElementById('fId').value       = p.id_item;
+  document.getElementById('fNama').value     = p.nama_item;
+  document.getElementById('fKategori').value = p.kategori;
+  document.getElementById('fSatuan').value   = p.satuan;
+  document.getElementById('fPps').value      = p.pps;
+  document.getElementById('fStatus').value   = p.status || 'AKTIF';
+  document.getElementById('statusGroup').style.display = 'block';
+  modalInst.show();
+}
+
+function simpanItem() {
+  const id     = document.getElementById('fId').value;
+  const nama   = document.getElementById('fNama').value.trim().toUpperCase();
+  const kat    = document.getElementById('fKategori').value;
+  const satuan = document.getElementById('fSatuan').value;
+  const pps    = document.getElementById('fPps').value;
+  const status = document.getElementById('fStatus').value;
+
+  if (!nama)   return tampilError('Nama Item wajib diisi');
+  if (!kat)    return tampilError('Kategori wajib dipilih');
+  if (!satuan) return tampilError('Satuan wajib dipilih');
+  if (!pps || isNaN(pps) || Number(pps) < 1) return tampilError('PPS wajib diisi dan harus >= 1');
+
+  const btn = document.getElementById('btnSimpan');
+  btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+  const payload = { nama_item: nama, kategori: kat, satuan, pps: Number(pps), status };
+  let p;
+  if (id) {
+    p = dbUpdate('m_item', { id_item: 'eq.' + id }, payload);
+  } else {
+    payload.id_item = generateIdLokal(dataItem, 'ITM', 'id_item', 3);
+    p = dbInsert('m_item', payload);
+  }
+
+  p.then(res => {
+    if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
+    modalInst.hide(); muatData();
+  }).catch(err => tampilError(err.message || 'Gagal menyimpan'))
+  .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
+}
+
+function tampilError(msg) {
+  document.getElementById('alert-form').innerHTML =
+    `<div class="alert alert-danger py-2 mb-3" style="font-size:12px">${msg}</div>`;
+}
+</script>
+</body>
+</html>
