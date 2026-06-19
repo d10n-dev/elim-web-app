@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>User Management — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .main{padding:1.1rem;}
+    .main-toolbar{display:flex;justify-content:flex-end;margin-bottom:.85rem;}
+    .user-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:.6rem;}
+    .user-card:last-child{margin-bottom:0;}
+    .user-nama{font-size:.88rem;font-weight:600;margin-bottom:.1rem;}
+    .user-email{font-family:var(--mono);font-size:.72rem;color:var(--muted);}
+    .user-meta{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.2rem;}
+    .badge-wrap{display:flex;gap:.3rem;align-items:center;flex-wrap:wrap;margin-top:.25rem;}
+    .badge-role{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;letter-spacing:.04em;}
+    .role-direktur{background:#1a274420;color:#1a2744;}
+    .role-manager{background:#e8f0fe;color:#1a56b0;}
+    .role-admin{background:#e0f2f1;color:#00695c;}
+    .role-sales{background:#fff3e0;color:#c45a00;}
+    .role-operator{background:#f3e5f5;color:#6a1b9a;}
+    .badge-status{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;}
+    .st-aktif{background:var(--green-bg);color:var(--green);}
+    .st-pending{background:#fff9c4;color:#827717;}
+    .st-nonaktif{background:#fff0f0;color:var(--red);}
+    .user-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;}
+    .tgl-daftar{font-family:var(--mono);font-size:.63rem;color:var(--muted);}
+    .btn-approve{background:var(--green);color:#fff;border:none;font-family:var(--mono);font-size:.7rem;font-weight:600;padding:.35rem .75rem;border-radius:5px;cursor:pointer;}
+    .btn-approve:hover{background:#158a4e;}
+    .btn-approve:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-nonaktif{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;font-family:var(--mono);font-size:.7rem;padding:.35rem .75rem;border-radius:5px;cursor:pointer;}
+    .btn-nonaktif:hover{background:#ffe0e0;}
+    .btn-aktifkan{background:#e8f0fe;color:#1a56b0;border:1px solid #b3c9f9;font-family:var(--mono);font-size:.7rem;padding:.35rem .75rem;border-radius:5px;cursor:pointer;}
+    .btn-refresh{background:var(--navy);color:#fff;border:none;font-family:var(--mono);font-size:.72rem;padding:.38rem .8rem;border-radius:5px;cursor:pointer;}
+    .form-select{font-family:var(--mono);font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.5rem .7rem;width:100%;color:var(--text);}
+    .form-select:focus{border-color:var(--navy);outline:none;box-shadow:0 0 0 2px rgba(26,39,68,.1);}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+
+<div class="main">
+  <div class="main-toolbar">
+    <button class="btn-refresh" onclick="muatUser()">↻ Refresh</button>
+  </div>
+
+  <div id="alertGlobal"></div>
+
+  <div class="card-section">
+    <div class="section-title">⚠ Menunggu Persetujuan</div>
+    <div id="listPending"><div class="loading">Memuat…</div></div>
+  </div>
+
+  <div class="card-section">
+    <div class="section-title">✓ User Aktif</div>
+    <div id="listAktif"><div class="loading">Memuat…</div></div>
+  </div>
+
+  <div class="card-section">
+    <div class="section-title">✕ Nonaktif</div>
+    <div id="listNonaktif"><div class="loading">Memuat…</div></div>
+  </div>
+</div>
+
+<!-- MODAL APPROVE -->
+<div class="modal fade" id="modalApprove" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Approve User</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertApprove"></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.6rem .85rem;margin-bottom:.85rem;">
+          <div class="user-nama" id="approveNama">—</div>
+          <div class="user-email" id="approveEmail">—</div>
+          <div class="tgl-daftar" id="approveTgl">—</div>
+        </div>
+        <div>
+          <label class="form-label">Role *</label>
+          <select class="form-select" id="approveRole">
+            <option value="">— Pilih Role —</option>
+            <option value="MANAGER">MANAGER</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="SALES">SALES</option>
+            <option value="OPERATOR">OPERATOR</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-approve" id="btnKonfirmasiApprove" onclick="konfirmasiApprove()">✓ Approve</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NONAKTIF -->
+<div class="modal fade" id="modalNonaktif" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--red)">
+        <span class="modal-title">Nonaktifkan User</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertNonaktif"></div>
+        <div class="alert-box alert-err" style="margin-bottom:.75rem">User yang dinonaktifkan tidak bisa login ke SIEO.</div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.6rem .85rem;">
+          <div class="user-nama" id="nonaktifNama">—</div>
+          <div class="user-email" id="nonaktifEmail">—</div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-simpan" id="btnKonfirmasiNonaktif" onclick="konfirmasiNonaktif()" style="background:var(--red)">Nonaktifkan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AKTIFKAN KEMBALI -->
+<div class="modal fade" id="modalAktifkan" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Aktifkan Kembali</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertAktifkan"></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.6rem .85rem;margin-bottom:.85rem;">
+          <div class="user-nama" id="aktifkanNama">—</div>
+          <div class="user-email" id="aktifkanEmail">—</div>
+        </div>
+        <div>
+          <label class="form-label">Role *</label>
+          <select class="form-select" id="aktifkanRole">
+            <option value="MANAGER">MANAGER</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="SALES">SALES</option>
+            <option value="OPERATOR">OPERATOR</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-approve" id="btnKonfirmasiAktifkan" onclick="konfirmasiAktifkan()">Aktifkan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AKSES MODUL -->
+<div class="modal fade" id="modalAksesModul" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Akses Modul</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertAksesModul"></div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.6rem .85rem;margin-bottom:.85rem;">
+          <div class="user-nama" id="aksesModulNama">—</div>
+          <div class="user-email" id="aksesModulEmail">—</div>
+        </div>
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">
+          Modul finansial sensitif yang dibatasi ke user tertentu, terpisah dari role dasar. Direktur selalu punya akses penuh.
+        </p>
+        <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem 0;border-bottom:1px solid var(--border)">
+          <input type="checkbox" id="chkAksesKasKecil" style="width:18px;height:18px"/>
+          <label for="chkAksesKasKecil" style="margin:0;font-size:.85rem;cursor:pointer">💰 Kas Kecil</label>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-approve" id="btnSimpanAksesModul" onclick="simpanAksesModul()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+var emailTarget=null, semuaUser=[];
+
+document.addEventListener('DOMContentLoaded',function(){
+  if(!guardHalaman()) return;
+  initNav('user_management');
+  // Hanya Direktur
+  var role=getRoleUser();
+  if(role!=='DIREKTUR'){
+    document.getElementById('alertGlobal').innerHTML='<div class="alert-box alert-err">Akses ditolak. Halaman ini hanya untuk Direktur.</div>';
+    ['listPending','listAktif','listNonaktif'].forEach(function(id){document.getElementById(id).innerHTML='';});
+    return;
+  }
+  muatUser();
+});
+
+function esc(s){return escHtml(s);}
+function fmtTgl(v){if(!v)return'—';var d=new Date(v);return isNaN(d)?String(v):d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});}
+
+function muatUser(){
+  ['listPending','listAktif','listNonaktif'].forEach(function(id){
+    document.getElementById(id).innerHTML='<div class="loading">Memuat…</div>';
+  });
+  dbGet('m_user',{order:'tgl_daftar.asc'}).then(function(res){
+    semuaUser=Array.isArray(res)?res:[];
+    renderUser();
+  }).catch(function(){
+    document.getElementById('alertGlobal').innerHTML='<div class="alert-box alert-err">Gagal memuat data user.</div>';
+  });
+}
+
+function renderUser(){
+  var pending=semuaUser.filter(function(u){return u.status==='PENDING';});
+  var aktif=semuaUser.filter(function(u){return u.status==='AKTIF';});
+  var nonaktif=semuaUser.filter(function(u){return u.status==='NONAKTIF';});
+
+  document.getElementById('listPending').innerHTML=pending.length
+    ?pending.map(kartuPending).join('')
+    :'<div class="empty">Tidak ada user yang menunggu persetujuan.</div>';
+
+  document.getElementById('listAktif').innerHTML=aktif.length
+    ?aktif.map(kartuAktif).join('')
+    :'<div class="empty">Belum ada user aktif.</div>';
+
+  document.getElementById('listNonaktif').innerHTML=nonaktif.length
+    ?nonaktif.map(kartuNonaktif).join('')
+    :'<div class="empty">Tidak ada user nonaktif.</div>';
+}
+
+function badgeRole(role){
+  var cls={DIREKTUR:'role-direktur',MANAGER:'role-manager',ADMIN:'role-admin',SALES:'role-sales',OPERATOR:'role-operator'}[role]||'role-admin';
+  return '<span class="badge-role '+cls+'">'+esc(role||'—')+'</span>';
+}
+
+function kartuPending(u){
+  return '<div class="user-card">'+
+    '<div class="user-nama">'+esc(u.nama||u.email)+'</div>'+
+    '<div class="user-email">'+esc(u.email)+'</div>'+
+    '<div class="badge-wrap"><span class="badge-status st-pending">PENDING</span></div>'+
+    '<div class="tgl-daftar">Daftar: '+fmtTgl(u.tgl_daftar)+'</div>'+
+    '<div class="user-actions">'+
+      '<button class="btn-approve" onclick="bukaApprove(\''+esc(u.email)+'\',\''+esc(u.nama||u.email)+'\',\''+esc(u.tgl_daftar||'')+'\')">✓ Approve</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function kartuAktif(u){
+  var tombolAkses = u.role!=='DIREKTUR'
+    ? '<button class="btn-nonaktif" style="background:#1a274415;color:var(--navy);border-color:var(--navy)" onclick="bukaAksesModul(\''+esc(u.email)+'\',\''+esc(u.nama||u.email)+'\')">Akses Modul</button>'
+    : '';
+  return '<div class="user-card">'+
+    '<div class="user-nama">'+esc(u.nama||u.email)+'</div>'+
+    '<div class="user-email">'+esc(u.email)+'</div>'+
+    '<div class="badge-wrap">'+badgeRole(u.role)+'<span class="badge-status st-aktif">AKTIF</span></div>'+
+    '<div class="user-meta">Login terakhir: '+fmtTgl(u.last_login||null)+'</div>'+
+    '<div class="user-actions">'+
+      tombolAkses+
+      '<button class="btn-nonaktif" onclick="bukaNonaktif(\''+esc(u.email)+'\',\''+esc(u.nama||u.email)+'\')">Nonaktifkan</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function kartuNonaktif(u){
+  return '<div class="user-card">'+
+    '<div class="user-nama">'+esc(u.nama||u.email)+'</div>'+
+    '<div class="user-email">'+esc(u.email)+'</div>'+
+    '<div class="badge-wrap">'+badgeRole(u.role)+'<span class="badge-status st-nonaktif">NONAKTIF</span></div>'+
+    '<div class="user-actions">'+
+      '<button class="btn-aktifkan" onclick="bukaAktifkan(\''+esc(u.email)+'\',\''+esc(u.nama||u.email)+'\',\''+esc(u.role||'ADMIN')+'\')">Aktifkan Kembali</button>'+
+    '</div>'+
+  '</div>';
+}
+
+// ── APPROVE ──
+function bukaApprove(email,nama,tgl){
+  emailTarget=email;
+  document.getElementById('approveNama').textContent=nama;
+  document.getElementById('approveEmail').textContent=email;
+  document.getElementById('approveTgl').textContent='Daftar: '+fmtTgl(tgl);
+  document.getElementById('approveRole').value='';
+  document.getElementById('alertApprove').innerHTML='';
+  new bootstrap.Modal(document.getElementById('modalApprove')).show();
+}
+
+function konfirmasiApprove(){
+  var role=document.getElementById('approveRole').value;
+  if(!role){document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-err">Role wajib dipilih.</div>';return;}
+  var btn=document.getElementById('btnKonfirmasiApprove');
+  btn.disabled=true; btn.textContent='Memproses…';
+  dbUpdate('m_user',{email:'eq.'+emailTarget},{role:role,status:'AKTIF',last_login:null})
+    .then(function(res){
+      if(res&&res.code) throw new Error(res.message);
+      bootstrap.Modal.getInstance(document.getElementById('modalApprove')).hide();
+      muatUser();
+    })
+    .catch(function(e){
+      document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='✓ Approve';
+    });
+}
+
+// ── NONAKTIF ──
+function bukaNonaktif(email,nama){
+  emailTarget=email;
+  document.getElementById('nonaktifNama').textContent=nama;
+  document.getElementById('nonaktifEmail').textContent=email;
+  document.getElementById('alertNonaktif').innerHTML='';
+  new bootstrap.Modal(document.getElementById('modalNonaktif')).show();
+}
+
+function konfirmasiNonaktif(){
+  var btn=document.getElementById('btnKonfirmasiNonaktif');
+  btn.disabled=true; btn.textContent='Memproses…';
+  dbUpdate('m_user',{email:'eq.'+emailTarget},{status:'NONAKTIF'})
+    .then(function(res){
+      if(res&&res.code) throw new Error(res.message);
+      bootstrap.Modal.getInstance(document.getElementById('modalNonaktif')).hide();
+      muatUser();
+    })
+    .catch(function(e){
+      document.getElementById('alertNonaktif').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='Nonaktifkan';
+    });
+}
+
+// ── AKTIFKAN KEMBALI ──
+function bukaAktifkan(email,nama,role){
+  emailTarget=email;
+  document.getElementById('aktifkanNama').textContent=nama;
+  document.getElementById('aktifkanEmail').textContent=email;
+  document.getElementById('aktifkanRole').value=role||'ADMIN';
+  document.getElementById('alertAktifkan').innerHTML='';
+  new bootstrap.Modal(document.getElementById('modalAktifkan')).show();
+}
+
+function konfirmasiAktifkan(){
+  var role=document.getElementById('aktifkanRole').value;
+  var btn=document.getElementById('btnKonfirmasiAktifkan');
+  btn.disabled=true; btn.textContent='Memproses…';
+  dbUpdate('m_user',{email:'eq.'+emailTarget},{role:role,status:'AKTIF'})
+    .then(function(res){
+      if(res&&res.code) throw new Error(res.message);
+      bootstrap.Modal.getInstance(document.getElementById('modalAktifkan')).hide();
+      muatUser();
+    })
+    .catch(function(e){
+      document.getElementById('alertAktifkan').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='Aktifkan';
+    });
+}
+
+// ── AKSES MODUL ──
+function bukaAksesModul(email,nama){
+  emailTarget=email;
+  document.getElementById('aksesModulNama').textContent=nama;
+  document.getElementById('aksesModulEmail').textContent=email;
+  document.getElementById('alertAksesModul').innerHTML='';
+  document.getElementById('chkAksesKasKecil').checked=false;
+  new bootstrap.Modal(document.getElementById('modalAksesModul')).show();
+
+  dbGet('m_akses_modul',{email_user:'eq.'+email,modul:'eq.kas_kecil'}).then(function(res){
+    if(Array.isArray(res)&&res.length){document.getElementById('chkAksesKasKecil').checked=true;}
+  });
+}
+
+function genIdAkses(){return'AKM'+Date.now();}
+
+async function simpanAksesModul(){
+  var btn=document.getElementById('btnSimpanAksesModul');
+  var mauKasKecil=document.getElementById('chkAksesKasKecil').checked;
+  btn.disabled=true; btn.textContent='Menyimpan…';
+
+  try{
+    var existing=await dbGet('m_akses_modul',{email_user:'eq.'+emailTarget,modul:'eq.kas_kecil'});
+    var sudahAda=Array.isArray(existing)&&existing.length>0;
+
+    if(mauKasKecil&&!sudahAda){
+      var res=await dbInsert('m_akses_modul',{
+        id_akses:genIdAkses(),email_user:emailTarget,modul:'kas_kecil',diberi_oleh:getUserInfo().email
+      });
+      if(res&&res.code) throw new Error(res.message);
+    }else if(!mauKasKecil&&sudahAda){
+      var res2=await dbDelete('m_akses_modul',{email_user:'eq.'+emailTarget,modul:'eq.kas_kecil'});
+      if(res2&&res2.code) throw new Error(res2.message);
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('modalAksesModul')).hide();
+  }catch(e){
+    document.getElementById('alertAksesModul').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+  }finally{
+    btn.disabled=false; btn.textContent='Simpan';
+  }
+}
+</script>
+</body>
+</html>
