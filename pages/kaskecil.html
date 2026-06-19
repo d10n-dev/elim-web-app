@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kas Kecil — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .rekap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:.85rem;}
+    .rekap-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;}
+    .rekap-card .lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+    .rekap-card .val{font-family:var(--mono);font-size:1.05rem;font-weight:600;color:var(--navy);margin-top:.2rem;}
+    .rekap-card.warn .val{color:var(--red);}
+    .rekap-card.green .val{color:var(--green);}
+    .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);margin-bottom:.85rem;}
+    .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
+    .tab-pane{display:none;}
+    .tab-pane.active{display:block;}
+    .badge-jenis{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
+    .j-topup{background:var(--green-bg);color:var(--green);}
+    .j-kembalian_kasbon{background:#e8f0fe;color:#1a56db;}
+    .j-langsung{background:#f0f2f6;color:var(--muted);}
+    .j-kasbon{background:#fff3cd;color:#856404;}
+    .badge-status-kas{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.18rem .5rem;border-radius:3px;}
+    .st-belum_realisasi{background:#fde9d2;color:#c45a00;border:1px solid #f5c98a;}
+    .st-selesai{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .td-mono{font-family:var(--mono);font-size:.75rem;}
+    .td-right{text-align:right;}
+    .masuk-val{color:var(--green);font-weight:600;}
+    .keluar-val{color:var(--red);font-weight:600;}
+    .sec-label{font-family:var(--mono);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--navy);background:var(--bg);border-radius:5px;padding:.35rem .7rem;margin-bottom:.65rem;margin-top:.75rem;}
+    .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:var(--mono);padding:.4rem .85rem;cursor:pointer;}
+    .btn-outline:hover{border-color:var(--navy);}
+    .btn-sm-action{font-family:var(--mono);font-size:.68rem;padding:.25rem .55rem;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+    .btn-approve{color:var(--green);border-color:var(--green-bd);}
+    .akses-blocked{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
+    .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
+    .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
+    .akses-blocked p{font-size:.82rem;color:var(--muted);max-width:320px;}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+
+<div id="kontenKasKecil" style="display:none">
+  <!-- ============== TAB NAV ============== -->
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="mutasi" onclick="gantiTab('mutasi')">📋 Mutasi</button>
+    <button class="tab-btn" data-tab="kasbon" onclick="gantiTab('kasbon')">⏳ Kasbon Pending</button>
+    <button class="tab-btn" data-tab="golongan" onclick="gantiTab('golongan')">🏷️ Golongan</button>
+  </div>
+
+  <!-- ============== TAB: MUTASI ============== -->
+  <div class="tab-pane active" id="tabMutasi">
+    <div class="rekap-grid" id="rekapCards">
+      <div class="rekap-card"><div class="lbl">Saldo Kas Kecil</div><div class="val">…</div></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn-tambah" onclick="bukaKasMasuk()">+ Kas Masuk</button>
+      <button class="btn-tambah" style="background:var(--navy)" onclick="bukaKasKeluarLangsung()">+ Keluar Langsung</button>
+      <button class="btn-tambah" style="background:#856404" onclick="bukaKasbon()">+ Kasbon</button>
+    </div>
+    <div class="toolbar" style="margin-top:.4rem">
+      <input type="date" id="mtTglMulai" onchange="muatRiwayat()" style="max-width:150px"/>
+      <span style="align-self:center;font-family:var(--mono);font-size:.7rem;color:var(--muted)">s/d</span>
+      <input type="date" id="mtTglAkhir" onchange="muatRiwayat()" style="max-width:150px"/>
+      <select id="mtGolongan" onchange="muatRiwayat()">
+        <option value="">Semua Golongan</option>
+      </select>
+      <button class="btn-outline" onclick="resetFilterMutasi()">Reset</button>
+    </div>
+
+    <div class="info-bar" id="mtInfoBar">Memuat data…</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Tanggal</th><th>Jenis</th><th>No.</th><th>Penerima/Pemberi</th><th>Golongan</th><th>Keterangan</th>
+          <th class="td-right">Masuk</th><th class="td-right">Keluar</th><th class="td-right">Saldo</th>
+        </tr></thead>
+        <tbody id="mtTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: KASBON PENDING ============== -->
+  <div class="tab-pane" id="tabKasbon">
+    <div class="info-bar" id="kbInfoBar">Memuat data…</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>No.</th><th>Tanggal</th><th>Penerima</th><th class="td-right">Nominal</th>
+          <th>Keterangan Awal</th><th class="td-right">Hari Berjalan</th><th></th>
+        </tr></thead>
+        <tbody id="kbTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: GOLONGAN ============== -->
+  <div class="tab-pane" id="tabGolongan">
+    <div class="toolbar">
+      <button class="btn-tambah" onclick="bukaTambahGolongan()">+ Golongan Baru</button>
+    </div>
+    <div class="info-bar" id="glInfoBar">Memuat data…</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Nama Golongan</th><th>Status</th><th class="td-right">Total Pemakaian (semua waktu)</th><th></th></tr></thead>
+        <tbody id="glTbody"><tr><td colspan="4" class="loading">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="kontenAksesDitolak" style="display:none">
+  <div class="akses-blocked">
+    <div class="ic">🔒</div>
+    <h3>Akses Dibatasi</h3>
+    <p>Modul Kas Kecil hanya bisa diakses oleh user yang diberi izin khusus oleh Direktur. Hubungi Direktur kalau Anda memerlukan akses ini.</p>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!-- MODALS ditambahkan di bagian berikutnya                -->
+<!-- ====================================================== -->
+
+<!-- MODAL KAS MASUK -->
+<div class="modal fade" id="modalKasMasuk" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Kas Masuk (Top-up)</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertKasMasuk"></div>
+        <form id="frmKasMasuk" onsubmit="return false;">
+          <div class="mb-2"><label class="form-label">Tanggal *</label><input type="date" class="form-control" id="inpTglKasMasuk"/></div>
+          <div class="mb-2"><label class="form-label">Penerima (yg cairkan dana) *</label><input type="text" class="form-control" id="inpPenerimaKasMasuk" placeholder="mis. Adi, Yanti…"/></div>
+          <div class="mb-2"><label class="form-label">Nominal *</label><input type="number" class="form-control" id="inpNominalKasMasuk"/></div>
+          <div class="mb-2"><label class="form-label">Keterangan</label><input type="text" class="form-control" id="inpKetKasMasuk"/></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitKasMasuk(this)">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL KAS KELUAR LANGSUNG -->
+<div class="modal fade" id="modalKasKeluarLangsung" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Kas Keluar — Langsung</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertKasKeluarLangsung"></div>
+        <form id="frmKasKeluarLangsung" onsubmit="return false;">
+          <div class="mb-2"><label class="form-label">Tanggal *</label><input type="date" class="form-control" id="inpTglKeluarLangsung"/></div>
+          <div class="mb-2"><label class="form-label">Penerima/Pemberi *</label><input type="text" class="form-control" id="inpPenerimaLangsung" placeholder="Nama staff/toko…"/></div>
+          <div class="mb-2"><label class="form-label">Golongan *</label><select class="form-select" id="inpGolonganLangsung"></select></div>
+          <div class="mb-2"><label class="form-label">Nominal *</label><input type="number" class="form-control" id="inpNominalLangsung"/></div>
+          <div class="mb-2"><label class="form-label">Keterangan</label><input type="text" class="form-control" id="inpKetLangsung" placeholder="Untuk apa…"/></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitKasKeluarLangsung(this)">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL KASBON -->
+<div class="modal fade" id="modalKasbon" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Kasbon (Uang Muka)</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertKasbon"></div>
+        <div class="alert alert-warning py-2" style="font-size:.75rem">
+          Untuk pengeluaran yang peruntukannya belum jelas saat uang diberikan. Laporkan realisasi nanti di tab "Kasbon Pending".
+        </div>
+        <form id="frmKasbon" onsubmit="return false;">
+          <div class="mb-2"><label class="form-label">Tanggal *</label><input type="date" class="form-control" id="inpTglKasbon"/></div>
+          <div class="mb-2"><label class="form-label">Penerima *</label><input type="text" class="form-control" id="inpPenerimaKasbon" placeholder="Nama staff yg terima uang…"/></div>
+          <div class="mb-2"><label class="form-label">Nominal Diberikan *</label><input type="number" class="form-control" id="inpNominalKasbon"/></div>
+          <div class="mb-2"><label class="form-label">Catatan Awal</label><input type="text" class="form-control" id="inpKetKasbon" placeholder="mis. untuk beli sparepart, blm tau pasti…"/></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitKasbon(this)">Simpan Kasbon</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REALISASI KASBON -->
+<div class="modal fade" id="modalRealisasi" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Realisasi Kasbon</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertRealisasi"></div>
+        <input type="hidden" id="hidIdKaskeluarRealisasi"/>
+        <div class="det-row" style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border);font-size:.8rem">
+          <span style="font-family:var(--mono);color:var(--muted)">Kasbon</span><span id="lblNoKasbonRealisasi" style="font-family:var(--mono)"></span>
+        </div>
+        <div class="det-row" style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border);font-size:.8rem;margin-bottom:.75rem">
+          <span style="font-family:var(--mono);color:var(--muted)">Nominal Diberikan</span><span id="lblNominalDiberikanRealisasi" style="font-family:var(--mono);font-weight:600"></span>
+        </div>
+        <form id="frmRealisasi" onsubmit="return false;">
+          <div class="mb-2"><label class="form-label">Tanggal Realisasi *</label><input type="date" class="form-control" id="inpTglRealisasi"/></div>
+          <div class="mb-2"><label class="form-label">Golongan *</label><select class="form-select" id="inpGolonganRealisasi"></select></div>
+          <div class="mb-2"><label class="form-label">Nominal Terpakai Riil *</label><input type="number" class="form-control" id="inpNominalRealisasi" oninput="hitungSisaKembali()"/></div>
+          <div class="mb-2"><label class="form-label">Keterangan Realisasi *</label><input type="text" class="form-control" id="inpKetRealisasi" placeholder="Dipakai untuk apa…"/></div>
+          <div class="mb-2" id="wrapSisaKembali" style="display:none">
+            <div class="alert alert-success py-2" style="font-size:.78rem;margin:0">
+              Sisa kembali ke kas: <b id="lblSisaKembali">Rp 0</b> (otomatis tercatat sbg kas masuk)
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitRealisasi(this)">Simpan Realisasi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+function esc(s){return escHtml(s);}
+function fmtRupiah(n){return formatRupiah(n);}
+function fmtTgl(s){return formatTanggal(s);}
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
+function cekErrorSupabase(res){
+  if(!res) return 'Tidak ada respons dari server.';
+  if(res.code) return res.message||('Error: '+res.code);
+  if(res.status==='error') return res.message||'Terjadi kesalahan.';
+  return null;
+}
+
+window.addEventListener('load', async function () {
+  if (!guardHalaman()) return;
+  initNav('kas_kecil');
+
+  var boleh = await punyaAksesModul('kas_kecil');
+  if (!boleh) {
+    document.getElementById('kontenAksesDitolak').style.display='block';
+    return;
+  }
+  document.getElementById('kontenKasKecil').style.display='block';
+  muatSemuaData();
+});
+
+function gantiTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+}
+
+function muatSemuaData(){
+  muatSaldoCards();
+  muatGolonganDropdown();
+  muatRiwayat();
+  muatKasbonPending();
+  muatGolongan();
+}
+
+// ============================================================
+// REKAP SALDO
+// ============================================================
+function muatSaldoCards(){
+  dbRpc('get_saldo_kas_kecil',{}).then(function(res){
+    var d=Array.isArray(res)&&res.length?res[0]:null;
+    if(!d)return;
+    var html='';
+    html+=cardRekap('Saldo Kas Kecil',fmtRupiah(d.saldo),false,d.saldo<0);
+    html+=cardRekap('Total Masuk',fmtRupiah(d.total_masuk),false,false,true);
+    html+=cardRekap('Total Keluar',fmtRupiah(d.total_keluar),false,true);
+    html+=cardRekap('Kasbon Pending',fmtAngka(d.jumlah_kasbon_pending)+' transaksi',d.jumlah_kasbon_pending>0,false);
+    html+=cardRekap('Nilai Kasbon Pending',fmtRupiah(d.total_kasbon_pending),d.total_kasbon_pending>0,false);
+    document.getElementById('rekapCards').innerHTML=html;
+  });
+}
+function cardRekap(lbl,val,warn,red,green){
+  var cls=warn?' warn':(green?' green':'');
+  return '<div class="rekap-card'+cls+'"><div class="lbl">'+esc(lbl)+'</div><div class="val"'+(red?' style="color:var(--red)"':'')+'>'+val+'</div></div>';
+}
+
+// ============================================================
+// GOLONGAN DROPDOWN (dipakai filter + form input)
+// ============================================================
+var golonganCache=[];
+function muatGolonganDropdown(){
+  dbGet('m_golongan_kas',{status:'eq.AKTIF',select:'id_golongan,nama_golongan',order:'nama_golongan.asc'}).then(function(res){
+    golonganCache=Array.isArray(res)?res:[];
+    var optsFilter='<option value="">Semua Golongan</option>'+golonganCache.map(function(g){
+      return '<option value="'+esc(g.id_golongan)+'">'+esc(g.nama_golongan)+'</option>';
+    }).join('');
+    document.getElementById('mtGolongan').innerHTML=optsFilter;
+
+    var optsForm='<option value="">Pilih golongan…</option>'+golonganCache.map(function(g){
+      return '<option value="'+esc(g.id_golongan)+'">'+esc(g.nama_golongan)+'</option>';
+    }).join('');
+    var elLangsung=document.getElementById('inpGolonganLangsung');
+    var elRealisasi=document.getElementById('inpGolonganRealisasi');
+    if(elLangsung) elLangsung.innerHTML=optsForm;
+    if(elRealisasi) elRealisasi.innerHTML=optsForm;
+  });
+}
+
+// ============================================================
+// TAB: MUTASI (riwayat gabungan masuk+keluar)
+// ============================================================
+function resetFilterMutasi(){
+  document.getElementById('mtTglMulai').value='';
+  document.getElementById('mtTglAkhir').value='';
+  document.getElementById('mtGolongan').value='';
+  muatRiwayat();
+}
+
+function muatRiwayat(){
+  var tglMulai=document.getElementById('mtTglMulai').value||null;
+  var tglAkhir=document.getElementById('mtTglAkhir').value||null;
+  var idGol=document.getElementById('mtGolongan').value||null;
+
+  document.getElementById('mtInfoBar').textContent='Memuat data…';
+  dbRpc('get_riwayat_kas',{p_tgl_mulai:tglMulai,p_tgl_akhir:tglAkhir,p_id_golongan:idGol}).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    document.getElementById('mtInfoBar').textContent=data.length+' transaksi'+(!tglMulai&&!tglAkhir?' (semua waktu — gunakan filter tanggal kalau data banyak)':'.');
+    var tb=document.getElementById('mtTbody');
+    if(!data.length){tb.innerHTML='<tr><td colspan="9" class="loading">Tidak ada data.</td></tr>';return;}
+    tb.innerHTML=data.map(function(r){
+      return '<tr>'+
+        '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+        '<td>'+badgeJenis(r.jenis_transaksi)+(r.status==='BELUM_REALISASI'?' <span class="badge-status-kas st-belum_realisasi">PENDING</span>':'')+'</td>'+
+        '<td class="td-mono">'+esc(r.no_transaksi)+'</td>'+
+        '<td>'+esc(r.penerima)+'</td>'+
+        '<td>'+esc(r.golongan||'—')+'</td>'+
+        '<td style="max-width:220px">'+esc(r.keterangan||'—')+'</td>'+
+        '<td class="td-mono td-right">'+(r.masuk>0?'<span class="masuk-val">'+fmtRupiah(r.masuk)+'</span>':'—')+'</td>'+
+        '<td class="td-mono td-right">'+(r.keluar>0?'<span class="keluar-val">'+fmtRupiah(r.keluar)+'</span>':'—')+'</td>'+
+        '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.saldo_berjalan)+'</td>'+
+      '</tr>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('mtInfoBar').textContent='Gagal memuat riwayat.';
+  });
+}
+
+function badgeJenis(j){
+  var lbl={TOPUP:'Top-up',KEMBALIAN_KASBON:'Kembalian',LANGSUNG:'Keluar Langsung',KASBON:'Kasbon'}[j]||j;
+  return '<span class="badge-jenis j-'+j.toLowerCase()+'">'+lbl+'</span>';
+}
+
+// ============================================================
+// MODAL: KAS MASUK (top-up)
+// ============================================================
+function bukaKasMasuk(){
+  document.getElementById('frmKasMasuk').reset();
+  document.getElementById('alertKasMasuk').innerHTML='';
+  document.getElementById('inpTglKasMasuk').value=new Date().toISOString().slice(0,10);
+  new bootstrap.Modal(document.getElementById('modalKasMasuk')).show();
+}
+
+function genIdKasMasuk(){return'KM'+Date.now();}
+
+async function submitKasMasuk(btn){
+  var tgl=document.getElementById('inpTglKasMasuk').value;
+  var penerima=document.getElementById('inpPenerimaKasMasuk').value.trim();
+  var nominal=parseFloat(document.getElementById('inpNominalKasMasuk').value)||0;
+  var ket=document.getElementById('inpKetKasMasuk').value.trim();
+
+  if(!tgl){showAlert('alertKasMasuk','Tanggal wajib diisi.');return;}
+  if(!penerima){showAlert('alertKasMasuk','Nama penerima wajib diisi.');return;}
+  if(nominal<=0){showAlert('alertKasMasuk','Nominal harus lebih dari 0.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  var idKM=genIdKasMasuk();
+  try{
+    var res=await dbRpc('buat_kas_masuk',{
+      p_id_kasmasuk:idKM,p_no_kasmasuk:idKM,p_tgl:tgl+'T00:00:00+07:00',
+      p_penerima:penerima,p_nominal:nominal,p_user_input:getNamaUser(),p_keterangan:ket||null
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalKasMasuk')).hide();
+    muatSaldoCards(); muatRiwayat();
+  }catch(e){
+    showAlert('alertKasMasuk','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan';
+  }
+}
+
+// ============================================================
+// MODAL: KAS KELUAR LANGSUNG
+// ============================================================
+function bukaKasKeluarLangsung(){
+  document.getElementById('frmKasKeluarLangsung').reset();
+  document.getElementById('alertKasKeluarLangsung').innerHTML='';
+  document.getElementById('inpTglKeluarLangsung').value=new Date().toISOString().slice(0,10);
+  new bootstrap.Modal(document.getElementById('modalKasKeluarLangsung')).show();
+}
+
+function genIdKasKeluar(){return'KK'+Date.now();}
+
+async function submitKasKeluarLangsung(btn){
+  var tgl=document.getElementById('inpTglKeluarLangsung').value;
+  var penerima=document.getElementById('inpPenerimaLangsung').value.trim();
+  var golongan=document.getElementById('inpGolonganLangsung').value;
+  var nominal=parseFloat(document.getElementById('inpNominalLangsung').value)||0;
+  var ket=document.getElementById('inpKetLangsung').value.trim();
+
+  if(!tgl){showAlert('alertKasKeluarLangsung','Tanggal wajib diisi.');return;}
+  if(!penerima){showAlert('alertKasKeluarLangsung','Nama penerima/pemberi wajib diisi.');return;}
+  if(!golongan){showAlert('alertKasKeluarLangsung','Golongan wajib dipilih.');return;}
+  if(nominal<=0){showAlert('alertKasKeluarLangsung','Nominal harus lebih dari 0.');return;}
+
+  var saldoRes=await dbRpc('get_saldo_kas_kecil',{});
+  var saldo=Array.isArray(saldoRes)&&saldoRes.length?saldoRes[0].saldo:0;
+  if(nominal>saldo){
+    if(!confirm('Saldo kas kecil saat ini Rp '+fmtAngka(saldo)+', kurang dari nominal pengeluaran ini. Lanjutkan?')){return;}
+  }
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  var idKK=genIdKasKeluar();
+  try{
+    var res=await dbRpc('buat_kas_keluar_langsung',{
+      p_id_kaskeluar:idKK,p_no_kaskeluar:idKK,p_tgl:tgl+'T00:00:00+07:00',
+      p_penerima:penerima,p_id_golongan:golongan,p_nominal:nominal,
+      p_user_input:getNamaUser(),p_keterangan:ket||null
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalKasKeluarLangsung')).hide();
+    muatSaldoCards(); muatRiwayat();
+  }catch(e){
+    showAlert('alertKasKeluarLangsung','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan';
+  }
+}
+
+// ============================================================
+// MODAL: KASBON (tahap 1 — pemberian)
+// ============================================================
+function bukaKasbon(){
+  document.getElementById('frmKasbon').reset();
+  document.getElementById('alertKasbon').innerHTML='';
+  document.getElementById('inpTglKasbon').value=new Date().toISOString().slice(0,10);
+  new bootstrap.Modal(document.getElementById('modalKasbon')).show();
+}
+
+async function submitKasbon(btn){
+  var tgl=document.getElementById('inpTglKasbon').value;
+  var penerima=document.getElementById('inpPenerimaKasbon').value.trim();
+  var nominal=parseFloat(document.getElementById('inpNominalKasbon').value)||0;
+  var ket=document.getElementById('inpKetKasbon').value.trim();
+
+  if(!tgl){showAlert('alertKasbon','Tanggal wajib diisi.');return;}
+  if(!penerima){showAlert('alertKasbon','Nama penerima wajib diisi.');return;}
+  if(nominal<=0){showAlert('alertKasbon','Nominal harus lebih dari 0.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  var idKK=genIdKasKeluar();
+  try{
+    var res=await dbRpc('buat_kasbon',{
+      p_id_kaskeluar:idKK,p_no_kaskeluar:idKK,p_tgl:tgl+'T00:00:00+07:00',
+      p_penerima:penerima,p_nominal_diberikan:nominal,
+      p_user_input:getNamaUser(),p_keterangan:ket||null
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalKasbon')).hide();
+    muatSaldoCards(); muatRiwayat(); muatKasbonPending();
+  }catch(e){
+    showAlert('alertKasbon','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Kasbon';
+  }
+}
+
+// ============================================================
+// TAB: KASBON PENDING + REALISASI (tahap 2)
+// ============================================================
+var kasbonPendingCache=[];
+
+function muatKasbonPending(){
+  document.getElementById('kbInfoBar').textContent='Memuat data…';
+  dbRpc('get_kasbon_belum_realisasi',{}).then(function(res){
+    kasbonPendingCache=Array.isArray(res)?res:[];
+    renderKasbonPending();
+  }).catch(function(){
+    document.getElementById('kbInfoBar').textContent='Gagal memuat data kasbon.';
+  });
+}
+
+function renderKasbonPending(){
+  document.getElementById('kbInfoBar').textContent=kasbonPendingCache.length+' kasbon menunggu realisasi.';
+  var tb=document.getElementById('kbTbody');
+  if(!kasbonPendingCache.length){tb.innerHTML='<tr><td colspan="7" class="loading">Tidak ada kasbon pending.</td></tr>';return;}
+  tb.innerHTML=kasbonPendingCache.map(function(r){
+    var lewatLama=r.hari_berjalan>=3;
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_kaskeluar)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+      '<td>'+esc(r.penerima)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.nominal_diberikan)+'</td>'+
+      '<td>'+esc(r.keterangan||'—')+'</td>'+
+      '<td class="td-mono td-right"'+(lewatLama?' style="color:var(--red);font-weight:600"':'')+'>'+r.hari_berjalan+' hr</td>'+
+      '<td><button class="btn-sm-action btn-approve" onclick="bukaRealisasiKasbon(\''+esc(r.id_kaskeluar)+'\')">Realisasi</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function bukaRealisasiKasbon(idKK){
+  var r=kasbonPendingCache.find(function(x){return x.id_kaskeluar===idKK;});
+  if(!r)return;
+  document.getElementById('frmRealisasi').reset();
+  document.getElementById('alertRealisasi').innerHTML='';
+  document.getElementById('hidIdKaskeluarRealisasi').value=idKK;
+  document.getElementById('lblNoKasbonRealisasi').textContent=r.no_kaskeluar+' — '+r.penerima;
+  document.getElementById('lblNominalDiberikanRealisasi').textContent=fmtRupiah(r.nominal_diberikan);
+  document.getElementById('inpTglRealisasi').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpNominalRealisasi').max=r.nominal_diberikan;
+  document.getElementById('inpNominalRealisasi').setAttribute('data-max',r.nominal_diberikan);
+  hitungSisaKembali();
+  new bootstrap.Modal(document.getElementById('modalRealisasi')).show();
+}
+
+function hitungSisaKembali(){
+  var diberikan=parseFloat(document.getElementById('inpNominalRealisasi').getAttribute('data-max'))||0;
+  var realisasi=parseFloat(document.getElementById('inpNominalRealisasi').value)||0;
+  var sisa=diberikan-realisasi;
+  document.getElementById('lblSisaKembali').textContent=fmtRupiah(Math.max(0,sisa));
+  document.getElementById('wrapSisaKembali').style.display=sisa>0?'block':'none';
+}
+
+function genIdKasMasukKembalian(){return'KM'+Date.now();}
+
+async function submitRealisasi(btn){
+  var idKK=document.getElementById('hidIdKaskeluarRealisasi').value;
+  var golongan=document.getElementById('inpGolonganRealisasi').value;
+  var nominalRealisasi=parseFloat(document.getElementById('inpNominalRealisasi').value)||0;
+  var ket=document.getElementById('inpKetRealisasi').value.trim();
+  var tgl=document.getElementById('inpTglRealisasi').value;
+  var diberikan=parseFloat(document.getElementById('inpNominalRealisasi').getAttribute('data-max'))||0;
+  var sisa=diberikan-nominalRealisasi;
+
+  if(!golongan){showAlert('alertRealisasi','Golongan wajib dipilih.');return;}
+  if(nominalRealisasi<=0){showAlert('alertRealisasi','Nominal realisasi harus lebih dari 0.');return;}
+  if(!ket){showAlert('alertRealisasi','Keterangan realisasi wajib diisi.');return;}
+  if(!tgl){showAlert('alertRealisasi','Tanggal realisasi wajib diisi.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var params={
+      p_id_kaskeluar:idKK,p_id_golongan:golongan,p_nominal_realisasi:nominalRealisasi,
+      p_keterangan_realisasi:ket,p_tgl_realisasi:tgl+'T00:00:00+07:00',p_user_input:getNamaUser()
+    };
+    if(sisa>0){
+      var idKM=genIdKasMasukKembalian();
+      params.p_id_kasmasuk_kembalian=idKM;
+      params.p_no_kasmasuk_kembalian=idKM;
+    }
+    var res=await dbRpc('realisasi_kasbon',params);
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalRealisasi')).hide();
+    muatSaldoCards(); muatRiwayat(); muatKasbonPending();
+  }catch(e){
+    showAlert('alertRealisasi','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Realisasi';
+  }
+}
+
+// ============================================================
+// TAB: GOLONGAN (master data)
+// ============================================================
+var semuaGolongan=[];
+
+function muatGolongan(){
+  document.getElementById('glInfoBar').textContent='Memuat data…';
+  Promise.all([
+    dbGet('m_golongan_kas',{select:'*',order:'nama_golongan.asc'}),
+    dbRpc('get_rekap_golongan',{p_tgl_mulai:null,p_tgl_akhir:null})
+  ]).then(function(r){
+    var gol=Array.isArray(r[0])?r[0]:[];
+    var rekap=Array.isArray(r[1])?r[1]:[];
+    var rekapMap={};
+    rekap.forEach(function(x){rekapMap[x.nama_golongan]=x.total_keluar;});
+    semuaGolongan=gol.map(function(g){return Object.assign({},g,{total_pemakaian:rekapMap[g.nama_golongan]||0});});
+    renderGolongan();
+  }).catch(function(){
+    document.getElementById('glInfoBar').textContent='Gagal memuat data golongan.';
+  });
+}
+
+function renderGolongan(){
+  document.getElementById('glInfoBar').textContent=semuaGolongan.length+' golongan.';
+  var tb=document.getElementById('glTbody');
+  if(!semuaGolongan.length){tb.innerHTML='<tr><td colspan="4" class="loading">Belum ada golongan.</td></tr>';return;}
+  tb.innerHTML=semuaGolongan.map(function(g){
+    var aktif=g.status==='AKTIF';
+    return '<tr>'+
+      '<td>'+esc(g.nama_golongan)+'</td>'+
+      '<td><span class="badge-status-kas '+(aktif?'st-selesai':'st-belum_realisasi')+'">'+esc(g.status)+'</span></td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(g.total_pemakaian)+'</td>'+
+      '<td><button class="btn-sm-action" onclick="toggleStatusGolongan(\''+esc(g.id_golongan)+'\','+aktif+')">'+(aktif?'Nonaktifkan':'Aktifkan')+'</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function bukaTambahGolongan(){
+  var nama=prompt('Nama golongan baru (huruf besar):');
+  if(!nama)return;
+  nama=nama.trim().toUpperCase();
+  if(!nama)return;
+  var idGol='GOL'+Date.now();
+  dbInsert('m_golongan_kas',{id_golongan:idGol,nama_golongan:nama}).then(function(res){
+    if(res&&res.code){alert('Gagal: '+res.message);return;}
+    muatGolongan(); muatGolonganDropdown();
+  });
+}
+
+function toggleStatusGolongan(idGol,sedangAktif){
+  var statusBaru=sedangAktif?'NONAKTIF':'AKTIF';
+  dbUpdate('m_golongan_kas',{id_golongan:'eq.'+idGol},{status:statusBaru}).then(function(res){
+    if(res&&res.code){alert('Gagal: '+res.message);return;}
+    muatGolongan(); muatGolonganDropdown();
+  });
+}
+
+
+</script>
+</body>
+</html>
