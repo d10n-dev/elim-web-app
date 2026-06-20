@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Piutang & Faktur — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    /* ── kartu rekap ── */
+    .rekap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:.85rem;}
+    .rekap-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;}
+    .rekap-card .lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+    .rekap-card .val{font-family:var(--mono);font-size:1.05rem;font-weight:600;color:var(--navy);margin-top:.2rem;}
+    .rekap-card.warn .val{color:var(--red);}
+    /* ── tab nav ── */
+    .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);margin-bottom:.85rem;}
+    .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
+    .tab-pane{display:none;}
+    .tab-pane.active{display:block;}
+    /* ── badge status piutang ── */
+    .badge-status{font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.05em;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
+    .s-belum_ditagih{background:#f0f2f6;color:var(--muted);border:1px solid var(--border);}
+    .s-tertagih{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;}
+    .s-menunggu_konfirmasi{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .s-sebagian_bayar{background:#fde9d2;color:#c45a00;border:1px solid #f5c98a;}
+    .s-lunas{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-pending{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .s-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    .badge-jt{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.15rem .4rem;border-radius:3px;}
+    .jt-aman{background:var(--green-bg);color:var(--green);}
+    .jt-dekat{background:#fff3cd;color:#856404;}
+    .jt-lewat{background:#fdecea;color:var(--red);}
+    .td-mono{font-family:var(--mono);font-size:.75rem;}
+    .td-right{text-align:right;}
+    /* ── checklist SJ (penagihan/pembayaran) ── */
+    .sj-pick-wrap{border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto;}
+    .sj-pick-row{display:grid;grid-template-columns:24px 1fr 110px;gap:.5rem;align-items:center;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
+    .sj-pick-row:last-child{border-bottom:none;}
+    .sj-pick-row:hover{background:#f4f7fc;}
+    .sj-pick-nama{font-size:.78rem;}
+    .sj-pick-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);}
+    .sj-pick-nom{font-family:var(--mono);font-size:.72rem;text-align:right;}
+    .alokasi-input{width:100%;font-family:var(--mono);font-size:.75rem;border:1px solid var(--border);border-radius:4px;padding:.3rem .45rem;text-align:right;}
+    .sec-label{font-family:var(--mono);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--navy);background:var(--bg);border-radius:5px;padding:.35rem .7rem;margin-bottom:.65rem;margin-top:.75rem;}
+    .ac-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);}
+    .det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+    .det-row:last-child{border-bottom:none;}
+    .det-label{font-family:var(--mono);font-size:.68rem;color:var(--muted);min-width:110px;}
+    .det-val{font-family:var(--mono);font-size:.78rem;text-align:right;}
+    .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:var(--mono);padding:.4rem .85rem;cursor:pointer;}
+    .btn-outline:hover{border-color:var(--navy);}
+    .btn-sm-action{font-family:var(--mono);font-size:.68rem;padding:.25rem .55rem;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+    .btn-approve{color:var(--green);border-color:var(--green-bd);}
+    .btn-tolak{color:var(--red);border-color:#f5a9a0;}
+    .form-control[readonly]{background:#f4f7fc;color:var(--muted);}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+
+<!-- ============== TAB NAV ============== -->
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="rekap" onclick="gantiTab('rekap')">📋 Rekap</button>
+  <button class="tab-btn" data-tab="penagihan" onclick="gantiTab('penagihan')">📨 Penagihan</button>
+  <button class="tab-btn" data-tab="pembayaran" onclick="gantiTab('pembayaran')">💰 Pembayaran</button>
+  <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">🧾 Faktur Pajak</button>
+  <button class="tab-btn" data-tab="setoran" onclick="gantiTab('setoran')">🏦 Setoran</button>
+</div>
+
+<!-- ============== TAB: REKAP ============== -->
+<div class="tab-pane active" id="tabRekap">
+  <div class="rekap-grid" id="rekapCards">
+    <div class="rekap-card"><div class="lbl">Total Piutang</div><div class="val">…</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="rkCari" placeholder="Cari pelanggan / no. SJ…" oninput="muatRekap()"/>
+    <select id="rkStatus" onchange="muatRekap()">
+      <option value="">Semua Status</option>
+      <option value="BELUM_DITAGIH">Belum Ditagih</option>
+      <option value="TERTAGIH">Tertagih</option>
+      <option value="MENUNGGU_KONFIRMASI">Menunggu Konfirmasi</option>
+      <option value="SEBAGIAN_BAYAR">Sebagian Bayar</option>
+      <option value="LUNAS">Lunas</option>
+    </select>
+    <select id="rkEntitas" onchange="muatRekap()">
+      <option value="">PT &amp; DK</option>
+      <option value="PT">PT Elim</option>
+      <option value="DK">DK Offset</option>
+    </select>
+  </div>
+  <div class="toolbar" style="margin-top:.4rem">
+    <label class="form-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin:0;white-space:nowrap;align-self:center;">Jatuh tempo s/d:</label>
+    <input type="date" id="rkJatuhTempo" onchange="muatRekap()" style="max-width:170px"/>
+    <button class="btn-outline" onclick="document.getElementById('rkJatuhTempo').value='';muatRekap();">Reset Tanggal</button>
+    <label style="display:flex;align-items:center;gap:.3rem;font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-left:auto;">
+      <input type="checkbox" id="rkTampilLunas" onchange="muatRekap()"/> Tampilkan yang lunas
+    </label>
+  </div>
+
+  <div class="info-bar" id="rkInfoBar">Memuat data…</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. SJ / Nota</th><th>Tanggal</th><th>Pelanggan</th><th>Entitas</th>
+        <th class="td-right">Total Tagih</th><th class="td-right">Dibayar</th><th class="td-right">Sisa</th>
+        <th>Jatuh Tempo</th><th>Status</th>
+      </tr></thead>
+      <tbody id="rkTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="sec-label" style="margin-top:1.2rem">Rekap per Pelanggan</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Pelanggan</th><th class="td-right">Jml SJ</th><th class="td-right">Jatuh Tempo</th><th class="td-right">Total Sisa</th></tr></thead>
+      <tbody id="rkPelTbody"><tr><td colspan="4" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============== TAB: PENAGIHAN ============== -->
+<div class="tab-pane" id="tabPenagihan">
+  <div class="toolbar">
+    <button class="btn-tambah" onclick="bukaBuatPenagihan()">+ Buat Penagihan</button>
+  </div>
+  <div class="info-bar" id="pnInfoBar">Memuat data…</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. Penagihan</th><th>Tgl Kirim</th><th>Penerima</th><th>Jml SJ</th>
+        <th>Status</th><th>Tgl Terima TT</th><th>No. TT</th><th></th>
+      </tr></thead>
+      <tbody id="pnTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============== TAB: PEMBAYARAN ============== -->
+<div class="tab-pane" id="tabPembayaran">
+  <div class="toolbar">
+    <select id="pbFilterStatus" onchange="muatPembayaran()">
+      <option value="">Semua Status</option>
+      <option value="PENDING">Menunggu Konfirmasi</option>
+      <option value="APPROVED">Disetujui</option>
+      <option value="DITOLAK">Ditolak</option>
+    </select>
+    <button class="btn-tambah" onclick="bukaBuatPembayaran()">+ Catat Pembayaran</button>
+  </div>
+  <div class="info-bar" id="pbInfoBar">Memuat data…</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. Pembayaran</th><th>Tanggal</th><th>Metode</th><th>Pembayar</th>
+        <th class="td-right">Total</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="pbTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============== TAB: FAKTUR PAJAK ============== -->
+<div class="tab-pane" id="tabFaktur">
+  <div class="toolbar">
+    <input type="text" id="fpCari" placeholder="Cari no. SJ / pelanggan…" oninput="filterFaktur()"/>
+    <select id="fpFilter" onchange="filterFaktur()">
+      <option value="belum">Belum Difaktur</option>
+      <option value="sudah">Sudah Difaktur</option>
+      <option value="">Semua</option>
+    </select>
+  </div>
+  <div class="info-bar" id="fpInfoBar">Memuat data…</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. SJ / Nota</th><th>Tanggal</th><th>Pelanggan</th>
+        <th class="td-right">DPP</th><th class="td-right">PPN</th><th>No. Faktur</th><th></th>
+      </tr></thead>
+      <tbody id="fpTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============== TAB: SETORAN ============== -->
+<div class="tab-pane" id="tabSetoran">
+  <div class="toolbar">
+    <button class="btn-tambah" onclick="bukaBuatSetoran()">+ Buat Setoran</button>
+  </div>
+  <div class="info-bar" id="stInfoBar">Memuat data…</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. Setoran</th><th>Tanggal</th><th>Rekening Tujuan</th>
+        <th class="td-right">Total</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="stTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ====================================================== -->
+<!-- MODALS akan ditambahkan di bagian berikutnya           -->
+<!-- ====================================================== -->
+
+<!-- MODAL BUAT PENAGIHAN -->
+<div class="modal fade" id="modalPenagihan" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Buat Penagihan Baru</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertPenagihan"></div>
+        <form id="frmPenagihan" onsubmit="return false;">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Tanggal Kirim *</label>
+              <input type="date" class="form-control" id="inpTglKirimTagih"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Nama Penerima</label>
+              <input type="text" class="form-control" id="inpNamaPenerimaTagih" placeholder="Kolektor / pelanggan…"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Keterangan</label>
+              <input type="text" class="form-control" id="inpKetTagih"/>
+            </div>
+          </div>
+          <div class="sec-label">Cari Pelanggan untuk Tambah Nota</div>
+          <div style="position:relative">
+            <input type="text" class="form-control" id="inpCariPelangganTagih" placeholder="Ketik nama pelanggan…" autocomplete="off"/>
+            <div id="acPelangganTagihDrop" class="ac-dropdown"></div>
+          </div>
+          <div id="sjPelangganTagihWrap" style="margin-top:.5rem;display:none"></div>
+
+          <div class="sec-label">Nota Terpilih (bisa dari banyak pelanggan, mis. reseller)</div>
+          <div id="sjTerpilihTagihWrap"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitPenagihan(this)">Simpan Penagihan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL KONFIRMASI TT -->
+<div class="modal fade" id="modalKonfirmasiTT" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Konfirmasi Tanda Terima</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertTT"></div>
+        <input type="hidden" id="hidIdPenagihanTT"/>
+        <div class="det-row"><span class="det-label">No. Penagihan</span><span class="det-val" id="lblNoPenagihanTT"></span></div>
+        <div class="mb-2 mt-2">
+          <label class="form-label">Tanggal Terima TT *</label>
+          <input type="date" class="form-control" id="inpTglTerimaTT"/>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">No. TT (opsional, tidak semua pelanggan kasih nomor)</label>
+          <input type="text" class="form-control" id="inpNoTT"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitKonfirmasiTT(this)">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CATAT PEMBAYARAN -->
+<div class="modal fade" id="modalPembayaran" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Catat Pembayaran</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertPembayaran"></div>
+        <form id="frmPembayaran" onsubmit="return false;">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Tanggal Bayar *</label>
+              <input type="date" class="form-control" id="inpTglBayar"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Metode *</label>
+              <select class="form-select" id="inpMetodeBayar">
+                <option value="CASH">CASH</option>
+                <option value="TRANSFER">TRANSFER</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Nama Pembayar</label>
+              <input type="text" class="form-control" id="inpNamaPembayar" placeholder="Bisa beda dari nama pelanggan (reseller)…"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">No. Ref / Bukti Transfer</label>
+              <input type="text" class="form-control" id="inpBuktiRef"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Entitas Penerima Dana</label>
+              <select class="form-select" id="inpEntitasPenerima">
+                <option value="">Sama dengan entitas nota (default)</option>
+                <option value="DK">DK Offset (kas/rekening DK)</option>
+                <option value="PT">PT Elim Citra Offset (rekening PT)</option>
+              </select>
+            </div>
+            <div class="col-12" id="warnLintasEntitas" style="display:none">
+              <div class="alert alert-info py-2" style="font-size:.72rem;margin-top:.3rem">
+                Dana diterima oleh entitas berbeda dari pemilik nota — akan otomatis dicatat sebagai
+                mutasi Antar-Entitas (cek halaman Antar-Entitas setelah disimpan).
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Keterangan</label>
+              <input type="text" class="form-control" id="inpKetBayar"/>
+            </div>
+          </div>
+          <div class="alert alert-warning py-2" style="font-size:.75rem" id="infoTransferAcc">
+            Pembayaran TRANSFER akan berstatus <b>Menunggu Konfirmasi</b> sampai Direktur menyetujui.
+          </div>
+          <div class="sec-label">Cari Pelanggan untuk Tambah Nota</div>
+          <div style="position:relative">
+            <input type="text" class="form-control" id="inpCariPelangganBayar" placeholder="Ketik nama pelanggan…" autocomplete="off"/>
+            <div id="acPelangganBayarDrop" class="ac-dropdown"></div>
+          </div>
+          <div id="sjPelangganBayarWrap" style="margin-top:.5rem;display:none"></div>
+
+          <div class="sec-label">Nota Terpilih (bisa dari banyak pelanggan, mis. reseller)</div>
+          <div id="alokasiTerpilihWrap"></div>
+          <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalAlokasiInfo">Total alokasi: Rp 0</div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitPembayaran(this)">Simpan Pembayaran</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETAIL PEMBAYARAN -->
+<div class="modal fade" id="modalDetailPembayaran" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Detail Pembayaran</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detailPembayaranBody"></div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL INPUT/EDIT FAKTUR PAJAK -->
+<div class="modal fade" id="modalFaktur" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Input Faktur Pajak</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertFaktur"></div>
+        <input type="hidden" id="hidIdSJFaktur"/>
+        <input type="hidden" id="hidIdFaktur"/>
+        <div class="det-row"><span class="det-label">SJ</span><span class="det-val" id="lblSJFaktur"></span></div>
+        <div class="det-row"><span class="det-label">DPP</span><span class="det-val" id="lblDppFaktur"></span></div>
+        <div class="det-row"><span class="det-label">PPN</span><span class="det-val" id="lblPpnFaktur"></span></div>
+        <form id="frmFaktur" onsubmit="return false;">
+          <div class="mb-2 mt-2">
+            <label class="form-label">No. Faktur (NSFP) *</label>
+            <input type="text" class="form-control" id="inpNoFaktur" placeholder="17 digit dari Coretax…"/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Tanggal Faktur *</label>
+            <input type="date" class="form-control" id="inpTglFaktur"/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="inpKetFaktur"/>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitFaktur(this)">Simpan Faktur</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BUAT SETORAN -->
+<div class="modal fade" id="modalSetoran" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Buat Setoran ke Bank</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertSetoran"></div>
+        <form id="frmSetoran" onsubmit="return false;">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Tanggal Setor *</label>
+              <input type="date" class="form-control" id="inpTglSetor"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Rekening Tujuan *</label>
+              <select class="form-select" id="inpRekeningSetor">
+                <option value="">Pilih…</option>
+                <option value="BCA DK Offset">BCA DK Offset (8175057770)</option>
+                <option value="BCA PT Elim">BCA PT Elim Citra Offset (0158001515)</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Keterangan</label>
+              <input type="text" class="form-control" id="inpKetSetor"/>
+            </div>
+          </div>
+          <div class="sec-label">Pilih Pembayaran Cash yang Disetor</div>
+          <div id="cashSetoranWrap"></div>
+          <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalSetoranInfo">Total setoran: Rp 0</div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitSetoran(this)">Simpan Setoran</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+function esc(s){return escHtml(s);}
+function fmtRupiah(n){return formatRupiah(n);}
+function fmtTgl(s){return formatTanggal(s);}
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
+
+// Helper terpusat: deteksi error dari respons Supabase.
+// PostgREST error (RLS, tipe data salah, parameter salah, dll) balikin
+// objek {code, message, details, hint} — TIDAK punya field 'status'.
+// RPC kustom kita (buat_pembayaran dkk) balikin {status:'error', message}
+// kalau gagal di level LOGIKA (bukan di level HTTP). Dua-duanya harus
+// dicek, kalau cuma cek salah satu, error bisa lolos tanpa terdeteksi
+// dan kode lanjut seolah sukses padahal tidak ada data tersimpan.
+function cekErrorSupabase(res){
+  if(!res) return 'Tidak ada respons dari server.';
+  if(res.code) return res.message||('Error: '+res.code);
+  if(res.status==='error') return res.message||'Terjadi kesalahan.';
+  return null;
+}
+
+// ── AC reusable (replikasi persis dari bom.html, Android-safe: position:fixed) ──
+function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect) {
+  let selectedId = null;
+  function positionDrop() {
+    const r = inputEl.getBoundingClientRect();
+    dropEl.style.top   = r.bottom + 'px';
+    dropEl.style.left  = r.left + 'px';
+    dropEl.style.width = r.width + 'px';
+  }
+  function filter(q) {
+    q = q.toLowerCase();
+    return dataArr.filter(d =>
+      (d[idKey]   || '').toLowerCase().includes(q) ||
+      (d[namaKey] || '').toLowerCase().includes(q)
+    ).slice(0, 30);
+  }
+  function render(items) {
+    dropEl.innerHTML = '';
+    if (items.length === 0) {
+      dropEl.innerHTML = '<div class="ac-empty" style="padding:.5rem .75rem;font-size:.78rem;color:var(--muted)">Tidak ditemukan</div>';
+    } else {
+      items.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'ac-item';
+        div.innerHTML = `<span class="ac-item-nama">${escHtml(d[namaKey])}</span>`;
+        div.addEventListener('mousedown', e => { e.preventDefault(); pilih(d); });
+        div.addEventListener('touchend',  e => { e.preventDefault(); pilih(d); });
+        dropEl.appendChild(div);
+      });
+    }
+    positionDrop();
+    dropEl.classList.add('open');
+  }
+  function pilih(d) {
+    selectedId = d[idKey];
+    inputEl.value = d[namaKey];
+    dropEl.classList.remove('open');
+    if (onSelect) onSelect(d);
+  }
+  function tutup() { dropEl.classList.remove('open'); }
+  inputEl.addEventListener('input', () => {
+    selectedId = null;
+    const q = inputEl.value.trim();
+    if (q.length === 0) { tutup(); return; }
+    render(filter(q));
+  });
+  inputEl.addEventListener('focus', () => {
+    const q = inputEl.value.trim();
+    if (q.length > 0 && !selectedId) render(filter(q));
+  });
+  inputEl.addEventListener('blur', () => { setTimeout(tutup, 200); });
+}
+
+var ROLE = null;
+
+window.addEventListener('load', function () {
+  if (!guardHalaman()) return;
+  initNav('piutang');
+  ROLE = getRoleUser();
+  muatSemuaData();
+});
+
+function gantiTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+}
+
+function muatSemuaData(){
+  muatRekapCards();
+  muatRekap();
+  muatPenagihan();
+  muatPembayaran();
+  muatFaktur();
+  muatSetoran();
+}
+
+// ============================================================
+// TAB: REKAP
+// ============================================================
+function muatRekapCards(){
+  dbRpc('get_total_piutang',{}).then(function(res){
+    var d=Array.isArray(res)&&res.length?res[0]:null;
+    if(!d){return;}
+    var html='';
+    html+=cardRekap('Total Piutang',fmtRupiah(d.total_piutang),false);
+    html+=cardRekap('Piutang PT (+PPN)',fmtRupiah(d.total_piutang_pt),false);
+    html+=cardRekap('Piutang DK',fmtRupiah(d.total_piutang_dk),false);
+    html+=cardRekap('SJ Outstanding',fmtAngka(d.jumlah_sj_outstanding),false);
+    html+=cardRekap('SJ Jatuh Tempo',fmtAngka(d.jumlah_sj_jatuh_tempo),d.jumlah_sj_jatuh_tempo>0);
+    document.getElementById('rekapCards').innerHTML=html;
+  });
+}
+function cardRekap(lbl,val,warn){
+  return '<div class="rekap-card'+(warn?' warn':'')+'"><div class="lbl">'+esc(lbl)+'</div><div class="val">'+val+'</div></div>';
+}
+
+function badgeStatusPiutang(st){
+  var lbl={BELUM_DITAGIH:'Belum Ditagih',TERTAGIH:'Tertagih',MENUNGGU_KONFIRMASI:'Menunggu Konfirmasi',SEBAGIAN_BAYAR:'Sebagian Bayar',LUNAS:'Lunas'}[st]||st;
+  return '<span class="badge-status s-'+st.toLowerCase()+'">'+lbl+'</span>';
+}
+function badgeJatuhTempo(hariTerlambat,tglJT){
+  if(hariTerlambat>0) return '<span class="badge-jt jt-lewat">Lewat '+hariTerlambat+' hr</span>';
+  var sisaHari=Math.ceil((new Date(tglJT)-new Date())/86400000);
+  if(sisaHari<=7) return '<span class="badge-jt jt-dekat">'+sisaHari+' hr lagi</span>';
+  return '<span class="badge-jt jt-aman">'+fmtTgl(tglJT)+'</span>';
+}
+
+function muatRekap(){
+  var jt=document.getElementById('rkJatuhTempo').value||null;
+  var status=document.getElementById('rkStatus').value||null;
+  var entitas=document.getElementById('rkEntitas').value||null;
+  var tampilLunas=document.getElementById('rkTampilLunas').checked;
+  var fn = tampilLunas ? 'get_rekap_piutang_semua' : 'get_rekap_piutang';
+  var params = tampilLunas
+    ? {p_id_pelanggan:null,p_status:status,p_entitas:entitas}
+    : {p_jatuh_tempo_maks:jt,p_id_pelanggan:null,p_status:status,p_entitas:entitas};
+
+  document.getElementById('rkInfoBar').textContent='Memuat data…';
+  dbRpc(fn,params).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    var q=document.getElementById('rkCari').value.toLowerCase();
+    if(q){
+      data=data.filter(function(r){
+        return (r.nama_pelanggan+' '+r.no_sj+' '+r.no_nota).toLowerCase().indexOf(q)>=0;
+      });
+    }
+    renderRekapTabel(data);
+    muatRekapPerPelanggan();
+  }).catch(function(){
+    document.getElementById('rkInfoBar').textContent='Gagal memuat data piutang.';
+  });
+}
+
+function renderRekapTabel(data){
+  document.getElementById('rkInfoBar').textContent=data.length+' SJ ditemukan.';
+  var tb=document.getElementById('rkTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="9" class="loading">Tidak ada data.</td></tr>';return;}
+  tb.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_sj)+'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.no_nota)+'</span></td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+      '<td>'+esc(r.nama_pelanggan)+'</td>'+
+      '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.total_tagih)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.total_dibayar)+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.sisa_piutang)+'</td>'+
+      '<td>'+badgeJatuhTempo(r.hari_terlambat,r.tgl_jatuh_tempo)+'</td>'+
+      '<td>'+badgeStatusPiutang(r.status_piutang)+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ============================================================
+// TAB: PENAGIHAN
+// ============================================================
+var semuaPenagihan=[];
+
+function muatPenagihan(){
+  document.getElementById('pnInfoBar').textContent='Memuat data…';
+  dbGet('in_penagihan',{select:'*,in_penagihan_detail(id_sj)',order:'tgl_kirim.desc'}).then(function(res){
+    semuaPenagihan=Array.isArray(res)?res:[];
+    renderPenagihan();
+  }).catch(function(){
+    document.getElementById('pnInfoBar').textContent='Gagal memuat data penagihan.';
+  });
+}
+
+function renderPenagihan(){
+  document.getElementById('pnInfoBar').textContent=semuaPenagihan.length+' batch penagihan.';
+  var tb=document.getElementById('pnTbody');
+  if(!semuaPenagihan.length){tb.innerHTML='<tr><td colspan="8" class="loading">Belum ada penagihan.</td></tr>';return;}
+  tb.innerHTML=semuaPenagihan.map(function(r){
+    var jmlSJ=(r.in_penagihan_detail||[]).length;
+    var stCls=r.status==='DITERIMA'?'s-lunas':'s-tertagih';
+    var aksi=r.status==='DIKIRIM'
+      ? '<button class="btn-sm-action btn-approve" onclick="bukaKonfirmasiTT(\''+esc(r.id_penagihan)+'\')">Konfirmasi TT</button>'
+      : '—';
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_penagihan)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_kirim)+'</td>'+
+      '<td>'+esc(r.nama_penerima||'—')+'</td>'+
+      '<td class="td-mono td-right">'+jmlSJ+'</td>'+
+      '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td>'+
+      '<td class="td-mono">'+(r.tgl_terima_tt?fmtTgl(r.tgl_terima_tt):'—')+'</td>'+
+      '<td class="td-mono">'+esc(r.no_tt||'—')+'</td>'+
+      '<td>'+aksi+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function bukaBuatPenagihan(){
+  document.getElementById('frmPenagihan').reset();
+  document.getElementById('alertPenagihan').innerHTML='';
+  document.getElementById('inpTglKirimTagih').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpCariPelangganTagih').value='';
+  document.getElementById('sjPelangganTagihWrap').innerHTML='';
+  document.getElementById('sjPelangganTagihWrap').style.display='none';
+  sjTerpilihTagih=[];
+  renderSJTerpilihTagih();
+  new bootstrap.Modal(document.getElementById('modalPenagihan')).show();
+  muatDaftarPelangganUtkTagih();
+}
+
+var semuaPelangganTagihCache=[];
+var sjTerpilihTagih=[]; // [{id_sj, no_sj, no_nota, nama_pelanggan, total_tagih}]
+
+function muatDaftarPelangganUtkTagih(){
+  if(semuaPelangganTagihCache.length){ inisAcPelangganTagih(); return; }
+  dbGet('m_pelanggan',{select:'id_pelanggan,nama',status:'eq.AKTIF',order:'nama.asc'}).then(function(res){
+    semuaPelangganTagihCache=Array.isArray(res)?res:[];
+    inisAcPelangganTagih();
+  });
+}
+
+function inisAcPelangganTagih(){
+  var inp=document.getElementById('inpCariPelangganTagih');
+  var drop=document.getElementById('acPelangganTagihDrop');
+  if(inp._acInited)return;
+  inp._acInited=true;
+  buatAC(inp,drop,semuaPelangganTagihCache,'id_pelanggan','nama',function(p){
+    muatSJPelangganUtkTagih(p.id_pelanggan,p.nama);
+  });
+}
+
+function muatSJPelangganUtkTagih(idPel,namaPel){
+  var wrap=document.getElementById('sjPelangganTagihWrap');
+  wrap.style.display='block';
+  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota belum ditagih milik '+esc(namaPel)+'…</div>';
+  dbRpc('get_rekap_piutang',{p_jatuh_tempo_maks:null,p_id_pelanggan:idPel,p_status:'BELUM_DITAGIH',p_entitas:null}).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    if(!data.length){
+      wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaPel)+' tidak punya nota berstatus Belum Ditagih.</div>';
+      return;
+    }
+    wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+      var sudahAda=sjTerpilihTagih.some(function(a){return a.id_sj===r.id_sj;});
+      return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
+        '<input type="checkbox" class="chk-sj-cari-tagih" value="'+esc(r.id_sj)+'" '+(sudahAda?'disabled':'')+' '+
+          'data-no-sj="'+esc(r.no_sj)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-total="'+r.total_tagih+'"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_sj)+'</div><div class="sj-pick-sub">'+esc(r.no_nota)+' · '+fmtTgl(r.tgl)+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
+        '<div class="sj-pick-nom">'+fmtRupiah(r.total_tagih)+'</div>'+
+      '</label>';
+    }).join('')+'</div>'+
+    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahSJTerpilihTagih()">+ Tambahkan ke Penagihan</button>';
+  });
+}
+
+function tambahSJTerpilihTagih(){
+  var checked=document.querySelectorAll('.chk-sj-cari-tagih:checked');
+  if(!checked.length){alert('Pilih minimal 1 nota dulu.');return;}
+  checked.forEach(function(chk){
+    sjTerpilihTagih.push({
+      id_sj:chk.value, no_sj:chk.dataset.noSj, no_nota:chk.dataset.noNota,
+      nama_pelanggan:chk.dataset.nama, total_tagih:parseFloat(chk.dataset.total)
+    });
+  });
+  document.getElementById('inpCariPelangganTagih').value='';
+  document.getElementById('sjPelangganTagihWrap').style.display='none';
+  document.getElementById('sjPelangganTagihWrap').innerHTML='';
+  renderSJTerpilihTagih();
+}
+
+function renderSJTerpilihTagih(){
+  var wrap=document.getElementById('sjTerpilihTagihWrap');
+  if(!sjTerpilihTagih.length){
+    wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Belum ada nota dipilih. Cari pelanggan di atas untuk menambahkan.</div>';
+  }else{
+    wrap.innerHTML='<div class="sj-pick-wrap">'+sjTerpilihTagih.map(function(a,i){
+      return '<div class="sj-pick-row">'+
+        '<button type="button" onclick="hapusSJTerpilihTagih('+i+')" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>'+
+        '<div><div class="sj-pick-nama">'+esc(a.nama_pelanggan)+'</div><div class="sj-pick-sub">'+esc(a.no_sj)+' · '+esc(a.no_nota)+'</div></div>'+
+        '<div class="sj-pick-nom">'+fmtRupiah(a.total_tagih)+'</div>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
+}
+
+function hapusSJTerpilihTagih(idx){
+  sjTerpilihTagih.splice(idx,1);
+  renderSJTerpilihTagih();
+}
+
+function genIdPenagihan(){return'PNT'+Date.now();}
+
+async function submitPenagihan(btn){
+  var idList=sjTerpilihTagih.map(function(a){return a.id_sj;});
+  var tglKirim=document.getElementById('inpTglKirimTagih').value;
+  var namaPenerima=document.getElementById('inpNamaPenerimaTagih').value.trim();
+  var ket=document.getElementById('inpKetTagih').value.trim();
+
+  if(!idList.length){showAlert('alertPenagihan','Pilih minimal 1 nota.');return;}
+  if(!tglKirim){showAlert('alertPenagihan','Tanggal kirim wajib diisi.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  var idPnt=genIdPenagihan();
+
+  try{
+    var res=await dbRpc('buat_penagihan',{
+      p_id_penagihan:idPnt,
+      p_no_penagihan:idPnt,
+      p_tgl_kirim:tglKirim+'T00:00:00+07:00',
+      p_nama_penerima:namaPenerima||null,
+      p_user_input:getNamaUser(),
+      p_keterangan:ket||null,
+      p_sj_list:idList
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalPenagihan')).hide();
+    muatPenagihan();
+    muatRekap();
+    muatRekapCards();
+  }catch(e){
+    showAlert('alertPenagihan','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Penagihan';
+  }
+}
+
+function bukaKonfirmasiTT(idPenagihan){
+  var r=semuaPenagihan.find(function(x){return x.id_penagihan===idPenagihan;});
+  if(!r)return;
+  document.getElementById('hidIdPenagihanTT').value=idPenagihan;
+  document.getElementById('lblNoPenagihanTT').textContent=r.no_penagihan;
+  document.getElementById('inpTglTerimaTT').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpNoTT').value='';
+  document.getElementById('alertTT').innerHTML='';
+  new bootstrap.Modal(document.getElementById('modalKonfirmasiTT')).show();
+}
+
+// ============================================================
+// TAB: PEMBAYARAN
+// ============================================================
+var semuaPembayaran=[];
+
+function muatPembayaran(){
+  document.getElementById('pbInfoBar').textContent='Memuat data…';
+  dbGet('in_pembayaran',{select:'*',order:'tgl_bayar.desc'}).then(function(res){
+    semuaPembayaran=Array.isArray(res)?res:[];
+    renderPembayaran();
+  }).catch(function(){
+    document.getElementById('pbInfoBar').textContent='Gagal memuat data pembayaran.';
+  });
+}
+
+function renderPembayaran(){
+  var filterSt=document.getElementById('pbFilterStatus').value;
+  var data=semuaPembayaran.filter(function(r){return !filterSt||r.status===filterSt;});
+  document.getElementById('pbInfoBar').textContent=data.length+' pembayaran.';
+  var tb=document.getElementById('pbTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="7" class="loading">Tidak ada data.</td></tr>';return;}
+  tb.innerHTML=data.map(function(r){
+    var stCls='s-'+r.status.toLowerCase();
+    var aksi='<button class="btn-sm-action" onclick="bukaDetailPembayaran(\''+esc(r.id_pembayaran)+'\')">Detail</button>';
+    if(r.status==='PENDING'&&isDirektur()){
+      aksi+=' <button class="btn-sm-action btn-approve" onclick="prosesApprovePembayaran(\''+esc(r.id_pembayaran)+'\',true)">Acc</button>'+
+            ' <button class="btn-sm-action btn-tolak" onclick="prosesApprovePembayaran(\''+esc(r.id_pembayaran)+'\',false)">Tolak</button>';
+    }
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_pembayaran)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_bayar)+'</td>'+
+      '<td class="td-mono">'+esc(r.metode)+'</td>'+
+      '<td>'+esc(r.nama_pembayar||'—')+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.total_bayar)+'</td>'+
+      '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td>'+
+      '<td>'+aksi+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function bukaBuatPembayaran(){
+  document.getElementById('frmPembayaran').reset();
+  document.getElementById('alertPembayaran').innerHTML='';
+  document.getElementById('inpTglBayar').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpCariPelangganBayar').value='';
+  document.getElementById('sjPelangganBayarWrap').innerHTML='';
+  document.getElementById('sjPelangganBayarWrap').style.display='none';
+  alokasiTerpilih=[];
+  renderAlokasiTerpilih();
+  new bootstrap.Modal(document.getElementById('modalPembayaran')).show();
+  muatDaftarPelangganUtkBayar();
+}
+
+document.getElementById('inpEntitasPenerima').addEventListener('change', function(){
+  document.getElementById('warnLintasEntitas').style.display = this.value ? 'block' : 'none';
+});
+
+var semuaPelangganBayarCache=[];
+var alokasiTerpilih=[]; // [{id_sj, no_sj, no_nota, nama_pelanggan, sisa, nominal}]
+
+function muatDaftarPelangganUtkBayar(){
+  if(semuaPelangganBayarCache.length){ inisAcPelangganBayar(); return; }
+  dbGet('m_pelanggan',{select:'id_pelanggan,nama',status:'eq.AKTIF',order:'nama.asc'}).then(function(res){
+    semuaPelangganBayarCache=Array.isArray(res)?res:[];
+    inisAcPelangganBayar();
+  });
+}
+
+function inisAcPelangganBayar(){
+  var inp=document.getElementById('inpCariPelangganBayar');
+  var drop=document.getElementById('acPelangganBayarDrop');
+  if(inp._acInited)return;
+  inp._acInited=true;
+  buatAC(inp,drop,semuaPelangganBayarCache,'id_pelanggan','nama',function(p){
+    muatSJPelangganUtkBayar(p.id_pelanggan,p.nama);
+  });
+}
+
+function muatSJPelangganUtkBayar(idPel,namaPel){
+  var wrap=document.getElementById('sjPelangganBayarWrap');
+  wrap.style.display='block';
+  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota belum lunas milik '+esc(namaPel)+'…</div>';
+  dbRpc('get_rekap_piutang',{p_jatuh_tempo_maks:null,p_id_pelanggan:idPel,p_status:null,p_entitas:null}).then(function(res){
+    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_piutang>0;});
+    if(!data.length){
+      wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaPel)+' tidak punya nota outstanding.</div>';
+      return;
+    }
+    wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+      var sudahAda=alokasiTerpilih.some(function(a){return a.id_sj===r.id_sj;});
+      return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
+        '<input type="checkbox" class="chk-sj-cari" value="'+esc(r.id_sj)+'" '+(sudahAda?'disabled':'')+' '+
+          'data-no-sj="'+esc(r.no_sj)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-sisa="'+r.sisa_piutang+'"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_sj)+'</div><div class="sj-pick-sub">'+esc(r.no_nota)+' · Sisa: '+fmtRupiah(r.sisa_piutang)+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
+        '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_piutang)+'</div>'+
+      '</label>';
+    }).join('')+'</div>'+
+    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahSJTerpilih()">+ Tambahkan ke Pembayaran</button>';
+  });
+}
+
+function tambahSJTerpilih(){
+  var checked=document.querySelectorAll('.chk-sj-cari:checked');
+  if(!checked.length){alert('Pilih minimal 1 nota dulu.');return;}
+  checked.forEach(function(chk){
+    alokasiTerpilih.push({
+      id_sj:chk.value, no_sj:chk.dataset.noSj, no_nota:chk.dataset.noNota,
+      nama_pelanggan:chk.dataset.nama, sisa:parseFloat(chk.dataset.sisa),
+      nominal:parseFloat(chk.dataset.sisa) // default penuh, bisa diedit di daftar terpilih
+    });
+  });
+  document.getElementById('inpCariPelangganBayar').value='';
+  document.getElementById('sjPelangganBayarWrap').style.display='none';
+  document.getElementById('sjPelangganBayarWrap').innerHTML='';
+  renderAlokasiTerpilih();
+}
+
+function renderAlokasiTerpilih(){
+  var wrap=document.getElementById('alokasiTerpilihWrap');
+  if(!alokasiTerpilih.length){
+    wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Belum ada nota dipilih. Cari pelanggan di atas untuk menambahkan.</div>';
+  }else{
+    wrap.innerHTML='<div class="sj-pick-wrap">'+alokasiTerpilih.map(function(a,i){
+      return '<div class="sj-pick-row">'+
+        '<button type="button" class="btn-del-row" onclick="hapusAlokasiTerpilih('+i+')" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>'+
+        '<div><div class="sj-pick-nama">'+esc(a.nama_pelanggan)+'</div><div class="sj-pick-sub">'+esc(a.no_sj)+' · Sisa: '+fmtRupiah(a.sisa)+'</div></div>'+
+        '<input type="number" class="alokasi-input" value="'+a.nominal+'" oninput="updateNominalTerpilih('+i+',this.value)"/>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
+  var total=alokasiTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('totalAlokasiInfo').textContent='Total alokasi: '+fmtRupiah(total);
+}
+
+function updateNominalTerpilih(idx,val){
+  alokasiTerpilih[idx].nominal=parseFloat(val)||0;
+  var total=alokasiTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('totalAlokasiInfo').textContent='Total alokasi: '+fmtRupiah(total);
+}
+
+function hapusAlokasiTerpilih(idx){
+  alokasiTerpilih.splice(idx,1);
+  renderAlokasiTerpilih();
+}
+
+function genIdPembayaran(){return'PBY'+Date.now();}
+
+async function submitPembayaran(btn){
+  var metode=document.getElementById('inpMetodeBayar').value;
+  var tglBayar=document.getElementById('inpTglBayar').value;
+  var namaPembayar=document.getElementById('inpNamaPembayar').value.trim();
+  var buktiRef=document.getElementById('inpBuktiRef').value.trim();
+  var entitasPenerima=document.getElementById('inpEntitasPenerima').value||null;
+  var ket=document.getElementById('inpKetBayar').value.trim();
+
+  var alokasi=[];
+  var lewatSisa=false;
+  alokasiTerpilih.forEach(function(a){
+    var nominal=parseFloat(a.nominal)||0;
+    if(nominal>a.sisa) lewatSisa=true;
+    if(nominal>0) alokasi.push({id_sj:a.id_sj,nominal:nominal});
+  });
+
+  if(!alokasi.length){showAlert('alertPembayaran','Pilih minimal 1 nota dan isi nominal.');return;}
+  if(!tglBayar){showAlert('alertPembayaran','Tanggal bayar wajib diisi.');return;}
+  if(metode==='TRANSFER'&&!buktiRef){showAlert('alertPembayaran','No. referensi transfer wajib diisi.');return;}
+
+  if(lewatSisa){
+    if(!confirm('Ada alokasi yang melebihi sisa piutang nota terkait (kemungkinan lebih bayar/pembulatan). Lanjutkan?')){return;}
+  }
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  var idPby=genIdPembayaran();
+
+  try{
+    var res=await dbRpc('buat_pembayaran',{
+      p_id_pembayaran:idPby,
+      p_no_pembayaran:idPby,
+      p_tgl_bayar:tglBayar+'T00:00:00+07:00',
+      p_metode:metode,
+      p_nama_pembayar:namaPembayar||null,
+      p_bukti_ref:buktiRef||null,
+      p_user_input:getNamaUser(),
+      p_keterangan:ket||null,
+      p_alokasi:alokasi,
+      p_entitas_penerima:entitasPenerima
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalPembayaran')).hide();
+    muatPembayaran();
+    muatRekap();
+    muatRekapCards();
+    muatSetoran();
+  }catch(e){
+    showAlert('alertPembayaran','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Pembayaran';
+  }
+}
+
+function bukaDetailPembayaran(idPby){
+  var r=semuaPembayaran.find(function(x){return x.id_pembayaran===idPby;});
+  if(!r)return;
+  dbGet('in_pembayaran_detail',{id_pembayaran:'eq.'+idPby}).then(function(res){
+    var dets=Array.isArray(res)?res:[];
+    var html='<div class="det-row"><span class="det-label">No. Pembayaran</span><span class="det-val">'+esc(r.no_pembayaran)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Tanggal</span><span class="det-val">'+fmtTgl(r.tgl_bayar)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Metode</span><span class="det-val">'+esc(r.metode)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Pembayar</span><span class="det-val">'+esc(r.nama_pembayar||'—')+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Ref/Bukti</span><span class="det-val">'+esc(r.bukti_ref||'—')+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Status</span><span class="det-val">'+badgeStatusBayar(r.status)+'</span></div>'+
+      (r.approved_by?'<div class="det-row"><span class="det-label">Disetujui oleh</span><span class="det-val">'+esc(r.approved_by)+' · '+fmtTgl(r.tgl_approve)+'</span></div>':'')+
+      '<div class="sec-label">Alokasi per SJ</div>'+
+      dets.map(function(d){
+        return '<div class="det-row"><span class="det-label">'+esc(d.nama_pelanggan)+'</span><span class="det-val">'+fmtRupiah(d.nominal)+'</span></div>';
+      }).join('');
+    document.getElementById('detailPembayaranBody').innerHTML=html;
+    new bootstrap.Modal(document.getElementById('modalDetailPembayaran')).show();
+  });
+}
+function badgeStatusBayar(st){
+  return '<span class="badge-status s-'+st.toLowerCase()+'">'+st+'</span>';
+}
+
+// ============================================================
+// TAB: FAKTUR PAJAK
+// ============================================================
+var semuaSJFaktur=[];
+
+function muatFaktur(){
+  document.getElementById('fpInfoBar').textContent='Memuat data…';
+  Promise.all([
+    dbGet('in_pengiriman',{entitas:'eq.PT',select:'id_sj,no_sj,no_nota,tgl,nama_pelanggan,dpp,ppn',order:'tgl.desc'}),
+    dbGet('in_faktur_pajak',{select:'*'})
+  ]).then(function(r){
+    var sjList=Array.isArray(r[0])?r[0]:[];
+    var fakturList=Array.isArray(r[1])?r[1]:[];
+    var fakturMap={};
+    fakturList.forEach(function(f){fakturMap[f.id_sj]=f;});
+    semuaSJFaktur=sjList.map(function(sj){
+      return Object.assign({},sj,{faktur:fakturMap[sj.id_sj]||null});
+    });
+    filterFaktur();
+  }).catch(function(){
+    document.getElementById('fpInfoBar').textContent='Gagal memuat data faktur.';
+  });
+}
+
+function filterFaktur(){
+  var q=document.getElementById('fpCari').value.toLowerCase();
+  var f=document.getElementById('fpFilter').value;
+  var data=semuaSJFaktur.filter(function(r){
+    var hay=(r.no_sj+' '+r.nama_pelanggan).toLowerCase();
+    var matchQ=!q||hay.indexOf(q)>=0;
+    var matchF=!f||(f==='belum'&&!r.faktur)||(f==='sudah'&&r.faktur);
+    return matchQ&&matchF;
+  });
+  document.getElementById('fpInfoBar').textContent=data.length+' SJ entitas PT.';
+  var tb=document.getElementById('fpTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="7" class="loading">Tidak ada data.</td></tr>';return;}
+  tb.innerHTML=data.map(function(r){
+    var aksi=r.faktur
+      ? '<button class="btn-sm-action" onclick="bukaEditFaktur(\''+esc(r.id_sj)+'\')">Edit</button>'
+      : '<button class="btn-sm-action btn-approve" onclick="bukaInputFaktur(\''+esc(r.id_sj)+'\')">Input Faktur</button>';
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_sj)+'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.no_nota)+'</span></td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+      '<td>'+esc(r.nama_pelanggan)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.dpp)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.ppn)+'</td>'+
+      '<td class="td-mono">'+(r.faktur?esc(r.faktur.no_faktur):'<span style="color:var(--muted)">—</span>')+'</td>'+
+      '<td>'+aksi+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function bukaInputFaktur(idSJ){
+  var r=semuaSJFaktur.find(function(x){return x.id_sj===idSJ;});
+  if(!r)return;
+  document.getElementById('frmFaktur').reset();
+  document.getElementById('alertFaktur').innerHTML='';
+  document.getElementById('hidIdSJFaktur').value=idSJ;
+  document.getElementById('hidIdFaktur').value='';
+  document.getElementById('lblSJFaktur').textContent=r.no_sj+' — '+r.nama_pelanggan;
+  document.getElementById('lblDppFaktur').textContent=fmtRupiah(r.dpp);
+  document.getElementById('lblPpnFaktur').textContent=fmtRupiah(r.ppn);
+  document.getElementById('inpTglFaktur').value=new Date().toISOString().slice(0,10);
+  new bootstrap.Modal(document.getElementById('modalFaktur')).show();
+}
+
+function bukaEditFaktur(idSJ){
+  var r=semuaSJFaktur.find(function(x){return x.id_sj===idSJ;});
+  if(!r||!r.faktur)return;
+  bukaInputFaktur(idSJ);
+  document.getElementById('hidIdFaktur').value=r.faktur.id_faktur;
+  document.getElementById('inpNoFaktur').value=r.faktur.no_faktur;
+  document.getElementById('inpTglFaktur').value=(r.faktur.tgl_faktur||'').slice(0,10);
+  document.getElementById('inpKetFaktur').value=r.faktur.keterangan||'';
+}
+
+function genIdFaktur(){return'FKT'+Date.now();}
+
+async function submitFaktur(btn){
+  var idSJ=document.getElementById('hidIdSJFaktur').value;
+  var idFakturLama=document.getElementById('hidIdFaktur').value;
+  var noFaktur=document.getElementById('inpNoFaktur').value.trim();
+  var tglFaktur=document.getElementById('inpTglFaktur').value;
+  var ket=document.getElementById('inpKetFaktur').value.trim();
+  var r=semuaSJFaktur.find(function(x){return x.id_sj===idSJ;});
+
+  if(!noFaktur){showAlert('alertFaktur','Nomor faktur wajib diisi.');return;}
+  if(!tglFaktur){showAlert('alertFaktur','Tanggal faktur wajib diisi.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var payload={no_faktur:noFaktur,tgl_faktur:tglFaktur,keterangan:ket||null};
+    var res;
+    if(idFakturLama){
+      res=await dbUpdate('in_faktur_pajak',{id_faktur:'eq.'+idFakturLama},payload);
+    }else{
+      res=await dbInsert('in_faktur_pajak',Object.assign({
+        id_faktur:genIdFaktur(),id_sj:idSJ,dpp:r.dpp,ppn:r.ppn,user_input:getNamaUser()
+      },payload));
+    }
+    var errMsg2=cekErrorSupabase(res); if(errMsg2) throw new Error(errMsg2);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalFaktur')).hide();
+    muatFaktur();
+  }catch(e){
+    showAlert('alertFaktur','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Faktur';
+  }
+}
+
+// ============================================================
+// TAB: SETORAN
+// ============================================================
+var semuaSetoran=[];
+var pembayaranCashCache=[];
+
+function muatSetoran(){
+  document.getElementById('stInfoBar').textContent='Memuat data…';
+  dbGet('in_setoran',{select:'*',order:'tgl_setor.desc'}).then(function(res){
+    semuaSetoran=Array.isArray(res)?res:[];
+    renderSetoran();
+  }).catch(function(){
+    document.getElementById('stInfoBar').textContent='Gagal memuat data setoran.';
+  });
+}
+
+function renderSetoran(){
+  document.getElementById('stInfoBar').textContent=semuaSetoran.length+' setoran.';
+  var tb=document.getElementById('stTbody');
+  if(!semuaSetoran.length){tb.innerHTML='<tr><td colspan="6" class="loading">Belum ada setoran.</td></tr>';return;}
+  tb.innerHTML=semuaSetoran.map(function(r){
+    var stCls='s-'+r.status.toLowerCase();
+    var aksi='';
+    if(r.status==='PENDING'&&isDirektur()){
+      aksi='<button class="btn-sm-action btn-approve" onclick="prosesApproveSetoran(\''+esc(r.id_setoran)+'\',true)">Acc</button>'+
+           ' <button class="btn-sm-action btn-tolak" onclick="prosesApproveSetoran(\''+esc(r.id_setoran)+'\',false)">Tolak</button>';
+    }
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_setoran)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_setor)+'</td>'+
+      '<td>'+esc(r.rekening_tujuan||'—')+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.total_setor)+'</td>'+
+      '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td>'+
+      '<td>'+aksi+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function bukaBuatSetoran(){
+  document.getElementById('frmSetoran').reset();
+  document.getElementById('alertSetoran').innerHTML='';
+  document.getElementById('inpTglSetor').value=new Date().toISOString().slice(0,10);
+  document.getElementById('cashSetoranWrap').innerHTML='<div class="loading" style="padding:.5rem">Memuat pembayaran cash…</div>';
+  document.getElementById('totalSetoranInfo').textContent='Total setoran: Rp 0';
+  new bootstrap.Modal(document.getElementById('modalSetoran')).show();
+
+  dbRpc('get_pembayaran_cash_belum_setor',{}).then(function(res){
+    pembayaranCashCache=Array.isArray(res)?res:[];
+    renderCashSetoran();
+  });
+}
+
+function renderCashSetoran(){
+  var wrap=document.getElementById('cashSetoranWrap');
+  if(!pembayaranCashCache.length){wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada pembayaran cash yang belum disetor.</div>';return;}
+  wrap.innerHTML='<div class="sj-pick-wrap">'+pembayaranCashCache.map(function(r){
+    return '<label class="sj-pick-row">'+
+      '<input type="checkbox" class="chk-cash-setor" value="'+esc(r.id_pembayaran)+'" data-nominal="'+r.total_bayar+'" onchange="hitungTotalSetoran()"/>'+
+      '<div><div class="sj-pick-nama">'+esc(r.nama_pembayar||r.no_pembayaran)+'</div><div class="sj-pick-sub">'+esc(r.no_pembayaran)+' · '+fmtTgl(r.tgl_bayar)+'</div></div>'+
+      '<div class="sj-pick-nom">'+fmtRupiah(r.total_bayar)+'</div>'+
+    '</label>';
+  }).join('')+'</div>';
+}
+
+function hitungTotalSetoran(){
+  var total=0;
+  document.querySelectorAll('.chk-cash-setor:checked').forEach(function(chk){total+=parseFloat(chk.dataset.nominal)||0;});
+  document.getElementById('totalSetoranInfo').textContent='Total setoran: '+fmtRupiah(total);
+}
+
+function genIdSetoran(){return'STR'+Date.now();}
+
+async function submitSetoran(btn){
+  var checked=Array.from(document.querySelectorAll('.chk-cash-setor:checked'));
+  var tglSetor=document.getElementById('inpTglSetor').value;
+  var rekening=document.getElementById('inpRekeningSetor').value;
+  var ket=document.getElementById('inpKetSetor').value.trim();
+
+  if(!checked.length){showAlert('alertSetoran','Pilih minimal 1 pembayaran cash.');return;}
+  if(!tglSetor){showAlert('alertSetoran','Tanggal setor wajib diisi.');return;}
+  if(!rekening){showAlert('alertSetoran','Rekening tujuan wajib dipilih.');return;}
+
+  var list=checked.map(function(c){return{id_pembayaran:c.value,nominal:parseFloat(c.dataset.nominal)};});
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  var idStr=genIdSetoran();
+  try{
+    var res=await dbRpc('buat_setoran',{
+      p_id_setoran:idStr,
+      p_no_setoran:idStr,
+      p_tgl_setor:tglSetor+'T00:00:00+07:00',
+      p_rekening_tujuan:rekening,
+      p_user_input:getNamaUser(),
+      p_keterangan:ket||null,
+      p_pembayaran_list:list
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalSetoran')).hide();
+    muatSetoran();
+  }catch(e){
+    showAlert('alertSetoran','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Setoran';
+  }
+}
+
+async function prosesApproveSetoran(idStr,disetujui){
+  var aksi=disetujui?'menyetujui':'menolak';
+  if(!confirm('Yakin '+aksi+' setoran ini?'))return;
+  try{
+    var res=await dbRpc('approve_setoran',{p_id_setoran:idStr,p_approved_by:getNamaUser(),p_disetujui:disetujui});
+    var errMsg3=cekErrorSupabase(res); if(errMsg3){alert('Gagal: '+errMsg3);return;}
+    muatSetoran();
+  }catch(e){
+    alert('Gagal: '+e.message);
+  }
+}
+
+
+
+
+</script>
+</body>
+</html>
