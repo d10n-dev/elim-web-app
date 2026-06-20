@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Antar-Entitas — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .rekap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:.85rem;}
+    .rekap-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;}
+    .rekap-card .lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+    .rekap-card .val{font-family:var(--mono);font-size:1.05rem;font-weight:600;color:var(--navy);margin-top:.2rem;}
+    .rekap-card.warn .val{color:var(--red);}
+    .rekap-card.green .val{color:var(--green);}
+    .saldo-banner{border-radius:10px;padding:1.1rem 1.25rem;margin-bottom:1rem;text-align:center;}
+    .saldo-banner.dk{background:#fde9d2;border:1px solid #f5c98a;}
+    .saldo-banner.pt{background:#e8f0fe;border:1px solid #b8cdfb;}
+    .saldo-banner.impas{background:var(--green-bg);border:1px solid var(--green-bd);}
+    .saldo-banner .arah{font-family:var(--mono);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.3rem;}
+    .saldo-banner .nominal{font-family:var(--mono);font-size:1.6rem;font-weight:700;color:var(--navy);}
+    .saldo-banner .ket{font-size:.78rem;color:var(--muted);margin-top:.25rem;}
+    .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);margin-bottom:.85rem;}
+    .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
+    .tab-pane{display:none;}
+    .tab-pane.active{display:block;}
+    .badge-arah{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
+    .arah-dk-pt{background:#fde9d2;color:#c45a00;}
+    .arah-pt-dk{background:#e8f0fe;color:#1a56db;}
+    .badge-status-mae{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.18rem .5rem;border-radius:3px;}
+    .st-outstanding{background:#fff3cd;color:#856404;border:1px solid #f5dfa0;}
+    .st-settled{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .td-mono{font-family:var(--mono);font-size:.75rem;}
+    .td-right{text-align:right;}
+    .toolbar{display:flex;gap:.5rem;flex-wrap:wrap;}
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-navy:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:var(--mono);padding:.4rem .85rem;cursor:pointer;}
+    .btn-outline:hover{border-color:var(--navy);}
+    .btn-sm-action{font-family:var(--mono);font-size:.68rem;padding:.25rem .55rem;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+    .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .chk-row{cursor:pointer;}
+    .chk-row.disabled-row{opacity:.4;}
+    .akses-blocked{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
+    .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
+    .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
+    .akses-blocked p{font-size:.82rem;color:var(--muted);max-width:320px;}
+    .alert-box{font-size:.78rem;padding:.55rem .8rem;border-radius:6px;margin-bottom:.7rem;display:none;}
+    .alert-box.show{display:block;}
+    .alert-danger-sm{background:var(--red-bg,#fdecea);color:var(--red);border:1px solid #f3b3ba;}
+    .settle-bar{position:sticky;bottom:0;background:var(--surface);border-top:2px solid var(--orange);padding:.7rem 1rem;display:none;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;border-radius:8px 8px 0 0;box-shadow:0 -4px 12px rgba(26,39,68,.08);}
+    .settle-bar.show{display:flex;}
+    .settle-bar .info{font-family:var(--mono);font-size:.78rem;color:var(--navy);}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+
+<div id="kontenAntarEntitas" style="display:none">
+
+  <div id="saldoBanner" class="saldo-banner impas">
+    <div class="arah">Saldo Antar-Entitas</div>
+    <div class="nominal">Memuat…</div>
+    <div class="ket"></div>
+  </div>
+
+  <div class="rekap-grid" id="rekapCards">
+    <div class="rekap-card"><div class="lbl">Total DK Menalangi PT</div><div class="val">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total PT Menalangi DK</div><div class="val">…</div></div>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="outstanding" onclick="gantiTab('outstanding')">⏳ Outstanding</button>
+    <button class="tab-btn" data-tab="riwayat" onclick="gantiTab('riwayat')">📋 Riwayat Settled</button>
+    <button class="tab-btn" data-tab="manual" onclick="gantiTab('manual')">➕ Catat Manual</button>
+  </div>
+
+  <!-- TAB: OUTSTANDING (bisa dipilih utk settle) -->
+  <div class="tab-pane active" id="tabOutstanding">
+    <div id="alertOutstanding" class="alert-box alert-danger-sm"></div>
+    <p style="font-size:.75rem;color:var(--muted);margin-bottom:.6rem;">
+      Centang baris yang sudah benar-benar lunas (mis. DK sudah transfer balik ke PT), lalu tekan Settle di bawah.
+      Bisa pilih baris dari kedua arah sekaligus untuk net-off.
+    </p>
+    <table>
+      <thead><tr>
+        <th style="width:2rem"></th>
+        <th>Tanggal</th><th>Arah</th><th>Jenis</th><th class="td-right">Nominal</th><th>Keterangan</th>
+      </tr></thead>
+      <tbody id="outTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- TAB: RIWAYAT SETTLED -->
+  <div class="tab-pane" id="tabRiwayat">
+    <table>
+      <thead><tr>
+        <th>Tanggal</th><th>Arah</th><th>Jenis</th><th class="td-right">Nominal</th><th>Keterangan</th><th>Batch Settle</th>
+      </tr></thead>
+      <tbody id="riwTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- TAB: CATAT MANUAL -->
+  <div class="tab-pane" id="tabManual">
+    <div id="alertManual" class="alert-box alert-danger-sm"></div>
+    <p style="font-size:.75rem;color:var(--muted);margin-bottom:.8rem;">
+      Dipakai untuk kasus di luar Piutang/Pembelian (mis. titip beli, talangan operasional langsung).
+      Untuk kasus pembayaran piutang/hutang lintas entitas, gunakan field "Entitas Penerima/Pembayar"
+      di modul Piutang / Pembelian masing-masing — ini akan otomatis tercatat di sini.
+    </p>
+    <div class="form-grid" style="display:grid;gap:.6rem;max-width:420px">
+      <div>
+        <label style="font-size:.75rem;color:var(--muted)">Entitas yang Menalangi (keluar uang)</label>
+        <select id="mnEntitasMenalangi" class="form-select">
+          <option value="DK">DK Offset</option>
+          <option value="PT">PT Elim Citra Offset</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted)">Entitas yang Ditalangi (berhutang)</label>
+        <select id="mnEntitasDitalangi" class="form-select">
+          <option value="PT">PT Elim Citra Offset</option>
+          <option value="DK">DK Offset</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted)">Nominal</label>
+        <input type="number" id="mnNominal" class="form-control" placeholder="0"/>
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted)">Keterangan</label>
+        <input type="text" id="mnKeterangan" class="form-control" placeholder="mis. Titip beli sparepart"/>
+      </div>
+      <div>
+        <button class="btn-navy" onclick="simpanManual()" id="btnSimpanManual">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="settle-bar" id="settleBar">
+    <div class="info"><span id="settleCount">0</span> baris dipilih · Total <span id="settleTotal">Rp 0</span></div>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <input type="text" id="settleKet" placeholder="Keterangan settle (opsional)" style="font-size:.78rem;padding:.35rem .6rem;border-radius:6px;border:1px solid var(--border)"/>
+      <button class="btn-navy" onclick="prosesSettle()" id="btnSettle">Settle Sekarang</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="kontenAksesDitolak" style="display:none">
+  <div class="akses-blocked">
+    <div class="ic">🔒</div>
+    <h3>Akses Dibatasi</h3>
+    <p>Modul Antar-Entitas hanya bisa diakses oleh user yang diberi izin khusus oleh Direktur. Hubungi Direktur kalau Anda memerlukan akses ini.</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+function fmtRupiah(n){return formatRupiah(n);}
+function fmtTgl(s){return formatTanggal(s);}
+function esc(s){return escHtml(s);}
+function cekErrorSupabase(res){
+  if(!res) return 'Tidak ada respons dari server.';
+  if(res.code) return res.message||('Error: '+res.code);
+  if(res.status==='error') return res.message||'Terjadi kesalahan.';
+  return null;
+}
+
+var dataOutstanding = [];
+var selectedIds = {};
+
+window.addEventListener('load', async function () {
+  if (!guardHalaman()) return;
+  initNav('antar_entitas');
+
+  var boleh = await punyaAksesModul('antar_entitas');
+  if (!boleh) {
+    document.getElementById('kontenAksesDitolak').style.display='block';
+    return;
+  }
+  document.getElementById('kontenAntarEntitas').style.display='block';
+  muatSemuaData();
+});
+
+function gantiTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+}
+
+function muatSemuaData(){
+  muatSaldo();
+  muatOutstanding();
+  muatRiwayatSettled();
+}
+
+// ============================================================
+// SALDO
+// ============================================================
+function muatSaldo(){
+  dbRpc('get_saldo_antar_entitas',{}).then(function(res){
+    var errMsg=cekErrorSupabase(res);
+    var arr = Array.isArray(res)?res:(errMsg?null:[res]);
+    if(!arr || !arr.length){ return; }
+    var d = arr[0];
+    var banner = document.getElementById('saldoBanner');
+    var nominalEl = banner.querySelector('.nominal');
+    var arahEl = banner.querySelector('.arah');
+    var ketEl = banner.querySelector('.ket');
+
+    if(d.arah==='DK_MENALANGI_PT'){
+      banner.className='saldo-banner dk';
+      arahEl.textContent='DK Menalangi PT (Net)';
+      nominalEl.textContent=fmtRupiah(d.saldo_net);
+      ketEl.textContent='PT berhutang ke DK sejumlah ini — perlu disetor balik ke rekening DK.';
+    } else if(d.arah==='PT_MENALANGI_DK'){
+      banner.className='saldo-banner pt';
+      arahEl.textContent='PT Menalangi DK (Net)';
+      nominalEl.textContent=fmtRupiah(Math.abs(d.saldo_net));
+      ketEl.textContent='DK berhutang ke PT sejumlah ini — perlu disetor balik ke rekening PT.';
+    } else {
+      banner.className='saldo-banner impas';
+      arahEl.textContent='Status';
+      nominalEl.textContent='IMPAS';
+      ketEl.textContent='Tidak ada saldo outstanding antar entitas saat ini.';
+    }
+
+    var cards = document.getElementById('rekapCards').querySelectorAll('.rekap-card .val');
+    cards[0].textContent = fmtRupiah(d.total_dk_menalangi_pt);
+    cards[1].textContent = fmtRupiah(d.total_pt_menalangi_dk);
+  });
+}
+
+// ============================================================
+// OUTSTANDING (selectable utk settle)
+// ============================================================
+function muatOutstanding(){
+  dbRpc('get_mutasi_antar_entitas',{p_status:'OUTSTANDING',p_tgl_mulai:null,p_tgl_akhir:null}).then(function(res){
+    var errMsg=cekErrorSupabase(res);
+    var arr = Array.isArray(res)?res:[];
+    dataOutstanding = arr;
+    selectedIds = {};
+    renderOutstanding();
+    updateSettleBar();
+    if(errMsg){ document.getElementById('outTbody').innerHTML='<tr><td colspan="6" class="loading">Gagal memuat: '+esc(errMsg)+'</td></tr>'; }
+  });
+}
+
+function renderOutstanding(){
+  var tbody = document.getElementById('outTbody');
+  if(!dataOutstanding.length){
+    tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada mutasi outstanding.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = dataOutstanding.map(function(r){
+    var arahLbl = r.entitas_menalangi==='DK' ? 'DK → PT' : 'PT → DK';
+    var arahCls = r.entitas_menalangi==='DK' ? 'arah-dk-pt' : 'arah-pt-dk';
+    var checked = selectedIds[r.id_mutasi] ? 'checked' : '';
+    return '<tr class="chk-row" onclick="toggleSelect(\''+r.id_mutasi+'\')">'+
+      '<td><input type="checkbox" '+checked+' onclick="event.stopPropagation();toggleSelect(\''+r.id_mutasi+'\')"/></td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+      '<td><span class="badge-arah '+arahCls+'">'+arahLbl+'</span></td>'+
+      '<td class="td-mono" style="font-size:.68rem">'+esc(r.jenis_ref)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
+      '<td style="font-size:.75rem">'+esc(r.keterangan||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function toggleSelect(id){
+  if(selectedIds[id]) delete selectedIds[id];
+  else selectedIds[id] = true;
+  renderOutstanding();
+  updateSettleBar();
+}
+
+function updateSettleBar(){
+  var ids = Object.keys(selectedIds);
+  var bar = document.getElementById('settleBar');
+  if(!ids.length){ bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  var total = dataOutstanding.filter(function(r){return selectedIds[r.id_mutasi];})
+    .reduce(function(s,r){return s+Number(r.nominal);},0);
+  document.getElementById('settleCount').textContent = ids.length;
+  document.getElementById('settleTotal').textContent = fmtRupiah(total);
+}
+
+async function prosesSettle(){
+  var ids = Object.keys(selectedIds);
+  if(!ids.length) return;
+  var ket = document.getElementById('settleKet').value.trim();
+  if(!confirm('Settle '+ids.length+' mutasi terpilih? Tindakan ini tidak menghapus data, hanya menandai lunas.')) return;
+
+  var btn = document.getElementById('btnSettle');
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Memproses…';
+
+  try{
+    var idSettle = 'STL'+Date.now();
+    var res = await dbRpc('settle_antar_entitas',{
+      p_id_mutasi_list: ids,
+      p_id_settle: idSettle,
+      p_keterangan: ket || null,
+      p_user_settle: getNamaUser()
+    });
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg) throw new Error(errMsg);
+
+    document.getElementById('settleKet').value='';
+    muatSemuaData();
+  } catch(e){
+    document.getElementById('alertOutstanding').textContent='Gagal settle: '+e.message;
+    document.getElementById('alertOutstanding').classList.add('show');
+  } finally {
+    btn.disabled=false; btn.innerHTML='Settle Sekarang';
+  }
+}
+
+// ============================================================
+// RIWAYAT SETTLED
+// ============================================================
+function muatRiwayatSettled(){
+  dbRpc('get_mutasi_antar_entitas',{p_status:'SETTLED',p_tgl_mulai:null,p_tgl_akhir:null}).then(function(res){
+    var arr = Array.isArray(res)?res:[];
+    var tbody = document.getElementById('riwTbody');
+    if(!arr.length){
+      tbody.innerHTML='<tr><td colspan="6" class="loading">Belum ada riwayat settled.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = arr.map(function(r){
+      var arahLbl = r.entitas_menalangi==='DK' ? 'DK → PT' : 'PT → DK';
+      var arahCls = r.entitas_menalangi==='DK' ? 'arah-dk-pt' : 'arah-pt-dk';
+      return '<tr>'+
+        '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+        '<td><span class="badge-arah '+arahCls+'">'+arahLbl+'</span></td>'+
+        '<td class="td-mono" style="font-size:.68rem">'+esc(r.jenis_ref)+'</td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
+        '<td style="font-size:.75rem">'+esc(r.keterangan||'—')+'</td>'+
+        '<td class="td-mono" style="font-size:.68rem">'+esc(r.id_settle||'—')+'</td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+// ============================================================
+// CATAT MANUAL
+// ============================================================
+async function simpanManual(){
+  var menalangi = document.getElementById('mnEntitasMenalangi').value;
+  var ditalangi = document.getElementById('mnEntitasDitalangi').value;
+  var nominal = Number(document.getElementById('mnNominal').value);
+  var ket = document.getElementById('mnKeterangan').value.trim();
+  var alertEl = document.getElementById('alertManual');
+  alertEl.classList.remove('show');
+
+  if(menalangi === ditalangi){
+    alertEl.textContent='Entitas menalangi dan ditalangi tidak boleh sama.';
+    alertEl.classList.add('show');
+    return;
+  }
+  if(!nominal || nominal<=0){
+    alertEl.textContent='Nominal harus diisi dan lebih dari 0.';
+    alertEl.classList.add('show');
+    return;
+  }
+
+  var btn = document.getElementById('btnSimpanManual');
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+
+  try{
+    var idMutasi = 'MAE'+Date.now();
+    var res = await dbRpc('catat_mutasi_antar_entitas',{
+      p_id_mutasi: idMutasi,
+      p_entitas_menalangi: menalangi,
+      p_entitas_ditalangi: ditalangi,
+      p_nominal: nominal,
+      p_jenis_ref: 'LAINNYA',
+      p_id_ref: null,
+      p_keterangan: ket || null,
+      p_user_input: getNamaUser()
+    });
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg) throw new Error(errMsg);
+
+    document.getElementById('mnNominal').value='';
+    document.getElementById('mnKeterangan').value='';
+    muatSemuaData();
+    gantiTab('outstanding');
+  } catch(e){
+    alertEl.textContent='Gagal menyimpan: '+e.message;
+    alertEl.classList.add('show');
+  } finally {
+    btn.disabled=false; btn.innerHTML='Simpan';
+  }
+}
+</script>
+</body>
+</html>
