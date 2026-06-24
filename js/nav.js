@@ -54,7 +54,7 @@ const NAV_MENU = [
       { key: 'piutang',       label: 'Piutang & Faktur', icon: '🧾', href: 'pages/piutang.html' },
       { key: 'kas_kecil',     label: 'Kas Kecil',         icon: '💵', href: 'pages/kaskecil.html' },
       { key: 'antar_entitas', label: 'Antar-Entitas',     icon: '🔁', href: 'pages/antar_entitas.html' },
-      { key: 'bank',          label: 'Bank',              icon: '🏦', href: '#', soon: true },
+      { key: 'bank',          label: 'Bank',              icon: '🏦', href: 'pages/bank.html'},
       { key: 'pembelian', label: 'Pembelian',         icon: '🛒', href: 'pages/pembelian.html' },
       { key: 'laporan',   label: 'Laporan',           icon: '📈', href: '#', soon: true },
     ]
