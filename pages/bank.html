@@ -788,11 +788,11 @@ async function muatPosting(reset) {
     html += '<tr data-rid="' + r.id + '">' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
-      '<td class="td-desc" onclick="toggleDetail(this,'' + r.id + '')">' + h(r.keterangan_bank) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
       '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
       '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
       '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
-      '<td><button class="btn-sm-action btn-approve" onclick="bukaPosting('' + r.id + '')">Post</button></td>' +
+      '<td><button class="btn-sm-action btn-approve" onclick="bukaPosting(\'' + r.id + '\')">Post</button></td>' +
       '</tr>';
   });
   if (reset && rows.length === 0)
