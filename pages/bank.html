@@ -726,7 +726,9 @@ async function simpanKeterangan() {
   btn.disabled = true; btn.textContent = 'Menyimpan…';
   var res = await dbUpdate('in_bank_statement', {id:'eq.'+selectedId}, {keterangan_manual: ket});
   btn.disabled = false; btn.textContent = 'Simpan';
-  var err = cekErrorSupabase(Array.isArray(res) ? null : res);
+  // null = sukses (PATCH PostgREST return empty body)
+  var err = (res !== null && res !== undefined && !Array.isArray(res) && res && (res.code || res.status === 'error'))
+    ? (res.message || res.code || 'Error tidak diketahui') : null;
   if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
   // Update rowStore
   if (rowStore[selectedId]) rowStore[selectedId].keterangan_manual = ket;
@@ -1110,11 +1112,11 @@ async function doImport() {
     }
     if (insertErr) { errors.push(sec.id_rekening + ': ' + insertErr); continue; }
 
-    // Update sequence — tangkap error
+    // Update sequence — null = sukses (PATCH PostgREST return empty body)
     var seqUpd = await dbUpdate('in_bank_stmt_seq', {id_rekening: 'eq.' + sec.id_rekening}, {last_seq: seq});
-    var seqErr = cekErrorSupabase(Array.isArray(seqUpd) ? null : seqUpd);
-    if (seqErr) {
-      errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence (' + seqErr + '). Catat last_seq=' + seq + ' dan update manual.');
+    if (seqUpd !== null && seqUpd !== undefined && !Array.isArray(seqUpd) && seqUpd && (seqUpd.code || seqUpd.status === 'error')) {
+      var seqErrMsg = seqUpd.message || seqUpd.code || 'Error tidak diketahui';
+      errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence (' + seqErrMsg + '). Catat last_seq=' + seq + ' dan update manual.');
     }
     totalInserted += rows.length;
   }
