@@ -964,9 +964,19 @@ async function handleCsvText(text) {
       continue;
     }
 
-    // Get last seq
-    var seqRes = await dbGet('in_bank_stmt_seq', {id_rekening: 'eq.' + sec.id_rekening, select: 'last_seq'});
-    var lastSeq = (Array.isArray(seqRes) && seqRes[0]) ? seqRes[0].last_seq : 0;
+    // Get last seq dari MAX(id) aktual di in_bank_statement (lebih reliable dari in_bank_stmt_seq)
+    var maxIdRes = await dbGet('in_bank_statement', {
+      id_rekening: 'eq.' + sec.id_rekening,
+      select: 'id',
+      order: 'id.desc',
+      limit: 1
+    });
+    var lastSeq = 0;
+    if (Array.isArray(maxIdRes) && maxIdRes[0]) {
+      // Extract angka dari ID, e.g. 'BPT01474' → 1474, 'BDK02749' → 2749
+      var maxId = maxIdRes[0].id;
+      lastSeq = parseInt(maxId.replace(/[^0-9]/g, ''), 10) || 0;
+    }
 
     // Get last tgl in bank statement
     var tglRes = await dbGet('in_bank_statement', {
