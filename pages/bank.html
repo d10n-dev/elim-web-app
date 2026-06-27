@@ -187,13 +187,13 @@
         <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
       </select>
       <button class="btn-outline" style="font-size:.75rem" onclick="centangSaranSemua()">✓ Centang Saran</button>
-      <button class="btn-navy" style="font-size:.75rem" id="psBatchBtn" onclick="bukaBatchPost()">Post Terpilih (0)</button>
+      <button class="btn-navy" style="font-size:.75rem" id="psBatchBtn" disabled onclick="bukaBatchPost()">Post Terpilih (0)</button>
     </div>
     <div class="info-bar" id="psInfo">Memuat…</div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th style="width:32px"><input type="checkbox" id="psCbAll" class="ps-cb" onchange="toggleCbAll(this)"/></th>
+          <th style="width:32px"><input type="checkbox" id="psCbAll" class="ps-cb" onclick="toggleCbAll(this)"/></th>
           <th>Tgl</th><th>Rek</th><th>Deskripsi</th>
           <th class="td-right">Masuk</th><th class="td-right">Keluar</th>
           <th class="td-right">Saldo</th><th>Saran Kat</th>
@@ -769,7 +769,7 @@ function renderPosting() {
     var rowCls = psChecked.has(r.id) ? ' class="row-checked"' : '';
     var saranHtml = saranKat ? '<span class="saran-kat">' + h(saranKat) + '</span>' : '<span style="color:var(--muted);font-family:var(--mono);font-size:.65rem">—</span>';
     html += '<tr data-rid="' + r.id + '"' + rowCls + '>' +
-      '<td style="text-align:center"><input type="checkbox" class="ps-cb" data-id="' + r.id + '" ' + cbChecked + ' onchange="toggleCbRow(this)"/></td>' +
+      '<td style="text-align:center"><input type="checkbox" class="ps-cb" data-id="' + r.id + '" ' + cbChecked + ' onclick="toggleCbRow(this)"/></td>' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
       '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap detail">' + h(r.keterangan_bank) + '</td>' +
@@ -786,10 +786,12 @@ function renderPosting() {
 
 function toggleCbRow(cb) {
   var id = cb.dataset.id;
-  if (cb.checked) psChecked.add(id);
+  // onclick fires before checked state changes on some Android browsers
+  var isChecked = cb.checked;
+  if (isChecked) psChecked.add(id);
   else psChecked.delete(id);
   var tr = cb.closest('tr');
-  tr.classList.toggle('row-checked', cb.checked);
+  tr.classList.toggle('row-checked', isChecked);
   updateBatchBtn();
 }
 
