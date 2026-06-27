@@ -56,7 +56,7 @@
     .df-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
     .df-val{font-family:var(--mono);font-size:.75rem;color:var(--navy);margin-top:.15rem;word-break:break-word;white-space:pre-wrap;}
     .df-val.big{font-family:var(--sans);font-size:.82rem;color:var(--text);font-weight:500;white-space:normal;}
-    .td-desc{cursor:pointer;font-size:.73rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--navy);}
+    .td-desc{cursor:pointer;font-size:.73rem;max-width:280px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;color:var(--navy);line-height:1.35;white-space:normal;}
     .td-desc:hover{text-decoration:underline;}
     .td-desc.open{color:var(--orange);font-weight:600;}
     /* Posting tab checkbox + toolbar */
@@ -623,17 +623,12 @@ var openDetailId = null;
 
 function toggleDetail(tdEl, rowId) {
   var tr = tdEl.closest('tr');
-  // Tutup yang terbuka
-  if (openDetailId) {
-    var prevTr = document.querySelector('tr[data-rid="' + openDetailId + '"]');
-    if (prevTr) {
-      var prevNext = prevTr.nextElementSibling;
-      if (prevNext && prevNext.classList.contains('row-detail')) prevNext.remove();
-      var prevTd = prevTr.querySelector('.td-desc');
-      if (prevTd) prevTd.classList.remove('open');
-    }
-    if (openDetailId === rowId) { openDetailId = null; return; }
-  }
+  // Hapus semua detail row yang ada (handle kasus innerHTML re-render)
+  document.querySelectorAll('.row-detail').forEach(function(el){ el.remove(); });
+  document.querySelectorAll('.td-desc.open').forEach(function(el){ el.classList.remove('open'); });
+
+  // Kalau klik baris yang sama → tutup saja
+  if (openDetailId === rowId) { openDetailId = null; return; }
   openDetailId = rowId;
   tdEl.classList.add('open');
 
