@@ -786,9 +786,10 @@ function renderPosting() {
 
 function toggleCbRow(cb) {
   var id = cb.dataset.id;
-  // onclick fires before checked state changes on some Android browsers
   var isChecked = cb.checked;
+  alert('toggleCbRow: id=' + id + ' checked=' + isChecked);
   if (isChecked) psChecked.add(id);
+  else psChecked.delete(id);
   else psChecked.delete(id);
   var tr = cb.closest('tr');
   tr.classList.toggle('row-checked', isChecked);
@@ -831,6 +832,7 @@ function updateBatchBtn() {
 }
 
 function bukaBatchPost() {
+  alert('bukaBatchPost dipanggil, psChecked.size=' + psChecked.size);
   if (psChecked.size === 0) return;
   var kat = document.getElementById('psBatchKat').value;
   document.getElementById('bpInfo').textContent = psChecked.size + ' transaksi dipilih';
