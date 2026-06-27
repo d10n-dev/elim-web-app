@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="../css/sieo.css" rel="stylesheet"/>
   <style>
-    .rekap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;padding:.85rem 1.1rem .4rem;}
+    .rekap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;padding:.85rem 1.1rem .4rem;}
     .rekap-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;}
     .rekap-card .lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
     .rekap-card .val{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--navy);margin-top:.2rem;}
@@ -17,7 +17,7 @@
     .rekap-card.clickable{cursor:pointer;}
     .rekap-card.clickable:hover{border-color:var(--navy);}
     .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);padding:0 1.1rem;margin-bottom:.85rem;}
-    .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+    .tab-btn{font-family:var(--mono);font-size:.72rem;font-weight:600;padding:.5rem .85rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
     .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
     .tab-pane{display:none;}
     .tab-pane.active{display:block;}
@@ -49,17 +49,21 @@
     .btn-edit{color:var(--navy);border-color:#a4c0f9;}
     .btn-approve{color:var(--green);border-color:var(--green-bd);}
     .btn-alokasi{color:#856404;border-color:#ffe083;}
-    /* Accordion row detail */
+    .btn-post{color:var(--orange);border-color:#f5c98a;}
     .row-detail td{background:#f4f7fc;padding:.75rem 1.1rem;border-top:none;}
     .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.5rem .85rem;}
     .detail-grid .full{grid-column:1/-1;}
     .df-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
     .df-val{font-family:var(--mono);font-size:.75rem;color:var(--navy);margin-top:.15rem;word-break:break-word;white-space:pre-wrap;}
     .df-val.big{font-family:var(--sans);font-size:.82rem;color:var(--text);font-weight:500;white-space:normal;}
-    /* Clickable desc cell */
     .td-desc{cursor:pointer;font-size:.73rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--navy);}
     .td-desc:hover{text-decoration:underline;}
     .td-desc.open{color:var(--orange);font-weight:600;}
+    /* Posting tab checkbox + toolbar */
+    .posting-toolbar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;padding:.6rem 1.1rem;background:var(--surface);border-bottom:1px solid var(--border);}
+    .ps-cb{width:16px;height:16px;cursor:pointer;accent-color:var(--navy);}
+    .saran-kat{font-family:var(--mono);font-size:.6rem;padding:.12rem .4rem;border-radius:3px;background:#e8f0fe;color:#1a56db;white-space:nowrap;}
+    .row-checked{background:#f0f6ff !important;}
     @keyframes spin{to{transform:rotate(360deg);}}
   </style>
 </head>
@@ -70,13 +74,21 @@
 
   <!-- REKAP CARDS -->
   <div class="rekap-grid">
-    <div class="rekap-card">
+    <div class="rekap-card green">
       <div class="lbl">Saldo BCA DK</div>
-      <div class="val green" id="rSaldoDK">…</div>
+      <div class="val" id="rSaldoDK">…</div>
     </div>
-    <div class="rekap-card">
+    <div class="rekap-card green">
       <div class="lbl">Saldo BCA PT</div>
-      <div class="val green" id="rSaldoPT">…</div>
+      <div class="val" id="rSaldoPT">…</div>
+    </div>
+    <div class="rekap-card clickable" onclick="gantiTab('posting')">
+      <div class="lbl">Belum Dipost</div>
+      <div class="val" id="rUnposted">…</div>
+    </div>
+    <div class="rekap-card clickable" onclick="gantiTab('alokdir')">
+      <div class="lbl">Alokasi Direktur</div>
+      <div class="val" id="rAlokDir">…</div>
     </div>
     <div class="rekap-card clickable" onclick="gantiTab('belum')">
       <div class="lbl">Belum Dialokasi</div>
@@ -88,21 +100,24 @@
     </div>
   </div>
 
-
   <!-- Import CSV BCA — Direktur only -->
   <div id="importBtnWrap" style="display:none;text-align:right;padding:.3rem 1.1rem .1rem">
     <button class="btn-navy" onclick="bukaImportCsv()" style="font-size:.75rem;padding:.35rem .8rem">⬆ Import CSV BCA</button>
   </div>
+
   <!-- TAB NAV -->
   <div class="tab-nav">
-    <button class="tab-btn active" data-tab="koran"   onclick="gantiTab('koran')">📋 Rek. Koran</button>
+    <button class="tab-btn active" data-tab="koran"   onclick="gantiTab('koran')">📋 Rek.Koran</button>
     <button class="tab-btn"        data-tab="posting" onclick="gantiTab('posting')">📤 Posting</button>
+    <button class="tab-btn"        data-tab="alokdir" onclick="gantiTab('alokdir')">🎯 Alokasi Dir</button>
     <button class="tab-btn"        data-tab="belum"   onclick="gantiTab('belum')">📥 Belum Dialokasi</button>
     <button class="tab-btn"        data-tab="approve" onclick="gantiTab('approve')">⏳ Perlu Approve</button>
     <button class="tab-btn"        data-tab="done"    onclick="gantiTab('done')">✅ Teralokasi</button>
   </div>
 
-  <!-- TAB: REKENING KORAN -->
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 1: REKENING KORAN
+  ═══════════════════════════════════════════════════════════ -->
   <div class="tab-pane active" id="tabKoran">
     <div class="toolbar">
       <select id="krRekening" onchange="muatKoran(true)">
@@ -118,9 +133,15 @@
         <option value="CR">↑ Masuk</option>
         <option value="DB">↓ Keluar</option>
       </select>
+      <select id="krStatus" onchange="muatKoran(true)">
+        <option value="">Semua Status</option>
+        <option value="UNPOSTED">Unposted</option>
+        <option value="POSTED">Posted</option>
+        <option value="SELESAI">Selesai</option>
+      </select>
     </div>
     <div class="toolbar" style="margin-top:.4rem">
-      <input type="text" id="krCari" placeholder="🔍  Cari ID / deskripsi / keterangan…" oninput="muatKoranLazy()" style="flex:1;min-width:220px;font-size:.8rem"/>
+      <input type="text" id="krCari" placeholder="🔍  Cari ID / deskripsi…" oninput="muatKoranLazy()" style="flex:1;min-width:200px;font-size:.8rem"/>
       <button class="btn-outline" onclick="resetKoran()">Reset</button>
     </div>
     <div class="info-bar" id="krInfo">Memuat…</div>
@@ -130,7 +151,7 @@
           <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
           <th class="td-right">Masuk</th><th class="td-right">Keluar</th>
           <th class="td-right">Saldo</th>
-          <th>Status</th><th>Keterangan Alokasi</th><th></th>
+          <th>Alokasi</th><th>Keterangan</th><th></th>
         </tr></thead>
         <tbody id="krTbody"><tr><td colspan="10" class="loading">Memuat…</td></tr></tbody>
       </table>
@@ -138,63 +159,121 @@
     <button class="load-more" id="krMore" style="display:none" onclick="muatKoran(false)">Muat 100 lagi…</button>
   </div>
 
-
-  <!-- TAB: POSTING (UNPOSTED) -->
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 2: POSTING
+  ═══════════════════════════════════════════════════════════ -->
   <div class="tab-pane" id="tabPosting">
-    <div class="toolbar">
-      <select id="psRekening" onchange="muatPosting()">
+    <!-- Toolbar batch -->
+    <div class="posting-toolbar">
+      <select id="psRekening" onchange="muatPosting(true)" style="font-size:.78rem;font-family:var(--mono)">
         <option value="">Semua Rekening</option>
         <option value="BCA_DK">BCA DK</option>
         <option value="BCA_PT">BCA PT</option>
       </select>
+      <select id="psBatchKat" style="font-size:.78rem;font-family:var(--mono);min-width:160px">
+        <option value="">— Pilih Kategori Batch —</option>
+        <option value="PIUTANG">PIUTANG</option>
+        <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
+        <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+        <option value="GAJI">GAJI</option>
+        <option value="KAS_KECIL">KAS_KECIL</option>
+        <option value="PAJAK">PAJAK</option>
+        <option value="PRIVE">PRIVE</option>
+        <option value="OPERASIONAL">OPERASIONAL</option>
+        <option value="ANTAR_REKENING">ANTAR_REKENING</option>
+        <option value="BIAYA_BANK">BIAYA_BANK</option>
+        <option value="MODAL_MASUK">MODAL_MASUK</option>
+        <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
+        <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
+      </select>
+      <button class="btn-outline" style="font-size:.75rem" onclick="centangSaranSemua()">✓ Centang Saran</button>
+      <button class="btn-navy" style="font-size:.75rem" id="psBatchBtn" onclick="bukaBatchPost()">Post Terpilih (0)</button>
     </div>
     <div class="info-bar" id="psInfo">Memuat…</div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
+          <th style="width:32px"><input type="checkbox" id="psCbAll" class="ps-cb" onchange="toggleCbAll(this)"/></th>
           <th>Tgl</th><th>Rek</th><th>Deskripsi</th>
           <th class="td-right">Masuk</th><th class="td-right">Keluar</th>
-          <th class="td-right">Saldo</th><th></th>
+          <th class="td-right">Saldo</th><th>Saran Kat</th>
         </tr></thead>
-        <tbody id="psTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+        <tbody id="psTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
     <button class="load-more" id="psMore" style="display:none" onclick="muatPosting(false)">Muat 100 lagi…</button>
   </div>
 
-  <!-- TAB: BELUM DIALOKASI -->
-  <div class="tab-pane" id="tabBelum">
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 3: ALOKASI DIREKTUR
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tabAlokdir">
     <div class="toolbar">
-      <select id="blRekening" onchange="muatBelum(true)">
+      <select id="adRekening" onchange="muatAlokDir()" style="font-family:var(--mono);font-size:.78rem">
         <option value="">Semua Rekening</option>
         <option value="BCA_DK">BCA DK</option>
         <option value="BCA_PT">BCA PT</option>
       </select>
-      <select id="blJenis" onchange="muatBelum(true)">
-        <option value="">Semua</option>
-        <option value="CR">↑ Masuk</option>
-        <option value="DB">↓ Keluar</option>
+      <select id="adKategori" onchange="muatAlokDir()" style="font-family:var(--mono);font-size:.78rem;min-width:140px">
+        <option value="">Semua Kategori</option>
+        <option value="GAJI">GAJI</option>
+        <option value="KAS_KECIL">KAS_KECIL</option>
+        <option value="PAJAK">PAJAK</option>
+        <option value="PRIVE">PRIVE</option>
+        <option value="OPERASIONAL">OPERASIONAL</option>
+        <option value="ANTAR_REKENING">ANTAR_REKENING</option>
+        <option value="MODAL_MASUK">MODAL_MASUK</option>
+        <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
+        <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
       </select>
-      <input type="text" id="blCari" placeholder="🔍  Cari…" oninput="muatBelumLazy()" style="flex:1;min-width:160px;font-size:.8rem"/>
+    </div>
+    <div class="info-bar" id="adInfo">Memuat…</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
+          <th class="td-right">Masuk</th><th class="td-right">Keluar</th><th></th>
+        </tr></thead>
+        <tbody id="adTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 4: BELUM DIALOKASI (Admin)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tabBelum">
+    <div class="toolbar">
+      <select id="blRekening" onchange="muatBelum()" style="font-family:var(--mono);font-size:.78rem">
+        <option value="">Semua Rekening</option>
+        <option value="BCA_DK">BCA DK</option>
+        <option value="BCA_PT">BCA PT</option>
+      </select>
+      <select id="blKategori" onchange="muatBelum()" style="font-family:var(--mono);font-size:.78rem">
+        <option value="">Semua</option>
+        <option value="PIUTANG">PIUTANG</option>
+        <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
+        <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+      </select>
     </div>
     <div class="info-bar" id="blInfo">Memuat…</div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
           <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
-          <th class="td-right">Masuk</th><th class="td-right">Keluar</th>
-          <th class="td-right">Saldo</th><th></th>
+          <th class="td-right">Nominal</th><th class="td-right">Sisa</th><th></th>
         </tr></thead>
-        <tbody id="blTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
+        <tbody id="blTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
-    <button class="load-more" id="blMore" style="display:none" onclick="muatBelum(false)">Muat 100 lagi…</button>
   </div>
 
-  <!-- TAB: PERLU APPROVE -->
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 5: PERLU APPROVE
+  ═══════════════════════════════════════════════════════════ -->
   <div class="tab-pane" id="tabApprove">
     <div class="toolbar">
-      <select id="apRekening" onchange="muatApprove()">
+      <select id="apRekening" onchange="muatApprove()" style="font-family:var(--mono);font-size:.78rem">
         <option value="">Semua Rekening</option>
         <option value="BCA_DK">BCA DK</option>
         <option value="BCA_PT">BCA PT</option>
@@ -204,19 +283,20 @@
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Tgl</th><th>Rek</th><th>Deskripsi</th>
-          <th class="td-right">Nominal</th>
-          <th>Status</th><th>Dialokasi oleh</th><th></th>
+          <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
+          <th class="td-right">Nominal</th><th>Status</th><th>Oleh</th><th></th>
         </tr></thead>
-        <tbody id="apTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+        <tbody id="apTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- TAB: TERALOKASI -->
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 6: TERALOKASI
+  ═══════════════════════════════════════════════════════════ -->
   <div class="tab-pane" id="tabDone">
     <div class="toolbar">
-      <select id="dnRekening" onchange="muatDone(true)">
+      <select id="dnRekening" onchange="muatDone(true)" style="font-family:var(--mono);font-size:.78rem">
         <option value="">Semua Rekening</option>
         <option value="BCA_DK">BCA DK</option>
         <option value="BCA_PT">BCA PT</option>
@@ -224,7 +304,23 @@
       <input type="date" id="dnMulai" onchange="muatDone(true)" style="max-width:140px"/>
       <span style="align-self:center;font-family:var(--mono);font-size:.7rem;color:var(--muted)">s/d</span>
       <input type="date" id="dnAkhir" onchange="muatDone(true)" style="max-width:140px"/>
-      <input type="text" id="dnCari" placeholder="🔍  Cari ID / deskripsi / keterangan…" oninput="muatDoneLazy()" style="flex:1;min-width:180px;font-size:.8rem"/>
+      <select id="dnKategori" onchange="muatDone(true)" style="font-family:var(--mono);font-size:.78rem">
+        <option value="">Semua Kategori</option>
+        <option value="PIUTANG">PIUTANG</option>
+        <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
+        <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+        <option value="GAJI">GAJI</option>
+        <option value="KAS_KECIL">KAS_KECIL</option>
+        <option value="PAJAK">PAJAK</option>
+        <option value="PRIVE">PRIVE</option>
+        <option value="OPERASIONAL">OPERASIONAL</option>
+        <option value="ANTAR_REKENING">ANTAR_REKENING</option>
+        <option value="BIAYA_BANK">BIAYA_BANK</option>
+        <option value="MODAL_MASUK">MODAL_MASUK</option>
+        <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
+        <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
+      </select>
+      <input type="text" id="dnCari" placeholder="🔍 Cari…" oninput="muatDoneLazy()" style="flex:1;min-width:160px;font-size:.8rem"/>
     </div>
     <div class="info-bar" id="dnInfo">Memuat…</div>
     <div class="tbl-wrap">
@@ -232,7 +328,7 @@
         <thead><tr>
           <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
           <th class="td-right">Masuk</th><th class="td-right">Keluar</th>
-          <th>Keterangan Alokasi</th><th></th>
+          <th>Keterangan</th><th></th>
         </tr></thead>
         <tbody id="dnTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
       </table>
@@ -240,21 +336,124 @@
     <button class="load-more" id="dnMore" style="display:none" onclick="muatDone(false)">Muat 100 lagi…</button>
   </div>
 
-</div><!-- #kontenBank -->
+</div><!-- /kontenBank -->
 
-<!-- MODAL: EDIT KETERANGAN -->
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: BATCH POST
+════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalBatchPost" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" style="font-family:var(--mono)">Post Transaksi</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="bpInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.85rem;color:var(--muted)"></div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Kategori</label>
+        <select id="bpKategori" class="form-select form-select-sm mt-1 mb-3" style="font-family:var(--mono)">
+          <option value="">— Pilih —</option>
+          <option value="PIUTANG">PIUTANG</option>
+          <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
+          <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+          <option value="GAJI">GAJI</option>
+          <option value="KAS_KECIL">KAS_KECIL</option>
+          <option value="PAJAK">PAJAK</option>
+          <option value="PRIVE">PRIVE</option>
+          <option value="OPERASIONAL">OPERASIONAL</option>
+          <option value="ANTAR_REKENING">ANTAR_REKENING</option>
+          <option value="BIAYA_BANK">BIAYA_BANK</option>
+          <option value="MODAL_MASUK">MODAL_MASUK</option>
+          <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
+          <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
+        </select>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Keterangan <span style="font-weight:400;color:var(--muted)">(opsional)</span></label>
+        <textarea id="bpKeterangan" class="form-control form-control-sm mt-1" rows="2" style="font-family:var(--mono);font-size:.78rem" placeholder="Keterangan tambahan…"></textarea>
+        <div id="bpErr" style="display:none;margin-top:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="bpSimpanBtn" onclick="simpanBatchPost()">Post</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: ALOKASI DIREKTUR
+════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalAlokDir" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" style="font-family:var(--mono)">Alokasi Direktur</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="adModalInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.85rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Keterangan <span style="color:var(--red)">*</span></label>
+        <textarea id="adKeterangan" class="form-control form-control-sm mt-1 mb-3" rows="3" style="font-family:var(--mono);font-size:.78rem" placeholder="Keterangan alokasi…"></textarea>
+        <!-- Khusus ANTAR_REKENING -->
+        <div id="adAntarWrap" style="display:none">
+          <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Link Mutasi Antar Entitas <span style="font-weight:400;color:var(--muted)">(opsional)</span></label>
+          <input type="text" id="adIdMutasi" class="form-control form-control-sm mt-1 mb-1" style="font-family:var(--mono);font-size:.78rem" placeholder="ID mutasi antar entitas…"/>
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Kosongkan jika tidak ada mutasi terkait</div>
+        </div>
+        <div id="adErr" style="display:none;margin-top:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="adSimpanBtn" onclick="simpanAlokDir()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: ALOKASI ADMIN (PIUTANG / HUTANG)
+════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalAlokAdmin" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" style="font-family:var(--mono)">Alokasi ke Dokumen</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="aaModalInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.85rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">ID Pembayaran <span style="color:var(--red)">*</span></label>
+        <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin:.2rem 0 .4rem">
+          Untuk PIUTANG: ID dari in_pembayaran. Untuk HUTANG: ID dari in_pembayaran_hutang.
+        </div>
+        <input type="text" id="aaIdPembayaran" class="form-control form-control-sm mb-3" style="font-family:var(--mono);font-size:.78rem" placeholder="PMB-... atau PH-..."/>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Nominal Alokasi <span style="color:var(--red)">*</span></label>
+        <input type="number" id="aaNominal" class="form-control form-control-sm mt-1 mb-1" style="font-family:var(--mono);font-size:.78rem" placeholder="0"/>
+        <div id="aaSisaInfo" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)"></div>
+        <div id="aaErr" style="display:none;margin-top:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="aaSimpanBtn" onclick="simpanAlokAdmin()">Alokasi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: EDIT KETERANGAN
+════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalEditKet" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h6 class="modal-title" style="font-family:var(--mono);font-size:.85rem">Edit Keterangan Alokasi</h6>
+        <h6 class="modal-title" style="font-family:var(--mono)">Edit Keterangan</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.75rem" id="ekInfo"></div>
-        <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);display:block;margin-bottom:.3rem">Keterangan Alokasi</label>
-        <textarea id="ekKet" class="form-control" rows="3" style="font-size:.82rem;font-family:var(--mono)"></textarea>
-        <div id="ekErr" style="font-family:var(--mono);font-size:.72rem;color:var(--red);margin-top:.5rem;display:none"></div>
+        <div id="ekInfo" style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.6rem"></div>
+        <textarea id="ekKet" class="form-control" rows="3" style="font-family:var(--mono);font-size:.82rem" placeholder="Keterangan alokasi…"></textarea>
+        <div id="ekErr" style="display:none;margin-top:.5rem;font-size:.78rem;color:var(--red)"></div>
       </div>
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
@@ -264,71 +463,29 @@
   </div>
 </div>
 
-
-
-<!-- MODAL: POST TRANSAKSI -->
-<div class="modal fade" id="modalPosting" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title" style="font-family:var(--mono);font-size:.85rem">📤 Post Transaksi</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div id="psInfoBaris" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
-        <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);display:block;margin-bottom:.3rem">Kategori</label>
-        <select id="psKategori" class="form-select mb-3" style="font-family:var(--mono);font-size:.82rem">
-          <option value="">— Pilih Kategori —</option>
-          <option value="PIUTANG">PIUTANG</option>
-          <option value="HUTANG">HUTANG / PEMBELIAN</option>
-          <option value="GAJI_KARYAWAN">GAJI KARYAWAN</option>
-          <option value="KAS_KECIL">KAS KECIL</option>
-          <option value="PAJAK">PAJAK</option>
-          <option value="PRIVE">PRIVE</option>
-          <option value="OPERASIONAL">OPERASIONAL</option>
-          <option value="BANK_CHARGE">BIAYA BANK</option>
-          <option value="LAIN_LAIN">LAIN-LAIN</option>
-        </select>
-        <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);display:block;margin-bottom:.3rem">Keterangan <span style="color:var(--muted)">(opsional, wajib untuk PAJAK/PRIVE/GAJI)</span></label>
-        <textarea id="psKeterangan" class="form-control" rows="2" style="font-size:.82rem;font-family:var(--mono)"></textarea>
-        <div id="psErr" style="font-family:var(--mono);font-size:.72rem;color:var(--red);margin-top:.5rem;display:none"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
-        <button class="btn-navy" id="psSimpanBtn" onclick="simpanPosting()">Post</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: IMPORT CSV BCA -->
+<!-- ════════════════════════════════════════════════════════
+     MODAL: IMPORT CSV BCA
+════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalImportCsv" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h6 class="modal-title" style="font-family:var(--mono);font-size:.85rem">⬆ Import CSV BCA</h6>
+        <h6 class="modal-title" style="font-family:var(--mono)">Import CSV BCA CorpAcctTrxn</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <!-- Step 1: Upload -->
         <div id="impStep1">
-          <p style="font-family:var(--mono);font-size:.75rem;color:var(--muted);margin-bottom:.75rem">
-            Upload file CSV dari BCA Business Banking (CorpAcctTrxn…csv).<br>
-            File boleh berisi 1 atau 2 rekening (DK + PT) sekaligus.
-          </p>
-          <input type="file" id="impFileInput" accept=".csv" class="form-control"
-            style="font-family:var(--mono);font-size:.8rem" onchange="handleCsvFile(this)"/>
-          <div id="impParseInfo" style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.6rem"></div>
+          <label style="font-family:var(--mono);font-size:.8rem;font-weight:600">Pilih file CSV BCA</label>
+          <input type="file" accept=".csv" class="form-control mt-2" id="impFileInput" onchange="handleCsvFile(this)"/>
         </div>
-        <!-- Step 2: Preview -->
+        <div id="impParseInfo" style="font-family:var(--mono);font-size:.75rem;color:var(--muted);margin-top:.5rem"></div>
         <div id="impStep2" style="display:none">
           <div id="impPreviewWrap"></div>
         </div>
-        <!-- Step 3: Hasil -->
-        <div id="impStep3" style="display:none;font-family:var(--mono);font-size:.82rem;text-align:center;padding:1rem"></div>
-        <div id="impErr" style="font-family:var(--mono);font-size:.72rem;color:var(--red);margin-top:.5rem;display:none"></div>
+        <div id="impStep3" style="display:none;font-family:var(--mono);font-size:.82rem;padding:.5rem 0"></div>
+        <div id="impErr" style="display:none;color:var(--red);font-family:var(--mono);font-size:.75rem;margin-top:.5rem"></div>
       </div>
-      <div class="modal-footer" id="impFooter">
+      <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Tutup</button>
         <button class="btn-navy" id="impConfirmBtn" style="display:none" onclick="doImport()">Import Sekarang</button>
       </div>
@@ -336,25 +493,26 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/nav.js"></script>
 <script>
 // ============================================================
-// bank.html — SIEO
+// bank.html — SIEO Fase 2
 // ============================================================
 
 const LIMIT = 100;
-let krOffset = 0, blOffset = 0, dnOffset = 0;
-let krTimer = null, blTimer = null, dnTimer = null;
-let selectedId = null;
-let roleUser = null;
+var krOffset = 0, dnOffset = 0, psOffset = 0;
+var krTimer = null, dnTimer = null;
+var selectedId = null;
+var roleUser = null;
+var psData = []; // semua baris posting yang sudah dimuat
+var adSelectedId = null, aaSelectedId = null;
 
-// Row data store — hindari JSON di onclick attribute
-const rowStore = {};
+var rowStore = {};
 
-// ── HELPERS ────────────────────────────────────────────────
+// ── HELPERS ─────────────────────────────────────────────────
 function cekErrorSupabase(res) {
   if (!res) return 'Respons kosong.';
   if (Array.isArray(res)) return null;
@@ -380,11 +538,12 @@ function badgeRek(id) {
 }
 
 function badgeAlokasi(s) {
-  const map = {
+  var map = {
     'BELUM_DIALOKASI':           ['a-belum','Belum'],
     'MENUNGGU_APPROVE_MANAGER':  ['a-mgr',  'Mgr ⏳'],
     'MENUNGGU_APPROVE_DIREKTUR': ['a-dir',  'Dir ⏳'],
     'TERALOKASI':                ['a-done', '✓ OK'],
+    'PARTIAL':                   ['a-mgr',  'Partial'],
   };
   var v = map[s] || ['a-belum', s || '—'];
   return '<span class="badge-alokasi ' + v[0] + '">' + v[1] + '</span>';
@@ -401,42 +560,65 @@ function renderErr(id, cols, msg) {
     '<tr><td colspan="' + cols + '" style="padding:.75rem;font-family:var(--mono);font-size:.75rem;color:var(--red)">' + msg + '</td></tr>';
 }
 
-function h(s) { // minimal HTML escape for display
+function h(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── REKAP ──────────────────────────────────────────────────
-function muatRekap() {
-  dbGet('in_bank_statement', {select:'saldo_akhir', id_rekening:'eq.BCA_DK', order:'tgl_transaksi.desc,id.desc', limit:1})
-    .then(function(r){ document.getElementById('rSaldoDK').textContent = (r&&r[0]) ? fmtRp(r[0].saldo_akhir) : '—'; });
-  dbGet('in_bank_statement', {select:'saldo_akhir', id_rekening:'eq.BCA_PT', order:'tgl_transaksi.desc,id.desc', limit:1})
-    .then(function(r){ document.getElementById('rSaldoPT').textContent = (r&&r[0]) ? fmtRp(r[0].saldo_akhir) : '—'; });
-  dbGet('in_bank_statement', {select:'id', status:'eq.UNPOSTED', limit:9999})
-    .then(function(r){
-      var n = Array.isArray(r) ? r.length : 0;
-      var rBelum = document.getElementById('rBelum');
-      // Show unposted count as warning on posting card if we add one later
-      // For now fold into existing card label
-      document.getElementById('rBelum').closest('.rekap-card').querySelector('.lbl').textContent =
-        n > 0 ? 'Belum Dialokasi + ' + n + ' Unposted' : 'Belum Dialokasi';
-    });
-  dbGet('in_bank_statement', {select:'id', status_alokasi:'eq.BELUM_DIALOKASI', limit:9999})
-    .then(function(r){
-      var n = Array.isArray(r) ? r.length : 0;
-      var el = document.getElementById('rBelum');
-      el.textContent = n > 0 ? n + ' transaksi' : '0';
-      el.closest('.rekap-card').classList.toggle('warn', n > 0);
-    });
-  dbGet('in_bank_statement', {select:'id', 'status_alokasi':'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)', limit:9999})
-    .then(function(r){
-      var n = Array.isArray(r) ? r.length : 0;
-      var el = document.getElementById('rApprove');
-      el.textContent = n > 0 ? n + ' transaksi' : '0';
-      el.closest('.rekap-card').classList.toggle('warn', n > 0);
-    });
+function getUser() {
+  var sesi = getSesi();
+  return (sesi && sesi.user_info && sesi.user_info.email) ? sesi.user_info.email : 'direktur';
 }
 
-// ── ACCORDION ROW ──────────────────────────────────────────
+// ── REKAP ───────────────────────────────────────────────────
+function muatRekap() {
+  dbGet('in_bank_statement', {select:'saldo_akhir',id_rekening:'eq.BCA_DK',order:'tgl_transaksi.desc,id.desc',limit:1})
+    .then(function(r){ document.getElementById('rSaldoDK').textContent = (r&&r[0]) ? fmtRp(r[0].saldo_akhir) : '—'; });
+  dbGet('in_bank_statement', {select:'saldo_akhir',id_rekening:'eq.BCA_PT',order:'tgl_transaksi.desc,id.desc',limit:1})
+    .then(function(r){ document.getElementById('rSaldoPT').textContent = (r&&r[0]) ? fmtRp(r[0].saldo_akhir) : '—'; });
+
+  dbGet('in_bank_statement', {select:'id',status:'eq.UNPOSTED',limit:9999})
+    .then(function(r){
+      var n = Array.isArray(r) ? r.length : 0;
+      var el = document.getElementById('rUnposted');
+      el.textContent = n > 0 ? n + ' transaksi' : '0';
+      el.closest('.rekap-card').classList.toggle('warn', n > 0);
+    });
+
+  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK
+  dbGet('in_bank_statement', {
+    select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
+    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK)',
+    limit:9999
+  }).then(function(r){
+    var n = Array.isArray(r) ? r.length : 0;
+    var el = document.getElementById('rAlokDir');
+    el.textContent = n > 0 ? n + ' transaksi' : '0';
+    el.closest('.rekap-card').classList.toggle('warn', n > 0);
+  });
+
+  // Belum Dialokasi admin: PIUTANG/HUTANG saja
+  dbGet('in_bank_statement', {
+    select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
+    'kategori': 'in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON)',
+    limit:9999
+  }).then(function(r){
+    var n = Array.isArray(r) ? r.length : 0;
+    var el = document.getElementById('rBelum');
+    el.textContent = n > 0 ? n + ' transaksi' : '0';
+    el.closest('.rekap-card').classList.toggle('warn', n > 0);
+  });
+
+  dbGet('in_bank_statement', {
+    select:'id', 'status_alokasi':'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)', limit:9999
+  }).then(function(r){
+    var n = Array.isArray(r) ? r.length : 0;
+    var el = document.getElementById('rApprove');
+    el.textContent = n > 0 ? n + ' transaksi' : '0';
+    el.closest('.rekap-card').classList.toggle('warn', n > 0);
+  });
+}
+
+// ── ACCORDION ───────────────────────────────────────────────
 var openDetailId = null;
 
 function toggleDetail(tdEl, rowId) {
@@ -458,98 +640,33 @@ function toggleDetail(tdEl, rowId) {
   var r = rowStore[rowId];
   if (!r) return;
   var cols = tr.closest('table').querySelector('thead tr').children.length;
-  var masuk  = r.jenis === 'CR' ? fmtRp(r.nominal) : '—';
-  var keluar = r.jenis === 'DB' ? fmtRp(r.nominal) : '—';
 
   var det = document.createElement('tr');
   det.className = 'row-detail';
   det.innerHTML =
     '<td colspan="' + cols + '">' +
     '<div class="detail-grid">' +
-      '<div class="full">' +
-        '<div class="df-lbl">Deskripsi Bank (Lengkap)</div>' +
-        '<div class="df-val big">' + h(r.keterangan_bank) + '</div>' +
-      '</div>' +
+      '<div class="full"><div class="df-lbl">Deskripsi Bank (Lengkap)</div><div class="df-val big">' + h(r.keterangan_bank) + '</div></div>' +
       '<div><div class="df-lbl">ID</div><div class="df-val">' + h(r.id) + '</div></div>' +
       '<div><div class="df-lbl">Tanggal</div><div class="df-val">' + fmtTgl(r.tgl_transaksi) + '</div></div>' +
       '<div><div class="df-lbl">Rekening</div><div class="df-val">' + h(r.id_rekening) + '</div></div>' +
       '<div><div class="df-lbl">Jenis</div><div class="df-val">' + (r.jenis === 'CR' ? '↑ CR (Masuk)' : '↓ DB (Keluar)') + '</div></div>' +
-      '<div><div class="df-lbl">Masuk</div><div class="df-val" style="color:var(--green)">' + masuk + '</div></div>' +
-      '<div><div class="df-lbl">Keluar</div><div class="df-val" style="color:var(--red)">' + keluar + '</div></div>' +
+      '<div><div class="df-lbl">Nominal</div><div class="df-val">' + fmtRp(r.nominal) + '</div></div>' +
+      '<div><div class="df-lbl">Sisa Nominal</div><div class="df-val">' + fmtRp(r.sisa_nominal) + '</div></div>' +
       '<div><div class="df-lbl">Saldo Akhir</div><div class="df-val">' + fmtRp(r.saldo_akhir) + '</div></div>' +
       '<div><div class="df-lbl">Kategori</div><div class="df-val">' + h(r.kategori) + '</div></div>' +
       '<div><div class="df-lbl">Status Alokasi</div><div class="df-val">' + h(r.status_alokasi) + '</div></div>' +
-      '<div class="full">' +
-        '<div class="df-lbl">Keterangan Alokasi (Lengkap)</div>' +
-        '<div class="df-val big">' + h(r.keterangan_manual) + '</div>' +
-      '</div>' +
-    '</div>' +
-    '</td>';
+      '<div><div class="df-lbl">Dipost oleh</div><div class="df-val">' + h(r.dipost_oleh) + '</div></div>' +
+      '<div><div class="df-lbl">Tgl Post</div><div class="df-val">' + fmtTgl(r.tgl_post) + '</div></div>' +
+      (r.dialokasi_oleh ? '<div><div class="df-lbl">Dialokasi oleh</div><div class="df-val">' + h(r.dialokasi_oleh) + '</div></div>' : '') +
+      (r.diapprove_manager ? '<div><div class="df-lbl">Approve Manager</div><div class="df-val">' + h(r.diapprove_manager) + '</div></div>' : '') +
+      (r.diapprove_direktur ? '<div><div class="df-lbl">Approve Direktur</div><div class="df-val">' + h(r.diapprove_direktur) + '</div></div>' : '') +
+      '<div class="full"><div class="df-lbl">Keterangan Alokasi</div><div class="df-val big">' + h(r.keterangan_manual) + '</div></div>' +
+    '</div></td>';
   tr.insertAdjacentElement('afterend', det);
 }
 
-// ── ROW HTML BUILDER ───────────────────────────────────────
-function buatRowKoran(r) {
-  rowStore[r.id] = r;
-  var isDir = roleUser === 'DIREKTUR';
-  var isMgr = roleUser === 'MANAGER' || isDir;
-  var isAdm = roleUser === 'ADMIN' || isMgr;
-  var aksi = '';
-  if (isDir) aksi += '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ';
-  if (r.status_alokasi === 'BELUM_DIALOKASI' && isAdm)
-    aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokasi(\'' + r.id + '\')">Alokasi</button>';
-  if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
-    aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">Approve</button>';
-  if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
-    aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">Approve</button>';
-
-  return '<tr data-rid="' + r.id + '">' +
-    '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
-    '<td>' + badgeRek(r.id_rekening) + '</td>' +
-    '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap untuk detail lengkap">' + h(r.keterangan_bank) + '</td>' +
-    '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
-    '<td class="td-right">' + (r.jenis==='CR' ? '<span class="masuk-val">' + fmtRp(r.nominal) + '</span>' : '<span style="color:var(--muted)">—</span>') + '</td>' +
-    '<td class="td-right">' + (r.jenis==='DB' ? '<span class="keluar-val">' + fmtRp(r.nominal) + '</span>' : '<span style="color:var(--muted)">—</span>') + '</td>' +
-    '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
-    '<td>' + badgeAlokasi(r.status_alokasi) + '</td>' +
-    '<td><span class="ket-short" title="' + h(r.keterangan_manual) + '">' + h(r.keterangan_manual) + '</span></td>' +
-    '<td style="white-space:nowrap">' + aksi + '</td>' +
-    '</tr>';
-}
-
-function buatRowBelum(r) {
-  rowStore[r.id] = r;
-  var isAdm = ['ADMIN','MANAGER','DIREKTUR'].includes(roleUser);
-  var aksi = isAdm ? '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokasi(\'' + r.id + '\')">Alokasi</button>' : '';
-  return '<tr data-rid="' + r.id + '">' +
-    '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
-    '<td>' + badgeRek(r.id_rekening) + '</td>' +
-    '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap untuk detail lengkap">' + h(r.keterangan_bank) + '</td>' +
-    '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
-    '<td class="td-right">' + (r.jenis==='CR' ? '<span class="masuk-val">' + fmtRp(r.nominal) + '</span>' : '—') + '</td>' +
-    '<td class="td-right">' + (r.jenis==='DB' ? '<span class="keluar-val">' + fmtRp(r.nominal) + '</span>' : '—') + '</td>' +
-    '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
-    '<td>' + aksi + '</td>' +
-    '</tr>';
-}
-
-function buatRowDone(r) {
-  rowStore[r.id] = r;
-  var isDir = roleUser === 'DIREKTUR';
-  var aksi = isDir ? '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button>' : '';
-  return '<tr data-rid="' + r.id + '">' +
-    '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
-    '<td>' + badgeRek(r.id_rekening) + '</td>' +
-    '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap untuk detail lengkap">' + h(r.keterangan_bank) + '</td>' +
-    '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
-    '<td class="td-right">' + (r.jenis==='CR' ? '<span class="masuk-val">' + fmtRp(r.nominal) + '</span>' : '—') + '</td>' +
-    '<td class="td-right">' + (r.jenis==='DB' ? '<span class="keluar-val">' + fmtRp(r.nominal) + '</span>' : '—') + '</td>' +
-    '<td><span class="ket-short" title="' + h(r.keterangan_manual) + '">' + h(r.keterangan_manual) + '</span></td>' +
-    '<td>' + aksi + '</td>' +
-    '</tr>';
-}
-
-// ── TAB: REKENING KORAN ────────────────────────────────────
+// ── TAB 1: REKENING KORAN ───────────────────────────────────
 function muatKoranLazy() {
   clearTimeout(krTimer);
   krTimer = setTimeout(function(){ muatKoran(true); }, 380);
@@ -557,16 +674,18 @@ function muatKoranLazy() {
 
 async function muatKoran(reset) {
   if (reset) { krOffset = 0; openDetailId = null; }
-  var rek   = document.getElementById('krRekening').value;
-  var mulai = document.getElementById('krMulai').value;
-  var akhir = document.getElementById('krAkhir').value;
-  var jenis = document.getElementById('krJenis').value;
-  var cari  = document.getElementById('krCari').value.trim();
+  var rek    = document.getElementById('krRekening').value;
+  var mulai  = document.getElementById('krMulai').value;
+  var akhir  = document.getElementById('krAkhir').value;
+  var jenis  = document.getElementById('krJenis').value;
+  var status = document.getElementById('krStatus').value;
+  var cari   = document.getElementById('krCari').value.trim();
 
   var params = buildParams({
-    select: '*', order: 'tgl_transaksi.desc,id.desc', limit: LIMIT, offset: krOffset,
-    id_rekening: rek   ? 'eq.' + rek   : null,
-    jenis:       jenis ? 'eq.' + jenis : null,
+    select:'*', order:'tgl_transaksi.desc,id.desc', limit:LIMIT, offset:krOffset,
+    id_rekening: rek    ? 'eq.' + rek    : null,
+    jenis:       jenis  ? 'eq.' + jenis  : null,
+    status:      status ? 'eq.' + status : null,
   });
   if (mulai && akhir) params['and'] = '(tgl_transaksi.gte.' + mulai + ',tgl_transaksi.lte.' + akhir + ')';
   else if (mulai) params.tgl_transaksi = 'gte.' + mulai;
@@ -581,7 +700,36 @@ async function muatKoran(reset) {
   var tbody = document.getElementById('krTbody');
   if (reset) tbody.innerHTML = '';
   var html = '';
-  rows.forEach(function(r){ html += buatRowKoran(r); });
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var isDir = roleUser === 'DIREKTUR';
+    var isMgr = roleUser === 'MANAGER' || isDir;
+    var aksi = '';
+    if (isDir) aksi += '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ';
+    if (r.status_alokasi === 'BELUM_DIALOKASI' && r.status === 'POSTED') {
+      if (['PIUTANG','HUTANG_BAHAN','HUTANG_MAKLOON'].includes(r.kategori))
+        aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>';
+      else if (isDir && r.kategori !== 'BIAYA_BANK')
+        aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button>';
+    }
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
+      aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">✓ Mgr</button>';
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
+      aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">✓ Dir</button>';
+
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap untuk detail">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori||'—') + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'<span style="color:var(--muted)">—</span>') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'<span style="color:var(--muted)">—</span>') + '</td>' +
+      '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
+      '<td>' + badgeAlokasi(r.status_alokasi) + '</td>' +
+      '<td><span class="ket-short" title="' + h(r.keterangan_manual) + '">' + h(r.keterangan_manual) + '</span></td>' +
+      '<td style="white-space:nowrap">' + aksi + '</td>' +
+      '</tr>';
+  });
   if (reset && rows.length === 0) html = '<tr><td colspan="10" class="loading">Tidak ada data.</td></tr>';
   tbody.insertAdjacentHTML('beforeend', html);
   krOffset += rows.length;
@@ -590,86 +738,358 @@ async function muatKoran(reset) {
 }
 
 function resetKoran() {
-  ['krRekening','krJenis'].forEach(function(id){ document.getElementById(id).value = ''; });
-  ['krMulai','krAkhir','krCari'].forEach(function(id){ document.getElementById(id).value = ''; });
+  ['krRekening','krJenis','krStatus'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['krMulai','krAkhir','krCari'].forEach(function(id){ document.getElementById(id).value=''; });
   muatKoran(true);
 }
 
-// ── TAB: BELUM DIALOKASI ───────────────────────────────────
-function muatBelumLazy() {
-  clearTimeout(blTimer);
-  blTimer = setTimeout(function(){ muatBelum(true); }, 380);
-}
+// ── TAB 2: POSTING ──────────────────────────────────────────
+var psChecked = new Set(); // id yang dicentang
 
-async function muatBelum(reset) {
-  if (reset) blOffset = 0;
-  var rek   = document.getElementById('blRekening').value;
-  var jenis = document.getElementById('blJenis').value;
-  var cari  = document.getElementById('blCari').value.trim();
+async function muatPosting(reset) {
+  if (reset === undefined || reset) { psOffset = 0; psData = []; psChecked.clear(); updateBatchBtn(); }
+  var rek = document.getElementById('psRekening').value;
 
   var params = buildParams({
-    select: '*', status_alokasi: 'eq.BELUM_DIALOKASI',
-    order: 'tgl_transaksi.asc,id.asc', limit: LIMIT, offset: blOffset,
-    id_rekening: rek   ? 'eq.' + rek   : null,
-    jenis:       jenis ? 'eq.' + jenis : null,
+    p_id_rekening: rek || null
   });
-  if (cari) params['or'] = '(id.ilike.*' + cari + '*,keterangan_bank.ilike.*' + cari + '*)';
-
-  if (reset) document.getElementById('blTbody').innerHTML = '<tr><td colspan="8" class="loading">Memuat…</td></tr>';
-  var rows = await dbGet('in_bank_statement', params);
+  var rows = await dbRpc('get_bank_unposted', params);
   var err = cekErrorSupabase(rows);
-  if (err) { renderErr('blTbody', 8, err); return; }
+  if (err) { renderErr('psTbody', 8, err); return; }
+  if (!Array.isArray(rows)) rows = [];
 
-  var tbody = document.getElementById('blTbody');
-  if (reset) tbody.innerHTML = '';
+  if (reset === undefined || reset) psData = rows;
+  else psData = psData.concat(rows);
+
+  renderPosting();
+  document.getElementById('psInfo').textContent = psData.length + ' transaksi belum dipost';
+}
+
+function renderPosting() {
   var html = '';
-  rows.forEach(function(r){ html += buatRowBelum(r); });
-  if (reset && rows.length === 0) html = '<tr><td colspan="8" class="loading" style="color:var(--green)">Semua sudah dialokasi ✓</td></tr>';
-  tbody.insertAdjacentHTML('beforeend', html);
-  blOffset += rows.length;
-  document.getElementById('blMore').style.display = rows.length === LIMIT ? '' : 'none';
-  document.getElementById('blInfo').textContent = blOffset + ' transaksi ditampilkan';
+  psData.forEach(function(r) {
+    rowStore[r.id] = r;
+    var saranKat = r.saran_kategori || '';
+    var cbChecked = psChecked.has(r.id) ? 'checked' : '';
+    var rowCls = psChecked.has(r.id) ? ' class="row-checked"' : '';
+    var saranHtml = saranKat ? '<span class="saran-kat">' + h(saranKat) + '</span>' : '<span style="color:var(--muted);font-family:var(--mono);font-size:.65rem">—</span>';
+    html += '<tr data-rid="' + r.id + '"' + rowCls + '>' +
+      '<td style="text-align:center"><input type="checkbox" class="ps-cb" data-id="' + r.id + '" ' + cbChecked + ' onchange="toggleCbRow(this)"/></td>' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap detail">' + h(r.keterangan_bank) + '</td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
+      '<td>' + saranHtml + '</td>' +
+      '</tr>';
+  });
+  if (!html) html = '<tr><td colspan="8" class="loading" style="color:var(--green)">Tidak ada data yang perlu dipost ✓</td></tr>';
+  document.getElementById('psTbody').innerHTML = html;
+  document.getElementById('psCbAll').checked = false;
 }
 
-// ── TAB: PERLU APPROVE ────────────────────────────────────
-async function muatApprove() {
-  var rek = document.getElementById('apRekening').value;
-  var params = buildParams({
-    select: '*', 'status_alokasi': 'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)',
-    order: 'tgl_alokasi.asc', limit: 500,
-    id_rekening: rek ? 'eq.' + rek : null,
+function toggleCbRow(cb) {
+  var id = cb.dataset.id;
+  if (cb.checked) psChecked.add(id);
+  else psChecked.delete(id);
+  var tr = cb.closest('tr');
+  tr.classList.toggle('row-checked', cb.checked);
+  updateBatchBtn();
+}
+
+function toggleCbAll(cbAll) {
+  var cbs = document.querySelectorAll('#psTbody .ps-cb');
+  cbs.forEach(function(cb) {
+    cb.checked = cbAll.checked;
+    var id = cb.dataset.id;
+    if (cbAll.checked) psChecked.add(id);
+    else psChecked.delete(id);
+    cb.closest('tr').classList.toggle('row-checked', cbAll.checked);
   });
-  document.getElementById('apTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
-  var rows = await dbGet('in_bank_statement', params);
+  updateBatchBtn();
+}
+
+function centangSaranSemua() {
+  var kat = document.getElementById('psBatchKat').value;
+  if (!kat) { alert('Pilih kategori batch dulu.'); return; }
+  var cbs = document.querySelectorAll('#psTbody .ps-cb');
+  cbs.forEach(function(cb) {
+    var id = cb.dataset.id;
+    var r = rowStore[id];
+    if (r && r.saran_kategori === kat) {
+      cb.checked = true;
+      psChecked.add(id);
+      cb.closest('tr').classList.add('row-checked');
+    }
+  });
+  updateBatchBtn();
+}
+
+function updateBatchBtn() {
+  var n = psChecked.size;
+  var btn = document.getElementById('psBatchBtn');
+  btn.textContent = 'Post Terpilih (' + n + ')';
+  btn.disabled = n === 0;
+}
+
+function bukaBatchPost() {
+  if (psChecked.size === 0) return;
+  var kat = document.getElementById('psBatchKat').value;
+  document.getElementById('bpInfo').textContent = psChecked.size + ' transaksi dipilih';
+  document.getElementById('bpKategori').value = kat;
+  document.getElementById('bpKeterangan').value = '';
+  document.getElementById('bpErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalBatchPost')).show();
+}
+
+async function simpanBatchPost() {
+  var kat = document.getElementById('bpKategori').value;
+  var ket = document.getElementById('bpKeterangan').value.trim();
+  var elErr = document.getElementById('bpErr');
+  var btn   = document.getElementById('bpSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!kat) { elErr.textContent = 'Kategori wajib dipilih.'; elErr.style.display = ''; return; }
+  if (psChecked.size === 0) { elErr.textContent = 'Tidak ada transaksi terpilih.'; elErr.style.display = ''; return; }
+
+  btn.disabled = true; btn.textContent = 'Mempost…';
+  var res = await dbRpc('post_bank_statement', {
+    p_ids: Array.from(psChecked),
+    p_kategori: kat,
+    p_keterangan: ket || null,
+    p_user: getUser()
+  });
+  btn.disabled = false; btn.textContent = 'Post';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalBatchPost')).hide();
+  psChecked.clear();
+  muatRekap();
+  muatPosting(true);
+
+  // Prompt simpan rule kalau ada 1 baris
+  if (psChecked.size === 1) {
+    var id = Array.from(psChecked)[0];
+    var r = rowStore[id];
+    if (r) {
+      var keyword = r.keterangan_bank.split(' ')[0];
+      if (confirm('Simpan "' + keyword + '" sebagai rule untuk kategori ' + kat + '?')) {
+        await dbInsert('m_bank_kategori_rule', {keyword: keyword, kategori: kat, jenis: r.jenis || null});
+      }
+    }
+  }
+}
+
+// ── TAB 3: ALOKASI DIREKTUR ─────────────────────────────────
+async function muatAlokDir() {
+  var rek = document.getElementById('adRekening').value;
+  var kat = document.getElementById('adKategori').value;
+  var params = {p_id_rekening: rek || null, p_mode: 'DIREKTUR'};
+  document.getElementById('adTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_belum_dialokasi', params);
   var err = cekErrorSupabase(rows);
-  if (err) { renderErr('apTbody', 7, err); return; }
+  if (err) { renderErr('adTbody', 7, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  if (kat) rows = rows.filter(function(r){ return r.kategori === kat; });
 
   var html = '';
   rows.forEach(function(r) {
     rowStore[r.id] = r;
-    var isDir = roleUser === 'DIREKTUR';
-    var isMgr = roleUser === 'MANAGER' || isDir;
-    var aksi = '';
-    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
-      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">Approve</button>';
-    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
-      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">Approve</button>';
     html += '<tr data-rid="' + r.id + '">' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
-      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap untuk detail">' + h(r.keterangan_bank) + '</td>' +
-      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">':'<span class="keluar-val">') + fmtRp(r.nominal) + '</span></td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td><button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button></td>' +
+      '</tr>';
+  });
+  if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
+  document.getElementById('adTbody').innerHTML = html;
+  document.getElementById('adInfo').textContent = rows.length + ' transaksi menunggu alokasi';
+}
+
+function bukaAlokDir(id) {
+  adSelectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('adModalInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="badge-kat">' + h(r.kategori) + '</span> ' +
+    (r.jenis==='CR'?'<span class="masuk-val">↑ '+fmtRp(r.nominal)+'</span>':'<span class="keluar-val">↓ '+fmtRp(r.nominal)+'</span>') + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('adKeterangan').value = r.keterangan_manual || '';
+  document.getElementById('adIdMutasi').value = '';
+  document.getElementById('adAntarWrap').style.display = r.kategori === 'ANTAR_REKENING' ? '' : 'none';
+  document.getElementById('adErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokDir')).show();
+}
+
+async function simpanAlokDir() {
+  var ket = document.getElementById('adKeterangan').value.trim();
+  var idMutasi = document.getElementById('adIdMutasi').value.trim();
+  var elErr = document.getElementById('adErr');
+  var btn   = document.getElementById('adSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!ket) { elErr.textContent = 'Keterangan wajib diisi.'; elErr.style.display = ''; return; }
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc('alokasi_direktur', {
+    p_id_bank_stmt: adSelectedId,
+    p_keterangan: ket,
+    p_user: getUser(),
+    p_id_mutasi_antar: idMutasi || null
+  });
+  btn.disabled = false; btn.textContent = 'Simpan';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokDir')).hide();
+  muatRekap();
+  muatAlokDir();
+}
+
+// ── TAB 4: BELUM DIALOKASI (Admin) ──────────────────────────
+async function muatBelum() {
+  var rek = document.getElementById('blRekening').value;
+  var kat = document.getElementById('blKategori').value;
+  var params = {p_id_rekening: rek || null, p_mode: 'ADMIN'};
+  document.getElementById('blTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_belum_dialokasi', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('blTbody', 7, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  if (kat) rows = rows.filter(function(r){ return r.kategori === kat; });
+
+  var html = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var isAdm = ['ADMIN','MANAGER','DIREKTUR'].includes(roleUser);
+    var aksi = isAdm ? '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>' : '';
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right"><span class="td-mono">' + fmtRp(r.nominal) + '</span></td>' +
+      '<td class="td-right"><span class="td-mono" style="color:var(--orange)">' + fmtRp(r.sisa_nominal) + '</span></td>' +
+      '<td>' + aksi + '</td>' +
+      '</tr>';
+  });
+  if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Semua sudah dialokasi ✓</td></tr>';
+  document.getElementById('blTbody').innerHTML = html;
+  document.getElementById('blInfo').textContent = rows.length + ' transaksi menunggu alokasi';
+}
+
+function bukaAlokAdmin(id) {
+  aaSelectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('aaModalInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="badge-kat">' + h(r.kategori) + '</span> ' +
+    (r.jenis==='CR'?'<span class="masuk-val">↑ '+fmtRp(r.nominal)+'</span>':'<span class="keluar-val">↓ '+fmtRp(r.nominal)+'</span>') + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('aaSisaInfo').textContent = 'Sisa nominal: ' + fmtRp(r.sisa_nominal);
+  document.getElementById('aaIdPembayaran').value = '';
+  document.getElementById('aaNominal').value = r.sisa_nominal || '';
+  document.getElementById('aaErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokAdmin')).show();
+}
+
+async function simpanAlokAdmin() {
+  var idPmb  = document.getElementById('aaIdPembayaran').value.trim();
+  var nominal = parseFloat(document.getElementById('aaNominal').value);
+  var elErr  = document.getElementById('aaErr');
+  var btn    = document.getElementById('aaSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!idPmb) { elErr.textContent = 'ID Pembayaran wajib diisi.'; elErr.style.display = ''; return; }
+  if (!nominal || nominal <= 0) { elErr.textContent = 'Nominal harus > 0.'; elErr.style.display = ''; return; }
+
+  var r = rowStore[aaSelectedId] || {};
+  var rpcName = 'alokasi_bank_ke_piutang';
+  var params = {p_id_bank_stmt: aaSelectedId, p_id_pembayaran: idPmb, p_nominal_alokasi: nominal, p_user: getUser()};
+
+  if (r.kategori === 'HUTANG_BAHAN') {
+    rpcName = 'alokasi_bank_ke_hutang_bahan';
+    params = {p_id_bank_stmt: aaSelectedId, p_id_pembayaran_hutang: idPmb, p_nominal_alokasi: nominal, p_user: getUser()};
+  } else if (r.kategori === 'HUTANG_MAKLOON') {
+    rpcName = 'alokasi_bank_ke_hutang_makloon';
+    params = {p_id_bank_stmt: aaSelectedId, p_id_pembayaran_hutang: idPmb, p_nominal_alokasi: nominal, p_user: getUser()};
+  }
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc(rpcName, params);
+  btn.disabled = false; btn.textContent = 'Alokasi';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokAdmin')).hide();
+  muatRekap();
+  muatBelum();
+}
+
+// ── TAB 5: PERLU APPROVE ────────────────────────────────────
+async function muatApprove() {
+  var rek = document.getElementById('apRekening').value;
+  var params = {p_id_rekening: rek || null};
+  document.getElementById('apTbody').innerHTML = '<tr><td colspan="8" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_perlu_approve', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('apTbody', 8, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  var isDir = roleUser === 'DIREKTUR';
+  var isMgr = roleUser === 'MANAGER' || isDir;
+  var html = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var aksi = '';
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
+      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">✓ Approve</button>';
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
+      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">✓ Approve</button>';
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right"><span class="td-mono">' + fmtRp(r.nominal) + '</span></td>' +
       '<td>' + badgeAlokasi(r.status_alokasi) + '</td>' +
       '<td class="td-mono" style="font-size:.68rem;color:var(--muted)">' + h(r.dialokasi_oleh) + '</td>' +
       '<td>' + aksi + '</td>' +
       '</tr>';
   });
-  if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Tidak ada yang perlu di-approve ✓</td></tr>';
+  if (!html) html = '<tr><td colspan="8" class="loading" style="color:var(--green)">Tidak ada yang perlu di-approve ✓</td></tr>';
   document.getElementById('apTbody').innerHTML = html;
   document.getElementById('apInfo').textContent = rows.length + ' transaksi perlu approve';
 }
 
-// ── TAB: TERALOKASI ───────────────────────────────────────
+async function approveAlokasi(id, level) {
+  if (!confirm('Approve alokasi ' + id + '?')) return;
+  var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
+  var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser()});
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { alert('Error: ' + err); return; }
+  muatRekap();
+  muatApprove();
+  // Refresh koran kalau aktif
+  if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+}
+
+// ── TAB 6: TERALOKASI ───────────────────────────────────────
 function muatDoneLazy() {
   clearTimeout(dnTimer);
   dnTimer = setTimeout(function(){ muatDone(true); }, 380);
@@ -680,12 +1100,14 @@ async function muatDone(reset) {
   var rek   = document.getElementById('dnRekening').value;
   var mulai = document.getElementById('dnMulai').value;
   var akhir = document.getElementById('dnAkhir').value;
+  var kat   = document.getElementById('dnKategori').value;
   var cari  = document.getElementById('dnCari').value.trim();
 
   var params = buildParams({
-    select: '*', status_alokasi: 'eq.TERALOKASI',
-    order: 'tgl_transaksi.desc,id.desc', limit: LIMIT, offset: dnOffset,
+    select:'*', status_alokasi:'eq.TERALOKASI',
+    order:'tgl_transaksi.desc,id.desc', limit:LIMIT, offset:dnOffset,
     id_rekening: rek ? 'eq.' + rek : null,
+    kategori:    kat ? 'eq.' + kat : null,
   });
   if (mulai && akhir) params['and'] = '(tgl_transaksi.gte.' + mulai + ',tgl_transaksi.lte.' + akhir + ')';
   else if (mulai) params.tgl_transaksi = 'gte.' + mulai;
@@ -700,15 +1122,29 @@ async function muatDone(reset) {
   var tbody = document.getElementById('dnTbody');
   if (reset) tbody.innerHTML = '';
   var html = '';
-  rows.forEach(function(r){ html += buatRowDone(r); });
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var isDir = roleUser === 'DIREKTUR';
+    var aksi = isDir ? '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button>' : '';
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td><span class="ket-short" title="' + h(r.keterangan_manual) + '">' + h(r.keterangan_manual) + '</span></td>' +
+      '<td>' + aksi + '</td>' +
+      '</tr>';
+  });
   if (reset && rows.length === 0) html = '<tr><td colspan="8" class="loading">Tidak ada data.</td></tr>';
   tbody.insertAdjacentHTML('beforeend', html);
   dnOffset += rows.length;
   document.getElementById('dnMore').style.display = rows.length === LIMIT ? '' : 'none';
-  document.getElementById('dnInfo').textContent = dnOffset + ' transaksi ditampilkan';
+  document.getElementById('dnInfo').textContent = dnOffset + ' transaksi teralokasi';
 }
 
-// ── EDIT KETERANGAN ───────────────────────────────────────
+// ── EDIT KETERANGAN ─────────────────────────────────────────
 function bukaEditKet(id) {
   selectedId = id;
   var r = rowStore[id] || {};
@@ -719,18 +1155,16 @@ function bukaEditKet(id) {
 }
 
 async function simpanKeterangan() {
-  var ket = document.getElementById('ekKet').value.trim();
+  var ket   = document.getElementById('ekKet').value.trim();
   var elErr = document.getElementById('ekErr');
   var btn   = document.getElementById('ekSimpanBtn');
   elErr.style.display = 'none';
   btn.disabled = true; btn.textContent = 'Menyimpan…';
   var res = await dbUpdate('in_bank_statement', {id:'eq.'+selectedId}, {keterangan_manual: ket});
   btn.disabled = false; btn.textContent = 'Simpan';
-  // null = sukses (PATCH PostgREST return empty body)
   var err = (res !== null && res !== undefined && !Array.isArray(res) && res && (res.code || res.status === 'error'))
-    ? (res.message || res.code || 'Error tidak diketahui') : null;
+    ? (res.message || res.code || 'Error') : null;
   if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
-  // Update rowStore
   if (rowStore[selectedId]) rowStore[selectedId].keterangan_manual = ket;
   bootstrap.Modal.getInstance(document.getElementById('modalEditKet')).hide();
   muatRekap();
@@ -739,120 +1173,24 @@ async function simpanKeterangan() {
   else if (activeTab === 'done') muatDone(true);
 }
 
-// ── PLACEHOLDER Phase 2 ───────────────────────────────────
-function bukaAlokasi(id) {
-  alert('Fitur alokasi akan dibangun di tahap berikutnya.\nID: ' + id);
-}
-function approveAlokasi(id, level) {
-  alert('Fitur approve akan dibangun di tahap berikutnya.\nID: ' + id + ' | Level: ' + level);
-}
-
-// ── TAB NAVIGATION ────────────────────────────────────────
+// ── TAB NAVIGATION ──────────────────────────────────────────
 function gantiTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
-  var map = {koran:'tabKoran', posting:'tabPosting', belum:'tabBelum', approve:'tabApprove', done:'tabDone'};
+  var map = {koran:'tabKoran', posting:'tabPosting', alokdir:'tabAlokdir', belum:'tabBelum', approve:'tabApprove', done:'tabDone'};
   document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
   var el = document.getElementById(map[tab]);
   if (el) el.classList.add('active');
   openDetailId = null;
-  if (tab === 'koran')   muatKoran(true);
+  if      (tab === 'koran')   muatKoran(true);
   else if (tab === 'posting') muatPosting(true);
-  else if (tab === 'belum')   muatBelum(true);
+  else if (tab === 'alokdir') muatAlokDir();
+  else if (tab === 'belum')   muatBelum();
   else if (tab === 'approve') muatApprove();
   else if (tab === 'done')    muatDone(true);
 }
 
-
-
-// ── POSTING (UNPOSTED → POSTED) ────────────────────────────
-var psOffset = 0;
-var psSelectedId = null;
-
-async function muatPosting(reset) {
-  if (reset === undefined) reset = true;
-  if (reset) psOffset = 0;
-  var rek = document.getElementById('psRekening').value;
-  var params = buildParams({
-    select: '*', status: 'eq.UNPOSTED',
-    order: 'tgl_transaksi.asc,id.asc',
-    limit: LIMIT, offset: psOffset,
-    id_rekening: rek ? 'eq.' + rek : null,
-  });
-  if (reset) document.getElementById('psTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
-  var rows = await dbGet('in_bank_statement', params);
-  var err = cekErrorSupabase(rows);
-  if (err) { renderErr('psTbody', 7, err); return; }
-
-  var tbody = document.getElementById('psTbody');
-  if (reset) tbody.innerHTML = '';
-  var html = '';
-  rows.forEach(function(r) {
-    rowStore[r.id] = r;
-    html += '<tr data-rid="' + r.id + '">' +
-      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
-      '<td>' + badgeRek(r.id_rekening) + '</td>' +
-      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
-      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
-      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
-      '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
-      '<td><button class="btn-sm-action btn-approve" onclick="bukaPosting(\'' + r.id + '\')">Post</button></td>' +
-      '</tr>';
-  });
-  if (reset && rows.length === 0)
-    html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Tidak ada data yang perlu dipost ✓</td></tr>';
-  tbody.insertAdjacentHTML('beforeend', html);
-  psOffset += rows.length;
-  document.getElementById('psMore').style.display = rows.length === LIMIT ? '' : 'none';
-  document.getElementById('psInfo').textContent = psOffset + ' transaksi menunggu posting';
-}
-
-function bukaPosting(id) {
-  psSelectedId = id;
-  var r = rowStore[id] || {};
-  document.getElementById('psInfoBaris').innerHTML =
-    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
-    '<span style="font-size:.72rem">' + h(r.keterangan_bank) + '</span><br>' +
-    (r.jenis==='CR'
-      ? '<span class="masuk-val">↑ Masuk: ' + fmtRp(r.nominal) + '</span>'
-      : '<span class="keluar-val">↓ Keluar: ' + fmtRp(r.nominal) + '</span>');
-  document.getElementById('psKategori').value = '';
-  document.getElementById('psKeterangan').value = '';
-  document.getElementById('psErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalPosting')).show();
-}
-
-async function simpanPosting() {
-  var kat = document.getElementById('psKategori').value;
-  var ket = document.getElementById('psKeterangan').value.trim();
-  var elErr = document.getElementById('psErr');
-  var btn   = document.getElementById('psSimpanBtn');
-  elErr.style.display = 'none';
-
-  if (!kat) { elErr.textContent = 'Kategori wajib dipilih.'; elErr.style.display = ''; return; }
-
-  var sesi = getSesi();
-  var user = sesi && sesi.user_info ? (sesi.user_info.email || 'direktur') : 'direktur';
-
-  btn.disabled = true; btn.textContent = 'Mempost…';
-  var res = await dbRpc('post_bank_statement', {
-    p_id: psSelectedId,
-    p_kategori: kat,
-    p_keterangan: ket || null,
-    p_user: user
-  });
-  btn.disabled = false; btn.textContent = 'Post';
-
-  var err = cekErrorSupabase(res);
-  if (!err && res && res.status === 'error') err = res.message;
-  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
-
-  bootstrap.Modal.getInstance(document.getElementById('modalPosting')).hide();
-  muatRekap();
-  muatPosting(true);
-}
-
-// ── IMPORT CSV BCA ─────────────────────────────────────────
-var importSections = []; // [{id_rekening, prefix, last_seq, last_tgl, rows:[]}]
+// ── IMPORT CSV BCA ──────────────────────────────────────────
+var importSections = [];
 
 function bukaImportCsv() {
   document.getElementById('impStep1').style.display = '';
@@ -866,7 +1204,6 @@ function bukaImportCsv() {
   new bootstrap.Modal(document.getElementById('modalImportCsv')).show();
 }
 
-// Parse CSV line dengan handle quoted fields
 function parseCsvLine(line) {
   var res = [], cur = '', inQ = false;
   for (var i = 0; i < line.length; i++) {
@@ -886,9 +1223,7 @@ function parseJumlah(s) {
   return {jenis: jenis, nominal: nominal};
 }
 
-function parseSaldo(s) {
-  return parseFloat(s.replace(/[^\d.]/g, ''));
-}
+function parseSaldo(s) { return parseFloat(s.replace(/[^\d.]/g, '')); }
 
 function parseTglCorp(s) {
   s = s.trim();
@@ -912,7 +1247,6 @@ function parseCorpAcctCsv(text) {
     var line = lines[i].trim();
     if (!line) continue;
     var cols = parseCsvLine(line);
-    // Detect new account section
     if (cols[0].startsWith('No. rekening')) {
       if (cur) sections.push(cur);
       var norek = cols[0].replace('No. rekening :', '').trim();
@@ -923,7 +1257,6 @@ function parseCorpAcctCsv(text) {
     }
     if (cols[0] === 'Tanggal Transaksi') { inData = true; continue; }
     if (!inData || !cur) continue;
-    // Skip summary lines
     if (cols[0].startsWith('Saldo') || cols[0].startsWith('Mutasi')) continue;
     if (cols.length < 5 || !cols[0]) continue;
     try {
@@ -941,7 +1274,6 @@ function handleCsvFile(input) {
   var file = input.files[0];
   if (!file) return;
   document.getElementById('impParseInfo').textContent = 'Membaca file…';
-
   var reader = new FileReader();
   reader.onload = function(e) { handleCsvText(e.target.result); };
   reader.readAsText(file, 'UTF-8');
@@ -949,80 +1281,33 @@ function handleCsvFile(input) {
 
 async function handleCsvText(text) {
   var sections = parseCorpAcctCsv(text);
-
   if (!sections.length) {
     document.getElementById('impParseInfo').textContent = 'Tidak ada data yang bisa dibaca dari file ini.';
     return;
   }
-
   document.getElementById('impParseInfo').textContent = 'Memeriksa data terbaru di database…';
-
-  // For each section, get last_seq and last_tgl from DB
   importSections = [];
   for (var i = 0; i < sections.length; i++) {
     var sec = sections[i];
-    if (!sec.prefix) {
-      document.getElementById('impParseInfo').textContent += '\nRekening ' + sec.norek + ' tidak dikenali, dilewati.';
-      continue;
-    }
-
-    // Get last seq dari MAX(id) aktual di in_bank_statement (lebih reliable dari in_bank_stmt_seq)
-    var maxIdRes = await dbGet('in_bank_statement', {
-      id_rekening: 'eq.' + sec.id_rekening,
-      select: 'id',
-      order: 'id.desc',
-      limit: 1
-    });
+    if (!sec.prefix) { document.getElementById('impParseInfo').textContent += '\nRekening ' + sec.norek + ' tidak dikenali, dilewati.'; continue; }
+    var maxIdRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'id', order:'id.desc', limit:1});
     var lastSeq = 0;
-    if (Array.isArray(maxIdRes) && maxIdRes[0]) {
-      // Extract angka dari ID, e.g. 'BPT01474' → 1474, 'BDK02749' → 2749
-      var maxId = maxIdRes[0].id;
-      lastSeq = parseInt(maxId.replace(/[^0-9]/g, ''), 10) || 0;
-    }
-
-    // Get last tgl in bank statement
-    var tglRes = await dbGet('in_bank_statement', {
-      id_rekening: 'eq.' + sec.id_rekening,
-      select: 'tgl_transaksi',
-      order: 'tgl_transaksi.desc,id.desc',
-      limit: 1
-    });
+    if (Array.isArray(maxIdRes) && maxIdRes[0]) lastSeq = parseInt(maxIdRes[0].id.replace(/[^0-9]/g,''), 10) || 0;
+    var tglRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'tgl_transaksi', order:'tgl_transaksi.desc,id.desc', limit:1});
     var lastTgl = (Array.isArray(tglRes) && tglRes[0]) ? tglRes[0].tgl_transaksi : '2000-01-01';
-
-    // Ambil semua baris di tanggal lastTgl dari DB untuk dedup
     var existRes = [];
     if (lastTgl !== '2000-01-01') {
-      existRes = await dbGet('in_bank_statement', {
-        id_rekening: 'eq.' + sec.id_rekening,
-        tgl_transaksi: 'eq.' + lastTgl,
-        select: 'jenis,nominal'
-      });
+      existRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, tgl_transaksi:'eq.'+lastTgl, select:'jenis,nominal'});
     }
-    // Buat set key dari baris yang sudah ada di lastTgl
     var existKeys = {};
-    if (Array.isArray(existRes)) {
-      existRes.forEach(function(r) {
-        existKeys[r.jenis + '|' + r.nominal] = true;
-      });
-    }
-
-    // Filter: ambil tgl > lastTgl, plus tgl == lastTgl yang belum ada (dedup by jenis+nominal)
+    if (Array.isArray(existRes)) existRes.forEach(function(r){ existKeys[r.jenis+'|'+r.nominal] = true; });
     var newRows = sec.rows.filter(function(r) {
       if (r.tgl > lastTgl) return true;
-      if (r.tgl === lastTgl) return !existKeys[r.jenis + '|' + r.nominal];
+      if (r.tgl === lastTgl) return !existKeys[r.jenis+'|'+r.nominal];
       return false;
     });
-
-    importSections.push({
-      id_rekening: sec.id_rekening,
-      prefix: sec.prefix,
-      last_seq: lastSeq,
-      last_tgl: lastTgl,
-      total_csv: sec.rows.length,
-      new_rows: newRows
-    });
+    importSections.push({id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq, last_tgl: lastTgl, total_csv: sec.rows.length, new_rows: newRows});
   }
-
   buildPreview();
 }
 
@@ -1030,36 +1315,28 @@ function buildPreview() {
   var wrap = document.getElementById('impPreviewWrap');
   var html = '';
   var hasNew = false;
-
   importSections.forEach(function(sec) {
     var n = sec.new_rows.length;
     if (n > 0) hasNew = true;
-    html += '<div style="margin-bottom:1rem">';
-    html += '<div style="font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--navy);margin-bottom:.4rem">';
+    html += '<div style="margin-bottom:1rem"><div style="font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--navy);margin-bottom:.4rem">';
     html += sec.id_rekening + ' — <span style="color:' + (n>0?'var(--green)':'var(--muted)') + '">' + n + ' baris baru</span>';
     html += ' <span style="color:var(--muted);font-weight:400">(CSV: ' + sec.total_csv + ' | last DB: ' + sec.last_tgl + ')</span></div>';
-
     if (n === 0) {
       html += '<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Data sudah up to date.</div>';
     } else {
-      html += '<div class="tbl-wrap" style="max-height:200px;overflow-y:auto"><table><thead><tr>';
-      html += '<th>Tgl</th><th>Deskripsi</th><th>Jenis</th><th class="td-right">Nominal</th><th class="td-right">Saldo</th>';
-      html += '</tr></thead><tbody>';
-      sec.new_rows.slice(0, 50).forEach(function(r) {
-        html += '<tr>';
-        html += '<td class="td-mono" style="white-space:nowrap">' + r.tgl + '</td>';
+      html += '<div class="tbl-wrap" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Tgl</th><th>Deskripsi</th><th>Jenis</th><th class="td-right">Nominal</th><th class="td-right">Saldo</th></tr></thead><tbody>';
+      sec.new_rows.slice(0,50).forEach(function(r) {
+        html += '<tr><td class="td-mono" style="white-space:nowrap">' + r.tgl + '</td>';
         html += '<td style="font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + h(r.desc) + '</td>';
         html += '<td>' + (r.jenis==='CR'?'<span class="badge-jenis j-cr">↑CR</span>':'<span class="badge-jenis j-db">↓DB</span>') + '</td>';
         html += '<td class="td-right td-mono">' + Number(r.nominal).toLocaleString('id-ID') + '</td>';
-        html += '<td class="td-right td-mono">' + Number(r.saldo).toLocaleString('id-ID') + '</td>';
-        html += '</tr>';
+        html += '<td class="td-right td-mono">' + Number(r.saldo).toLocaleString('id-ID') + '</td></tr>';
       });
       if (sec.new_rows.length > 50) html += '<tr><td colspan="5" class="loading">… dan ' + (sec.new_rows.length-50) + ' baris lagi</td></tr>';
       html += '</tbody></table></div>';
     }
     html += '</div>';
   });
-
   wrap.innerHTML = html;
   document.getElementById('impStep1').style.display = 'none';
   document.getElementById('impStep2').style.display = '';
@@ -1071,19 +1348,16 @@ async function doImport() {
   var btn = document.getElementById('impConfirmBtn');
   btn.disabled = true; btn.textContent = 'Mengimport…';
   document.getElementById('impErr').style.display = 'none';
-
   var totalInserted = 0;
   var errors = [];
-
   for (var i = 0; i < importSections.length; i++) {
     var sec = importSections[i];
     if (!sec.new_rows.length) continue;
-
     var seq = sec.last_seq;
     var rows = sec.new_rows.map(function(r) {
       seq++;
       return {
-        id: sec.prefix + String(seq).padStart(5, '0'),
+        id: sec.prefix + String(seq).padStart(5,'0'),
         id_rekening: sec.id_rekening,
         tgl_transaksi: r.tgl,
         keterangan_bank: r.desc,
@@ -1095,48 +1369,35 @@ async function doImport() {
         status_alokasi: 'BELUM_DIALOKASI'
       };
     });
-
-    // Batch insert
-    // res bisa: array (sukses), null (sukses body kosong dari PostgREST), atau object error
     var res = await dbInsert('in_bank_statement', rows);
     var insertErr = null;
     if (res === null || res === undefined || Array.isArray(res)) {
-      insertErr = null; // sukses
+      insertErr = null;
     } else if (res && (res.code || res.status === 'error')) {
       var msg = res.message || res.code || 'Error tidak diketahui';
-      if (msg.indexOf('duplicate') >= 0 || msg.indexOf('unique') >= 0 || msg.indexOf('23505') >= 0) {
-        insertErr = 'ID bentrok — sequence tidak sinkron. Catat dan hubungi admin.';
-      } else {
-        insertErr = msg;
-      }
+      if (msg.indexOf('duplicate') >= 0 || msg.indexOf('unique') >= 0 || msg.indexOf('23505') >= 0)
+        insertErr = 'ID bentrok — sequence tidak sinkron.';
+      else insertErr = msg;
     }
     if (insertErr) { errors.push(sec.id_rekening + ': ' + insertErr); continue; }
-
-    // Update sequence — null = sukses (PATCH PostgREST return empty body)
-    var seqUpd = await dbUpdate('in_bank_stmt_seq', {id_rekening: 'eq.' + sec.id_rekening}, {last_seq: seq});
-    if (seqUpd !== null && seqUpd !== undefined && !Array.isArray(seqUpd) && seqUpd && (seqUpd.code || seqUpd.status === 'error')) {
-      var seqErrMsg = seqUpd.message || seqUpd.code || 'Error tidak diketahui';
-      errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence (' + seqErrMsg + '). Catat last_seq=' + seq + ' dan update manual.');
-    }
+    var seqUpd = await dbUpdate('in_bank_stmt_seq', {id_rekening:'eq.'+sec.id_rekening}, {last_seq: seq});
+    if (seqUpd !== null && seqUpd !== undefined && !Array.isArray(seqUpd) && seqUpd && (seqUpd.code || seqUpd.status === 'error'))
+      errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence. last_seq=' + seq);
     totalInserted += rows.length;
   }
-
   btn.disabled = false; btn.textContent = 'Import Sekarang';
   document.getElementById('impStep2').style.display = 'none';
   document.getElementById('impStep3').style.display = '';
-
   if (errors.length) {
     document.getElementById('impStep3').innerHTML = '<span style="color:var(--red)">❌ Error:<br>' + errors.join('<br>') + '</span>';
   } else {
     document.getElementById('impStep3').innerHTML = '<span style="color:var(--green)">✓ Berhasil import ' + totalInserted + ' baris baru.</span>';
     document.getElementById('impConfirmBtn').style.display = 'none';
-    // Refresh halaman
-    setTimeout(function(){ muatRekap(); muatKoran(true); }, 500);
+    setTimeout(function(){ muatRekap(); muatPosting(true); }, 500);
   }
 }
 
-
-// ── INIT ─────────────────────────────────────────────────
+// ── INIT ────────────────────────────────────────────────────
 window.addEventListener('load', function() {
   if (!guardHalaman()) return;
   roleUser = getRoleUser();
