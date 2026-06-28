@@ -58,6 +58,7 @@
     .toolbar-batch{display:flex;gap:.5rem;align-items:center;padding:.5rem .1rem;margin-bottom:.5rem;}
     .badge-sumber-transfer{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;font-family:var(--mono);font-size:.58rem;padding:.1rem .35rem;border-radius:3px;}
     .badge-sumber-tunai{background:#fde9d2;color:#c45a00;border:1px solid #f5c98a;font-family:var(--mono);font-size:.58rem;padding:.1rem .35rem;border-radius:3px;}
+    .badge-sumber-import{background:#fef9e7;color:#7d6608;border:1px solid #f9e79f;font-family:var(--mono);font-size:.58rem;padding:.1rem .35rem;border-radius:3px;}
   </style>
 </head>
 <body>
@@ -565,11 +566,47 @@ function muatRekap(){
   var fn=tampilLunas?'get_rekap_piutang_semua':'get_rekap_piutang';
   var params=tampilLunas?{p_id_pelanggan:null,p_status:status,p_entitas:entitas}:{p_jatuh_tempo_maks:jt,p_id_pelanggan:null,p_status:status,p_entitas:entitas};
   document.getElementById('rkInfoBar').textContent='Memuat data…';
-  dbRpc(fn,params).then(function(res){
-    var data=Array.isArray(res)?res:[];
+  // Fetch paralel: in_pengiriman + in_saldo_awal_piutang
+  var pSJ = dbRpc(fn, params).then(function(r){return Array.isArray(r)?r:[];});
+  var pSA = dbGet('in_saldo_awal_piutang', {
+    select: 'id_saldo,no_nota,no_sj,tgl,entitas,nama_pelanggan,total_tagih,sisa_piutang,status_piutang',
+    order: 'tgl.asc'
+  }).then(function(r){return Array.isArray(r)?r:[];});
+  Promise.all([pSJ, pSA]).then(function(results){
+    var dataSJ = results[0];
+    var dataSA = results[1];
+    // Filter saldo awal sesuai filter aktif
+    if(!tampilLunas) dataSA = dataSA.filter(function(r){return r.status_piutang!=='LUNAS'&&r.sisa_piutang>0;});
+    if(status) dataSA = dataSA.filter(function(r){return r.status_piutang===status;});
+    if(entitas) dataSA = dataSA.filter(function(r){return r.entitas===entitas;});
+    // Normalisasi saldo awal ke format yang sama
+    var saNorm = dataSA.map(function(r){
+      return {
+        _sumber:'IMPORT',
+        no_sj: r.no_sj||'—',
+        no_nota: r.no_nota,
+        tgl: r.tgl,
+        nama_pelanggan: r.nama_pelanggan,
+        entitas: r.entitas,
+        total_tagih: r.total_tagih,
+        sisa_piutang: r.sisa_piutang,
+        status_piutang: r.status_piutang,
+        hari_terlambat: 0,
+        tgl_jatuh_tempo: null
+      };
+    });
+    // Tandai SJ dari pengiriman
+    var sjNorm = dataSJ.map(function(r){ r._sumber='BARU'; return r; });
+    // Gabung dan sort tgl ASC
+    var gabung = sjNorm.concat(saNorm).sort(function(a,b){
+      return new Date(a.tgl)-new Date(b.tgl);
+    });
+    // Filter search
     var q=document.getElementById('rkCari').value.toLowerCase();
-    if(q) data=data.filter(function(r){return(r.nama_pelanggan+' '+r.no_sj+' '+r.no_nota).toLowerCase().indexOf(q)>=0;});
-    renderRekapTabel(data); muatRekapPerPelanggan();
+    if(q) gabung=gabung.filter(function(r){
+      return(r.nama_pelanggan+' '+r.no_sj+' '+r.no_nota).toLowerCase().indexOf(q)>=0;
+    });
+    renderRekapTabel(gabung); muatRekapPerPelanggan();
   }).catch(function(e){document.getElementById('rkInfoBar').textContent='Error: '+(e&&e.message?e.message:JSON.stringify(e));});
 }
 function renderRekapTabel(data){
@@ -577,13 +614,16 @@ function renderRekapTabel(data){
   var tb=document.getElementById('rkTbody');
   if(!data.length){tb.innerHTML='<tr><td colspan="8" class="loading">Tidak ada data.</td></tr>';return;}
   tb.innerHTML=data.map(function(r){
+    var badgeSumber=r._sumber==='IMPORT'?'<span class="badge-sumber-import">IMPORT</span> ':'';
+    var noSJCell=badgeSumber+'<span class="td-mono">'+esc(r.no_sj)+'</span><br><span style="color:var(--muted);font-size:.68rem">'+esc(r.no_nota)+'</span>';
+    var jatuhTempo=r.tgl_jatuh_tempo?badgeJatuhTempo(r.hari_terlambat,r.tgl_jatuh_tempo):'<span style="color:var(--muted)">—</span>';
     return '<tr>'+
-      '<td class="td-mono">'+esc(r.no_sj)+'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.no_nota)+'</span></td>'+
+      '<td>'+noSJCell+'</td>'+
       '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+'<td>'+esc(r.nama_pelanggan)+'</td>'+
       '<td class="td-mono">'+esc(r.entitas)+'</td>'+
       '<td class="td-mono td-right">'+fmtRupiah(r.total_tagih)+'</td>'+
       '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.sisa_piutang)+'</td>'+
-      '<td>'+badgeJatuhTempo(r.hari_terlambat,r.tgl_jatuh_tempo)+'</td>'+
+      '<td>'+jatuhTempo+'</td>'+
       '<td>'+badgeStatusPiutang(r.status_piutang)+'</td>'+
     '</tr>';
   }).join('');
