@@ -447,12 +447,33 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h6 class="modal-title" style="font-family:var(--mono)">Edit Keterangan</h6>
+        <h6 class="modal-title" style="font-family:var(--mono)">Edit Kategori & Keterangan</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div id="ekInfo" style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.6rem"></div>
-        <textarea id="ekKet" class="form-control" rows="3" style="font-family:var(--mono);font-size:.82rem" placeholder="Keterangan alokasi…"></textarea>
+        <div class="mb-2">
+          <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Kategori</label>
+          <select id="ekKategori" class="form-select" style="font-family:var(--mono);font-size:.82rem">
+            <option value="PIUTANG">PIUTANG</option>
+            <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
+            <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+            <option value="GAJI">GAJI</option>
+            <option value="KAS_KECIL">KAS_KECIL</option>
+            <option value="PAJAK">PAJAK</option>
+            <option value="PRIVE">PRIVE</option>
+            <option value="OPERASIONAL">OPERASIONAL</option>
+            <option value="ANTAR_REKENING">ANTAR_REKENING</option>
+            <option value="BIAYA_BANK">BIAYA_BANK</option>
+            <option value="MODAL_MASUK">MODAL_MASUK</option>
+            <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
+            <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Keterangan</label>
+          <textarea id="ekKet" class="form-control" rows="3" style="font-family:var(--mono);font-size:.82rem" placeholder="Keterangan alokasi…"></textarea>
+        </div>
         <div id="ekErr" style="display:none;margin-top:.5rem;font-size:.78rem;color:var(--red)"></div>
       </div>
       <div class="modal-footer">
@@ -1147,6 +1168,8 @@ function bukaEditKet(id) {
   var r = rowStore[id] || {};
   document.getElementById('ekInfo').textContent = 'ID: ' + id + ' | ' + fmtTgl(r.tgl_transaksi) + ' | ' + fmtRp(r.nominal);
   document.getElementById('ekKet').value = r.keterangan_manual || '';
+  var selKat = document.getElementById('ekKategori');
+  selKat.value = r.kategori || 'PIUTANG';
   document.getElementById('ekErr').style.display = 'none';
   new bootstrap.Modal(document.getElementById('modalEditKet')).show();
 }
@@ -1157,12 +1180,13 @@ async function simpanKeterangan() {
   var btn   = document.getElementById('ekSimpanBtn');
   elErr.style.display = 'none';
   btn.disabled = true; btn.textContent = 'Menyimpan…';
-  var res = await dbUpdate('in_bank_statement', {id:'eq.'+selectedId}, {keterangan_manual: ket});
+  var kat   = document.getElementById('ekKategori').value;
+  var res = await dbUpdate('in_bank_statement', {id:'eq.'+selectedId}, {keterangan_manual: ket, kategori: kat});
   btn.disabled = false; btn.textContent = 'Simpan';
   var err = (res !== null && res !== undefined && !Array.isArray(res) && res && (res.code || res.status === 'error'))
     ? (res.message || res.code || 'Error') : null;
   if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
-  if (rowStore[selectedId]) rowStore[selectedId].keterangan_manual = ket;
+  if (rowStore[selectedId]) { rowStore[selectedId].keterangan_manual = ket; rowStore[selectedId].kategori = kat; }
   bootstrap.Modal.getInstance(document.getElementById('modalEditKet')).hide();
   muatRekap();
   var activeTab = document.querySelector('.tab-btn.active').dataset.tab;
