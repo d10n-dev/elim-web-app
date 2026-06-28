@@ -540,7 +540,7 @@ function muatRekap(){
     var q=document.getElementById('rkCari').value.toLowerCase();
     if(q) data=data.filter(function(r){return(r.nama_pelanggan+' '+r.no_sj+' '+r.no_nota).toLowerCase().indexOf(q)>=0;});
     renderRekapTabel(data); muatRekapPerPelanggan();
-  }).catch(function(){document.getElementById('rkInfoBar').textContent='Gagal memuat data piutang.';});
+  }).catch(function(e){document.getElementById('rkInfoBar').textContent='Error: '+(e&&e.message?e.message:JSON.stringify(e));});
 }
 function renderRekapTabel(data){
   document.getElementById('rkInfoBar').textContent=data.length+' SJ ditemukan.';
@@ -564,10 +564,8 @@ function muatRekapPerPelanggan(){
     var tb=document.getElementById('rkPelTbody');
     if(!data.length){tb.innerHTML='<tr><td colspan="4" class="loading">Tidak ada data.</td></tr>';return;}
     tb.innerHTML=data.map(function(r){
-      return '<tr><td>'+esc(r.nama_pelanggan)+'</td>'+
-        '<td class="td-mono td-right">'+r.jumlah_sj+'</td>'+
-        '<td class="td-mono td-right">'+r.jumlah_jatuh_tempo+'</td>'+
-        '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.total_sisa)+'</td></tr>';
+      var nm=r.nama_pelanggan||'—';var jml=r.jumlah_sj!==undefined?r.jumlah_sj:0;var jt=r.jumlah_jatuh_tempo!==undefined?r.jumlah_jatuh_tempo:0;var ss=r.total_sisa!==undefined?r.total_sisa:0;
+      return '<tr><td>'+esc(nm)+'</td>'+'<td class="td-mono td-right">'+jml+'</td>'+'<td class="td-mono td-right">'+jt+'</td>'+'<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(ss)+'</td></tr>';
     }).join('');
   });
 }
