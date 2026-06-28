@@ -74,27 +74,27 @@
 
   <!-- REKAP CARDS -->
   <div class="rekap-grid">
-    <div class="rekap-card green">
+    <div id="rcSaldoDK" class="rekap-card green">
       <div class="lbl">Saldo BCA DK</div>
       <div class="val" id="rSaldoDK">…</div>
     </div>
-    <div class="rekap-card green">
+    <div id="rcSaldoPT" class="rekap-card green">
       <div class="lbl">Saldo BCA PT</div>
       <div class="val" id="rSaldoPT">…</div>
     </div>
-    <div class="rekap-card clickable" onclick="gantiTab('posting')">
+    <div id="rcUnposted" class="rekap-card clickable" onclick="gantiTab('posting')">
       <div class="lbl">Belum Dipost</div>
       <div class="val" id="rUnposted">…</div>
     </div>
-    <div class="rekap-card clickable" onclick="gantiTab('alokdir')">
+    <div id="rcAlokDir" class="rekap-card clickable" onclick="gantiTab('alokdir')">
       <div class="lbl">Alokasi Direktur</div>
       <div class="val" id="rAlokDir">…</div>
     </div>
-    <div class="rekap-card clickable" onclick="gantiTab('belum')">
+    <div id="rcBelum" class="rekap-card clickable" onclick="gantiTab('belum')">
       <div class="lbl">Belum Dialokasi</div>
       <div class="val" id="rBelum">…</div>
     </div>
-    <div class="rekap-card clickable" onclick="gantiTab('approve')">
+    <div id="rcApprove" class="rekap-card clickable" onclick="gantiTab('approve')">
       <div class="lbl">Perlu Approve</div>
       <div class="val" id="rApprove">…</div>
     </div>
@@ -107,12 +107,12 @@
 
   <!-- TAB NAV -->
   <div class="tab-nav">
-    <button class="tab-btn active" data-tab="koran"   onclick="gantiTab('koran')">📋 Rek.Koran</button>
-    <button class="tab-btn"        data-tab="posting" onclick="gantiTab('posting')">📤 Posting</button>
-    <button class="tab-btn"        data-tab="alokdir" onclick="gantiTab('alokdir')">🎯 Alokasi Dir</button>
-    <button class="tab-btn"        data-tab="belum"   onclick="gantiTab('belum')">📥 Belum Dialokasi</button>
-    <button class="tab-btn"        data-tab="approve" onclick="gantiTab('approve')">⏳ Perlu Approve</button>
-    <button class="tab-btn"        data-tab="done"    onclick="gantiTab('done')">✅ Teralokasi</button>
+    <button id="tbKoran"   class="tab-btn active" data-tab="koran"   onclick="gantiTab('koran')">📋 Rek.Koran</button>
+    <button id="tbPosting" class="tab-btn"        data-tab="posting" onclick="gantiTab('posting')">📤 Posting</button>
+    <button id="tbAlokdir" class="tab-btn"        data-tab="alokdir" onclick="gantiTab('alokdir')">🎯 Alokasi Dir</button>
+    <button id="tbBelum"   class="tab-btn"        data-tab="belum"   onclick="gantiTab('belum')">📥 Belum Dialokasi</button>
+    <button id="tbApprove" class="tab-btn"        data-tab="approve" onclick="gantiTab('approve')">⏳ Perlu Approve</button>
+    <button id="tbDone"    class="tab-btn"        data-tab="done"    onclick="gantiTab('done')">✅ Teralokasi</button>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════
@@ -1398,16 +1398,51 @@ async function doImport() {
 window.addEventListener('load', function() {
   if (!guardHalaman()) return;
   roleUser = getRoleUser();
-  if (roleUser !== 'DIREKTUR') {
+  var allowed = ['DIREKTUR','MANAGER','ADMIN'];
+  if (!allowed.includes(roleUser)) {
     window.location.replace('../index.html');
     return;
   }
+  terapkanVisibilitasRole();
   initNav('bank');
   document.getElementById('kontenBank').style.display = '';
-  document.getElementById('importBtnWrap').style.display = '';
   muatRekap();
-  muatKoran(true);
+  // Tab awal sesuai role
+  if (roleUser === 'MANAGER') {
+    gantiTab('approve');
+  } else if (roleUser === 'ADMIN') {
+    gantiTab('belum');
+  } else {
+    muatKoran(true);
+  }
 });
+
+function terapkanVisibilitasRole() {
+  var isDir = roleUser === 'DIREKTUR';
+  var isMgr = roleUser === 'MANAGER';
+  var isAdm = roleUser === 'ADMIN';
+
+  // Import CSV — Direktur only
+  if (isDir) document.getElementById('importBtnWrap').style.display = '';
+
+  // Tab buttons visibility
+  var hide = [];
+  if (isMgr) hide = ['tbKoran','tbPosting','tbAlokdir','tbBelum','tbDone'];
+  if (isAdm) hide = ['tbKoran','tbPosting','tbAlokdir','tbApprove','tbDone'];
+  hide.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Rekap cards visibility
+  var hideCards = [];
+  if (isMgr) hideCards = ['rcSaldoDK','rcSaldoPT','rcUnposted','rcAlokDir','rcBelum'];
+  if (isAdm) hideCards = ['rcSaldoDK','rcSaldoPT','rcUnposted','rcAlokDir','rcApprove'];
+  hideCards.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
 </script>
 </body>
 </html>
