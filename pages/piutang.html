@@ -459,6 +459,36 @@
 <script src="../js/utils.js"></script>
 <script>
 'use strict';
+function esc(s){return escHtml(s);}
+function fmtRupiah(n){return formatRupiah(n);}
+function fmtTgl(s){
+  if(!s)return '—';
+  var d=new Date(s);
+  if(isNaN(d))return s;
+  return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+}
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
+function cekErrorSupabase(res){
+  if(!res) return 'Tidak ada respons dari server.';
+  if(res.code) return res.message||('Error: '+res.code);
+  if(res.status==='error') return res.message||'Terjadi kesalahan.';
+  return null;
+}
+function buatAC(inputEl,dropEl,dataArr,idKey,namaKey,onSelect){
+  function pos(){var r=inputEl.getBoundingClientRect();dropEl.style.top=r.bottom+'px';dropEl.style.left=r.left+'px';dropEl.style.width=r.width+'px';}
+  function filt(q){q=q.toLowerCase();return dataArr.filter(function(d){return(d[idKey]||'').toLowerCase().includes(q)||(d[namaKey]||'').toLowerCase().includes(q);}).slice(0,30);}
+  function rend(items){
+    dropEl.innerHTML='';
+    if(!items.length){dropEl.innerHTML='<div style="padding:.5rem .75rem;font-size:.78rem;color:var(--muted)">Tidak ditemukan</div>';}
+    else{items.forEach(function(d){var div=document.createElement('div');div.style.cssText='padding:.45rem .75rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid #f0f0f0';div.textContent=d[namaKey];div.addEventListener('mousedown',function(e){e.preventDefault();pilih(d);});div.addEventListener('touchend',function(e){e.preventDefault();pilih(d);});dropEl.appendChild(div);});}
+    pos();dropEl.style.display='block';
+  }
+  function pilih(d){inputEl.value=d[namaKey];dropEl.style.display='none';if(onSelect)onSelect(d);}
+  function tutup(){dropEl.style.display='none';}
+  inputEl.addEventListener('input',function(){var q=inputEl.value.trim();if(!q.length){tutup();return;}rend(filt(q));});
+  inputEl.addEventListener('focus',function(){var q=inputEl.value.trim();if(q.length>0)rend(filt(q));});
+  inputEl.addEventListener('blur',function(){setTimeout(tutup,200);});
+}
 var ROLE = null;
 
 window.addEventListener('load', function () {
