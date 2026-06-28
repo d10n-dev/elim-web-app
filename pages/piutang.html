@@ -71,7 +71,6 @@
   <button class="tab-btn"        data-tab="alokasitn"  onclick="gantiTab('alokasitn')">💵 Alokasi Tunai</button>
   <button class="tab-btn"        data-tab="approve"    onclick="gantiTab('approve')">✅ Perlu Approve</button>
   <button class="tab-btn"        data-tab="faktur"     onclick="gantiTab('faktur')">🧾 Faktur Pajak</button>
-  <button class="tab-btn"        data-tab="setoran"    onclick="gantiTab('setoran')">🏦 Setoran</button>
 </div>
 
 <!-- ═══ TAB REKAP ═══ -->
@@ -239,22 +238,6 @@
   </div>
 </div>
 
-<!-- ═══ TAB SETORAN ═══ -->
-<div class="tab-pane" id="tabSetoran">
-  <div class="toolbar">
-    <button class="btn-tambah" id="btnBuatSetoran" onclick="bukaBuatSetoran()">+ Buat Setoran</button>
-  </div>
-  <div class="info-bar" id="stInfoBar">Memuat data…</div>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th>No. Setoran</th><th>Tanggal</th><th>Rekening Tujuan</th>
-        <th class="td-right">Total</th><th>Status</th><th></th>
-      </tr></thead>
-      <tbody id="stTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
-    </table>
-  </div>
-</div>
 
 <!-- ═══ MODAL: BUAT PENAGIHAN ═══ -->
 <div class="modal fade" id="modalPenagihan" tabindex="-1" data-bs-backdrop="static">
@@ -470,37 +453,6 @@
   </div>
 </div>
 
-<!-- ═══ MODAL: BUAT SETORAN ═══ -->
-<div class="modal fade" id="modalSetoran" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header"><span class="modal-title">Buat Setoran Tunai Lama</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div id="alertSetoran"></div>
-        <form id="frmSetoran" onsubmit="return false;">
-          <div class="row g-2 mb-2">
-            <div class="col-6"><label class="form-label">Tanggal Setor *</label><input type="date" class="form-control" id="inpTglSetor"/></div>
-            <div class="col-6"><label class="form-label">Rekening Tujuan *</label>
-              <select class="form-select" id="inpRekeningSetor">
-                <option value="">Pilih rekening…</option>
-                <option value="BCA_DK">BCA DK</option>
-                <option value="BCA_PT">BCA PT</option>
-              </select>
-            </div>
-          </div>
-          <div class="mb-2"><label class="form-label">Keterangan</label><input type="text" class="form-control" id="inpKetSetor"/></div>
-        </form>
-        <div class="sec-label">Pilih Pembayaran Cash (sistem lama)</div>
-        <div id="cashSetoranWrap"></div>
-        <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalSetoranInfo">Total setoran: Rp 0</div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
-        <button class="btn-navy" onclick="submitSetoran(this)">Simpan Setoran</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <script src="../js/api.js"></script>
 <script src="../js/nav.js"></script>
@@ -533,8 +485,6 @@ function terapkanVisibilitas(){
   if (isDir) document.getElementById('btnTambahTM').style.display='none';
   // Batch approve TM: Manager
   if (isMgr || isDir) document.getElementById('tmBatchWrap').style.display='';
-  // Buat setoran lama: Direktur only
-  if (!isDir) document.getElementById('btnBuatSetoran').style.display='none';
 }
 
 function gantiTab(tab){
@@ -548,7 +498,7 @@ function gantiTab(tab){
 }
 
 function muatSemuaData(){
-  muatRekapCards(); muatRekap(); muatPenagihan(); muatFaktur(); muatSetoran();
+  muatRekapCards(); muatRekap(); muatPenagihan(); muatFaktur();
 }
 
 // ── REKAP ────────────────────────────────────────────────────
@@ -1215,85 +1165,6 @@ async function submitFaktur(btn){
   finally{btn.disabled=false;btn.innerHTML='Simpan Faktur';}
 }
 
-// ── SETORAN LAMA ─────────────────────────────────────────────
-var semuaSetoran=[];
-var pembayaranCashCache=[];
-function muatSetoran(){
-  document.getElementById('stInfoBar').textContent='Memuat data…';
-  dbGet('in_setoran',{select:'*',order:'tgl_setor.desc'}).then(function(res){
-    semuaSetoran=Array.isArray(res)?res:[]; renderSetoran();
-  }).catch(function(){document.getElementById('stInfoBar').textContent='Gagal memuat.';});
-}
-function renderSetoran(){
-  document.getElementById('stInfoBar').textContent=semuaSetoran.length+' setoran.';
-  var tb=document.getElementById('stTbody');
-  if(!semuaSetoran.length){tb.innerHTML='<tr><td colspan="6" class="loading">Belum ada setoran.</td></tr>';return;}
-  tb.innerHTML=semuaSetoran.map(function(r){
-    var stCls='s-'+r.status.toLowerCase();
-    var aksi='';
-    if(r.status==='PENDING'&&isDirektur()){
-      aksi='<button class="btn-sm-action btn-approve" onclick="prosesApproveSetoran(\''+esc(r.id_setoran)+'\',true)">Acc</button>'+
-           ' <button class="btn-sm-action btn-tolak" onclick="prosesApproveSetoran(\''+esc(r.id_setoran)+'\',false)">Tolak</button>';
-    }
-    return '<tr><td class="td-mono">'+esc(r.no_setoran)+'</td><td class="td-mono">'+fmtTgl(r.tgl_setor)+'</td>'+
-      '<td>'+esc(r.rekening_tujuan||'—')+'</td><td class="td-mono td-right">'+fmtRupiah(r.total_setor)+'</td>'+
-      '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td><td>'+aksi+'</td></tr>';
-  }).join('');
-}
-function bukaBuatSetoran(){
-  document.getElementById('frmSetoran').reset();
-  document.getElementById('alertSetoran').innerHTML='';
-  document.getElementById('inpTglSetor').value=new Date().toISOString().slice(0,10);
-  document.getElementById('cashSetoranWrap').innerHTML='<div class="loading" style="padding:.5rem">Memuat pembayaran cash…</div>';
-  document.getElementById('totalSetoranInfo').textContent='Total setoran: Rp 0';
-  new bootstrap.Modal(document.getElementById('modalSetoran')).show();
-  dbRpc('get_pembayaran_cash_belum_setor',{}).then(function(res){
-    pembayaranCashCache=Array.isArray(res)?res:[]; renderCashSetoran();
-  });
-}
-function renderCashSetoran(){
-  var wrap=document.getElementById('cashSetoranWrap');
-  if(!pembayaranCashCache.length){wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada pembayaran cash yang belum disetor.</div>';return;}
-  wrap.innerHTML='<div class="sj-pick-wrap">'+pembayaranCashCache.map(function(r){
-    return '<label class="sj-pick-row">'+
-      '<input type="checkbox" class="chk-cash-setor" value="'+esc(r.id_pembayaran)+'" data-nominal="'+r.total_bayar+'" onclick="hitungTotalSetoran()"/>'+
-      '<div><div class="sj-pick-nama">'+esc(r.nama_pembayar||r.no_pembayaran)+'</div><div class="sj-pick-sub">'+esc(r.no_pembayaran)+' · '+fmtTgl(r.tgl_bayar)+'</div></div>'+
-      '<div class="sj-pick-nom">'+fmtRupiah(r.total_bayar)+'</div></label>';
-  }).join('')+'</div>';
-}
-function hitungTotalSetoran(){
-  var total=0;
-  document.querySelectorAll('.chk-cash-setor:checked').forEach(function(chk){total+=parseFloat(chk.dataset.nominal)||0;});
-  document.getElementById('totalSetoranInfo').textContent='Total setoran: '+fmtRupiah(total);
-}
-function genIdSetoran(){return'STR'+Date.now();}
-async function submitSetoran(btn){
-  var checked=Array.from(document.querySelectorAll('.chk-cash-setor:checked'));
-  var tglSetor=document.getElementById('inpTglSetor').value;
-  var rekening=document.getElementById('inpRekeningSetor').value;
-  var ket=document.getElementById('inpKetSetor').value.trim();
-  if(!checked.length){showAlert('alertSetoran','Pilih minimal 1 pembayaran cash.');return;}
-  if(!tglSetor){showAlert('alertSetoran','Tanggal setor wajib diisi.');return;}
-  if(!rekening){showAlert('alertSetoran','Rekening tujuan wajib dipilih.');return;}
-  var list=checked.map(function(c){return{id_pembayaran:c.value,nominal:parseFloat(c.dataset.nominal)};});
-  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
-  var idStr=genIdSetoran();
-  try{
-    var res=await dbRpc('buat_setoran',{p_id_setoran:idStr,p_no_setoran:idStr,p_tgl_setor:tglSetor+'T00:00:00+07:00',p_rekening_tujuan:rekening,p_user_input:getNamaUser(),p_keterangan:ket||null,p_pembayaran_list:list});
-    var e=cekErrorSupabase(res); if(e) throw new Error(e);
-    bootstrap.Modal.getInstance(document.getElementById('modalSetoran')).hide();
-    muatSetoran();
-  }catch(e){showAlert('alertSetoran','Gagal: '+e.message);}
-  finally{btn.disabled=false;btn.innerHTML='Simpan Setoran';}
-}
-async function prosesApproveSetoran(idStr,disetujui){
-  if(!confirm((disetujui?'Setujui':'Tolak')+' setoran ini?'))return;
-  try{
-    var res=await dbRpc('approve_setoran',{p_id_setoran:idStr,p_approved_by:getNamaUser(),p_disetujui:disetujui});
-    var e=cekErrorSupabase(res); if(e) throw new Error(e);
-    muatSetoran();
-  }catch(e){alert('Gagal: '+e.message);}
-}
 </script>
 </body>
 </html>
