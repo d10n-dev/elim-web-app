@@ -1398,51 +1398,16 @@ async function doImport() {
 window.addEventListener('load', function() {
   if (!guardHalaman()) return;
   roleUser = getRoleUser();
-  var allowed = ['DIREKTUR','MANAGER','ADMIN'];
-  if (!allowed.includes(roleUser)) {
+  if (roleUser !== 'DIREKTUR') {
     window.location.replace('../index.html');
     return;
   }
-  terapkanVisibilitasRole();
   initNav('bank');
   document.getElementById('kontenBank').style.display = '';
+  document.getElementById('importBtnWrap').style.display = '';
   muatRekap();
-  // Tab awal sesuai role
-  if (roleUser === 'MANAGER') {
-    gantiTab('approve');
-  } else if (roleUser === 'ADMIN') {
-    gantiTab('belum');
-  } else {
-    muatKoran(true);
-  }
+  muatKoran(true);
 });
-
-function terapkanVisibilitasRole() {
-  var isDir = roleUser === 'DIREKTUR';
-  var isMgr = roleUser === 'MANAGER';
-  var isAdm = roleUser === 'ADMIN';
-
-  // Import CSV — Direktur only
-  if (isDir) document.getElementById('importBtnWrap').style.display = '';
-
-  // Tab buttons visibility
-  var hide = [];
-  if (isMgr) hide = ['tbKoran','tbPosting','tbAlokdir','tbBelum','tbDone'];
-  if (isAdm) hide = ['tbKoran','tbPosting','tbAlokdir','tbApprove','tbDone'];
-  hide.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-
-  // Rekap cards visibility
-  var hideCards = [];
-  if (isMgr) hideCards = ['rcSaldoDK','rcSaldoPT','rcUnposted','rcAlokDir','rcBelum'];
-  if (isAdm) hideCards = ['rcSaldoDK','rcSaldoPT','rcUnposted','rcAlokDir','rcApprove'];
-  hideCards.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-}
 </script>
 </body>
 </html>
