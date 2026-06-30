@@ -876,7 +876,7 @@ function cariNotaTMManual(){
 function muatNotaPelangganTM(idPel,namaPel){
   var wrap=document.getElementById('notaTMWrap');
   wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota outstanding…</div>';
-  dbRpc('get_piutang_belum_lunas',{p_id_pelanggan:idPel||null,p_nama_pelanggan:idPel?null:namaPel}).then(function(res){
+  dbRpc('get_piutang_belum_lunas',{p_id_pelanggan:idPel||null,p_nama_pelanggan:namaPel||null}).then(function(res){
     var data=Array.isArray(res)?res:[];
     if(!data.length){wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada nota outstanding untuk '+esc(namaPel)+'.</div>';return;}
     wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
