@@ -513,7 +513,7 @@ function terapkanVisibilitas(){
     if(btn) btn.style.display='none';
   });
   // Tombol tambah TM: Admin & Manager
-  if (isDir) document.getElementById('btnTambahTM').style.display='none';
+  // Direktur & Manager bisa input tunai masuk — tombol tampil untuk semua role
   // Batch approve TM: Manager
   if (isMgr || isDir) document.getElementById('tmBatchWrap').style.display='';
 }
