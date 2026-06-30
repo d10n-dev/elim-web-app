@@ -928,7 +928,7 @@ function muatAlokDirFilter() {
       '<td><button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button></td>' +
       '</tr>';
   });
-  if (!adHtml) adHtml = '<tr><td colspan="7" class="loading" style="color:var(--greeialokasi ✓</td></tr>';
+  if (!adHtml) adHtml = '<tr><td colspan="7" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
   document.getElementById('adTbody').innerHTML = adHtml;
   document.getElementById('adInfo').textContent = rows.length + ' transaksi' + (q ? ' (filter: ' + q + ')' : ' menunggu alokasi');
 }
