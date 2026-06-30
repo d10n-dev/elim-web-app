@@ -845,18 +845,28 @@ function inisAcPembayarTM(){
   if(inp._acInited)return; inp._acInited=true;
   buatAC(inp,drop,pelangganTMCache,'id_pelanggan','nama',function(p){
     document.getElementById('hidIdPelangganTM').value=p.id_pelanggan;
+    clearTimeout(_tmInputTimer);
     muatNotaPelangganTM(p.id_pelanggan,p.nama);
   });
 }
+var _tmInputTimer=null;
 function onInputPembayarTM(){
-  // Reset id pelanggan kalau user edit manual
   document.getElementById('hidIdPelangganTM').value='';
-  document.getElementById('notaTMWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik dan pilih pembayar dari daftar untuk melihat nota.</div>';
+  var nama=document.getElementById('inpNamaPembayarTM').value.trim();
+  if(!nama){
+    document.getElementById('notaTMWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama pembayar untuk melihat nota.</div>';
+    return;
+  }
+  // Debounce 600ms — cari by nama langsung tanpa harus pilih dari dropdown
+  clearTimeout(_tmInputTimer);
+  _tmInputTimer=setTimeout(function(){
+    muatNotaPelangganTM(null, nama);
+  },600);
 }
 function muatNotaPelangganTM(idPel,namaPel){
   var wrap=document.getElementById('notaTMWrap');
   wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota outstanding…</div>';
-  dbRpc('get_piutang_belum_lunas',{p_id_pelanggan:idPel,p_nama_pelanggan:null}).then(function(res){
+  dbRpc('get_piutang_belum_lunas',{p_id_pelanggan:idPel||null,p_nama_pelanggan:idPel?null:namaPel}).then(function(res){
     var data=Array.isArray(res)?res:[];
     if(!data.length){wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada nota outstanding untuk '+esc(namaPel)+'.</div>';return;}
     wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
