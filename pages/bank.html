@@ -165,6 +165,7 @@
   <div class="tab-pane" id="tabPosting">
     <!-- Toolbar batch -->
     <div class="posting-toolbar">
+      <input type="text" id="psCariKet" placeholder="Filter keterangan…" oninput="renderPosting()" style="font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem;min-width:160px"/>
       <select id="psRekening" onchange="muatPosting(true)" style="font-size:.78rem;font-family:var(--mono)">
         <option value="">Semua Rekening</option>
         <option value="BCA_DK">BCA DK</option>
@@ -209,6 +210,7 @@
   ═══════════════════════════════════════════════════════════ -->
   <div class="tab-pane" id="tabAlokdir">
     <div class="toolbar">
+      <input type="text" id="adCariKet" placeholder="Filter keterangan…" oninput="muatAlokDirFilter()" style="font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem;min-width:160px"/>
       <select id="adRekening" onchange="muatAlokDir()" style="font-family:var(--mono);font-size:.78rem">
         <option value="">Semua Rekening</option>
         <option value="BCA_DK">BCA DK</option>
@@ -779,12 +781,14 @@ async function muatPosting(reset) {
   else psData = psData.concat(rows);
 
   renderPosting();
-  document.getElementById('psInfo').textContent = psData.length + ' transaksi belum dipost';
+  document.getElementById('psInfo').textContent = psData.length + ' transaksi belum dipost' + (qPs ? ' (' + filtered.length + ' sesuai filter)' : '');
 }
 
 function renderPosting() {
   var html = '';
-  psData.forEach(function(r) {
+  var qPs = (document.getElementById('psCariKet')||{value:''}).value.toLowerCase();
+  var filtered = qPs ? psData.filter(function(r){return (r.keterangan_bank||'').toLowerCase().indexOf(qPs)>=0;}) : psData;
+  filtered.forEach(function(r) {
     rowStore[r.id] = r;
     var saranKat = r.saran_kategori || '';
     var cbChecked = psChecked.has(r.id) ? 'checked' : '';
@@ -903,6 +907,31 @@ async function simpanBatchPost() {
 }
 
 // ── TAB 3: ALOKASI DIREKTUR ─────────────────────────────────
+function muatAlokDirFilter() {
+  var q = (document.getElementById('adCariKet')||{value:''}).value.toLowerCase();
+  var kat = document.getElementById('adKategori').value;
+  var rows = (window._adDataCache||[]).filter(function(r){
+    var ketOk = !q || (r.keterangan_bank||'').toLowerCase().indexOf(q) >= 0;
+    var katOk = !kat || r.kategori === kat;
+    return ketOk && katOk;
+  });
+  var adHtml = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    adHtml += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td><button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button></td>' +
+      '</tr>';
+  });
+  if (!adHtml) adHtml = '<tr><td colspan="7" class="loading" style="color:var(--greeialokasi ✓</td></tr>';
+  document.getElementById('adTbody').innerHTML = adHtml;
+  document.getElementById('adInfo').textContent = rows.length + ' transaksi' + (q ? ' (filter: ' + q + ')' : ' menunggu alokasi');
+}
 async function muatAlokDir() {
   var rek = document.getElementById('adRekening').value;
   var kat = document.getElementById('adKategori').value;
@@ -913,24 +942,8 @@ async function muatAlokDir() {
   if (err) { renderErr('adTbody', 7, err); return; }
   if (!Array.isArray(rows)) rows = [];
 
-  if (kat) rows = rows.filter(function(r){ return r.kategori === kat; });
-
-  var html = '';
-  rows.forEach(function(r) {
-    rowStore[r.id] = r;
-    html += '<tr data-rid="' + r.id + '">' +
-      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
-      '<td>' + badgeRek(r.id_rekening) + '</td>' +
-      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
-      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
-      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
-      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
-      '<td><button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button></td>' +
-      '</tr>';
-  });
-  if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
-  document.getElementById('adTbody').innerHTML = html;
-  document.getElementById('adInfo').textContent = rows.length + ' transaksi menunggu alokasi';
+  window._adDataCache = rows;
+  muatAlokDirFilter();
 }
 
 function bukaAlokDir(id) {
