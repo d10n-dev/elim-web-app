@@ -329,7 +329,10 @@
           <div class="mb-2">
             <label class="form-label">Nama Pembayar *</label>
             <div style="position:relative">
-              <input type="text" class="form-control" id="inpNamaPembayarTM" placeholder="Ketik nama / pelanggan…" autocomplete="off" oninput="onInputPembayarTM()"/>
+              <div style="display:flex;gap:.4rem">
+                <input type="text" class="form-control" id="inpNamaPembayarTM" placeholder="Ketik nama / pelanggan…" autocomplete="off" oninput="onInputPembayarTM()"/>
+                <button type="button" class="btn-outline" onclick="cariNotaTMManual()" style="white-space:nowrap">🔍 Cari</button>
+              </div>
               <div id="acPembayarTMDrop" style="position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none;max-height:220px;overflow-y:auto;min-width:260px"></div>
               <input type="hidden" id="hidIdPelangganTM"/>
             </div>
@@ -861,7 +864,14 @@ function onInputPembayarTM(){
   clearTimeout(_tmInputTimer);
   _tmInputTimer=setTimeout(function(){
     muatNotaPelangganTM(null, nama);
-  },600);
+  },300);
+}
+function cariNotaTMManual(){
+  var nama=document.getElementById('inpNamaPembayarTM').value.trim();
+  var idPel=document.getElementById('hidIdPelangganTM').value||null;
+  if(!nama&&!idPel){alert('Isi nama pembayar dulu.');return;}
+  clearTimeout(_tmInputTimer);
+  muatNotaPelangganTM(idPel,nama);
 }
 function muatNotaPelangganTM(idPel,namaPel){
   var wrap=document.getElementById('notaTMWrap');
