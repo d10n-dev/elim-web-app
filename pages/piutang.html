@@ -513,7 +513,7 @@ function terapkanVisibilitas(){
   // Tab visibility
   var tabHide = [];
   if (isAdm) tabHide = ['approve','setoran'];
-  if (isMgr) tabHide = ['alokasitf','alokasitn','approve','faktur','setoran'];
+  if (isMgr) tabHide = ['alokasitn','approve','faktur','setoran'];
   tabHide.forEach(function(t){
     var btn = document.querySelector('[data-tab="'+t+'"]');
     if(btn) btn.style.display='none';
@@ -699,25 +699,45 @@ function muatSJPelangganUtkTagih(idPel,namaPel){
   var wrap=document.getElementById('sjPelangganTagihWrap');
   wrap.style.display='block';
   wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota belum ditagih '+esc(namaPel)+'…</div>';
-  dbRpc('get_rekap_piutang',{p_jatuh_tempo_maks:null,p_id_pelanggan:idPel,p_status:'BELUM_DITAGIH',p_entitas:null}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    if(!data.length){wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaPel)+' tidak punya nota Belum Ditagih.</div>';return;}
-    wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+  var pSJ=dbRpc('get_rekap_piutang',{p_jatuh_tempo_maks:null,p_id_pelanggan:idPel,p_status:'BELUM_DITAGIH',p_entitas:null}).then(function(r){return Array.isArray(r)?r:[];});
+  var pSA=dbGet('in_saldo_awal_piutang',{select:'id_saldo,no_nota,no_sj,tgl,nama_pelanggan,sisa_piutang',status_piutang:'eq.BELUM_DITAGIH',nama_pelanggan:'ilike.%'+namaPel+'%',order:'tgl.asc'}).then(function(r){return Array.isArray(r)?r:[];});
+  Promise.all([pSJ,pSA]).then(function(results){
+    var dataSJ=results[0];
+    var dataSA=results[1];
+    if(!dataSJ.length&&!dataSA.length){wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaPel)+' tidak punya nota Belum Ditagih.</div>';return;}
+    var rowsSJ=dataSJ.map(function(r){
       var sudahAda=sjTerpilihTagih.some(function(a){return a.id_sj===r.id_sj;});
       return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
         '<input type="checkbox" class="chk-sj-cari-tagih" value="'+esc(r.id_sj)+'" '+(sudahAda?'disabled':'')+
-          ' data-no-sj="'+esc(r.no_sj)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-total="'+r.total_tagih+'"/>'+
+          ' data-tipe="sj" data-id-sj="'+esc(r.id_sj)+'" data-id-saldo="" data-no-sj="'+esc(r.no_sj)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-total="'+r.total_tagih+'"/>'+
         '<div><div class="sj-pick-nama">'+esc(r.no_sj)+'</div><div class="sj-pick-sub">'+esc(r.no_nota)+' · '+fmtTgl(r.tgl)+'</div></div>'+
         '<div class="sj-pick-nom">'+fmtRupiah(r.total_tagih)+'</div></label>';
-    }).join('')+'</div>'+
-    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahSJTerpilihTagih()">+ Tambahkan ke Penagihan</button>';
+    });
+    var rowsSA=dataSA.map(function(r){
+      var sudahAda=sjTerpilihTagih.some(function(a){return a.id_saldo===r.id_saldo;});
+      return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
+        '<input type="checkbox" class="chk-sj-cari-tagih" value="'+esc(r.id_saldo)+'" '+(sudahAda?'disabled':'')+
+          ' data-tipe="saldo" data-id-sj="" data-id-saldo="'+esc(r.id_saldo)+'" data-no-sj="'+esc(r.no_sj)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-total="'+r.sisa_piutang+'"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+' <span style="font-size:.6rem;background:#e8521a;color:#fff;padding:.1rem .3rem;border-radius:3px">IMPORT</span></div><div class="sj-pick-sub">'+esc(r.no_sj)+' · '+fmtTgl(r.tgl)+'</div></div>'+
+        '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_piutang)+'</div></label>';
+    });
+    wrap.innerHTML='<div class="sj-pick-wrap">'+rowsSJ.concat(rowsSA).join('')+'</div>'+
+      '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahSJTerpilihTagih()">+ Tambahkan ke Penagihan</button>';
   });
 }
 function tambahSJTerpilihTagih(){
   var checked=document.querySelectorAll('.chk-sj-cari-tagih:checked');
   if(!checked.length){alert('Pilih minimal 1 nota dulu.');return;}
   checked.forEach(function(chk){
-    sjTerpilihTagih.push({id_sj:chk.value,no_sj:chk.dataset.noSj,no_nota:chk.dataset.noNota,nama_pelanggan:chk.dataset.nama,total_tagih:parseFloat(chk.dataset.total)});
+    sjTerpilihTagih.push({
+      tipe:chk.dataset.tipe,
+      id_sj:chk.dataset.idSj||'',
+      id_saldo:chk.dataset.idSaldo||'',
+      no_sj:chk.dataset.noSj,
+      no_nota:chk.dataset.noNota,
+      nama_pelanggan:chk.dataset.nama,
+      total_tagih:parseFloat(chk.dataset.total)
+    });
   });
   document.getElementById('inpCariPelangganTagih').value='';
   document.getElementById('sjPelangganTagihWrap').style.display='none';
@@ -736,16 +756,16 @@ function renderSJTerpilihTagih(){
 function hapusSJTerpilihTagih(idx){sjTerpilihTagih.splice(idx,1);renderSJTerpilihTagih();}
 function genIdPenagihan(){return'PNT'+Date.now();}
 async function submitPenagihan(btn){
-  var idList=sjTerpilihTagih.map(function(a){return a.id_sj;});
+  var notaList=sjTerpilihTagih.map(function(a){return {id_sj:a.id_sj||'',id_saldo:a.id_saldo||'',no_nota:a.no_nota,nama_pelanggan:a.nama_pelanggan,total_tagih:a.total_tagih};});
   var tglKirim=document.getElementById('inpTglKirimTagih').value;
   var namaPenerima=document.getElementById('inpNamaPenerimaTagih').value.trim();
   var ket=document.getElementById('inpKetTagih').value.trim();
-  if(!idList.length){showAlert('alertPenagihan','Pilih minimal 1 nota.');return;}
+  if(!notaList.length){showAlert('alertPenagihan','Pilih minimal 1 nota.');return;}
   if(!tglKirim){showAlert('alertPenagihan','Tanggal kirim wajib diisi.');return;}
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
   var idPnt=genIdPenagihan();
   try{
-    var res=await dbRpc('buat_penagihan',{p_id_penagihan:idPnt,p_no_penagihan:idPnt,p_tgl_kirim:tglKirim+'T00:00:00+07:00',p_nama_penerima:namaPenerima||null,p_user_input:getNamaUser(),p_keterangan:ket||null,p_sj_list:idList});
+    var res=await dbRpc('buat_penagihan',{p_id_penagihan:idPnt,p_no_penagihan:idPnt,p_tgl_kirim:tglKirim+'T00:00:00+07:00',p_nama_penerima:namaPenerima||null,p_user_input:getNamaUser(),p_keterangan:ket||null,p_nota_list:notaList});
     var e=cekErrorSupabase(res); if(e) throw new Error(e);
     bootstrap.Modal.getInstance(document.getElementById('modalPenagihan')).hide();
     muatPenagihan(); muatRekap(); muatRekapCards();
@@ -1072,7 +1092,7 @@ function renderTF(data){
   tb.innerHTML=data.map(function(r){
     return '<tr><td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
       '<td class="td-mono">'+esc(r.nama_rekening)+'</td>'+
-      '<td>'+esc(r.keterangan_bank)+(r.keterangan_manual?'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.keterangan_manual)+'</span>':'')+'</td>'+
+      '<td style="word-break:break-word;max-width:200px;white-space:normal">'+esc(r.keterangan_bank)+(r.keterangan_manual?'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.keterangan_manual)+'</span>':'')+'</td>'+
       '<td class="td-mono td-right">'+fmtRupiah(r.nominal)+'</td>'+
       '<td class="td-mono td-right">'+fmtRupiah(r.sisa_nominal)+'</td>'+
       '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiTF(\''+esc(r.id)+'\')">Alokasi</button></td></tr>';
