@@ -173,6 +173,7 @@
 <!-- ═══ TAB ALOKASI TRANSFER ═══ -->
 <div class="tab-pane" id="tabAlokasitf">
   <div class="info-bar" id="tfInfoBar">Memuat data…</div>
+  <input type="text" class="form-control" id="inpCariTF" placeholder="Cari keterangan bank / rekening…" autocomplete="off" oninput="filterTF()" style="margin-bottom:.6rem"/>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -367,8 +368,10 @@
       <div class="modal-body">
         <div id="alertLinkTB"></div>
         <div class="sec-label">Pilih Baris Bank CR (Setoran)</div>
+        <input type="text" class="form-control" id="inpCariBankCR" placeholder="Cari keterangan bank…" autocomplete="off" oninput="filterBankCR()" style="margin-bottom:.5rem"/>
         <div id="bankCRWrap"><div class="loading" style="padding:.5rem">Memuat baris bank…</div></div>
         <div class="sec-label">TM yang Disetorkan</div>
+        <input type="text" class="form-control" id="inpCariTMLink" placeholder="Cari no. TM / nama pembayar…" autocomplete="off" oninput="filterTMLink()" style="margin-bottom:.5rem"/>
         <div id="tmLinkWrap"></div>
         <div style="font-family:var(--mono);font-size:.75rem;margin-top:.5rem">
           Total TM terpilih: <strong id="lblTotalTMLinkInfo">Rp 0</strong>
@@ -964,36 +967,66 @@ function bukaTMDetail(idTM){
 
 // Link tunai ke bank
 var tmLinkDataStore=[];
+var _bankCRDataCache=[], _tmLinkDataCache=[];
+var _tmLinkChecked={}; // preserva centang saat filter re-render
 function bukaLinkTunaiBank(idTM){
   document.getElementById('alertLinkTB').innerHTML='';
+  document.getElementById('inpCariBankCR').value='';
+  document.getElementById('inpCariTMLink').value='';
+  _tmLinkChecked={}; _tmLinkChecked[idTM]=true;
   var tmRow=semuaTM.find(function(x){return x.id_tunai===idTM;})||{};
   // Load bank CR posted
   document.getElementById('bankCRWrap').innerHTML='<div class="loading" style="padding:.5rem">Memuat baris bank…</div>';
   document.getElementById('tmLinkWrap').innerHTML='';
   dbRpc('get_bank_cr_piutang_belum_dialokasi',{p_id_rekening:null}).then(function(res){
     var data=Array.isArray(res)?res:[];
-    if(!data.length){document.getElementById('bankCRWrap').innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada baris bank CR PIUTANG tersedia.</div>';return;}
-    document.getElementById('bankCRWrap').innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
-      return '<label class="sj-pick-row">'+
-        '<input type="radio" name="radioBank" class="chk-batch" value="'+esc(r.id)+'" data-nominal="'+r.sisa_nominal+'"/>'+
-        '<div><div class="sj-pick-nama">'+esc(r.keterangan_bank)+'</div><div class="sj-pick-sub">'+fmtTgl(r.tgl_transaksi)+' · '+esc(r.nama_rekening)+'</div></div>'+
-        '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_nominal)+'</div></label>';
-    }).join('')+'</div>';
+    _bankCRDataCache=data;
+    renderBankCR(data);
   });
   // Load TM APPROVED untuk di-link
   dbRpc('get_tunai_masuk',{p_status:'APPROVED',p_tgl_mulai:null,p_tgl_akhir:null}).then(function(res){
     var data=Array.isArray(res)?res:[];
-    tmLinkDataStore=data;
-    document.getElementById('tmLinkWrap').innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
-      var aktif=r.id_tunai===idTM;
-      return '<label class="sj-pick-row">'+
-        '<input type="checkbox" class="chk-batch chk-tm-link" value="'+esc(r.id_tunai)+'" data-nominal="'+r.nominal+'" '+(aktif?'checked':'')+' onchange="hitungTotalTMLink()"/>'+
-        '<div><div class="sj-pick-nama">'+esc(r.no_tunai)+' — '+esc(r.nama_pembayar)+'</div><div class="sj-pick-sub">'+fmtTgl(r.tgl_terima)+'</div></div>'+
-        '<div class="sj-pick-nom">'+fmtRupiah(r.nominal)+'</div></label>';
-    }).join('')+'</div>';
-    hitungTotalTMLink();
+    tmLinkDataStore=data; _tmLinkDataCache=data;
+    renderTMLink(data);
   });
   new bootstrap.Modal(document.getElementById('modalLinkTunaiBank')).show();
+}
+function renderBankCR(data){
+  if(!data.length){document.getElementById('bankCRWrap').innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada baris bank CR PIUTANG tersedia.</div>';return;}
+  var radioAktif=document.querySelector('input[name="radioBank"]:checked');
+  var idAktif=radioAktif?radioAktif.value:null;
+  document.getElementById('bankCRWrap').innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+    return '<label class="sj-pick-row">'+
+      '<input type="radio" name="radioBank" class="chk-batch" value="'+esc(r.id)+'" data-nominal="'+r.sisa_nominal+'" '+(r.id===idAktif?'checked':'')+'/>'+
+      '<div><div class="sj-pick-nama">'+esc(r.keterangan_bank)+'</div><div class="sj-pick-sub">'+fmtTgl(r.tgl_transaksi)+' · '+esc(r.nama_rekening)+'</div></div>'+
+      '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_nominal)+'</div></label>';
+  }).join('')+'</div>';
+}
+function filterBankCR(){
+  var q=document.getElementById('inpCariBankCR').value.trim().toLowerCase();
+  if(!q){renderBankCR(_bankCRDataCache);return;}
+  renderBankCR(_bankCRDataCache.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q)>=0 || (r.nama_rekening||'').toLowerCase().indexOf(q)>=0;
+  }));
+}
+function renderTMLink(data){
+  // simpan centang saat ini sebelum re-render
+  document.querySelectorAll('.chk-tm-link').forEach(function(c){_tmLinkChecked[c.value]=c.checked;});
+  document.getElementById('tmLinkWrap').innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+    var aktif=!!_tmLinkChecked[r.id_tunai];
+    return '<label class="sj-pick-row">'+
+      '<input type="checkbox" class="chk-batch chk-tm-link" value="'+esc(r.id_tunai)+'" data-nominal="'+r.nominal+'" '+(aktif?'checked':'')+' onchange="hitungTotalTMLink()"/>'+
+      '<div><div class="sj-pick-nama">'+esc(r.no_tunai)+' — '+esc(r.nama_pembayar)+'</div><div class="sj-pick-sub">'+fmtTgl(r.tgl_terima)+'</div></div>'+
+      '<div class="sj-pick-nom">'+fmtRupiah(r.nominal)+'</div></label>';
+  }).join('')+'</div>';
+  hitungTotalTMLink();
+}
+function filterTMLink(){
+  var q=document.getElementById('inpCariTMLink').value.trim().toLowerCase();
+  if(!q){renderTMLink(_tmLinkDataCache);return;}
+  renderTMLink(_tmLinkDataCache.filter(function(r){
+    return (r.no_tunai||'').toLowerCase().indexOf(q)>=0 || (r.nama_pembayar||'').toLowerCase().indexOf(q)>=0;
+  }));
 }
 function hitungTotalTMLink(){
   var total=0;
@@ -1021,23 +1054,39 @@ var tfRowStore={};
 var notaTerpilihATF=[];
 var idBankATFAktif=null;
 
+var _tfDataCache=[];
 function muatAlokasiTF(){
   document.getElementById('tfInfoBar').textContent='Memuat data…';
+  document.getElementById('inpCariTF').value='';
   dbRpc('get_bank_cr_piutang_belum_dialokasi',{p_id_rekening:null}).then(function(res){
     var data=Array.isArray(res)?res:[];
     data.forEach(function(r){tfRowStore[r.id]=r;});
-    document.getElementById('tfInfoBar').textContent=data.length+' baris bank CR PIUTANG belum dialokasi.';
-    var tb=document.getElementById('tfTbody');
-    if(!data.length){tb.innerHTML='<tr><td colspan="6" class="loading">Tidak ada data.</td></tr>';return;}
-    tb.innerHTML=data.map(function(r){
-      return '<tr><td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
-        '<td class="td-mono">'+esc(r.nama_rekening)+'</td>'+
-        '<td>'+esc(r.keterangan_bank)+(r.keterangan_manual?'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.keterangan_manual)+'</span>':'')+'</td>'+
-        '<td class="td-mono td-right">'+fmtRupiah(r.nominal)+'</td>'+
-        '<td class="td-mono td-right">'+fmtRupiah(r.sisa_nominal)+'</td>'+
-        '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiTF(\''+esc(r.id)+'\')">Alokasi</button></td></tr>';
-    }).join('');
+    _tfDataCache=data;
+    renderTF(data);
   }).catch(function(){document.getElementById('tfInfoBar').textContent='Gagal memuat data.';});
+}
+function renderTF(data){
+  document.getElementById('tfInfoBar').textContent=data.length+' baris bank CR PIUTANG belum dialokasi.';
+  var tb=document.getElementById('tfTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="6" class="loading">Tidak ada data.</td></tr>';return;}
+  tb.innerHTML=data.map(function(r){
+    return '<tr><td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
+      '<td class="td-mono">'+esc(r.nama_rekening)+'</td>'+
+      '<td>'+esc(r.keterangan_bank)+(r.keterangan_manual?'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.keterangan_manual)+'</span>':'')+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.nominal)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.sisa_nominal)+'</td>'+
+      '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiTF(\''+esc(r.id)+'\')">Alokasi</button></td></tr>';
+  }).join('');
+}
+function filterTF(){
+  var q=document.getElementById('inpCariTF').value.trim().toLowerCase();
+  if(!q){renderTF(_tfDataCache);return;}
+  var filtered=_tfDataCache.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q)>=0 ||
+           (r.keterangan_manual||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_rekening||'').toLowerCase().indexOf(q)>=0;
+  });
+  renderTF(filtered);
 }
 
 function bukaAlokasiTF(idBank){
