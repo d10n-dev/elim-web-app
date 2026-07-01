@@ -366,7 +366,7 @@
 // ── STATE ──
 var semuaSPK=[], semuaOrdDtl=[], sdetAktif=[], daftarItem=[], semuaOperator=[];
 var filterAktif='OPEN', idSpkAktif=null, itemDipilih=null, maxPpsForm=0, tabLogAktif='CETAK';
-var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]};
+var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]}, _bahanMap={}, _tintaMap={};
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', function(){
@@ -1206,14 +1206,18 @@ function printSPK(){
   Promise.all([
     dbGet('m_bom_finishing',{id_item:'eq.'+idItem,order:'urut.asc'}),
     dbGet('m_bom_tinta',    {id_item:'eq.'+idItem,order:'urut.asc'}),
-    dbGet('m_bom_bahan',    {id_item:'eq.'+idItem,order:'urut.asc'})
+    dbGet('m_bom_bahan',    {id_item:'eq.'+idItem,order:'urut.asc'}),
+    dbGet('m_bahan', {}),
+    dbGet('m_tinta', {})
   ]).then(function(r){
     _finPrint=Array.isArray(r[0])?r[0]:[];
     _bomPrint={tinta:Array.isArray(r[1])?r[1]:[],bahan:Array.isArray(r[2])?r[2]:[]};
+    _bahanMap={}; (Array.isArray(r[3])?r[3]:[]).forEach(function(b){_bahanMap[b.id_bahan]=b.nama_bahan;});
+    _tintaMap={}; (Array.isArray(r[4])?r[4]:[]).forEach(function(t){_tintaMap[t.id_tinta]=t.nama_tinta;});
     btn.disabled=false;btn.innerHTML='🔍 Preview SPK';
     prosesLog();
   }).catch(function(){
-    _finPrint=[];_bomPrint={bahan:[],tinta:[]};
+    _finPrint=[];_bomPrint={bahan:[],tinta:[]};_bahanMap={};_tintaMap={};
     btn.disabled=false;btn.innerHTML='🔍 Preview SPK';
     prosesLog();
   });
@@ -1252,8 +1256,8 @@ function renderDanCetak(printKe){
   var spk=_spkPrint, sdet=_sdetPrint, fin=_finPrint, bom=_bomPrint;
   var namaUser=getNamaUser();
   var tglCetak=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  var bahanLine=bom.bahan.length?bom.bahan.map(function(b){return esc(b.id_bahan)+(b.keterangan?' — '+esc(b.keterangan):'');}).join(' | '):'—';
-  var tintaLine=bom.tinta.length?bom.tinta.map(function(t){return esc(t.id_tinta||'');}).join(' | '):'—';
+  var bahanLine=bom.bahan.length?bom.bahan.map(function(b){return esc(_bahanMap[b.id_bahan]||b.id_bahan)+(b.keterangan?' — '+esc(b.keterangan):'');}).join(' | '):'—';
+  var tintaLine=bom.tinta.length?bom.tinta.map(function(t){return esc(_tintaMap[t.id_tinta]||t.id_tinta||'');}).join(' | '):'—';
   var finLine=fin.length?fin.map(function(f){return esc(f.jenis_finishing||'');}).join('; '):'—';
   var S='font-family:\'Courier New\',Courier,monospace;font-size:11pt;color:#000;background:#fff;';
   var tdC='padding:3px 4px;border:0.5px solid #bbb;font-size:10pt;';
