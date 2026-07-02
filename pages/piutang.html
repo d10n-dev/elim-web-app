@@ -398,7 +398,10 @@
         <div id="infoBarATF" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
         <div class="sec-label">Cari Nota Piutang</div>
         <div style="position:relative">
-          <input type="text" class="form-control" id="inpCariNotaATF" placeholder="Ketik nama pelanggan…" autocomplete="off" oninput="onInputCariNotaATF()"/>
+          <div style="display:flex;gap:.4rem">
+            <input type="text" class="form-control" id="inpCariNotaATF" placeholder="Ketik nama pelanggan…" autocomplete="off" oninput="onInputCariNotaATF()"/>
+            <button type="button" class="btn-outline" onclick="cariNotaATFManual()" style="white-space:nowrap">🔍 Cari</button>
+          </div>
           <div id="acNotaATFDrop" style="position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none;max-height:220px;overflow-y:auto;min-width:260px"></div>
         </div>
         <div id="daftarNotaATFWrap" style="margin-top:.5rem"></div>
@@ -1115,35 +1118,70 @@ function bukaAlokasiTF(idBank){
   document.getElementById('alertAlokasiTF').innerHTML='';
   document.getElementById('infoBarATF').textContent=fmtTgl(r.tgl_transaksi)+' — '+esc(r.keterangan_bank||'')+'  |  Sisa: '+fmtRupiah(r.sisa_nominal||0);
   document.getElementById('inpCariNotaATF').value='';
-  document.getElementById('inpCariNotaATF')._acInited=false;
-  document.getElementById('daftarNotaATFWrap').innerHTML='';
+  document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama pelanggan untuk melihat nota.</div>';
   notaTerpilihATF=[]; renderNotaTerpilihATF();
   new bootstrap.Modal(document.getElementById('modalAlokasiTF')).show();
+  muatPelangganATFCache();
 }
-function onInputCariNotaATF(){
-  var q=document.getElementById('inpCariNotaATF').value.trim();
-  if(q.length<2)return;
-  dbRpc('get_piutang_belum_lunas',{p_id_pelanggan:null,p_nama_pelanggan:q}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    var drop=document.getElementById('acNotaATFDrop');
-    if(!data.length){drop.style.display='none';return;}
-    var rect=document.getElementById('inpCariNotaATF').getBoundingClientRect();
-    drop.style.top=(rect.bottom+window.scrollY)+'px';
-    drop.style.left=(rect.left+window.scrollX)+'px';
-    drop.style.minWidth=rect.width+'px';
-    drop.style.display='block';
-    drop.innerHTML=data.slice(0,20).map(function(r){
-      return '<div style="padding:.45rem .7rem;cursor:pointer;font-size:.78rem;border-bottom:1px solid #f0f0f0" onmousedown="pilihNotaATF(\''+esc(r.sumber)+'\',\''+esc(r.id_ref)+'\',\''+esc(r.no_nota)+'\',\''+esc(r.nama_pelanggan)+'\','+r.sisa_piutang+')">'+
-        '<div>'+esc(r.no_nota)+' — '+esc(r.nama_pelanggan)+'</div>'+
-        '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+fmtTgl(r.tgl)+' · Sisa: '+fmtRupiah(r.sisa_piutang)+'</div></div>';
-    }).join('');
+function muatPelangganATFCache(){
+  if(pelangganTMCache.length){inisAcNotaATF();return;}
+  dbGet('m_pelanggan',{select:'id_pelanggan,nama',status:'eq.AKTIF',order:'nama.asc'}).then(function(res){
+    pelangganTMCache=Array.isArray(res)?res:[]; inisAcNotaATF();
   });
 }
-function pilihNotaATF(sumber,idRef,noNota,namaPel,sisa){
-  document.getElementById('acNotaATFDrop').style.display='none';
-  document.getElementById('inpCariNotaATF').value='';
-  if(notaTerpilihATF.some(function(a){return a.id_ref===idRef;})){return;}
-  notaTerpilihATF.push({sumber:sumber,id_ref:idRef,no_nota:noNota,nama_pelanggan:namaPel,sisa:sisa,nominal:sisa});
+function inisAcNotaATF(){
+  var inp=document.getElementById('inpCariNotaATF');
+  var drop=document.getElementById('acNotaATFDrop');
+  if(inp._acInited)return; inp._acInited=true;
+  buatAC(inp,drop,pelangganTMCache,'id_pelanggan','nama',function(p){
+    clearTimeout(_atfInputTimer);
+    muatNotaPelangganATF(p.id_pelanggan,p.nama);
+  });
+}
+var _atfInputTimer=null;
+function onInputCariNotaATF(){
+  var nama=document.getElementById('inpCariNotaATF').value.trim();
+  if(nama.length<2){
+    document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik minimal 2 huruf.</div>';
+    return;
+  }
+  clearTimeout(_atfInputTimer);
+  _atfInputTimer=setTimeout(function(){ muatNotaPelangganATF(null,nama); },300);
+}
+function cariNotaATFManual(){
+  var nama=document.getElementById('inpCariNotaATF').value.trim();
+  if(!nama){alert('Isi nama pelanggan dulu.');return;}
+  clearTimeout(_atfInputTimer);
+  muatNotaPelangganATF(null,nama);
+}
+function muatNotaPelangganATF(idPel,namaPel){
+  var wrap=document.getElementById('daftarNotaATFWrap');
+  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota outstanding…</div>';
+  dbRpc('get_piutang_belum_lunas',{p_id_pelanggan:idPel||null,p_nama_pelanggan:namaPel||null}).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    if(!data.length){wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada nota outstanding untuk '+esc(namaPel||'')+'.</div>';return;}
+    wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+      var sudah=notaTerpilihATF.some(function(a){return a.id_ref===r.id_ref;});
+      return '<label class="sj-pick-row" style="'+(sudah?'opacity:.45':'')+'">'+
+        '<input type="checkbox" class="chk-nota-atf" value="'+esc(r.id_ref)+'" '+(sudah?'disabled':'')+
+          ' data-sumber="'+esc(r.sumber)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-sisa="'+r.sisa_piutang+'"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">'+esc(r.nama_pelanggan)+' · '+fmtTgl(r.tgl)+'</div></div>'+
+        '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_piutang)+'</div></label>';
+    }).join('')+'</div>'+
+    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahNotaTerpilihATF()">+ Tambahkan</button>';
+  });
+}
+function tambahNotaTerpilihATF(){
+  var checked=document.querySelectorAll('.chk-nota-atf:checked');
+  if(!checked.length){alert('Pilih minimal 1 nota.');return;}
+  checked.forEach(function(chk){
+    notaTerpilihATF.push({
+      sumber:chk.dataset.sumber, id_ref:chk.value,
+      no_nota:chk.dataset.noNota, nama_pelanggan:chk.dataset.nama,
+      sisa:parseFloat(chk.dataset.sisa), nominal:parseFloat(chk.dataset.sisa)
+    });
+  });
+  document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Cari lagi untuk tambah nota lain.</div>';
   renderNotaTerpilihATF();
 }
 function renderNotaTerpilihATF(){
