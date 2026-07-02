@@ -64,10 +64,15 @@
 
 <div class="bom-wrap" id="bomWrap" style="display:none">
 
-  <div class="section-title">Tinta <span class="warna-count" id="warnaCount"></span></div>
-  <div class="bom-card">
+  <div class="section-title">
+    Tinta <span class="warna-count" id="warnaCount"></span>
+    <label style="float:right;text-transform:none;letter-spacing:0;font-weight:400;font-size:12px;color:var(--text);cursor:pointer;">
+      <input type="checkbox" id="chkTanpaCetak" onchange="toggleTanpaCetak()" style="margin-right:5px;vertical-align:middle;">Tidak dicetak (tanpa tinta)
+    </label>
+  </div>
+  <div class="bom-card" id="cardTinta">
     <div id="listTinta"></div>
-    <button class="btn-add-row" onclick="tambahRowTinta()">+ Tambah Tinta</button>
+    <button class="btn-add-row" id="btnAddTinta" onclick="tambahRowTinta()">+ Tambah Tinta</button>
   </div>
 
   <div class="section-title">Bahan Baku</div>
@@ -228,6 +233,8 @@
 
       if (!bom) {
         // BOM baru — kosong
+        document.getElementById('chkTanpaCetak').checked = false;
+        document.getElementById('cardTinta').style.display = 'block';
         document.getElementById('listTinta').innerHTML = '';
         document.getElementById('listBahan').innerHTML = '';
         document.getElementById('listFinishing').innerHTML = '';
@@ -248,6 +255,10 @@
         dbGet('m_bom_bahan',     { id_item: 'eq.' + idItem, order: 'urut.asc' }),
         dbGet('m_bom_finishing', { id_item: 'eq.' + idItem, order: 'urut.asc' })
       ]).then(([tinta, bahan, finishing]) => {
+        const chkTC = document.getElementById('chkTanpaCetak');
+        chkTC.checked = !!bom.tanpa_cetak;
+        document.getElementById('cardTinta').style.display = bom.tanpa_cetak ? 'none' : 'block';
+
         document.getElementById('listTinta').innerHTML = '';
         const tArr = Array.isArray(tinta) ? tinta : [];
         if (tArr.length > 0) {
@@ -255,7 +266,7 @@
             const obj = dataTinta.find(x => x.id_tinta === t.id_tinta);
             tambahRowTinta(obj || null);
           });
-        } else { tambahRowTinta(); }
+        } else if (!bom.tanpa_cetak) { tambahRowTinta(); }
 
         document.getElementById('listBahan').innerHTML = '';
         const bArr = Array.isArray(bahan) ? bahan : [];
@@ -356,6 +367,17 @@
     inp._getFinVal = () => inp.value.trim().toUpperCase();
   }
 
+  function toggleTanpaCetak() {
+    const chk = document.getElementById('chkTanpaCetak').checked;
+    document.getElementById('cardTinta').style.display = chk ? 'none' : 'block';
+    if (chk) {
+      document.getElementById('listTinta').innerHTML = '';
+      updateWarnaCount();
+    } else if (document.querySelectorAll('#listTinta .tinta-row').length === 0) {
+      tambahRowTinta();
+    }
+  }
+
   function updateWarnaCount() {
     const rows = document.querySelectorAll('#listTinta .tinta-row .ac-input');
     const isi = Array.from(rows).filter(r => r._getSelectedId && r._getSelectedId()).length;
@@ -369,16 +391,19 @@
     if (!idItem) return tampilAlert('Pilih item dari daftar terlebih dahulu.', 'warning');
 
     // Kumpulkan tinta
+    const tanpaCetak = document.getElementById('chkTanpaCetak').checked;
     const tinta = [];
     let tintaError = false;
-    document.querySelectorAll('#listTinta .tinta-row .ac-input').forEach(inp => {
-      if (!inp.value.trim()) return;
-      const id = inp._getSelectedId ? inp._getSelectedId() : null;
-      if (!id) { tintaError = true; return; }
-      tinta.push(id);
-    });
-    if (tintaError)  return tampilAlert('Ada tinta yang tidak dikenali. Pilih dari daftar.', 'danger');
-    if (!tinta.length) return tampilAlert('Minimal 1 tinta wajib diisi.', 'danger');
+    if (!tanpaCetak) {
+      document.querySelectorAll('#listTinta .tinta-row .ac-input').forEach(inp => {
+        if (!inp.value.trim()) return;
+        const id = inp._getSelectedId ? inp._getSelectedId() : null;
+        if (!id) { tintaError = true; return; }
+        tinta.push(id);
+      });
+      if (tintaError)  return tampilAlert('Ada tinta yang tidak dikenali. Pilih dari daftar.', 'danger');
+      if (!tinta.length) return tampilAlert('Minimal 1 tinta wajib diisi.', 'danger');
+    }
 
     // Kumpulkan bahan
     const bahan = [];
@@ -412,7 +437,7 @@
 
       if (idItemAktif) {
         // Update header
-        const resUpd = await dbUpdate('m_bom', { id_item: 'eq.' + idItem }, { keterangan });
+        const resUpd = await dbUpdate('m_bom', { id_item: 'eq.' + idItem }, { keterangan, tanpa_cetak: tanpaCetak });
         if (resUpd && resUpd.code) throw new Error('Update header: ' + resUpd.message);
         // Hapus semua detail lama
         await Promise.allSettled([
@@ -422,16 +447,18 @@
         ]);
       } else {
         // Insert header baru
-        const resIns = await dbInsert('m_bom', { id_item: idItem, keterangan });
+        const resIns = await dbInsert('m_bom', { id_item: idItem, keterangan, tanpa_cetak: tanpaCetak });
         if (resIns && resIns.code) throw new Error('Insert header: ' + resIns.message);
         idItemAktif = idItem;
       }
 
-      // Bulk insert detail dengan urut
-      const resTinta = await dbInsert('m_bom_tinta',
-        tinta.map((id_tinta, i) => ({ id_item: idItem, urut: i + 1, id_tinta }))
-      );
-      if (resTinta && resTinta.code) throw new Error('Insert tinta: ' + resTinta.message);
+      // Bulk insert detail dengan urut (tinta di-skip kalau tanpa_cetak)
+      if (tinta.length > 0) {
+        const resTinta = await dbInsert('m_bom_tinta',
+          tinta.map((id_tinta, i) => ({ id_item: idItem, urut: i + 1, id_tinta }))
+        );
+        if (resTinta && resTinta.code) throw new Error('Insert tinta: ' + resTinta.message);
+      }
 
       const resBahan = await dbInsert('m_bom_bahan',
         bahan.map((b, i) => ({ id_item: idItem, urut: i + 1, id_bahan: b.id_bahan, keterangan: b.keterangan }))
