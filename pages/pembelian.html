@@ -75,7 +75,7 @@
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="rekap" onclick="gantiTab('rekap')">📊 Rekap</button>
     <button class="tab-btn" data-tab="input" onclick="gantiTab('input')">🧾 Input Pembelian</button>
-    <button class="tab-btn" data-tab="bayar" onclick="gantiTab('bayar')">💳 Pembayaran</button>
+    <button class="tab-btn" data-tab="bayar" onclick="gantiTab('bayar')">💳 Alokasi Kas Kecil</button>
     <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">📑 Faktur Pajak Masukan</button>
     <button class="tab-btn" data-tab="supplier" onclick="gantiTab('supplier')">🏭 Supplier</button>
   </div>
@@ -129,18 +129,16 @@
     </div>
   </div>
 
-  <!-- ============== TAB: PEMBAYARAN ============== -->
+  <!-- ============== TAB: ALOKASI KAS KECIL ============== -->
   <div class="tab-pane" id="tabBayar">
-    <div class="toolbar">
-      <button class="btn-tambah" onclick="bukaBuatPembayaranHutang()">+ Catat Pembayaran</button>
-    </div>
+    <div class="info-bar" id="akkInfoBar">Kas keluar LANGSUNG yang belum dialokasikan ke hutang pembelian.</div>
     <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>No. Pembayaran</th><th>Tanggal</th><th>Metode</th><th>Penerima</th>
-        <th class="td-right">Total</th><th>Status</th><th></th>
+        <th>No. Kas Keluar</th><th>Tanggal</th><th>Penerima</th>
+        <th class="td-right">Nominal</th><th>Keterangan</th><th></th>
       </tr></thead>
-      <tbody id="bayarTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+      <tbody id="bayarTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
     </table>
     </div>
   </div>
@@ -278,38 +276,24 @@
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <span class="modal-title">Catat Pembayaran Hutang</span>
+        <span class="modal-title">Alokasi Kas Kecil ke Hutang</span>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div id="alertPembayaranHutang"></div>
+        <div id="infoBarAKK" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
         <form id="frmPembayaranHutang" onsubmit="return false;">
           <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label">Tanggal Bayar *</label>
-              <input type="date" class="form-control" id="inpTglBayarHutang"/>
-            </div>
-            <div class="col-6">
-              <label class="form-label">Metode *</label>
-              <select class="form-select" id="inpMetodeBayarHutang">
-                <option value="CASH">CASH</option>
-                <option value="TRANSFER">TRANSFER</option>
-              </select>
-            </div>
             <div class="col-6">
               <label class="form-label">Nama Penerima (pihak supplier)</label>
               <input type="text" class="form-control" id="inpNamaPenerimaBayar"/>
             </div>
             <div class="col-6">
-              <label class="form-label">No. Ref / Bukti Transfer</label>
-              <input type="text" class="form-control" id="inpBuktiRefHutang"/>
-            </div>
-            <div class="col-6">
-              <label class="form-label">Entitas Pembayar (kas/rekening keluar)</label>
+              <label class="form-label">Entitas Pembayar</label>
               <select class="form-select" id="inpEntitasPembayar">
                 <option value="">Sama dengan entitas nota (default)</option>
-                <option value="DK">DK Offset (kas/rekening DK)</option>
-                <option value="PT">PT Elim Citra Offset (rekening PT)</option>
+                <option value="DK">DK Offset</option>
+                <option value="PT">PT Elim Citra Offset</option>
               </select>
             </div>
             <div class="col-12" id="warnLintasEntitasHutang" style="display:none">
@@ -322,9 +306,6 @@
               <label class="form-label">Keterangan</label>
               <input type="text" class="form-control" id="inpKetBayarHutang"/>
             </div>
-          </div>
-          <div class="alert alert-warning py-2" style="font-size:.75rem" id="infoTransferAccHutang">
-            Pembayaran TRANSFER akan berstatus <b>Menunggu Konfirmasi</b> sampai Direktur menyetujui.
           </div>
 
           <div class="sec-label">Cari Supplier untuk Tambah Nota</div>
@@ -341,7 +322,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
-        <button class="btn-navy" onclick="submitPembayaranHutang(this)">Simpan Pembayaran</button>
+        <button class="btn-navy" onclick="submitPembayaranHutang(this)">Simpan Alokasi</button>
       </div>
     </div>
   </div>
@@ -548,7 +529,6 @@ window.addEventListener('load', async function () {
   }
   document.getElementById('kontenPembelian').style.display='block';
   document.getElementById('inpTglPembelian').value=new Date().toISOString().slice(0,10);
-  document.getElementById('inpTglBayarHutang').value=new Date().toISOString().slice(0,10);
   document.getElementById('inpTglFaktur').value=new Date().toISOString().slice(0,10);
   muatMasterAwal();
 });
@@ -936,6 +916,8 @@ function muatInputList(){
 // PEMBAYARAN HUTANG
 // ============================================================
 var alokasiHutangTerpilih=[]; // [{id_pembelian, no_nota, nama_supplier, sisa, nominal}]
+var kasKeluarStore={};
+var kasKeluarAktif=null;
 
 function inisAcSupplierBayar(){
   var inp=document.getElementById('inpCariSupplierBayar');
@@ -1014,10 +996,15 @@ function hapusAlokasiHutangTerpilih(idx){
   renderAlokasiHutangTerpilih();
 }
 
-function bukaBuatPembayaranHutang(){
+function bukaAlokasiKasKecil(idKas){
+  kasKeluarAktif=kasKeluarStore[idKas]||null;
+  if(!kasKeluarAktif){alert('Data kas keluar tidak ditemukan, muat ulang halaman.');return;}
   document.getElementById('frmPembayaranHutang').reset();
   document.getElementById('alertPembayaranHutang').innerHTML='';
-  document.getElementById('inpTglBayarHutang').value=new Date().toISOString().slice(0,10);
+  document.getElementById('infoBarAKK').textContent=
+    kasKeluarAktif.no_kaskeluar+' — '+fmtTgl(kasKeluarAktif.tgl)+
+    ' | Penerima: '+kasKeluarAktif.penerima+
+    ' | Nominal: '+fmtRupiah(kasKeluarAktif.nominal_diberikan);
   document.getElementById('inpCariSupplierBayar').value='';
   document.getElementById('notaSupplierBayarWrap').innerHTML='';
   document.getElementById('notaSupplierBayarWrap').style.display='none';
@@ -1034,10 +1021,10 @@ document.getElementById('inpEntitasPembayar').addEventListener('change', functio
 function genIdPembayaranHutang(){return'PBH'+Date.now();}
 
 async function submitPembayaranHutang(btn){
-  var metode=document.getElementById('inpMetodeBayarHutang').value;
-  var tglBayar=document.getElementById('inpTglBayarHutang').value;
+  if(!kasKeluarAktif||!kasKeluarAktif.id_kaskeluar){
+    showAlert('alertPembayaranHutang','Kas keluar tidak valid — tutup modal dan coba lagi.');return;
+  }
   var namaPenerima=document.getElementById('inpNamaPenerimaBayar').value.trim();
-  var buktiRef=document.getElementById('inpBuktiRefHutang').value.trim();
   var entitasPembayar=document.getElementById('inpEntitasPembayar').value||null;
   var ket=document.getElementById('inpKetBayarHutang').value.trim();
 
@@ -1050,8 +1037,11 @@ async function submitPembayaranHutang(btn){
   });
 
   if(!alokasi.length){showAlert('alertPembayaranHutang','Pilih minimal 1 nota dan isi nominal.');return;}
-  if(!tglBayar){showAlert('alertPembayaranHutang','Tanggal bayar wajib diisi.');return;}
-  if(metode==='TRANSFER'&&!buktiRef){showAlert('alertPembayaranHutang','No. referensi transfer wajib diisi.');return;}
+  var totalAlokasi=alokasi.reduce(function(s,a){return s+a.nominal;},0);
+  if(totalAlokasi>Number(kasKeluarAktif.nominal_diberikan)){
+    showAlert('alertPembayaranHutang','Total alokasi ('+fmtRupiah(totalAlokasi)+') melebihi nominal kas keluar ('+fmtRupiah(kasKeluarAktif.nominal_diberikan)+').');
+    return;
+  }
   if(lewatSisa){
     if(!confirm('Ada alokasi yang melebihi sisa hutang nota terkait. Lanjutkan?')){return;}
   }
@@ -1060,17 +1050,15 @@ async function submitPembayaranHutang(btn){
   var idPbh=genIdPembayaranHutang();
 
   try{
-    var res=await dbRpc('buat_pembayaran_hutang',{
+    var res=await dbRpc('buat_pembayaran_hutang_tunai',{
+      p_id_kaskeluar:kasKeluarAktif.id_kaskeluar,
       p_id_pembayaran_hutang:idPbh,
       p_no_pembayaran:idPbh,
-      p_tgl_bayar:tglBayar+'T00:00:00+07:00',
-      p_metode:metode,
+      p_entitas_pembayar:entitasPembayar,
       p_nama_penerima_bayar:namaPenerima||null,
-      p_bukti_ref:buktiRef||null,
-      p_user_input:getNamaUser(),
       p_keterangan:ket||null,
       p_alokasi:alokasi,
-      p_entitas_pembayar:entitasPembayar
+      p_user_input:getNamaUser()
     });
     var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
 
@@ -1079,45 +1067,27 @@ async function submitPembayaranHutang(btn){
   }catch(e){
     showAlert('alertPembayaranHutang','Gagal menyimpan: '+e.message);
   }finally{
-    btn.disabled=false; btn.innerHTML='Simpan Pembayaran';
+    btn.disabled=false; btn.innerHTML='Simpan Alokasi';
   }
 }
 
 function muatPembayaranList(){
   var tbody=document.getElementById('bayarTbody');
-  dbGet('in_pembayaran_hutang',{select:'*',order:'tgl_bayar.desc',limit:100}).then(function(res){
+  dbRpc('get_kas_keluar_belum_alokasi_hutang',{}).then(function(res){
     var data=Array.isArray(res)?res:[];
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">Belum ada data.</td></tr>'; return; }
+    if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada kas keluar belum dialokasikan.</td></tr>'; return; }
+    data.forEach(function(r){kasKeluarStore[r.id_kaskeluar]=r;});
     tbody.innerHTML=data.map(function(r){
-      var stCls='s-'+r.status.toLowerCase();
-      var aksi='';
-      if(r.status==='PENDING'){
-        aksi='<button class="btn-sm-action btn-approve" onclick="prosesApproveHutang(\''+r.id_pembayaran_hutang+'\',true)">✓ Acc</button> '+
-             '<button class="btn-sm-action btn-tolak" onclick="prosesApproveHutang(\''+r.id_pembayaran_hutang+'\',false)">✕ Tolak</button>';
-      }
       return '<tr>'+
-        '<td class="td-mono">'+esc(r.no_pembayaran)+'</td>'+
-        '<td class="td-mono">'+fmtTgl(r.tgl_bayar)+'</td>'+
-        '<td class="td-mono">'+esc(r.metode)+'</td>'+
-        '<td>'+esc(r.nama_penerima_bayar||'—')+'</td>'+
-        '<td class="td-right td-mono">'+fmtRupiah(r.total_bayar)+'</td>'+
-        '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td>'+
-        '<td>'+aksi+'</td>'+
+        '<td class="td-mono">'+esc(r.no_kaskeluar)+'</td>'+
+        '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+        '<td>'+esc(r.penerima)+'</td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(r.nominal_diberikan)+'</td>'+
+        '<td>'+esc(r.keterangan||'—')+'</td>'+
+        '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiKasKecil(\''+esc(r.id_kaskeluar)+'\')">Alokasi</button></td>'+
       '</tr>';
     }).join('');
   });
-}
-
-async function prosesApproveHutang(id,disetujui){
-  var aksi=disetujui?'menyetujui':'menolak';
-  if(!confirm('Yakin '+aksi+' pembayaran ini?'))return;
-  try{
-    var res=await dbRpc('approve_pembayaran_hutang',{p_id_pembayaran_hutang:id,p_approved_by:getNamaUser(),p_disetujui:disetujui});
-    var errMsg=cekErrorSupabase(res); if(errMsg){alert('Gagal: '+errMsg);return;}
-    muatSemuaData();
-  }catch(e){
-    alert('Gagal: '+e.message);
-  }
 }
 
 // ============================================================
