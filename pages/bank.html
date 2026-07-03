@@ -116,6 +116,7 @@
     <button id="tbKoran"   class="tab-btn active" data-tab="koran"   onclick="gantiTab('koran')">📋 Rek.Koran</button>
     <button id="tbPosting" class="tab-btn"        data-tab="posting" onclick="gantiTab('posting')">📤 Posting</button>
     <button id="tbAlokdir" class="tab-btn"        data-tab="alokdir" onclick="gantiTab('alokdir')">🎯 Alokasi Dir</button>
+    <button id="tbKasKecil" class="tab-btn"        data-tab="kaskecil" onclick="gantiTab('kaskecil')">🏦 Kas Kecil</button>
     <button id="tbBelum"   class="tab-btn"        data-tab="belum"   onclick="gantiTab('belum')">📥 Belum Dialokasi</button>
     <button id="tbApprove" class="tab-btn"        data-tab="approve" onclick="gantiTab('approve')">⏳ Perlu Approve</button>
     <button id="tbDone"    class="tab-btn"        data-tab="done"    onclick="gantiTab('done')">✅ Teralokasi</button>
@@ -229,7 +230,6 @@
       <select id="adKategori" onchange="muatAlokDir()" style="font-family:var(--mono);font-size:.78rem;min-width:140px">
         <option value="">Semua Kategori</option>
         <option value="GAJI">GAJI</option>
-        <option value="KAS_KECIL">KAS_KECIL</option>
         <option value="PAJAK">PAJAK</option>
         <option value="PRIVE">PRIVE</option>
         <option value="OPERASIONAL">OPERASIONAL</option>
@@ -249,6 +249,29 @@
           <th class="td-right">Masuk</th><th class="td-right">Keluar</th><th></th>
         </tr></thead>
         <tbody id="adTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       TAB 3B: KAS KECIL (link ke TOPUP)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tabKasKecil">
+    <div class="toolbar">
+      <select id="kkRekening" onchange="muatKasKecilAlok()" style="font-family:var(--mono);font-size:.78rem">
+        <option value="">Semua Rekening</option>
+        <option value="BCA_DK">BCA DK</option>
+        <option value="BCA_PT">BCA PT</option>
+      </select>
+    </div>
+    <div class="info-bar" id="kkInfo">Memuat…</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Tgl</th><th>Rek</th><th>Deskripsi</th>
+          <th class="td-right">Nominal</th><th></th>
+        </tr></thead>
+        <tbody id="kkTbody"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -429,6 +452,29 @@
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
         <button class="btn-navy" id="adSimpanBtn" onclick="simpanAlokDir()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     MODAL: LINK KAS KECIL KE TOPUP
+════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalKasKecil" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" style="font-family:var(--mono)">Link ke Kas Masuk (TOPUP)</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="kkModalInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.85rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Pilih TOPUP yang sesuai (nominal harus sama persis)</label>
+        <div id="kkTopupWrap" style="margin-top:.5rem;max-height:280px;overflow-y:auto"></div>
+        <div id="kkErr" style="display:none;margin-top:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
       </div>
     </div>
   </div>
@@ -1078,6 +1124,92 @@ async function simpanAlokDir() {
   muatAlokDir();
 }
 
+// ── TAB 3B: KAS KECIL (link ke TOPUP) ───────────────────────
+var kkSelectedId = null;
+var kkRowStore = {};
+
+async function muatKasKecilAlok() {
+  var rek = document.getElementById('kkRekening').value;
+  document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_kaskecil_tersedia', { p_id_rekening: rek || null });
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('kkTbody', 5, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  if (!rows.length) {
+    document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
+    document.getElementById('kkInfo').textContent = '0 transaksi menunggu link';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(r){
+    kkRowStore[r.id] = r;
+    html += '<tr>' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td>' + h(r.keterangan_bank) + '</td>' +
+      '<td class="td-right"><span class="keluar-val">' + fmtRp(r.nominal) + '</span></td>' +
+      '<td><button class="btn-sm-action btn-alokasi" onclick="bukaKasKecil(\'' + r.id + '\')">Link</button></td>' +
+      '</tr>';
+  });
+  document.getElementById('kkTbody').innerHTML = html;
+  document.getElementById('kkInfo').textContent = rows.length + ' transaksi menunggu link';
+}
+
+async function bukaKasKecil(id) {
+  kkSelectedId = id;
+  var r = kkRowStore[id] || {};
+  document.getElementById('kkModalInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="keluar-val">↓ ' + fmtRp(r.nominal) + '</span><br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('kkErr').style.display = 'none';
+  document.getElementById('kkTopupWrap').innerHTML = '<div class="loading">Memuat TOPUP tersedia…</div>';
+  new bootstrap.Modal(document.getElementById('modalKasKecil')).show();
+
+  var topups = await dbRpc('get_kasmasuk_topup_tersedia', {});
+  var err = cekErrorSupabase(topups);
+  if (err) { document.getElementById('kkTopupWrap').innerHTML = '<div style="color:var(--red);font-size:.78rem">' + h(err) + '</div>'; return; }
+  if (!Array.isArray(topups)) topups = [];
+  var cocok = topups.filter(function(t){ return Number(t.nominal) === Number(r.nominal); });
+  var lain  = topups.filter(function(t){ return Number(t.nominal) !== Number(r.nominal); });
+
+  var renderRow = function(t, match){
+    return '<div class="sj-pick-row" style="display:flex;gap:.5rem;align-items:center;' + (match?'':'opacity:.5') + '">' +
+      '<div style="flex:1"><div class="sj-pick-nama">' + h(t.no_kasmasuk) + '</div>' +
+      '<div class="sj-pick-sub">' + fmtTgl(t.tgl) + ' · ' + h(t.penerima || '') + '</div></div>' +
+      '<div class="sj-pick-nom">' + fmtRp(t.nominal) + '</div>' +
+      '<button type="button" class="btn-sm-action btn-alokasi" ' + (match?'':'disabled') + ' onclick="submitLinkKasKecil(\'' + t.id_kasmasuk + '\')">Pilih</button>' +
+      '</div>';
+  };
+  var htmlT = '';
+  if (!topups.length) {
+    htmlT = '<div style="font-size:.78rem;color:var(--muted);padding:.5rem">Belum ada TOPUP kas kecil yang menunggu link. Catat TOPUP dulu di halaman Kas Kecil.</div>';
+  } else {
+    htmlT = '<div class="sj-pick-wrap">' + cocok.map(function(t){return renderRow(t,true);}).join('') +
+      lain.map(function(t){return renderRow(t,false);}).join('') + '</div>';
+    if (!cocok.length) htmlT = '<div style="font-size:.72rem;color:var(--red);margin-bottom:.4rem">Tidak ada TOPUP dengan nominal persis sama (' + fmtRp(r.nominal) + '). Cek input TOPUP di Kas Kecil dulu.</div>' + htmlT;
+  }
+  document.getElementById('kkTopupWrap').innerHTML = htmlT;
+}
+
+async function submitLinkKasKecil(idKasmasuk) {
+  var elErr = document.getElementById('kkErr');
+  elErr.style.display = 'none';
+  var res = await dbRpc('link_kaskecil_ke_bank', {
+    p_id_bank_stmt: kkSelectedId,
+    p_id_kasmasuk: idKasmasuk,
+    p_user: getUser()
+  });
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalKasKecil')).hide();
+  muatRekap();
+  muatKasKecilAlok();
+}
+
 // ── TAB 4: BELUM DIALOKASI (Admin) ──────────────────────────
 async function muatBelum() {
   var rek = document.getElementById('blRekening').value;
@@ -1417,7 +1549,7 @@ async function simpanKeterangan() {
 // ── TAB NAVIGATION ──────────────────────────────────────────
 function gantiTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
-  var map = {koran:'tabKoran', posting:'tabPosting', alokdir:'tabAlokdir', belum:'tabBelum', approve:'tabApprove', done:'tabDone'};
+  var map = {koran:'tabKoran', posting:'tabPosting', alokdir:'tabAlokdir', kaskecil:'tabKasKecil', belum:'tabBelum', approve:'tabApprove', done:'tabDone'};
   document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
   var el = document.getElementById(map[tab]);
   if (el) el.classList.add('active');
@@ -1425,6 +1557,7 @@ function gantiTab(tab) {
   if      (tab === 'koran')   muatKoran(true);
   else if (tab === 'posting') muatPosting(true);
   else if (tab === 'alokdir') muatAlokDir();
+  else if (tab === 'kaskecil') muatKasKecilAlok();
   else if (tab === 'belum')   muatBelum();
   else if (tab === 'approve') muatApprove();
   else if (tab === 'done')    muatDone(true);
