@@ -66,6 +66,7 @@
     .rp-menunggu{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
     .rp-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
     .rp-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    #badgeAntrian{background:var(--orange);color:#fff;font-size:.62rem;font-weight:700;padding:.05rem .38rem;border-radius:8px;margin-left:.35rem;}
     /* print — kertas fisik 21cm x 10cm, font dinaikkan +1pt dari baseline awal */
     #printArea{display:none;}
     .sj-page{width:21cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-family:'Courier New',Courier,monospace;font-size:8.8pt;font-weight:700;color:#000;background:#fff;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;}
@@ -95,6 +96,7 @@
     <option value="DK">DK Offset</option>
   </select>
   <button class="btn-tambah" onclick="bukaBuatPengiriman()">+ Buat Pengiriman</button>
+  <button class="btn-outline" id="btnAntrianCetak" onclick="bukaAntrianCetak()">🖨 Antrian Cetak PC<span id="badgeAntrian" style="display:none"></span></button>
   <button class="btn-outline" id="btnApproveReprint" style="display:none" onclick="bukaApproveReprint()">🔔 Approve Reprint</button>
   <button class="btn-outline" id="btnLogReprint" style="display:none" onclick="bukaLogReprint()">📋 Log Reprint</button>
 </div>
@@ -216,6 +218,19 @@
   </div>
 </div>
 
+<!-- MODAL ANTRIAN CETAK PC -->
+<div class="modal fade" id="modalAntrianCetak" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Antrian Cetak PC — belum dieksekusi fisik</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="antrianCetakBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL PERLU APPROVE REPRINT (Manager/Direktur) -->
 <div class="modal fade" id="modalApproveReprint" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -263,6 +278,7 @@ document.addEventListener('DOMContentLoaded',function(){
   isDirekturUser=(roleUser==='DIREKTUR');
   if(isMP) document.getElementById('btnApproveReprint').style.display='';
   if(isDirekturUser) document.getElementById('btnLogReprint').style.display='';
+  cekBadgeAntrianAwal();
   document.getElementById('inpTgl').value=new Date().toISOString().slice(0,10);
   // AC dropdown ke body
   document.body.appendChild(document.getElementById('acPelDrop'));
@@ -762,32 +778,34 @@ function cekReprint(){
   var warnBox=document.getElementById('printWarnBox');
   var alasanBox=document.getElementById('alasanBox');
   var btnC=document.getElementById('btnCetak');
-  if(!sudah){
-    warnBox.style.display='none'; alasanBox.style.display='none'; btnC.disabled=false; btnC.textContent='Cetak';
-    return;
-  }
   if(siap){
     warnBox.className='reprint-approved-box'; warnBox.style.display='block';
-    warnBox.innerHTML='✓ Reprint disetujui oleh '+esc(siap.approved_by)+'. Klik cetak untuk mencetak sekarang.';
-    alasanBox.style.display='none'; btnC.disabled=false; btnC.textContent='Cetak (disetujui)';
+    warnBox.innerHTML='✓ Sudah disetujui oleh '+esc(siap.approved_by)+'. Menunggu dicetak fisik lewat PC Print Agent — lihat menu "Antrian Cetak PC".';
+    alasanBox.style.display='none'; btnC.disabled=true; btnC.textContent='Sudah Disetujui';
     return;
   }
   if(pend){
     warnBox.className='reprint-pending-box'; warnBox.style.display='block';
     warnBox.innerHTML='⏳ Menunggu approval Manager/Direktur (diajukan oleh '+esc(pend.diajukan_oleh)+').';
-    alasanBox.style.display='none'; btnC.disabled=true; btnC.textContent='Cetak';
+    alasanBox.style.display='none'; btnC.disabled=true; btnC.textContent='Menunggu Approval';
+    return;
+  }
+  if(!sudah){
+    warnBox.style.display='none'; alasanBox.style.display='none'; btnC.disabled=false; btnC.textContent='Setujui untuk Dicetak';
     return;
   }
   warnBox.className='reprint-warn'; warnBox.style.display='block';
   if(isMP){
     warnBox.innerHTML='⚠ Sudah pernah dicetak. Sebagai '+roleUser+', reprint langsung disetujui — wajib isi alasan.';
-    alasanBox.style.display='block'; btnC.disabled=false; btnC.textContent='Cetak';
+    alasanBox.style.display='block'; btnC.disabled=false; btnC.textContent='Setujui Reprint';
   }else{
     warnBox.innerHTML='⚠ Sudah pernah dicetak. Ajukan reprint — wajib isi alasan, menunggu approval Manager/Direktur.';
     alasanBox.style.display='block'; btnC.disabled=false; btnC.textContent='Ajukan Reprint';
   }
 }
 
+// Tombol ini HANYA approval. Eksekusi cetak fisik 100% lewat PC Print Agent (sieo-print-agent.ps1),
+// TIDAK PERNAH membuka dialog print Chrome / cetakDokumen() dari sini.
 async function submitPrint(btn){
   var jenis=document.getElementById('selJenisPrint').value;
   var alasan=document.getElementById('inpAlasan').value.trim();
@@ -795,39 +813,74 @@ async function submitPrint(btn){
   var siap=siapUntukJenis(jenis);
   var pend=pendingUntukJenis(jenis);
 
-  if(pend){showAlert('alertPrint','Masih menunggu approval, belum bisa cetak.');return;}
-  if(sudah&&!siap&&!alasan){showAlert('alertPrint','Alasan reprint wajib diisi.');return;}
+  if(siap||pend){showAlert('alertPrint','Tidak ada aksi tersedia — lihat status di atas.');return;}
+  if(sudah&&!alasan){showAlert('alertPrint','Alasan reprint wajib diisi.');return;}
 
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
   try{
-    // Kasus: sudah ada log APPROVED tapi belum tereksekusi (hasil approval Manager/Direktur) -> langsung cetak, tandai tereksekusi
-    if(siap){
-      await dbRpc('tandai_reprint_tereksekusi',{p_tabel:'sj',p_id_log:siap.id_log});
-      bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
-      var resX=await dbGet('in_pengiriman_detail',{id_sj:'eq.'+sjAktif.id_sj,order:'id_pgdet.asc'});
-      cetakDokumen(sjAktif,Array.isArray(resX)?resX:[],jenis);
-      return;
-    }
-    // Kasus normal: cetak pertama (bebas) / reprint oleh Manager-Direktur (auto-approve) / ajukan reprint (Admin dkk)
     var r=await dbRpc('ajukan_reprint',{
       p_tabel:'sj', p_id_ref:sjAktif.id_sj, p_jenis_print:jenis,
       p_alasan:alasan||null, p_user:getNamaUser(), p_role:roleUser
     });
     cekErrorSupabase(r);
-    if(r.status_approval==='MENUNGGU_APPROVE'){
-      bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
-      alert('Reprint diajukan, menunggu approval Manager/Direktur.');
-      muatSJ();
-      return;
-    }
     bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
-    var res=await dbGet('in_pengiriman_detail',{id_sj:'eq.'+sjAktif.id_sj,order:'id_pgdet.asc'});
-    var items=Array.isArray(res)?res:[];
-    cetakDokumen(sjAktif,items,jenis);
+    if(r.status_approval==='MENUNGGU_APPROVE'){
+      alert('Reprint diajukan, menunggu approval Manager/Direktur.');
+    }else{
+      alert('Disetujui — SJ ini sudah masuk Antrian Cetak PC. Buka PC Print Agent untuk mencetak fisik.');
+    }
+    muatSJ();
+    cekBadgeAntrianAwal();
   }catch(e){
     showAlert('alertPrint','Gagal: '+esc(e.message));
-    btn.disabled=false; btn.innerHTML='Cetak';
+    btn.disabled=false; btn.innerHTML='Setujui untuk Dicetak';
   }
+}
+
+// ── ANTRIAN CETAK PC (siap tapi belum dieksekusi fisik) ──
+function bukaAntrianCetak(){
+  new bootstrap.Modal(document.getElementById('modalAntrianCetak')).show();
+  muatAntrianCetak();
+}
+async function muatAntrianCetak(){
+  var box=document.getElementById('antrianCetakBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_sj',{status_approval:'eq.APPROVED',sudah_dieksekusi:'eq.false',order:'tgl_approve.asc'});
+    logs=Array.isArray(logs)?logs:[];
+    refreshBadgeAntrian(logs.length);
+    if(!logs.length){box.innerHTML='<div class="loading">Tidak ada SJ/Invoice yang menunggu cetak fisik.</div>';return;}
+    var sjIds=logs.map(function(l){return l.id_sj;});
+    var sjMap={};
+    if(sjIds.length){
+      var sjs=await dbGet('in_pengiriman',{id_sj:'in.('+sjIds.join(',')+')'});
+      (Array.isArray(sjs)?sjs:[]).forEach(function(s){sjMap[s.id_sj]=s;});
+    }
+    var html='';
+    logs.forEach(function(l){
+      var sj=sjMap[l.id_sj]||{};
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">No. SJ / Nota</span><span class="rp-val">'+esc(sj.no_sj||l.id_sj)+' / '+esc(sj.no_nota||'—')+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Pelanggan</span><span class="rp-val">'+esc(sj.nama_pelanggan||'—')+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Jenis Cetak</span><span class="rp-val">'+esc(l.jenis_print)+' (cetak ke-'+l.print_ke+')</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Disetujui oleh</span><span class="rp-val">'+esc(l.approved_by)+' — '+fmtTgl(l.tgl_approve)+'</span></div>'+
+      '</div>';
+    });
+    box.innerHTML=html+'<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.5rem">Buka PC Print Agent (jalankan-print-agent.bat) di komputer kantor untuk mencetak daftar ini.</div>';
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
+}
+function refreshBadgeAntrian(n){
+  var b=document.getElementById('badgeAntrian');
+  if(n>0){b.textContent=n;b.style.display='inline-block';}
+  else{b.style.display='none';}
+}
+async function cekBadgeAntrianAwal(){
+  try{
+    var logs=await dbGet('log_print_sj',{status_approval:'eq.APPROVED',sudah_dieksekusi:'eq.false',select:'id_log'});
+    refreshBadgeAntrian(Array.isArray(logs)?logs.length:0);
+  }catch(e){/* diam saja kalau gagal, bukan kritikal */}
 }
 
 // ── APPROVE REPRINT (Manager/Direktur) ──
@@ -873,6 +926,7 @@ async function approveReprintAction(idLog,disetujui,btn){
     var r=await dbRpc('approve_reprint',{p_tabel:'sj',p_id_log:idLog,p_disetujui:disetujui,p_user:getNamaUser()});
     cekErrorSupabase(r);
     muatApproveReprint();
+    cekBadgeAntrianAwal();
   }catch(e){
     alert('Gagal: '+e.message);
     btn.disabled=false;
