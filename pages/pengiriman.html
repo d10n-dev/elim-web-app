@@ -53,13 +53,26 @@
     .print-yes{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
     .print-no{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
     .reprint-warn{background:#fff3cd;border:1px solid #ffe083;border-radius:6px;padding:.6rem .85rem;font-family:var(--mono);font-size:.75rem;color:#856404;margin-bottom:.75rem;}
+    .reprint-approved-box{background:#e6f4ea;border:1px solid #b7e4c7;border-radius:6px;padding:.6rem .85rem;font-family:var(--mono);font-size:.75rem;color:#1e6b3c;margin-bottom:.75rem;}
+    .reprint-pending-box{background:#e8f0fe;border:1px solid #a4c0f9;border-radius:6px;padding:.6rem .85rem;font-family:var(--mono);font-size:.75rem;color:#1a56db;margin-bottom:.75rem;}
     .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
     @keyframes spin{to{transform:rotate(360deg);}}
-    /* print */
+    /* approve/log reprint list */
+    .rp-item{border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin-bottom:.6rem;background:var(--surface);}
+    .rp-item .rp-row{display:flex;justify-content:space-between;font-size:.75rem;padding:.15rem 0;}
+    .rp-lbl{font-family:var(--mono);color:var(--muted);}
+    .rp-val{font-family:var(--mono);text-align:right;}
+    .rp-status{font-family:var(--mono);font-size:.6rem;padding:.15rem .45rem;border-radius:3px;font-weight:600;}
+    .rp-menunggu{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .rp-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .rp-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    /* print — kertas fisik 21.5cm x 10cm, font TIDAK diubah (evaluasi dulu) */
     #printArea{display:none;}
-    .sj-page{width:21cm;min-height:16cm;padding:.45cm .6cm;box-sizing:border-box;font-family:'Courier New',Courier,monospace;font-size:7.8pt;color:#000;background:#fff;page-break-after:always;}
+    .sj-page{width:21.5cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-family:'Courier New',Courier,monospace;font-size:7.8pt;color:#000;background:#fff;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;}
     .sj-page:last-child{page-break-after:auto;}
-    @media print{@page{size:21cm 16cm;margin:0;}}
+    .sj-spacer{flex:1 1 auto;border-top:1px solid #000;margin-top:.12cm;min-height:.15cm;}
+    .sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:6.8pt;flex-shrink:0;}
+    @media print{@page{size:21.5cm 10cm;margin:0;}}
     body.printing>*{display:none!important;}
     body.printing #printArea{display:block!important;position:fixed;left:0;top:0;width:100%;z-index:99999;background:#fff;}
   </style>
@@ -82,6 +95,8 @@
     <option value="DK">DK Offset</option>
   </select>
   <button class="btn-tambah" onclick="bukaBuatPengiriman()">+ Buat Pengiriman</button>
+  <button class="btn-outline" id="btnApproveReprint" style="display:none" onclick="bukaApproveReprint()">🔔 Approve Reprint</button>
+  <button class="btn-outline" id="btnLogReprint" style="display:none" onclick="bukaLogReprint()">📋 Log Reprint</button>
 </div>
 <div class="info-bar" id="infoBar">Memuat data…</div>
 
@@ -201,6 +216,32 @@
   </div>
 </div>
 
+<!-- MODAL PERLU APPROVE REPRINT (Manager/Direktur) -->
+<div class="modal fade" id="modalApproveReprint" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Perlu Approve Reprint</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="approveReprintBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOG REPRINT (Direktur — audit) -->
+<div class="modal fade" id="modalLogReprint" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Log Reprint SJ / Invoice</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="logReprintBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
 <div id="printArea"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -211,15 +252,17 @@
 // ── STATE ──
 var semuaSJ=[], semuaPelanggan=[], sisaKirimCache=[], itemBaris=[];
 var sjAktif=null, printInfo=null;
-var isMP=false, isDirekturUser=false;
+var isMP=false, isDirekturUser=false, roleUser='';
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',function(){
   if(!guardHalaman()) return;
   initNav('pengiriman');
-  var role=getRoleUser();
-  isMP=(role==='MANAGER'||role==='DIREKTUR');
-  isDirekturUser=(role==='DIREKTUR');
+  roleUser=getRoleUser();
+  isMP=(roleUser==='MANAGER'||roleUser==='DIREKTUR');
+  isDirekturUser=(roleUser==='DIREKTUR');
+  if(isMP) document.getElementById('btnApproveReprint').style.display='';
+  if(isDirekturUser) document.getElementById('btnLogReprint').style.display='';
   document.getElementById('inpTgl').value=new Date().toISOString().slice(0,10);
   // AC dropdown ke body
   document.body.appendChild(document.getElementById('acPelDrop'));
@@ -239,6 +282,11 @@ function fmtTglPanjang(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:
 function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
 function fmtRupiah(n){return 'Rp '+Number(n||0).toLocaleString('id-ID');}
 function showAlert(elId,pesan){document.getElementById(elId).innerHTML='<div class="alert-box alert-err">'+pesan+'</div>';}
+function cekErrorSupabase(res){
+  if(!res){throw new Error('Tidak ada respon dari server.');}
+  if(res.code||res.status==='error'){throw new Error(res.message||res.msg||'Terjadi kesalahan.');}
+  return res;
+}
 function getTahunDigit(){return String((new Date().getFullYear()-2018)%10);}
 
 // ── MUAT SJ ──
@@ -637,9 +685,8 @@ function bukaDetail(idSJ){
     // Cek status print dari log_print_sj
     dbGet('log_print_sj',{id_sj:'eq.'+idSJ,order:'tgl_print.asc'}).then(function(lr){
       var logs=Array.isArray(lr)?lr:[];
-      var pSJ=logs.filter(function(l){return l.jenis_print==='SJ'||l.jenis_print==='KEDUANYA';}).length;
-      var pINV=logs.filter(function(l){return l.jenis_print==='INVOICE'||l.jenis_print==='KEDUANYA';}).length;
-      printInfo={sudah_print_sj:pSJ>0,sudah_print_invoice:pINV>0,print_sj:pSJ,print_invoice:pINV};
+      printInfo=hitungPrintInfo(logs);
+      var pSJ=printInfo.print_sj, pINV=printInfo.print_invoice;
       html+='<div style="margin-top:.75rem;border-top:1px solid var(--border);padding-top:.65rem">'+
         '<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.3rem">STATUS CETAK</div>'+
         '<div style="font-size:.78rem">SJ: <span class="print-badge '+(pSJ>0?'print-yes':'print-no')+'">'+(pSJ>0?'Sudah '+pSJ+'x':'Belum')+'</span></div>'+
@@ -656,16 +703,42 @@ function bukaDetail(idSJ){
   });
 }
 
-// ── PRINT ──
+// ── PRINT (dengan approval reprint) ──
+// printInfo menyimpan rekap log per jenis (SJ/INVOICE) + log APPROVED yg belum tereksekusi + log MENUNGGU_APPROVE milik jenis itu
+function hitungPrintInfo(logs){
+  function relevan(l,jenis){return l.jenis_print===jenis||l.jenis_print==='KEDUANYA';}
+  var okSJ=logs.filter(function(l){return relevan(l,'SJ')&&l.status_approval==='APPROVED';});
+  var okINV=logs.filter(function(l){return relevan(l,'INVOICE')&&l.status_approval==='APPROVED';});
+  function pending(jenis){return logs.find(function(l){return relevan(l,jenis)&&l.status_approval==='MENUNGGU_APPROVE';})||null;}
+  function siapEksekusi(jenis){return logs.find(function(l){return relevan(l,jenis)&&l.status_approval==='APPROVED'&&l.sudah_dieksekusi===false;})||null;}
+  return {
+    print_sj:okSJ.length, print_invoice:okINV.length,
+    sudah_print_sj:okSJ.length>0, sudah_print_invoice:okINV.length>0,
+    pending_sj:pending('SJ'), pending_invoice:pending('INVOICE'),
+    siap_sj:siapEksekusi('SJ'), siap_invoice:siapEksekusi('INVOICE')
+  };
+}
+function pendingUntukJenis(jenis){
+  if(jenis==='SJ') return printInfo.pending_sj;
+  if(jenis==='INVOICE') return printInfo.pending_invoice;
+  return printInfo.pending_sj||printInfo.pending_invoice;
+}
+function siapUntukJenis(jenis){
+  if(jenis==='SJ') return printInfo.siap_sj;
+  if(jenis==='INVOICE') return printInfo.siap_invoice;
+  return printInfo.siap_sj||printInfo.siap_invoice;
+}
+function sudahCetakUntukJenis(jenis){
+  if(jenis==='SJ') return printInfo.sudah_print_sj;
+  if(jenis==='INVOICE') return printInfo.sudah_print_invoice;
+  return printInfo.sudah_print_sj||printInfo.sudah_print_invoice;
+}
+
 function bukaPrint(idSJ){
   sjAktif=semuaSJ.find(function(s){return s.id_sj===idSJ;})||null;
   if(!sjAktif) return;
-  // Ambil print info dulu
   dbGet('log_print_sj',{id_sj:'eq.'+idSJ}).then(function(lr){
-    var logs=Array.isArray(lr)?lr:[];
-    var pSJ=logs.filter(function(l){return l.jenis_print==='SJ'||l.jenis_print==='KEDUANYA';}).length;
-    var pINV=logs.filter(function(l){return l.jenis_print==='INVOICE'||l.jenis_print==='KEDUANYA';}).length;
-    printInfo={sudah_print_sj:pSJ>0,sudah_print_invoice:pINV>0,print_sj:pSJ,print_invoice:pINV};
+    printInfo=hitungPrintInfo(Array.isArray(lr)?lr:[]);
     bukaModalPrint();
   });
 }
@@ -683,47 +756,71 @@ function bukaModalPrint(){
 function cekReprint(){
   if(!printInfo) return;
   var jenis=document.getElementById('selJenisPrint').value;
-  var sudah=jenis==='SJ'?printInfo.sudah_print_sj:(jenis==='INVOICE'?printInfo.sudah_print_invoice:(printInfo.sudah_print_sj||printInfo.sudah_print_invoice));
-  var role=getRoleUser();
+  var sudah=sudahCetakUntukJenis(jenis);
+  var siap=siapUntukJenis(jenis);
+  var pend=pendingUntukJenis(jenis);
   var warnBox=document.getElementById('printWarnBox');
   var alasanBox=document.getElementById('alasanBox');
   var btnC=document.getElementById('btnCetak');
-  if(sudah){
-    if(role!=='DIREKTUR'){
-      warnBox.innerHTML='⚠ Sudah pernah dicetak. Reprint hanya Direktur.';
-      warnBox.style.display='block'; alasanBox.style.display='none'; btnC.disabled=true;
-    }else{
-      warnBox.innerHTML='⚠ Reprint — wajib isi alasan.';
-      warnBox.style.display='block'; alasanBox.style.display='block'; btnC.disabled=false;
-    }
+  if(!sudah){
+    warnBox.style.display='none'; alasanBox.style.display='none'; btnC.disabled=false; btnC.textContent='Cetak';
+    return;
+  }
+  if(siap){
+    warnBox.className='reprint-approved-box'; warnBox.style.display='block';
+    warnBox.innerHTML='✓ Reprint disetujui oleh '+esc(siap.approved_by)+'. Klik cetak untuk mencetak sekarang.';
+    alasanBox.style.display='none'; btnC.disabled=false; btnC.textContent='Cetak (disetujui)';
+    return;
+  }
+  if(pend){
+    warnBox.className='reprint-pending-box'; warnBox.style.display='block';
+    warnBox.innerHTML='⏳ Menunggu approval Manager/Direktur (diajukan oleh '+esc(pend.diajukan_oleh)+').';
+    alasanBox.style.display='none'; btnC.disabled=true; btnC.textContent='Cetak';
+    return;
+  }
+  warnBox.className='reprint-warn'; warnBox.style.display='block';
+  if(isMP){
+    warnBox.innerHTML='⚠ Sudah pernah dicetak. Sebagai '+roleUser+', reprint langsung disetujui — wajib isi alasan.';
+    alasanBox.style.display='block'; btnC.disabled=false; btnC.textContent='Cetak';
   }else{
-    warnBox.style.display='none'; alasanBox.style.display='none'; btnC.disabled=false;
+    warnBox.innerHTML='⚠ Sudah pernah dicetak. Ajukan reprint — wajib isi alasan, menunggu approval Manager/Direktur.';
+    alasanBox.style.display='block'; btnC.disabled=false; btnC.textContent='Ajukan Reprint';
   }
 }
 
 async function submitPrint(btn){
   var jenis=document.getElementById('selJenisPrint').value;
   var alasan=document.getElementById('inpAlasan').value.trim();
-  var role=getRoleUser();
-  var sudah=jenis==='SJ'?printInfo.sudah_print_sj:(jenis==='INVOICE'?printInfo.sudah_print_invoice:(printInfo.sudah_print_sj||printInfo.sudah_print_invoice));
-  if(sudah&&role!=='DIREKTUR'){showAlert('alertPrint','Reprint hanya boleh Direktur.');return;}
-  if(sudah&&!alasan){showAlert('alertPrint','Alasan reprint wajib diisi.');return;}
+  var sudah=sudahCetakUntukJenis(jenis);
+  var siap=siapUntukJenis(jenis);
+  var pend=pendingUntukJenis(jenis);
+
+  if(pend){showAlert('alertPrint','Masih menunggu approval, belum bisa cetak.');return;}
+  if(sudah&&!siap&&!alasan){showAlert('alertPrint','Alasan reprint wajib diisi.');return;}
+
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
   try{
-    // Hitung print_ke (urutan cetak dokumen ini)
-    var logsCek=await dbGet('log_print_sj',{id_sj:'eq.'+sjAktif.id_sj,select:'print_ke'});
-    var printKe=(Array.isArray(logsCek)?logsCek:[]).reduce(function(mx,r){return Math.max(mx,parseInt(r.print_ke,10)||0);},0)+1;
-    await dbInsert('log_print_sj',{
-      id_log:'LSPK'+Date.now(),
-      id_sj:sjAktif.id_sj,
-      tgl_print:new Date().toISOString(),
-      nama_user:getNamaUser(),
-      jenis_print:jenis,
-      print_ke:printKe,
-      alasan:alasan||'Cetak pertama'
+    // Kasus: sudah ada log APPROVED tapi belum tereksekusi (hasil approval Manager/Direktur) -> langsung cetak, tandai tereksekusi
+    if(siap){
+      await dbRpc('tandai_reprint_tereksekusi',{p_tabel:'sj',p_id_log:siap.id_log});
+      bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
+      var resX=await dbGet('in_pengiriman_detail',{id_sj:'eq.'+sjAktif.id_sj,order:'id_pgdet.asc'});
+      cetakDokumen(sjAktif,Array.isArray(resX)?resX:[],jenis);
+      return;
+    }
+    // Kasus normal: cetak pertama (bebas) / reprint oleh Manager-Direktur (auto-approve) / ajukan reprint (Admin dkk)
+    var r=await dbRpc('ajukan_reprint',{
+      p_tabel:'sj', p_id_ref:sjAktif.id_sj, p_jenis_print:jenis,
+      p_alasan:alasan||null, p_user:getNamaUser(), p_role:roleUser
     });
+    cekErrorSupabase(r);
+    if(r.status_approval==='MENUNGGU_APPROVE'){
+      bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
+      alert('Reprint diajukan, menunggu approval Manager/Direktur.');
+      muatSJ();
+      return;
+    }
     bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
-    // Ambil detail lalu cetak
     var res=await dbGet('in_pengiriman_detail',{id_sj:'eq.'+sjAktif.id_sj,order:'id_pgdet.asc'});
     var items=Array.isArray(res)?res:[];
     cetakDokumen(sjAktif,items,jenis);
@@ -733,12 +830,98 @@ async function submitPrint(btn){
   }
 }
 
+// ── APPROVE REPRINT (Manager/Direktur) ──
+function bukaApproveReprint(){
+  new bootstrap.Modal(document.getElementById('modalApproveReprint')).show();
+  muatApproveReprint();
+}
+async function muatApproveReprint(){
+  var box=document.getElementById('approveReprintBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_sj',{status_approval:'eq.MENUNGGU_APPROVE',order:'tgl_print.asc'});
+    logs=Array.isArray(logs)?logs:[];
+    if(!logs.length){box.innerHTML='<div class="loading">Tidak ada reprint yang menunggu approval.</div>';return;}
+    var sjIds=logs.map(function(l){return l.id_sj;});
+    var sjMap={};
+    if(sjIds.length){
+      var sjs=await dbGet('in_pengiriman',{id_sj:'in.('+sjIds.join(',')+')'});
+      (Array.isArray(sjs)?sjs:[]).forEach(function(s){sjMap[s.id_sj]=s;});
+    }
+    var html='';
+    logs.forEach(function(l){
+      var sj=sjMap[l.id_sj]||{};
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">No. SJ / Nota</span><span class="rp-val">'+esc(sj.no_sj||l.id_sj)+' / '+esc(sj.no_nota||'—')+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Pelanggan</span><span class="rp-val">'+esc(sj.nama_pelanggan||'—')+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Jenis Cetak</span><span class="rp-val">'+esc(l.jenis_print)+' (cetak ke-'+l.print_ke+')</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(l.diajukan_oleh)+' — '+fmtTgl(l.tgl_print)+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Alasan</span><span class="rp-val">'+esc(l.alasan||'—')+'</span></div>'+
+        '<div style="display:flex;gap:.5rem;margin-top:.5rem;justify-content:flex-end">'+
+          '<button class="btn-outline" style="border-color:var(--red);color:var(--red)" onclick="approveReprintAction(\''+esc(l.id_log)+'\',false,this)">✗ Tolak</button>'+
+          '<button class="btn-navy" onclick="approveReprintAction(\''+esc(l.id_log)+'\',true,this)">✓ Approve</button>'+
+        '</div></div>';
+    });
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
+}
+async function approveReprintAction(idLog,disetujui,btn){
+  btn.disabled=true;
+  try{
+    var r=await dbRpc('approve_reprint',{p_tabel:'sj',p_id_log:idLog,p_disetujui:disetujui,p_user:getNamaUser()});
+    cekErrorSupabase(r);
+    muatApproveReprint();
+  }catch(e){
+    alert('Gagal: '+e.message);
+    btn.disabled=false;
+  }
+}
+
+// ── LOG REPRINT (Direktur — audit) ──
+function bukaLogReprint(){
+  new bootstrap.Modal(document.getElementById('modalLogReprint')).show();
+  muatLogReprint();
+}
+async function muatLogReprint(){
+  var box=document.getElementById('logReprintBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_sj',{print_ke:'gt.1',order:'tgl_print.desc'});
+    logs=Array.isArray(logs)?logs:[];
+    if(!logs.length){box.innerHTML='<div class="loading">Belum ada riwayat reprint.</div>';return;}
+    var sjIds=logs.map(function(l){return l.id_sj;});
+    var sjMap={};
+    if(sjIds.length){
+      var sjs=await dbGet('in_pengiriman',{id_sj:'in.('+sjIds.join(',')+')'});
+      (Array.isArray(sjs)?sjs:[]).forEach(function(s){sjMap[s.id_sj]=s;});
+    }
+    var stCls={MENUNGGU_APPROVE:'rp-menunggu',APPROVED:'rp-approved',DITOLAK:'rp-ditolak'};
+    var html='';
+    logs.forEach(function(l){
+      var sj=sjMap[l.id_sj]||{};
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">No. SJ / Nota</span><span class="rp-val">'+esc(sj.no_sj||l.id_sj)+' / '+esc(sj.no_nota||'—')+' <span class="rp-status '+(stCls[l.status_approval]||'')+'">'+esc(l.status_approval)+'</span></span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Jenis / Cetak ke</span><span class="rp-val">'+esc(l.jenis_print)+' / ke-'+l.print_ke+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Dicetak oleh</span><span class="rp-val">'+esc(l.nama_user)+' — '+fmtTgl(l.tgl_print)+'</span></div>'+
+        (l.diajukan_oleh?'<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(l.diajukan_oleh)+'</span></div>':'')+
+        (l.approved_by?'<div class="rp-row"><span class="rp-lbl">Diputuskan oleh</span><span class="rp-val">'+esc(l.approved_by)+' — '+fmtTgl(l.tgl_approve)+'</span></div>':'')+
+        '<div class="rp-row"><span class="rp-lbl">Alasan</span><span class="rp-val">'+esc(l.alasan||'—')+'</span></div>'+
+      '</div>';
+    });
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
+}
+
 function previewDokumen(){
   if(!sjAktif) return;
   var jenis=document.getElementById('selJenisPrint').value;
   var win=window.open('','_blank');
   if(!win){alert('Popup diblokir. Izinkan popup lalu coba lagi.');return;}
-  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Preview — '+esc(sjAktif.no_sj)+'</title><style>body{background:#d0d5de;margin:0;padding:1rem;font-family:\'Courier New\',Courier,monospace;}.sj-page{width:21cm;min-height:16cm;padding:.45cm .6cm;box-sizing:border-box;font-size:7.8pt;color:#000;background:#fff;margin:0 auto 1rem;box-shadow:0 4px 16px rgba(0,0,0,.2);}.preview-note{max-width:21cm;margin:0 auto .75rem;font-family:sans-serif;font-size:.8rem;background:#fff3cd;border:1px solid #ffe083;color:#856404;padding:.5rem .8rem;border-radius:6px;}@media print{body{background:#fff;padding:0;}.preview-note{display:none;}.sj-page{margin:0;box-shadow:none;page-break-after:always;}.sj-page:last-child{page-break-after:auto;}@page{size:21cm 16cm;margin:0;}}</style></head><body><div class="preview-note">📄 Mode Preview — belum mencatat status print.</div><div id="lm" style="text-align:center;padding:2rem;font-family:sans-serif;color:#888">Memuat…</div></body></html>');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Preview — '+esc(sjAktif.no_sj)+'</title><style>body{background:#d0d5de;margin:0;padding:1rem;font-family:\'Courier New\',Courier,monospace;}.sj-page{width:21.5cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-size:7.8pt;color:#000;background:#fff;margin:0 auto 1rem;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;}.sj-spacer{flex:1 1 auto;border-top:1px solid #000;margin-top:.12cm;min-height:.15cm;}.sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:6.8pt;flex-shrink:0;}.preview-note{max-width:21.5cm;margin:0 auto .75rem;font-family:sans-serif;font-size:.8rem;background:#fff3cd;border:1px solid #ffe083;color:#856404;padding:.5rem .8rem;border-radius:6px;}@media print{body{background:#fff;padding:0;}.preview-note{display:none;}.sj-page{margin:0;box-shadow:none;page-break-after:always;}.sj-page:last-child{page-break-after:auto;}@page{size:21.5cm 10cm;margin:0;}}</style></head><body><div class="preview-note">📄 Mode Preview — belum mencatat status print.</div><div id="lm" style="text-align:center;padding:2rem;font-family:sans-serif;color:#888">Memuat…</div></body></html>');
   win.document.close();
   dbGet('in_pengiriman_detail',{id_sj:'eq.'+sjAktif.id_sj,order:'id_pgdet.asc'}).then(function(res){
     var items=Array.isArray(res)?res:[];
@@ -773,26 +956,28 @@ function layoutSJ(sj,items){
   var tdS='padding:.04cm .1cm;vertical-align:top;font-size:7.5pt;line-height:1.3;';
   var rows=items.map(function(it,i){
     return '<tr><td style="'+tdS+';width:.5cm">'+(i+1)+'</td>'+
-      '<td style="'+tdS+'">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
+      '<td style="'+tdS+';word-wrap:break-word;word-break:break-word;white-space:normal">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
       '<td style="'+tdS+';text-align:right;width:1.8cm">'+fmtAngka(it.qty_kirim||0)+'</td>'+
       '<td style="'+tdS+';width:.8cm">'+esc(it.satuan||'')+'</td></tr>';
   }).join('');
   return '<div class="sj-page">'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
       '<div><div style="font-size:9.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:6.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
       '<div style="text-align:right"><div style="font-size:9pt;font-weight:700;letter-spacing:.05em">SURAT JALAN</div>'+
         '<div style="font-size:8pt;font-weight:600;margin-top:1px">'+esc(sj.no_sj)+'</div>'+
         '<div style="font-size:7pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
     '</div>'+
-    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start">'+
+    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start;flex-shrink:0">'+
       '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm">Kepada Yth.</div>'+
       '<div><div style="font-weight:600">'+esc(sj.nama_pelanggan||'')+'</div></div>'+
     '</div>'+
-    '<table style="width:100%;border-collapse:collapse;margin-bottom:.2cm"><thead><tr>'+
+    '<div style="flex-shrink:0;overflow:hidden">'+
+    '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
       '<th style="'+thS+';width:.5cm">No.</th><th style="'+thS+'">Nama Barang</th>'+
       '<th style="'+thS+';text-align:right;width:1.8cm">Jumlah</th><th style="'+thS+';width:.8cm">Sat.</th>'+
-    '</tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div style="display:flex;justify-content:space-between;margin-top:.3cm;font-size:6.8pt">'+
+    '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="sj-spacer"></div>'+
+    '<div class="sj-footer-ttd">'+
       '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Penerima</div>'+
       '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Pengirim</div>'+
       '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Hormat Kami</div>'+
@@ -812,7 +997,7 @@ function layoutInvoice(sj,items){
   var tdS='padding:.04cm .1cm;vertical-align:top;font-size:7.5pt;line-height:1.3;';
   var rows=items.map(function(it,i){
     return '<tr><td style="'+tdS+';width:.5cm">'+(i+1)+'</td>'+
-      '<td style="'+tdS+'">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
+      '<td style="'+tdS+';word-wrap:break-word;word-break:break-word;white-space:normal">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
       '<td style="'+tdS+';text-align:right;width:1.5cm">'+fmtAngka(it.qty_kirim||0)+'</td>'+
       '<td style="'+tdS+';width:.8cm">'+esc(it.satuan||'')+'</td>'+
       '<td style="'+tdS+';text-align:right;width:1.8cm">'+fmtAngka(parseFloat(it.harga||0))+'</td>'+
@@ -824,23 +1009,25 @@ function layoutInvoice(sj,items){
     '<tr style="border-top:1.5px solid #000"><td colspan="5" style="'+tdS+';font-weight:700">TOTAL TAGIHAN</td><td style="'+tdS+';text-align:right;font-weight:700">'+fmtAngka(total)+'</td></tr>':
     '<tr style="border-top:1.5px solid #000"><td colspan="5" style="'+tdS+';font-weight:700">TOTAL</td><td style="'+tdS+';text-align:right;font-weight:700">'+fmtAngka(total)+'</td></tr>';
   return '<div class="sj-page">'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
       '<div><div style="font-size:9.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:6.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
       '<div style="text-align:right"><div style="font-size:9pt;font-weight:700;letter-spacing:.05em">NOTA / INVOICE</div>'+
         '<div style="font-size:8pt;font-weight:600;margin-top:1px">'+esc(sj.no_nota)+'</div>'+
         '<div style="font-size:7pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
     '</div>'+
-    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start">'+
+    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start;flex-shrink:0">'+
       '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm">Kepada Yth.</div>'+
       '<div><div style="font-weight:600">'+esc(sj.nama_pelanggan||'')+'</div></div>'+
     '</div>'+
-    '<table style="width:100%;border-collapse:collapse;margin-bottom:.15cm"><thead><tr>'+
+    '<div style="flex-shrink:0;overflow:hidden">'+
+    '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
       '<th style="'+thS+';width:.5cm">No.</th><th style="'+thS+'">Nama Barang</th>'+
       '<th style="'+thS+';text-align:right;width:1.5cm">Qty</th><th style="'+thS+';width:.8cm">Sat.</th>'+
       '<th style="'+thS+';text-align:right;width:1.8cm">Harga</th><th style="'+thS+';text-align:right;width:2cm">Subtotal</th>'+
     '</tr></thead><tbody>'+rows+'</tbody><tfoot>'+footer+'</tfoot></table>'+
-    '<div style="font-size:6.3pt;color:#444;border-top:.5px solid #ccc;padding-top:.08cm;margin-bottom:.15cm">'+rekStr+'</div>'+
-    '<div style="display:flex;justify-content:space-between;margin-top:.2cm;font-size:6.8pt">'+
+    '<div style="font-size:6.3pt;color:#444;border-top:.5px solid #ccc;padding-top:.08cm;margin-top:.1cm">'+rekStr+'</div></div>'+
+    '<div class="sj-spacer"></div>'+
+    '<div class="sj-footer-ttd">'+
       '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Hormat Kami</div>'+
       '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Penerima</div>'+
     '</div></div>';

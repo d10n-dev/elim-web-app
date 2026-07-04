@@ -98,6 +98,15 @@
     /* AC */
     .ac-item-sub{font-family:var(--mono);font-size:.68rem;background:#e8f0fe;color:var(--navy);padding:.05rem .3rem;border-radius:3px;}
     .ac-item-pps{font-family:var(--mono);font-size:.65rem;color:var(--muted);display:block;margin-top:.15rem;}
+    /* approve/log reprint */
+    .rp-item{border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin-bottom:.6rem;background:var(--surface);}
+    .rp-item .rp-row{display:flex;justify-content:space-between;font-size:.75rem;padding:.15rem 0;}
+    .rp-lbl{font-family:var(--mono);color:var(--muted);}
+    .rp-val{font-family:var(--mono);text-align:right;}
+    .rp-status{font-family:var(--mono);font-size:.6rem;padding:.15rem .45rem;border-radius:3px;font-weight:600;}
+    .rp-menunggu{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .rp-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .rp-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
     @media print{body>*:not(#printArea){display:none!important;}.spk-page{page-break-after:always;}}
     .spk-page{display:none;}
     #printArea{display:none;}
@@ -120,6 +129,8 @@
       <button class="filter-btn" onclick="setFilter('',this)">Semua</button>
     </div>
     <button class="btn-buat" onclick="bukaBuatSPK()">+ Buat SPK</button>
+    <button class="filter-btn" id="btnApproveReprintSpk" style="display:none" onclick="bukaApproveReprintSpk()">🔔 Approve Reprint</button>
+    <button class="filter-btn" id="btnLogReprintSpk" style="display:none" onclick="bukaLogReprintSpk()">📋 Log Reprint</button>
   </div>
   <div class="tbl-wrap">
     <table>
@@ -277,13 +288,13 @@
       <div class="modal-header"><span class="modal-title">Cetak Ulang SPK</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
         <div id="alertAlasan"></div>
-        <div class="alert-box alert-err" style="margin-bottom:.75rem">SPK ini sudah pernah dicetak. Wajib isi alasan cetak ulang.</div>
+        <div class="alert-box alert-err" id="teksAlasanBox" style="margin-bottom:.75rem">SPK ini sudah pernah dicetak. Wajib isi alasan cetak ulang.</div>
         <label class="form-label">Alasan *</label>
         <input type="text" class="form-control" id="inAlasan" placeholder="cth: Kertas rusak, print ulang" autocomplete="off"/>
       </div>
       <div class="modal-footer">
         <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
-        <button class="btn-simpan" onclick="konfirmasiCetak()">🖨 Cetak</button>
+        <button class="btn-simpan" id="btnKonfirmasiCetak" onclick="konfirmasiCetak()">🖨 Cetak</button>
       </div>
     </div>
   </div>
@@ -356,6 +367,26 @@
   </div>
 </div>
 
+<!-- MODAL PERLU APPROVE REPRINT SPK -->
+<div class="modal fade" id="modalApproveReprintSpk" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><span class="modal-title">Perlu Approve Reprint SPK</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="approveReprintSpkBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOG REPRINT SPK (Direktur — audit) -->
+<div class="modal fade" id="modalLogReprintSpk" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><span class="modal-title">Log Reprint SPK</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="logReprintSpkBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
 <div id="printArea"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -367,11 +398,23 @@
 var semuaSPK=[], semuaOrdDtl=[], sdetAktif=[], daftarItem=[], semuaOperator=[];
 var filterAktif='OPEN', idSpkAktif=null, itemDipilih=null, maxPpsForm=0, tabLogAktif='CETAK';
 var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]}, _bahanMap={}, _tintaMap={};
+var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
+
+function cekErrorSupabase(res){
+  if(!res){throw new Error('Tidak ada respon dari server.');}
+  if(res.code||res.status==='error'){throw new Error(res.message||res.msg||'Terjadi kesalahan.');}
+  return res;
+}
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', function(){
   if (!guardHalaman()) return;
   initNav('spk');
+  roleUser=getRoleUser();
+  isMPGlobal=(roleUser==='MANAGER'||roleUser==='DIREKTUR');
+  isDirekturGlobal=(roleUser==='DIREKTUR');
+  var btnAR=document.getElementById('btnApproveReprintSpk'); if(btnAR) btnAR.style.display=isMPGlobal?'':'none';
+  var btnLR=document.getElementById('btnLogReprintSpk'); if(btnLR) btnLR.style.display=isDirekturGlobal?'':'none';
   var urlParams=new URLSearchParams(window.location.search);
   var pf=urlParams.get('filter');
   if (pf) {
@@ -1223,14 +1266,35 @@ function printSPK(){
   });
 }
 
+function hitungReprintInfoSpk(logs){
+  var pending=logs.find(function(l){return l.status_approval==='MENUNGGU_APPROVE';})||null;
+  var siap=logs.find(function(l){return l.status_approval==='APPROVED'&&l.sudah_dieksekusi===false;})||null;
+  return {pending:pending,siap:siap};
+}
+async function muatReprintInfoSpk(idSpk){
+  var logs=await dbGet('log_print_spk',{id_spk:'eq.'+idSpk});
+  return hitungReprintInfoSpk(Array.isArray(logs)?logs:[]);
+}
+
 function prosesLog(){
   var printCount=parseInt(_spkPrint.print_count,10)||0;
-  if(printCount===0){catatDanCetak('');}
-  else{
-    document.getElementById('inAlasan').value='';
-    document.getElementById('alertAlasan').innerHTML='';
-    new bootstrap.Modal(document.getElementById('modalAlasan')).show();
-  }
+  if(printCount===0){catatDanCetak('Cetak pertama');return;}
+  muatReprintInfoSpk(_spkPrint.id_spk).then(function(info){
+    _reprintInfoSpk=info;
+    if(info.siap){
+      eksekusiReprintSiap(info.siap);
+    }else if(info.pending){
+      alert('Reprint SPK ini masih menunggu approval Manager/Direktur (diajukan oleh '+info.pending.diajukan_oleh+').');
+    }else{
+      document.getElementById('inAlasan').value='';
+      document.getElementById('alertAlasan').innerHTML='';
+      document.getElementById('teksAlasanBox').textContent=isMPGlobal
+        ?'SPK ini sudah pernah dicetak. Sebagai '+roleUser+', reprint langsung disetujui — wajib isi alasan.'
+        :'SPK ini sudah pernah dicetak. Ajukan reprint — wajib isi alasan, menunggu approval Manager/Direktur.';
+      document.getElementById('btnKonfirmasiCetak').textContent=isMPGlobal?'🖨 Cetak':'Ajukan Reprint';
+      new bootstrap.Modal(document.getElementById('modalAlasan')).show();
+    }
+  }).catch(function(e){alert('Gagal cek status reprint: '+e.message);});
 }
 
 function konfirmasiCetak(){
@@ -1242,14 +1306,101 @@ function konfirmasiCetak(){
 
 async function catatDanCetak(alasan){
   try{
-    var printKe=(_spkPrint.print_count||0)+1;
-    await dbInsert('log_print_spk',{id_log:'LSPK'+Date.now(),id_spk:_spkPrint.id_spk,tgl_print:new Date().toISOString(),nama_user:getNamaUser(),print_ke:printKe,alasan:alasan||'Cetak pertama'});
+    var r=await dbRpc('ajukan_reprint',{p_tabel:'spk',p_id_ref:_spkPrint.id_spk,p_jenis_print:null,p_alasan:alasan||null,p_user:getNamaUser(),p_role:roleUser});
+    cekErrorSupabase(r);
+    if(r.status_approval==='MENUNGGU_APPROVE'){
+      alert('Reprint diajukan, menunggu approval Manager/Direktur.');
+      return;
+    }
+    var printKe=r.print_ke;
     await dbUpdate('in_spk',{id_spk:'eq.'+_spkPrint.id_spk},{print_count:printKe,status_print:'SUDAH'});
     _spkPrint.print_count=printKe;
     var idx=semuaSPK.findIndex(function(s){return s.id_spk===_spkPrint.id_spk;});
     if(idx>=0){semuaSPK[idx].print_count=printKe;semuaSPK[idx].status_print='SUDAH';}
     renderDanCetak(printKe);
-  }catch(e){renderDanCetak((_spkPrint.print_count||0)+1);}
+  }catch(e){alert('Gagal: '+e.message);}
+}
+
+async function eksekusiReprintSiap(siap){
+  try{
+    await dbRpc('tandai_reprint_tereksekusi',{p_tabel:'spk',p_id_log:siap.id_log});
+    await dbUpdate('in_spk',{id_spk:'eq.'+_spkPrint.id_spk},{print_count:siap.print_ke,status_print:'SUDAH'});
+    _spkPrint.print_count=siap.print_ke;
+    var idx=semuaSPK.findIndex(function(s){return s.id_spk===_spkPrint.id_spk;});
+    if(idx>=0){semuaSPK[idx].print_count=siap.print_ke;semuaSPK[idx].status_print='SUDAH';}
+    renderDanCetak(siap.print_ke);
+  }catch(e){alert('Gagal: '+e.message);}
+}
+
+// ── APPROVE REPRINT SPK (Manager/Direktur) ──
+function bukaApproveReprintSpk(){
+  new bootstrap.Modal(document.getElementById('modalApproveReprintSpk')).show();
+  muatApproveReprintSpk();
+}
+async function muatApproveReprintSpk(){
+  var box=document.getElementById('approveReprintSpkBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_spk',{status_approval:'eq.MENUNGGU_APPROVE',order:'tgl_print.asc'});
+    logs=Array.isArray(logs)?logs:[];
+    if(!logs.length){box.innerHTML='<div class="loading">Tidak ada reprint SPK yang menunggu approval.</div>';return;}
+    var html='';
+    logs.forEach(function(l){
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">ID SPK</span><span class="rp-val">'+esc(l.id_spk)+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Cetak ke</span><span class="rp-val">'+l.print_ke+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(l.diajukan_oleh)+' — '+fmtTgl(l.tgl_print)+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Alasan</span><span class="rp-val">'+esc(l.alasan||'—')+'</span></div>'+
+        '<div style="display:flex;gap:.5rem;margin-top:.5rem;justify-content:flex-end">'+
+          '<button class="btn-tolak" onclick="approveReprintSpkAction(\''+esc(l.id_log)+'\',false,this)">✗ Tolak</button>'+
+          '<button class="btn-approve" onclick="approveReprintSpkAction(\''+esc(l.id_log)+'\',true,this)">✓ Approve</button>'+
+        '</div></div>';
+    });
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
+}
+async function approveReprintSpkAction(idLog,disetujui,btn){
+  btn.disabled=true;
+  try{
+    var r=await dbRpc('approve_reprint',{p_tabel:'spk',p_id_log:idLog,p_disetujui:disetujui,p_user:getNamaUser()});
+    cekErrorSupabase(r);
+    muatApproveReprintSpk();
+  }catch(e){
+    alert('Gagal: '+e.message);
+    btn.disabled=false;
+  }
+}
+
+// ── LOG REPRINT SPK (Direktur — audit) ──
+function bukaLogReprintSpk(){
+  new bootstrap.Modal(document.getElementById('modalLogReprintSpk')).show();
+  muatLogReprintSpk();
+}
+async function muatLogReprintSpk(){
+  var box=document.getElementById('logReprintSpkBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_spk',{print_ke:'gt.1',order:'tgl_print.desc'});
+    logs=Array.isArray(logs)?logs:[];
+    if(!logs.length){box.innerHTML='<div class="loading">Belum ada riwayat reprint SPK.</div>';return;}
+    var stCls={MENUNGGU_APPROVE:'rp-menunggu',APPROVED:'rp-approved',DITOLAK:'rp-ditolak'};
+    var html='';
+    logs.forEach(function(l){
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">ID SPK</span><span class="rp-val">'+esc(l.id_spk)+' <span class="rp-status '+(stCls[l.status_approval]||'')+'">'+esc(l.status_approval)+'</span></span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Cetak ke</span><span class="rp-val">'+l.print_ke+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Dicetak oleh</span><span class="rp-val">'+esc(l.nama_user)+' — '+fmtTgl(l.tgl_print)+'</span></div>'+
+        (l.diajukan_oleh?'<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(l.diajukan_oleh)+'</span></div>':'')+
+        (l.approved_by?'<div class="rp-row"><span class="rp-lbl">Diputuskan oleh</span><span class="rp-val">'+esc(l.approved_by)+' — '+fmtTgl(l.tgl_approve)+'</span></div>':'')+
+        '<div class="rp-row"><span class="rp-lbl">Alasan</span><span class="rp-val">'+esc(l.alasan||'—')+'</span></div>'+
+      '</div>';
+    });
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
 }
 
 function renderDanCetak(printKe){
@@ -1322,13 +1473,14 @@ function renderDanCetak(printKe){
     '<title>Preview SPK — '+esc(spk.id_spk)+'</title>'+
     '<style>'+
     'body{margin:0;padding:16px;background:#e5e5e5;font-family:\'Courier New\',Courier,monospace;}'+
-    '.spk-page{background:#fff;width:210mm;min-height:297mm;margin:0 auto 24px;padding:12mm 14mm;box-shadow:0 2px 12px rgba(0,0,0,.18);page-break-after:always;}'+
+    '.spk-page{background:#fff;width:160mm;min-height:215mm;margin:0 auto 24px;padding:10mm 8mm;box-sizing:border-box;box-shadow:0 2px 12px rgba(0,0,0,.18);page-break-after:always;}'+
     '.toolbar-preview{position:sticky;top:0;z-index:99;background:#1a2744;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;margin:-16px -16px 16px;}'+
     '.toolbar-preview span{font-family:\'Courier New\',monospace;font-size:13px;opacity:.8;}'+
     '.btn-pr{background:#e8521a;color:#fff;border:none;padding:6px 18px;border-radius:5px;font-size:13px;font-weight:700;cursor:pointer;}'+
     '.btn-pr:hover{background:#c94416;}'+
     '.btn-close-pr{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);padding:6px 14px;border-radius:5px;font-size:13px;cursor:pointer;}'+
-    '@media print{.toolbar-preview{display:none!important;}.spk-page{box-shadow:none;margin:0;padding:10mm 12mm;}}'+
+    '@page{size:160mm 215mm;margin:0;}'+
+    '@media print{.toolbar-preview{display:none!important;}.spk-page{box-shadow:none;margin:0;padding:8mm 6mm;}}'+
     '</style></head><body>'+
     '<div class="toolbar-preview">'+
     '<span>PREVIEW SPK — '+esc(spk.id_spk)+'</span>'+
