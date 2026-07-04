@@ -66,13 +66,13 @@
     .rp-menunggu{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
     .rp-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
     .rp-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
-    /* print — kertas fisik 21.5cm x 10cm, font TIDAK diubah (evaluasi dulu) */
+    /* print — kertas fisik 21cm x 10cm, font dinaikkan +1pt dari baseline awal */
     #printArea{display:none;}
-    .sj-page{width:21.5cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-family:'Courier New',Courier,monospace;font-size:7.8pt;color:#000;background:#fff;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;}
+    .sj-page{width:21cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-family:'Courier New',Courier,monospace;font-size:8.8pt;color:#000;background:#fff;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;}
     .sj-page:last-child{page-break-after:auto;}
     .sj-spacer{flex:1 1 auto;border-top:1px solid #000;margin-top:.12cm;min-height:.15cm;}
-    .sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:6.8pt;flex-shrink:0;}
-    @media print{@page{size:21.5cm 10cm;margin:0;}}
+    .sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:7.8pt;flex-shrink:0;}
+    @media print{@page{size:21cm 10cm;margin:0;}}
     body.printing>*{display:none!important;}
     body.printing #printArea{display:block!important;position:fixed;left:0;top:0;width:100%;z-index:99999;background:#fff;}
   </style>
@@ -921,7 +921,7 @@ function previewDokumen(){
   var jenis=document.getElementById('selJenisPrint').value;
   var win=window.open('','_blank');
   if(!win){alert('Popup diblokir. Izinkan popup lalu coba lagi.');return;}
-  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Preview — '+esc(sjAktif.no_sj)+'</title><style>body{background:#d0d5de;margin:0;padding:1rem;font-family:\'Courier New\',Courier,monospace;}.sj-page{width:21.5cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-size:7.8pt;color:#000;background:#fff;margin:0 auto 1rem;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;}.sj-spacer{flex:1 1 auto;border-top:1px solid #000;margin-top:.12cm;min-height:.15cm;}.sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:6.8pt;flex-shrink:0;}.preview-note{max-width:21.5cm;margin:0 auto .75rem;font-family:sans-serif;font-size:.8rem;background:#fff3cd;border:1px solid #ffe083;color:#856404;padding:.5rem .8rem;border-radius:6px;}@media print{body{background:#fff;padding:0;}.preview-note{display:none;}.sj-page{margin:0;box-shadow:none;page-break-after:always;}.sj-page:last-child{page-break-after:auto;}@page{size:21.5cm 10cm;margin:0;}}</style></head><body><div class="preview-note">📄 Mode Preview — belum mencatat status print.</div><div id="lm" style="text-align:center;padding:2rem;font-family:sans-serif;color:#888">Memuat…</div></body></html>');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Preview — '+esc(sjAktif.no_sj)+'</title><style>body{background:#d0d5de;margin:0;padding:1rem;font-family:\'Courier New\',Courier,monospace;}.sj-page{width:21cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-size:8.8pt;color:#000;background:#fff;margin:0 auto 1rem;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;}.sj-spacer{flex:1 1 auto;border-top:1px solid #000;margin-top:.12cm;min-height:.15cm;}.sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:7.8pt;flex-shrink:0;}.preview-note{max-width:21cm;margin:0 auto .75rem;font-family:sans-serif;font-size:.8rem;background:#fff3cd;border:1px solid #ffe083;color:#856404;padding:.5rem .8rem;border-radius:6px;}@media print{body{background:#fff;padding:0;}.preview-note{display:none;}.sj-page{margin:0;box-shadow:none;page-break-after:always;}.sj-page:last-child{page-break-after:auto;}@page{size:21cm 10cm;margin:0;}}</style></head><body><div class="preview-note">📄 Mode Preview — belum mencatat status print.</div><div id="lm" style="text-align:center;padding:2rem;font-family:sans-serif;color:#888">Memuat…</div></body></html>');
   win.document.close();
   dbGet('in_pengiriman_detail',{id_sj:'eq.'+sjAktif.id_sj,order:'id_pgdet.asc'}).then(function(res){
     var items=Array.isArray(res)?res:[];
@@ -952,8 +952,8 @@ function layoutSJ(sj,items){
   var coName=isPT?'PT. ELIM CITRA OFFSET':'DK OFFSET';
   var coAddr=isPT?'Jl. Rinjani Utara IV No. 2, Mojosongo, Surakarta 57127':'';
   var tglStr='Surakarta, '+fmtTglPanjang(sj.tgl);
-  var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:7pt;font-weight:700;text-align:left;';
-  var tdS='padding:.04cm .1cm;vertical-align:top;font-size:7.5pt;line-height:1.3;';
+  var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:8pt;font-weight:700;text-align:left;';
+  var tdS='padding:.04cm .1cm;vertical-align:top;font-size:8.5pt;line-height:1.3;';
   var rows=items.map(function(it,i){
     return '<tr><td style="'+tdS+';width:.5cm">'+(i+1)+'</td>'+
       '<td style="'+tdS+';word-wrap:break-word;word-break:break-word;white-space:normal">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
@@ -962,12 +962,12 @@ function layoutSJ(sj,items){
   }).join('');
   return '<div class="sj-page">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
-      '<div><div style="font-size:9.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:6.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
-      '<div style="text-align:right"><div style="font-size:9pt;font-weight:700;letter-spacing:.05em">SURAT JALAN</div>'+
-        '<div style="font-size:8pt;font-weight:600;margin-top:1px">'+esc(sj.no_sj)+'</div>'+
-        '<div style="font-size:7pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
+      '<div><div style="font-size:10.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:7.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
+      '<div style="text-align:right"><div style="font-size:10pt;font-weight:700;letter-spacing:.05em">SURAT JALAN</div>'+
+        '<div style="font-size:9pt;font-weight:600;margin-top:1px">'+esc(sj.no_sj)+'</div>'+
+        '<div style="font-size:8pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
     '</div>'+
-    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start;flex-shrink:0">'+
+    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:8.5pt;align-items:flex-start;flex-shrink:0">'+
       '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm">Kepada Yth.</div>'+
       '<div><div style="font-weight:600">'+esc(sj.nama_pelanggan||'')+'</div></div>'+
     '</div>'+
@@ -993,8 +993,8 @@ function layoutInvoice(sj,items){
   var subtotal=items.reduce(function(s,it){return s+parseFloat(it.subtotal||0);},0);
   var ppn=isPT?Math.round(Math.round(subtotal*11/12)*12/100):0;
   var total=subtotal+ppn;
-  var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:7pt;font-weight:700;text-align:left;';
-  var tdS='padding:.04cm .1cm;vertical-align:top;font-size:7.5pt;line-height:1.3;';
+  var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:8pt;font-weight:700;text-align:left;';
+  var tdS='padding:.04cm .1cm;vertical-align:top;font-size:8.5pt;line-height:1.3;';
   var rows=items.map(function(it,i){
     return '<tr><td style="'+tdS+';width:.5cm">'+(i+1)+'</td>'+
       '<td style="'+tdS+';word-wrap:break-word;word-break:break-word;white-space:normal">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
@@ -1004,18 +1004,18 @@ function layoutInvoice(sj,items){
       '<td style="'+tdS+';text-align:right;width:2cm">'+fmtAngka(parseFloat(it.subtotal||0))+'</td></tr>';
   }).join('');
   var footer=isPT?
-    '<tr><td colspan="5" style="'+tdS+';text-align:right;font-size:7pt">Subtotal</td><td style="'+tdS+';text-align:right">'+fmtAngka(subtotal)+'</td></tr>'+
-    '<tr><td colspan="5" style="'+tdS+';text-align:right;font-size:7pt;color:#333">PPN 11%</td><td style="'+tdS+';text-align:right;color:#333">'+fmtAngka(ppn)+'</td></tr>'+
+    '<tr><td colspan="5" style="'+tdS+';text-align:right;font-size:8pt">Subtotal</td><td style="'+tdS+';text-align:right">'+fmtAngka(subtotal)+'</td></tr>'+
+    '<tr><td colspan="5" style="'+tdS+';text-align:right;font-size:8pt;color:#333">PPN 11%</td><td style="'+tdS+';text-align:right;color:#333">'+fmtAngka(ppn)+'</td></tr>'+
     '<tr style="border-top:1.5px solid #000"><td colspan="5" style="'+tdS+';font-weight:700">TOTAL TAGIHAN</td><td style="'+tdS+';text-align:right;font-weight:700">'+fmtAngka(total)+'</td></tr>':
     '<tr style="border-top:1.5px solid #000"><td colspan="5" style="'+tdS+';font-weight:700">TOTAL</td><td style="'+tdS+';text-align:right;font-weight:700">'+fmtAngka(total)+'</td></tr>';
   return '<div class="sj-page">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
-      '<div><div style="font-size:9.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:6.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
-      '<div style="text-align:right"><div style="font-size:9pt;font-weight:700;letter-spacing:.05em">NOTA / INVOICE</div>'+
-        '<div style="font-size:8pt;font-weight:600;margin-top:1px">'+esc(sj.no_nota)+'</div>'+
-        '<div style="font-size:7pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
+      '<div><div style="font-size:10.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:7.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
+      '<div style="text-align:right"><div style="font-size:10pt;font-weight:700;letter-spacing:.05em">NOTA / INVOICE</div>'+
+        '<div style="font-size:9pt;font-weight:600;margin-top:1px">'+esc(sj.no_nota)+'</div>'+
+        '<div style="font-size:8pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
     '</div>'+
-    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:7.5pt;align-items:flex-start;flex-shrink:0">'+
+    '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:8.5pt;align-items:flex-start;flex-shrink:0">'+
       '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm">Kepada Yth.</div>'+
       '<div><div style="font-weight:600">'+esc(sj.nama_pelanggan||'')+'</div></div>'+
     '</div>'+
@@ -1025,7 +1025,7 @@ function layoutInvoice(sj,items){
       '<th style="'+thS+';text-align:right;width:1.5cm">Qty</th><th style="'+thS+';width:.8cm">Sat.</th>'+
       '<th style="'+thS+';text-align:right;width:1.8cm">Harga</th><th style="'+thS+';text-align:right;width:2cm">Subtotal</th>'+
     '</tr></thead><tbody>'+rows+'</tbody><tfoot>'+footer+'</tfoot></table>'+
-    '<div style="font-size:6.3pt;color:#444;border-top:.5px solid #ccc;padding-top:.08cm;margin-top:.1cm">'+rekStr+'</div></div>'+
+    '<div style="font-size:7.3pt;color:#444;border-top:.5px solid #ccc;padding-top:.08cm;margin-top:.1cm">'+rekStr+'</div></div>'+
     '<div class="sj-spacer"></div>'+
     '<div class="sj-footer-ttd">'+
       '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Hormat Kami</div>'+
