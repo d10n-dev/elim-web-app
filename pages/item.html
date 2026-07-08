@@ -146,8 +146,15 @@ function isiFilterKategori() {
 function muatData() {
   document.getElementById('loadingState').style.display = 'block';
   document.getElementById('tabelItem').style.display = 'none';
-  dbGet('m_item', { order: 'id_item.asc' }).then(res => {
+  dbGet('m_item', { order: 'id_item.asc', limit: '5000' }).then(res => {
     dataItem = Array.isArray(res) ? res : [];
+    // id_item bertipe TEXT — urutan dari server bersifat leksikografis (ITM1003 < ITM998).
+    // Urutkan ulang di client berdasarkan angka murni supaya tampilan & generateIdLokal konsisten.
+    dataItem.sort((a, b) => {
+      const na = parseInt((a.id_item || '').replace(/\D/g, ''), 10) || 0;
+      const nb = parseInt((b.id_item || '').replace(/\D/g, ''), 10) || 0;
+      return na - nb;
+    });
     renderTabel(dataItem);
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('tabelItem').style.display = 'table';

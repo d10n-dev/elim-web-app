@@ -258,6 +258,7 @@
         <div class="modal-section">Subitem &amp; Qty</div>
         <div class="edit-subitem-hdr"><span>Subitem</span><span>QTY Order</span><span>Dari Stok</span><span></span></div>
         <div id="editSubitemContainer"></div>
+        <button class="btn-tambah-sub" type="button" onclick="tambahEditSubitem()">+ Tambah Subitem</button>
         <div class="form-group" style="margin-top:.75rem">
           <label class="form-label">Alasan Perubahan *</label>
           <input type="text" class="form-control-edit" id="editAlasan" placeholder="Wajib diisi"/>
@@ -674,18 +675,31 @@ function bukaDetail(idOrder){
   document.getElementById('btnLog').style.display='';
   new bootstrap.Modal(document.getElementById('modalDetail')).show();
 
-  // Ambil detail + spk_detail sekaligus
-  Promise.all([
-    dbGet('in_order_detail',{id_order:'eq.'+idOrder}),
-    dbGet('in_spk_detail',  {id_order:'eq.'+idOrder,select:'id_order_detail,id_spk,status_spk'})
-  ]).then(function(r){
-    detailCache=Array.isArray(r[0])?r[0]:[];
-    var spkRows=Array.isArray(r[1])?r[1]:[];
-    // Gabungkan spk_list ke masing-masing detail
+  // Ambil detail dulu, baru cek 4 tabel anak (spk, kirim, retur, produksi) buat status locked
+  dbGet('in_order_detail',{id_order:'eq.'+idOrder}).then(function(res){
+    detailCache=Array.isArray(res)?res:[];
+    var idList=detailCache.map(function(d){return d.id_detail;});
+    var inList=idList.length?('in.('+idList.join(',')+')'):'in.()';
+    return Promise.all([
+      dbGet('in_spk_detail',        {id_order:'eq.'+idOrder,select:'id_detail,id_spk,status'}),
+      dbGet('in_pengiriman_detail', {id_order_detail:inList, select:'id_order_detail'}),
+      dbGet('in_retur_detail',      {id_order_detail:inList, select:'id_order_detail'}),
+      dbGet('log_produksi',        {id_order_detail:inList, select:'id_order_detail'})
+    ]);
+  }).then(function(r){
+    var spkRows=Array.isArray(r[0])?r[0]:[];
+    var kirimRows=Array.isArray(r[1])?r[1]:[];
+    var returRows=Array.isArray(r[2])?r[2]:[];
+    var produksiRows=Array.isArray(r[3])?r[3]:[];
     detailCache.forEach(function(d){
       d.spk_list=spkRows
-        .filter(function(s){return s.id_order_detail===d.id_detail;})
-        .map(function(s){return {id_spk:s.id_spk,status:s.status_spk};});
+        .filter(function(s){return s.id_detail===d.id_detail;})
+        .map(function(s){return {id_spk:s.id_spk,status:s.status};});
+      var adaKirim=kirimRows.some(function(x){return x.id_order_detail===d.id_detail;});
+      var adaRetur=returRows.some(function(x){return x.id_order_detail===d.id_detail;});
+      var adaProduksi=produksiRows.some(function(x){return x.id_order_detail===d.id_detail;});
+      // Locked kalau punya baris anak APAPUN di 4 tabel ini (SPK status apa pun, bukan cuma yang aktif)
+      d.locked=(d.spk_list.length>0)||adaKirim||adaRetur||adaProduksi;
     });
     renderDetail(orderAktif,detailCache);
   }).catch(function(){
@@ -875,24 +889,52 @@ function renderEditSubitem(details){
     var idItem=d.id_item||'';
     var subitem=d.subitem||'';
     var saldo=getSaldoAvailable(idItem,subitem,orderAktif?orderAktif.id_order:null);
-    var spkList=d.spk_list||[];
-    var adaSPK=spkList.some(function(s){return s.status!=='SELESAI';});
-    var ro=adaSPK?'readonly style="background:#f5f7fb;color:var(--muted)"':'';
-    var lockInfo=adaSPK?'<div style="font-family:var(--mono);font-size:.62rem;color:#856404;margin-top:.15rem">⚠ Sudah ada SPK aktif — terkunci</div>':'';
+    var locked=!!d.locked;
+    var ro=locked?'readonly style="background:#f5f7fb;color:var(--muted)"':'';
+    var lockInfo=locked?'<div style="font-family:var(--mono);font-size:.62rem;color:#856404;margin-top:.15rem">⚠ Sudah ada transaksi turunan (SPK/kirim/retur/produksi) — terkunci</div>':'';
+    var hapusBtn=locked?'':'<button class="btn-hapus-sub" type="button" onclick="hapusEditSub('+n+')">✕</button>';
     var div=document.createElement('div');
     div.className='edit-subitem-row';
     div.id='esub-'+n;
     div.setAttribute('data-iddetail',d.id_detail||'');
     div.setAttribute('data-iditem',idItem);
-    div.setAttribute('data-spk',adaSPK?'1':'0');
+    div.setAttribute('data-locked',locked?'1':'0');
+    div.setAttribute('data-baru','0');
     div.innerHTML=
       '<div><input type="text" id="eSubNama'+n+'" value="'+esc(subitem)+'" '+ro+' style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>'+lockInfo+'</div>'+
       '<input type="number" id="eSubQty'+n+'" value="'+(d.qty||0)+'" min="1" '+ro+'/>'+
-      '<div><input type="number" id="eSubStok'+n+'" value="'+qtyDariStok+'" min="0" oninput="cekEditStokHint('+n+')"/>'+
+      '<div><input type="number" id="eSubStok'+n+'" value="'+qtyDariStok+'" min="0" '+(locked?'readonly':'')+' oninput="cekEditStokHint('+n+')"/>'+
       '<div class="stok-hint" id="eStokHint'+n+'">Saldo: '+fmtAngka(saldo)+'</div></div>'+
-      '<span style="color:var(--muted);font-size:.7rem;font-family:var(--mono)">#'+n+'</span>';
+      '<span style="display:flex;align-items:center;gap:.3rem;color:var(--muted);font-size:.7rem;font-family:var(--mono)">#'+n+hapusBtn+'</span>';
     container.appendChild(div);
   });
+}
+
+function tambahEditSubitem(){
+  editSubCounter++;
+  var n=editSubCounter;
+  var idItemDefault=detailCache.length?(detailCache[0].id_item||''):'';
+  var div=document.createElement('div');
+  div.className='edit-subitem-row';
+  div.id='esub-'+n;
+  div.setAttribute('data-iddetail','');
+  div.setAttribute('data-iditem',idItemDefault);
+  div.setAttribute('data-locked','0');
+  div.setAttribute('data-baru','1');
+  div.innerHTML=
+    '<div><input type="text" id="eSubNama'+n+'" value="" placeholder="Contoh: 14X25…" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>'+
+    '<input type="number" id="eSubQty'+n+'" value="" placeholder="0" min="1"/>'+
+    '<div><input type="number" id="eSubStok'+n+'" value="0" min="0" oninput="cekEditStokHint('+n+')"/>'+
+    '<div class="stok-hint" id="eStokHint'+n+'">Saldo: —</div></div>'+
+    '<span style="display:flex;align-items:center;gap:.3rem;color:var(--muted);font-size:.7rem;font-family:var(--mono)">#'+n+'<button class="btn-hapus-sub" type="button" onclick="hapusEditSub('+n+')">✕</button></span>';
+  document.getElementById('editSubitemContainer').appendChild(div);
+}
+
+function hapusEditSub(n){
+  var el=document.getElementById('esub-'+n);
+  if(!el)return;
+  if(el.getAttribute('data-locked')==='1')return; // jaga-jaga, tombol harusnya sudah tidak ada
+  el.remove();
 }
 
 function cekEditStokHint(n){
@@ -914,63 +956,101 @@ function simpanEdit(){
   alertEl.innerHTML='';
   var alasan=document.getElementById('editAlasan').value.trim();
   if(!alasan){alertEl.innerHTML='<div class="alert-box alert-err">Alasan perubahan wajib diisi.</div>';return;}
-  var newItems=[];
+
+  var detailActions=[];
+  var rowsForLog=[]; // {subitem, qtyLama, qtyBaru, dariStokLama, dariStokBaru, aksi}
   var valid=true;
+  var idItemDefault=detailCache.length?(detailCache[0].id_item||''):'';
+
   document.querySelectorAll('[id^="esub-"]').forEach(function(row){
     if(!valid)return;
     var n=row.id.replace('esub-','');
-    var idItem=row.getAttribute('data-iditem');
+    var idItem=row.getAttribute('data-iditem')||idItemDefault;
     var idDetail=row.getAttribute('data-iddetail');
-    var adaSPK=row.getAttribute('data-spk')==='1';
+    var locked=row.getAttribute('data-locked')==='1';
+    var baru=row.getAttribute('data-baru')==='1';
+    if(locked)return; // baris locked tidak dikirim sebagai instruksi apa pun
     var subitem=(document.getElementById('eSubNama'+n).value||'').trim().toUpperCase();
     var qty=parseFloat(document.getElementById('eSubQty'+n).value)||0;
     var dariStok=parseFloat(document.getElementById('eSubStok'+n).value)||0;
-    if(!qty||qty<1){alertEl.innerHTML='<div class="alert-box alert-err">QTY subitem wajib > 0.</div>';valid=false;return;}
+    if(!subitem){alertEl.innerHTML='<div class="alert-box alert-err">Nama subitem wajib diisi.</div>';valid=false;return;}
+    if(!qty||qty<1){alertEl.innerHTML='<div class="alert-box alert-err">QTY subitem "'+subitem+'" wajib > 0.</div>';valid=false;return;}
     if(dariStok>0){
       var saldo=getSaldoAvailable(idItem,subitem,orderAktif?orderAktif.id_order:null);
       if(dariStok>saldo){alertEl.innerHTML='<div class="alert-box alert-err">QTY dari stok "'+subitem+'" melebihi saldo tersedia ('+fmtAngka(saldo)+').</div>';valid=false;return;}
     }
-    newItems.push({id_detail:idDetail,id_item:idItem,subitem:subitem,qty:qty+dariStok,qty_dari_stok:dariStok,locked:adaSPK});
+    if(baru){
+      detailActions.push({aksi:'ADD',id_item:idItem,subitem:subitem,qty:qty,qty_dari_stok:dariStok,satuan:detailCache.length?detailCache[0].satuan:''});
+      rowsForLog.push({subitem:subitem,aksi:'Tambah subitem baru',qtyBaru:qty});
+    } else {
+      var old=detailCache.find(function(d){return d.id_detail===idDetail;});
+      var qtyLama=old?(old.qty||0):0;
+      var stokLama=old?(old.qty_dari_stok||0):0;
+      if(qty!=qtyLama||dariStok!=stokLama||(old&&subitem!==(old.subitem||''))){
+        detailActions.push({aksi:'UPDATE',id_detail:idDetail,subitem:subitem,qty:qty,qty_dari_stok:dariStok});
+        rowsForLog.push({subitem:subitem,aksi:'Ubah',qtyLama:qtyLama,qtyBaru:qty,stokLama:stokLama,stokBaru:dariStok});
+      }
+    }
   });
   if(!valid)return;
+
+  // Baris lama yang hilang dari form (dihapus user) dan belum locked -> DELETE
+  var idDetailMasihAda={};
+  document.querySelectorAll('[id^="esub-"]').forEach(function(row){
+    var idDetail=row.getAttribute('data-iddetail');
+    if(idDetail) idDetailMasihAda[idDetail]=true;
+  });
+  detailCache.forEach(function(d){
+    if(!d.locked && d.id_detail && !idDetailMasihAda[d.id_detail]){
+      detailActions.push({aksi:'DELETE',id_detail:d.id_detail,subitem:d.subitem});
+      rowsForLog.push({subitem:d.subitem,aksi:'Hapus subitem'});
+    }
+  });
 
   var btn=document.getElementById('btnSimpanEdit');
   btn.disabled=true;btn.textContent='Menyimpan…';
 
-  // Hitung diff perubahan untuk log
-  var changes={};
+  // Header
   var newNoPo=document.getElementById('editNoPo').value.trim();
   var newDeadline=document.getElementById('editDeadline').value;
   var newKet=document.getElementById('editKeterangan').value.trim();
   var newNamaItem=document.getElementById('editNamaItem').value.trim().toUpperCase();
   var newHarga=parseFloat(document.getElementById('editHarga').value)||0;
+  var hargaLama=detailCache.length?(detailCache[0].harga||0):0;
+
+  var header={no_po:newNoPo,deadline:newDeadline,keterangan:newKet,nama_item:newNamaItem};
+  if(newHarga!==hargaLama) header.harga=newHarga;
+
+  // Diff untuk log readable
+  var changes={};
   if(newNoPo!=(orderAktif.no_po||'')) changes['No PO']={lama:orderAktif.no_po||'',baru:newNoPo};
   if(newDeadline!=(orderAktif.deadline||'').slice(0,10)) changes['Deadline']={lama:(orderAktif.deadline||'').slice(0,10),baru:newDeadline};
   if(newKet!=(orderAktif.keterangan||'')) changes['Keterangan']={lama:orderAktif.keterangan||'',baru:newKet};
   if(newNamaItem!=(orderAktif.nama_item||'')) changes['Nama Item']={lama:orderAktif.nama_item||'',baru:newNamaItem};
-  newItems.forEach(function(it){
-    if(!it.locked){
-      var old=detailCache.find(function(d){return d.id_detail===it.id_detail;});
-      if(old){
-        if(it.qty!=(old.qty||0)) changes['QTY '+it.subitem]={lama:old.qty||0,baru:it.qty};
-        if(it.qty_dari_stok!=(old.qty_dari_stok||0)) changes['Dari Stok ('+it.subitem+')']={lama:old.qty_dari_stok||0,baru:it.qty_dari_stok};
-      }
+  if(newHarga!==hargaLama) changes['Harga']={lama:hargaLama,baru:newHarga};
+  rowsForLog.forEach(function(r){
+    if(r.aksi==='Ubah'){
+      if(r.qtyBaru!=r.qtyLama) changes['QTY '+r.subitem]={lama:r.qtyLama,baru:r.qtyBaru};
+      if(r.stokBaru!=r.stokLama) changes['Dari Stok ('+r.subitem+')']={lama:r.stokLama,baru:r.stokBaru};
+    } else {
+      changes[r.aksi+' — '+r.subitem]={lama:'-',baru:r.qtyBaru!==undefined?r.qtyBaru:'-'};
     }
   });
 
-  // Generate id log
   var idLog='LED-'+new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,17)+'-'+Math.floor(Math.random()*900+100);
 
+  // PENTING: kirim object mentah, JANGAN JSON.stringify manual — dbInsert sudah stringify body sekali.
   dbInsert('log_edit_order',{
     id_log:idLog,
     id_order:orderAktif.id_order,
     tgl:new Date().toISOString(),
     status:'PENDING',
     alasan:alasan,
-    changes:JSON.stringify(changes),
+    changes:changes,
+    payload:{header:header,details:detailActions},
     user_input:getNamaUser()
   }).then(function(res){
-    if(res&&res.code) throw new Error(res.message);
+    cekErrorSupabase(res);
     alertEl.innerHTML='<div class="alert-box alert-ok">✓ Perubahan diajukan. Menunggu approval Manager.</div>';
     muatPendingEdit();
     setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();},1500);
@@ -1041,25 +1121,41 @@ function renderPendingList(data){
 function prosesApprovalEdit(idLog,idOrder,aksi,btnEl){
   if(!confirm((aksi==='APPROVE'?'Approve':'Tolak')+' perubahan ini?'))return;
   btnEl.disabled=true;
-  dbUpdate('log_edit_order',{id_log:'eq.'+idLog},{
-    status:aksi==='APPROVE'?'APPROVED':'DITOLAK',
-    approved_by:getNamaUser(),
-    tgl_approve:new Date().toISOString()
-  }).then(function(res){
-    if(res&&res.code) throw new Error(res.message);
-    if(aksi==='APPROVE'){
+
+  var langkah;
+  if(aksi==='APPROVE'){
+    // Eksekusi beneran lewat RPC — bukan cuma ubah status log
+    langkah=dbRpc('apply_edit_order',{p_id_log:idLog,p_approved_by:getNamaUser()}).then(function(res){
+      if(res&&res.status==='error') throw new Error(res.message||'Gagal menerapkan perubahan.');
+      cekErrorSupabase(res);
       return dbGet('in_order',{order:'tgl_order.desc'}).then(function(r){
         semuaOrder=Array.isArray(r)?r:[];
         renderTabel(semuaOrder);
       });
-    }
-  }).then(function(){
+    });
+  } else {
+    langkah=dbUpdate('log_edit_order',{id_log:'eq.'+idLog},{
+      status:'DITOLAK',
+      approved_by:getNamaUser(),
+      tgl_approve:new Date().toISOString()
+    }).then(function(res){ cekErrorSupabase(res); });
+  }
+
+  langkah.then(function(){
     muatPendingEdit();
     bukaModalPending();
   }).catch(function(e){
     alert('Gagal: '+(e.message||'Error'));
     btnEl.disabled=false;
   });
+}
+
+// Helper wajib: dbRpc/dbUpdate/dbInsert tidak self-check error HTTP/RPC.
+// Cek res.code (PostgREST/RLS) DAN res.status==='error' (custom RPC) — lewatkan salah satu = gagal senyap.
+function cekErrorSupabase(res){
+  if(res && res.code) throw new Error(res.message||('Error: '+res.code));
+  if(res && res.status==='error') throw new Error(res.message||'Terjadi kesalahan.');
+  return res;
 }
 
 // ── LOG PERUBAHAN ──
