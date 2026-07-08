@@ -771,4 +771,1023 @@ function muatRekap() {
   });
 
   dbGet('in_bank_statement', {
-    select:'id', 'status_alokasi':'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_
+    select:'id', 'status_alokasi':'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)', limit:9999
+  }).then(function(r){
+    var n = Array.isArray(r) ? r.length : 0;
+    var el = document.getElementById('rApprove');
+    el.textContent = n > 0 ? n + ' transaksi' : '0';
+    el.closest('.rekap-card').classList.toggle('warn', n > 0);
+  });
+}
+
+// ── ACCORDION ───────────────────────────────────────────────
+var openDetailId = null;
+
+function toggleDetail(tdEl, rowId) {
+  var tr = tdEl.closest('tr');
+  // Hapus semua detail row yang ada (handle kasus innerHTML re-render)
+  document.querySelectorAll('.row-detail').forEach(function(el){ el.remove(); });
+  document.querySelectorAll('.td-desc.open').forEach(function(el){ el.classList.remove('open'); });
+
+  // Kalau klik baris yang sama → tutup saja
+  if (openDetailId === rowId) { openDetailId = null; return; }
+  openDetailId = rowId;
+  tdEl.classList.add('open');
+
+  var r = rowStore[rowId];
+  if (!r) return;
+  var cols = tr.closest('table').querySelector('thead tr').children.length;
+
+  var det = document.createElement('tr');
+  det.className = 'row-detail';
+  det.innerHTML =
+    '<td colspan="' + cols + '">' +
+    '<div class="detail-grid">' +
+      '<div class="full"><div class="df-lbl">Deskripsi Bank (Lengkap)</div><div class="df-val big">' + h(r.keterangan_bank) + '</div></div>' +
+      '<div><div class="df-lbl">ID</div><div class="df-val">' + h(r.id) + '</div></div>' +
+      '<div><div class="df-lbl">Tanggal</div><div class="df-val">' + fmtTgl(r.tgl_transaksi) + '</div></div>' +
+      '<div><div class="df-lbl">Rekening</div><div class="df-val">' + h(r.id_rekening) + '</div></div>' +
+      '<div><div class="df-lbl">Jenis</div><div class="df-val">' + (r.jenis === 'CR' ? '↑ CR (Masuk)' : '↓ DB (Keluar)') + '</div></div>' +
+      '<div><div class="df-lbl">Nominal</div><div class="df-val">' + fmtRp(r.nominal) + '</div></div>' +
+      '<div><div class="df-lbl">Sisa Nominal</div><div class="df-val">' + fmtRp(r.sisa_nominal) + '</div></div>' +
+      '<div><div class="df-lbl">Saldo Akhir</div><div class="df-val">' + fmtRp(r.saldo_akhir) + '</div></div>' +
+      '<div><div class="df-lbl">Kategori</div><div class="df-val">' + h(r.kategori) + '</div></div>' +
+      '<div><div class="df-lbl">Status Alokasi</div><div class="df-val">' + h(r.status_alokasi) + '</div></div>' +
+      '<div><div class="df-lbl">Dipost oleh</div><div class="df-val">' + h(r.dipost_oleh) + '</div></div>' +
+      '<div><div class="df-lbl">Tgl Post</div><div class="df-val">' + fmtTgl(r.tgl_post) + '</div></div>' +
+      (r.dialokasi_oleh ? '<div><div class="df-lbl">Dialokasi oleh</div><div class="df-val">' + h(r.dialokasi_oleh) + '</div></div>' : '') +
+      (r.diapprove_manager ? '<div><div class="df-lbl">Approve Manager</div><div class="df-val">' + h(r.diapprove_manager) + '</div></div>' : '') +
+      (r.diapprove_direktur ? '<div><div class="df-lbl">Approve Direktur</div><div class="df-val">' + h(r.diapprove_direktur) + '</div></div>' : '') +
+      '<div class="full"><div class="df-lbl">Keterangan Alokasi</div><div class="df-val big">' + h(r.keterangan_manual) + '</div></div>' +
+    '</div></td>';
+  tr.insertAdjacentElement('afterend', det);
+}
+
+// ── TAB 1: REKENING KORAN ───────────────────────────────────
+function muatKoranLazy() {
+  clearTimeout(krTimer);
+  krTimer = setTimeout(function(){ muatKoran(true); }, 380);
+}
+
+async function muatKoran(reset) {
+  if (reset) { krOffset = 0; openDetailId = null; }
+  var rek    = document.getElementById('krRekening').value;
+  var mulai  = document.getElementById('krMulai').value;
+  var akhir  = document.getElementById('krAkhir').value;
+  var jenis  = document.getElementById('krJenis').value;
+  var status = document.getElementById('krStatus').value;
+  var cari   = document.getElementById('krCari').value.trim();
+
+  var params = buildParams({
+    select:'*', order:'tgl_transaksi.desc,id.desc', limit:LIMIT, offset:krOffset,
+    id_rekening: rek    ? 'eq.' + rek    : null,
+    jenis:       jenis  ? 'eq.' + jenis  : null,
+    status:      status ? 'eq.' + status : null,
+  });
+  if (mulai && akhir) params['and'] = '(tgl_transaksi.gte.' + mulai + ',tgl_transaksi.lte.' + akhir + ')';
+  else if (mulai) params.tgl_transaksi = 'gte.' + mulai;
+  else if (akhir) params.tgl_transaksi = 'lte.' + akhir;
+  if (cari) params['or'] = '(id.ilike.*' + cari + '*,keterangan_bank.ilike.*' + cari + '*,keterangan_manual.ilike.*' + cari + '*)';
+
+  if (reset) document.getElementById('krTbody').innerHTML = '<tr><td colspan="10" class="loading">Memuat…</td></tr>';
+  var rows = await dbGet('in_bank_statement', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('krTbody', 10, err); return; }
+
+  var tbody = document.getElementById('krTbody');
+  if (reset) tbody.innerHTML = '';
+  var html = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var isDir = roleUser === 'DIREKTUR';
+    var isMgr = roleUser === 'MANAGER' || isDir;
+    var aksi = '';
+    if (isDir) aksi += '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ';
+    if (r.status_alokasi === 'BELUM_DIALOKASI' && r.status === 'POSTED') {
+      if (['PIUTANG','HUTANG_BAHAN','HUTANG_MAKLOON'].includes(r.kategori))
+        aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>';
+      else if (isDir && r.kategori !== 'BIAYA_BANK')
+        aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button>';
+    }
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
+      aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">✓ Mgr</button>';
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
+      aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">✓ Dir</button>';
+
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap untuk detail">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori||'—') + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'<span style="color:var(--muted)">—</span>') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'<span style="color:var(--muted)">—</span>') + '</td>' +
+      '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
+      '<td>' + badgeAlokasi(r.status_alokasi) + '</td>' +
+      '<td><span class="ket-short" title="' + h(r.keterangan_manual) + '">' + h(r.keterangan_manual) + '</span></td>' +
+      '<td style="white-space:nowrap">' + aksi + '</td>' +
+      '</tr>';
+  });
+  if (reset && rows.length === 0) html = '<tr><td colspan="10" class="loading">Tidak ada data.</td></tr>';
+  tbody.insertAdjacentHTML('beforeend', html);
+  krOffset += rows.length;
+  document.getElementById('krMore').style.display = rows.length === LIMIT ? '' : 'none';
+  document.getElementById('krInfo').textContent = krOffset + ' transaksi ditampilkan';
+}
+
+function resetKoran() {
+  ['krRekening','krJenis','krStatus'].forEach(function(id){ document.getElementById(id).value=''; });
+  ['krMulai','krAkhir','krCari'].forEach(function(id){ document.getElementById(id).value=''; });
+  muatKoran(true);
+}
+
+// ── TAB 2: POSTING ──────────────────────────────────────────
+var psChecked = new Set(); // id yang dicentang
+
+async function muatPosting(reset) {
+  if (reset === undefined || reset) { psOffset = 0; psData = []; psChecked.clear(); updateBatchBtn(); }
+  var rek = document.getElementById('psRekening').value;
+
+  var params = buildParams({
+    p_id_rekening: rek || null
+  });
+  var rows = await dbRpc('get_bank_unposted', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('psTbody', 8, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  if (reset === undefined || reset) psData = rows;
+  else psData = psData.concat(rows);
+
+  renderPosting();
+  document.getElementById('psInfo').textContent = psData.length + ' transaksi belum dipost' + (qPs ? ' (' + filtered.length + ' sesuai filter)' : '');
+}
+
+function renderPosting() {
+  var html = '';
+  var qPs = (document.getElementById('psCariKet')||{value:''}).value.toLowerCase();
+  var filtered = qPs ? psData.filter(function(r){return (r.keterangan_bank||'').toLowerCase().indexOf(qPs)>=0;}) : psData;
+  filtered.forEach(function(r) {
+    rowStore[r.id] = r;
+    var saranKat = r.saran_kategori || '';
+    var cbChecked = psChecked.has(r.id) ? 'checked' : '';
+    var rowCls = psChecked.has(r.id) ? ' class="row-checked"' : '';
+    var saranHtml = saranKat ? '<span class="saran-kat">' + h(saranKat) + '</span>' : '<span style="color:var(--muted);font-family:var(--mono);font-size:.65rem">—</span>';
+    html += '<tr data-rid="' + r.id + '"' + rowCls + '>' +
+      '<td style="text-align:center"><input type="checkbox" class="ps-cb" data-id="' + r.id + '" ' + cbChecked + ' onclick="toggleCbRow(this)"/></td>' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')" title="Tap detail">' + h(r.keterangan_bank) + '</td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right"><span class="saldo-val">' + fmtRp(r.saldo_akhir) + '</span></td>' +
+      '<td>' + saranHtml + '</td>' +
+      '</tr>';
+  });
+  if (!html) html = '<tr><td colspan="8" class="loading" style="color:var(--green)">Tidak ada data yang perlu dipost ✓</td></tr>';
+  document.getElementById('psTbody').innerHTML = html;
+  document.getElementById('psCbAll').checked = false;
+}
+
+function toggleCbRow(cb) {
+  var id = cb.dataset.id;
+  var isChecked = cb.checked;
+  if (isChecked) psChecked.add(id);
+  else psChecked.delete(id);
+  var tr = cb.closest('tr');
+  tr.classList.toggle('row-checked', isChecked);
+  updateBatchBtn();
+}
+
+function toggleCbAll(cbAll) {
+  var cbs = document.querySelectorAll('#psTbody .ps-cb');
+  cbs.forEach(function(cb) {
+    cb.checked = cbAll.checked;
+    var id = cb.dataset.id;
+    if (cbAll.checked) psChecked.add(id);
+    else psChecked.delete(id);
+    cb.closest('tr').classList.toggle('row-checked', cbAll.checked);
+  });
+  updateBatchBtn();
+}
+
+function centangSaranSemua() {
+  var kat = document.getElementById('psBatchKat').value;
+  if (!kat) { alert('Pilih kategori batch dulu.'); return; }
+  var cbs = document.querySelectorAll('#psTbody .ps-cb');
+  cbs.forEach(function(cb) {
+    var id = cb.dataset.id;
+    var r = rowStore[id];
+    if (r && r.saran_kategori === kat) {
+      cb.checked = true;
+      psChecked.add(id);
+      cb.closest('tr').classList.add('row-checked');
+    }
+  });
+  updateBatchBtn();
+}
+
+function updateBatchBtn() {
+  var n = psChecked.size;
+  var btn = document.getElementById('psBatchBtn');
+  btn.textContent = 'Post Terpilih (' + n + ')';
+  btn.disabled = n === 0;
+}
+
+function bukaBatchPost() {
+  if (psChecked.size === 0) return;
+  var kat = document.getElementById('psBatchKat').value;
+  document.getElementById('bpInfo').textContent = psChecked.size + ' transaksi dipilih';
+  document.getElementById('bpKategori').value = kat;
+  document.getElementById('bpKeterangan').value = '';
+  document.getElementById('bpErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalBatchPost')).show();
+}
+
+async function simpanBatchPost() {
+  var kat = document.getElementById('bpKategori').value;
+  var ket = document.getElementById('bpKeterangan').value.trim();
+  var elErr = document.getElementById('bpErr');
+  var btn   = document.getElementById('bpSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!kat) { elErr.textContent = 'Kategori wajib dipilih.'; elErr.style.display = ''; return; }
+  if (psChecked.size === 0) { elErr.textContent = 'Tidak ada transaksi terpilih.'; elErr.style.display = ''; return; }
+
+  btn.disabled = true; btn.textContent = 'Mempost…';
+  var res = await dbRpc('post_bank_statement', {
+    p_ids: Array.from(psChecked),
+    p_kategori: kat,
+    p_keterangan: ket || null,
+    p_user: getUser()
+  });
+  btn.disabled = false; btn.textContent = 'Post';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalBatchPost')).hide();
+  psChecked.clear();
+  muatRekap();
+  muatPosting(true);
+
+  // Prompt simpan rule kalau ada 1 baris
+  if (psChecked.size === 1) {
+    var id = Array.from(psChecked)[0];
+    var r = rowStore[id];
+    if (r) {
+      var keyword = r.keterangan_bank.split(' ')[0];
+      if (confirm('Simpan "' + keyword + '" sebagai rule untuk kategori ' + kat + '?')) {
+        await dbInsert('m_bank_kategori_rule', {keyword: keyword, kategori: kat, jenis: r.jenis || null});
+      }
+    }
+  }
+}
+
+// ── TAB 3: ALOKASI DIREKTUR ─────────────────────────────────
+function muatAlokDirFilter() {
+  var q = (document.getElementById('adCariKet')||{value:''}).value.toLowerCase();
+  var kat = document.getElementById('adKategori').value;
+  var rows = (window._adDataCache||[]).filter(function(r){
+    var ketOk = !q || (r.keterangan_bank||'').toLowerCase().indexOf(q) >= 0;
+    var katOk = !kat || r.kategori === kat;
+    return ketOk && katOk;
+  });
+  var adHtml = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    adHtml += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td><button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button></td>' +
+      '</tr>';
+  });
+  if (!adHtml) adHtml = '<tr><td colspan="7" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
+  document.getElementById('adTbody').innerHTML = adHtml;
+  document.getElementById('adInfo').textContent = rows.length + ' transaksi' + (q ? ' (filter: ' + q + ')' : ' menunggu alokasi');
+}
+async function muatAlokDir() {
+  var rek = document.getElementById('adRekening').value;
+  var kat = document.getElementById('adKategori').value;
+  var params = {p_id_rekening: rek || null, p_mode: 'DIREKTUR'};
+  document.getElementById('adTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_belum_dialokasi', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('adTbody', 7, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  window._adDataCache = rows;
+  muatAlokDirFilter();
+}
+
+function bukaAlokDir(id) {
+  adSelectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('adModalInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="badge-kat">' + h(r.kategori) + '</span> ' +
+    (r.jenis==='CR'?'<span class="masuk-val">↑ '+fmtRp(r.nominal)+'</span>':'<span class="keluar-val">↓ '+fmtRp(r.nominal)+'</span>') + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('adKeterangan').value = r.keterangan_manual || '';
+  document.getElementById('adIdMutasi').value = '';
+  document.getElementById('adAntarWrap').style.display = r.kategori === 'ANTAR_REKENING' ? '' : 'none';
+  document.getElementById('adErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokDir')).show();
+}
+
+async function simpanAlokDir() {
+  var ket = document.getElementById('adKeterangan').value.trim();
+  var idMutasi = document.getElementById('adIdMutasi').value.trim();
+  var elErr = document.getElementById('adErr');
+  var btn   = document.getElementById('adSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!ket) { elErr.textContent = 'Keterangan wajib diisi.'; elErr.style.display = ''; return; }
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc('alokasi_direktur', {
+    p_id_bank_stmt: adSelectedId,
+    p_keterangan: ket,
+    p_user: getUser(),
+    p_id_mutasi_antar: idMutasi || null
+  });
+  btn.disabled = false; btn.textContent = 'Simpan';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokDir')).hide();
+  muatRekap();
+  muatAlokDir();
+}
+
+// ── TAB 3B: KAS KECIL (link ke TOPUP) ───────────────────────
+var kkSelectedId = null;
+var kkRowStore = {};
+
+async function muatKasKecilAlok() {
+  var rek = document.getElementById('kkRekening').value;
+  document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_kaskecil_tersedia', { p_id_rekening: rek || null });
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('kkTbody', 5, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  if (!rows.length) {
+    document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
+    document.getElementById('kkInfo').textContent = '0 transaksi menunggu link';
+    return;
+  }
+  var html = '';
+  rows.forEach(function(r){
+    kkRowStore[r.id] = r;
+    html += '<tr>' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td>' + h(r.keterangan_bank) + '</td>' +
+      '<td class="td-right"><span class="keluar-val">' + fmtRp(r.nominal) + '</span></td>' +
+      '<td><button class="btn-sm-action btn-alokasi" onclick="bukaKasKecil(\'' + r.id + '\')">Link</button></td>' +
+      '</tr>';
+  });
+  document.getElementById('kkTbody').innerHTML = html;
+  document.getElementById('kkInfo').textContent = rows.length + ' transaksi menunggu link';
+}
+
+async function bukaKasKecil(id) {
+  kkSelectedId = id;
+  var r = kkRowStore[id] || {};
+  document.getElementById('kkModalInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="keluar-val">↓ ' + fmtRp(r.nominal) + '</span><br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('kkErr').style.display = 'none';
+  document.getElementById('kkTopupWrap').innerHTML = '<div class="loading">Memuat TOPUP tersedia…</div>';
+  new bootstrap.Modal(document.getElementById('modalKasKecil')).show();
+
+  var topups = await dbRpc('get_kasmasuk_topup_tersedia', {});
+  var err = cekErrorSupabase(topups);
+  if (err) { document.getElementById('kkTopupWrap').innerHTML = '<div style="color:var(--red);font-size:.78rem">' + h(err) + '</div>'; return; }
+  if (!Array.isArray(topups)) topups = [];
+  var cocok = topups.filter(function(t){ return Number(t.nominal) === Number(r.nominal); });
+  var lain  = topups.filter(function(t){ return Number(t.nominal) !== Number(r.nominal); });
+
+  var renderRow = function(t, match){
+    return '<div class="sj-pick-row" style="display:flex;gap:.5rem;align-items:center;' + (match?'':'opacity:.5') + '">' +
+      '<div style="flex:1"><div class="sj-pick-nama">' + h(t.no_kasmasuk) + '</div>' +
+      '<div class="sj-pick-sub">' + fmtTgl(t.tgl) + ' · ' + h(t.penerima || '') + '</div></div>' +
+      '<div class="sj-pick-nom">' + fmtRp(t.nominal) + '</div>' +
+      '<button type="button" class="btn-sm-action btn-alokasi" ' + (match?'':'disabled') + ' onclick="submitLinkKasKecil(\'' + t.id_kasmasuk + '\')">Pilih</button>' +
+      '</div>';
+  };
+  var htmlT = '';
+  if (!topups.length) {
+    htmlT = '<div style="font-size:.78rem;color:var(--muted);padding:.5rem">Belum ada TOPUP kas kecil yang menunggu link. Catat TOPUP dulu di halaman Kas Kecil.</div>';
+  } else {
+    htmlT = '<div class="sj-pick-wrap">' + cocok.map(function(t){return renderRow(t,true);}).join('') +
+      lain.map(function(t){return renderRow(t,false);}).join('') + '</div>';
+    if (!cocok.length) htmlT = '<div style="font-size:.72rem;color:var(--red);margin-bottom:.4rem">Tidak ada TOPUP dengan nominal persis sama (' + fmtRp(r.nominal) + '). Cek input TOPUP di Kas Kecil dulu.</div>' + htmlT;
+  }
+  document.getElementById('kkTopupWrap').innerHTML = htmlT;
+}
+
+async function submitLinkKasKecil(idKasmasuk) {
+  var elErr = document.getElementById('kkErr');
+  elErr.style.display = 'none';
+  var res = await dbRpc('link_kaskecil_ke_bank', {
+    p_id_bank_stmt: kkSelectedId,
+    p_id_kasmasuk: idKasmasuk,
+    p_user: getUser()
+  });
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalKasKecil')).hide();
+  muatRekap();
+  muatKasKecilAlok();
+}
+
+// ── TAB 4: BELUM DIALOKASI (Admin) ──────────────────────────
+async function muatBelum() {
+  var rek = document.getElementById('blRekening').value;
+  var kat = document.getElementById('blKategori').value;
+  var params = {p_id_rekening: rek || null, p_mode: 'ADMIN'};
+  document.getElementById('blTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_belum_dialokasi', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('blTbody', 7, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  if (kat) rows = rows.filter(function(r){ return r.kategori === kat; });
+
+  var html = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var isAdm = ['ADMIN','MANAGER','DIREKTUR'].includes(roleUser);
+    var aksi = isAdm ? '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>' : '';
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right"><span class="td-mono">' + fmtRp(r.nominal) + '</span></td>' +
+      '<td class="td-right"><span class="td-mono" style="color:var(--orange)">' + fmtRp(r.sisa_nominal) + '</span></td>' +
+      '<td>' + aksi + '</td>' +
+      '</tr>';
+  });
+  if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Semua sudah dialokasi ✓</td></tr>';
+  document.getElementById('blTbody').innerHTML = html;
+  document.getElementById('blInfo').textContent = rows.length + ' transaksi menunggu alokasi';
+}
+
+function bukaAlokAdmin(id) {
+  aaSelectedId = id;
+  var r = rowStore[id] || {};
+  if (r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON') {
+    bukaAlokHutang(id);
+    return;
+  }
+  document.getElementById('aaModalInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="badge-kat">' + h(r.kategori) + '</span> ' +
+    (r.jenis==='CR'?'<span class="masuk-val">↑ '+fmtRp(r.nominal)+'</span>':'<span class="keluar-val">↓ '+fmtRp(r.nominal)+'</span>') + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('aaSisaInfo').textContent = 'Sisa nominal: ' + fmtRp(r.sisa_nominal);
+  document.getElementById('aaIdPembayaran').value = '';
+  document.getElementById('aaNominal').value = r.sisa_nominal || '';
+  document.getElementById('aaErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokAdmin')).show();
+}
+
+async function simpanAlokAdmin() {
+  var idPmb  = document.getElementById('aaIdPembayaran').value.trim();
+  var nominal = parseFloat(document.getElementById('aaNominal').value);
+  var elErr  = document.getElementById('aaErr');
+  var btn    = document.getElementById('aaSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!idPmb) { elErr.textContent = 'ID Pembayaran wajib diisi.'; elErr.style.display = ''; return; }
+  if (!nominal || nominal <= 0) { elErr.textContent = 'Nominal harus > 0.'; elErr.style.display = ''; return; }
+
+  var r = rowStore[aaSelectedId] || {};
+  var rpcName = 'alokasi_bank_ke_piutang';
+  var params = {p_id_bank_stmt: aaSelectedId, p_id_pembayaran: idPmb, p_nominal_alokasi: nominal, p_user: getUser()};
+
+  if (r.kategori === 'HUTANG_BAHAN') {
+    rpcName = 'alokasi_bank_ke_hutang_bahan';
+    params = {p_id_bank_stmt: aaSelectedId, p_id_pembayaran_hutang: idPmb, p_nominal_alokasi: nominal, p_user: getUser()};
+  } else if (r.kategori === 'HUTANG_MAKLOON') {
+    rpcName = 'alokasi_bank_ke_hutang_makloon';
+    params = {p_id_bank_stmt: aaSelectedId, p_id_pembayaran_hutang: idPmb, p_nominal_alokasi: nominal, p_user: getUser()};
+  }
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc(rpcName, params);
+  btn.disabled = false; btn.textContent = 'Alokasi';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokAdmin')).hide();
+  muatRekap();
+  muatBelum();
+}
+
+// ── ALOKASI HUTANG TRANSFER (HUTANG_BAHAN / HUTANG_MAKLOON) ──
+var ahNotaTerpilih = [];
+function bukaAlokHutang(id) {
+  aaSelectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('ahInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="badge-kat">' + h(r.kategori) + '</span> ' +
+    '<span class="keluar-val">↓ ' + fmtRp(r.nominal) + '</span> | Sisa: ' + fmtRp(r.sisa_nominal) + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('ahCariSupplier').value = '';
+  document.getElementById('ahCariSupplier')._acInited = false;
+  document.getElementById('ahNotaWrap').innerHTML = '';
+  document.getElementById('ahErr').style.display = 'none';
+  ahNotaTerpilih = [];
+  renderNotaTerpilihAH();
+  new bootstrap.Modal(document.getElementById('modalAlokHutang')).show();
+  muatCacheSupplierBank();
+  inisAcSupplierAH();
+}
+function inisAcSupplierAH() {
+  var inp = document.getElementById('ahCariSupplier');
+  var drop = document.getElementById('ahAcDrop');
+  if (inp._acInited) return;
+  inp._acInited = true;
+  buatAC(inp, drop, cacheSupplierBank, 'id_supplier', 'nama', function(s){
+    muatNotaSupplierAH(s.id_supplier, s.nama);
+  });
+}
+function muatNotaSupplierAH(idSup, namaSup) {
+  var wrap = document.getElementById('ahNotaWrap');
+  wrap.innerHTML = '<div class="loading" style="padding:.5rem">Memuat nota belum lunas milik ' + h(namaSup) + '…</div>';
+  dbRpc('get_rekap_hutang', {p_id_supplier: idSup, p_status: null}).then(function(res){
+    var data = (Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang > 0;});
+    if (!data.length) {
+      wrap.innerHTML = '<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">' + h(namaSup) + ' tidak punya nota outstanding.</div>';
+      return;
+    }
+    wrap.innerHTML = '<div class="sj-pick-wrap">' + data.map(function(r){
+      var sudah = ahNotaTerpilih.some(function(a){return a.id_pembelian===r.id_pembelian;});
+      return '<label class="sj-pick-row" style="' + (sudah?'opacity:.45':'') + '">' +
+        '<input type="checkbox" class="chk-ah" value="' + h(r.id_pembelian) + '" ' + (sudah?'disabled':'') +
+          ' data-no-nota="' + h(r.no_nota) + '" data-nama="' + h(r.nama_supplier) + '" data-sisa="' + r.sisa_hutang + '"/>' +
+        '<div><div class="sj-pick-nama">' + h(r.no_nota) + '</div><div class="sj-pick-sub">Sisa: ' + fmtRp(r.sisa_hutang) + '</div></div>' +
+        '<div class="sj-pick-nom">' + fmtRp(r.sisa_hutang) + '</div></label>';
+    }).join('') + '</div>' +
+    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahNotaAH()">+ Tambahkan</button>';
+  });
+}
+function tambahNotaAH() {
+  var checked = document.querySelectorAll('.chk-ah:checked');
+  if (!checked.length) { alert('Pilih minimal 1 nota.'); return; }
+  checked.forEach(function(chk){
+    ahNotaTerpilih.push({
+      id_pembelian: chk.value, no_nota: chk.dataset.noNota,
+      nama_supplier: chk.dataset.nama, sisa: parseFloat(chk.dataset.sisa),
+      nominal: parseFloat(chk.dataset.sisa)
+    });
+  });
+  document.getElementById('ahCariSupplier').value = '';
+  document.getElementById('ahNotaWrap').innerHTML = '';
+  renderNotaTerpilihAH();
+}
+function renderNotaTerpilihAH() {
+  var wrap = document.getElementById('ahTerpilihWrap');
+  if (!ahNotaTerpilih.length) {
+    wrap.innerHTML = '<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Cari nama supplier di atas untuk menambah nota.</div>';
+    document.getElementById('ahTotalInfo').textContent = 'Total alokasi: Rp 0';
+    return;
+  }
+  wrap.innerHTML = '<div class="sj-pick-wrap">' + ahNotaTerpilih.map(function(a,i){
+    return '<div class="sj-pick-row">' +
+      '<button type="button" onclick="hapusNotaAH(' + i + ')" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>' +
+      '<div><div class="sj-pick-nama">' + h(a.no_nota) + '</div><div class="sj-pick-sub">' + h(a.nama_supplier) + ' · Sisa: ' + fmtRp(a.sisa) + '</div></div>' +
+      '<input type="number" class="alokasi-input" value="' + a.nominal + '" oninput="updateNomAH(' + i + ',this.value)"/></div>';
+  }).join('') + '</div>';
+  var total = ahNotaTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('ahTotalInfo').textContent = 'Total alokasi: ' + fmtRp(total);
+}
+function hapusNotaAH(idx){ ahNotaTerpilih.splice(idx,1); renderNotaTerpilihAH(); }
+function updateNomAH(idx,val){
+  ahNotaTerpilih[idx].nominal = parseFloat(val)||0;
+  var total = ahNotaTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('ahTotalInfo').textContent = 'Total alokasi: ' + fmtRp(total);
+}
+async function simpanAlokHutang() {
+  var elErr = document.getElementById('ahErr');
+  var btn = document.getElementById('ahSimpanBtn');
+  elErr.style.display = 'none';
+  if (!ahNotaTerpilih.length) { elErr.textContent = 'Pilih minimal 1 nota.'; elErr.style.display = ''; return; }
+  var r = rowStore[aaSelectedId] || {};
+  var detail = ahNotaTerpilih.map(function(a){
+    return {id_pembelian: a.id_pembelian, nominal_alokasi: parseFloat(a.nominal)||0};
+  });
+  var total = detail.reduce(function(s,a){return s+a.nominal_alokasi;},0);
+  if (total > Number(r.sisa_nominal||0)) {
+    elErr.textContent = 'Total alokasi (' + fmtRp(total) + ') melebihi sisa nominal bank (' + fmtRp(r.sisa_nominal) + ').';
+    elErr.style.display = '';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc('alokasi_transfer_ke_hutang', {
+    p_id_bank_stmt: aaSelectedId, p_detail: detail, p_user_input: getUser()
+  });
+  btn.disabled = false; btn.textContent = 'Alokasi';
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokHutang')).hide();
+  muatRekap();
+  muatBelum();
+}
+
+// ── TAB 5: PERLU APPROVE ────────────────────────────────────
+async function muatApprove() {
+  var rek = document.getElementById('apRekening').value;
+  var params = {p_id_rekening: rek || null};
+  document.getElementById('apTbody').innerHTML = '<tr><td colspan="8" class="loading">Memuat…</td></tr>';
+  var rows = await dbRpc('get_bank_perlu_approve', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('apTbody', 8, err); return; }
+  if (!Array.isArray(rows)) rows = [];
+
+  var isDir = roleUser === 'DIREKTUR';
+  var isMgr = roleUser === 'MANAGER' || isDir;
+  var html = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var aksi = '';
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
+      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">✓ Approve</button>';
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
+      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">✓ Approve</button>';
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right"><span class="td-mono">' + fmtRp(r.nominal) + '</span></td>' +
+      '<td>' + badgeAlokasi(r.status_alokasi) + '</td>' +
+      '<td class="td-mono" style="font-size:.68rem;color:var(--muted)">' + h(r.dialokasi_oleh) + '</td>' +
+      '<td>' + aksi + '</td>' +
+      '</tr>';
+  });
+  if (!html) html = '<tr><td colspan="8" class="loading" style="color:var(--green)">Tidak ada yang perlu di-approve ✓</td></tr>';
+  document.getElementById('apTbody').innerHTML = html;
+  document.getElementById('apInfo').textContent = rows.length + ' transaksi perlu approve';
+}
+
+async function approveAlokasi(id, level) {
+  if (!confirm('Approve alokasi ' + id + '?')) return;
+  var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
+  var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser()});
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { alert('Error: ' + err); return; }
+  muatRekap();
+  muatApprove();
+  // Refresh koran kalau aktif
+  if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+}
+
+// ── TAB 6: TERALOKASI ───────────────────────────────────────
+function muatDoneLazy() {
+  clearTimeout(dnTimer);
+  dnTimer = setTimeout(function(){ muatDone(true); }, 380);
+}
+
+async function muatDone(reset) {
+  if (reset) dnOffset = 0;
+  var rek   = document.getElementById('dnRekening').value;
+  var mulai = document.getElementById('dnMulai').value;
+  var akhir = document.getElementById('dnAkhir').value;
+  var kat   = document.getElementById('dnKategori').value;
+  var cari  = document.getElementById('dnCari').value.trim();
+
+  var params = buildParams({
+    select:'*', status_alokasi:'eq.TERALOKASI',
+    order:'tgl_transaksi.desc,id.desc', limit:LIMIT, offset:dnOffset,
+    id_rekening: rek ? 'eq.' + rek : null,
+    kategori:    kat ? 'eq.' + kat : null,
+  });
+  if (mulai && akhir) params['and'] = '(tgl_transaksi.gte.' + mulai + ',tgl_transaksi.lte.' + akhir + ')';
+  else if (mulai) params.tgl_transaksi = 'gte.' + mulai;
+  else if (akhir) params.tgl_transaksi = 'lte.' + akhir;
+  if (cari) params['or'] = '(id.ilike.*' + cari + '*,keterangan_bank.ilike.*' + cari + '*,keterangan_manual.ilike.*' + cari + '*)';
+
+  if (reset) document.getElementById('dnTbody').innerHTML = '<tr><td colspan="8" class="loading">Memuat…</td></tr>';
+  var rows = await dbGet('in_bank_statement', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('dnTbody', 8, err); return; }
+
+  var tbody = document.getElementById('dnTbody');
+  if (reset) tbody.innerHTML = '';
+  var html = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var isDir = roleUser === 'DIREKTUR';
+    var aksi = isDir ? '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button>' : '';
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td><span class="ket-short" title="' + h(r.keterangan_manual) + '">' + h(r.keterangan_manual) + '</span></td>' +
+      '<td>' + aksi + '</td>' +
+      '</tr>';
+  });
+  if (reset && rows.length === 0) html = '<tr><td colspan="8" class="loading">Tidak ada data.</td></tr>';
+  tbody.insertAdjacentHTML('beforeend', html);
+  dnOffset += rows.length;
+  document.getElementById('dnMore').style.display = rows.length === LIMIT ? '' : 'none';
+  document.getElementById('dnInfo').textContent = dnOffset + ' transaksi teralokasi';
+}
+
+// ── EDIT KETERANGAN ─────────────────────────────────────────
+function bukaEditKet(id) {
+  selectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('ekInfo').textContent = 'ID: ' + id + ' | ' + fmtTgl(r.tgl_transaksi) + ' | ' + fmtRp(r.nominal);
+  document.getElementById('ekKet').value = r.keterangan_manual || '';
+  var selKat = document.getElementById('ekKategori');
+  selKat.value = r.kategori || 'PIUTANG';
+  document.getElementById('ekErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalEditKet')).show();
+}
+
+async function simpanKeterangan() {
+  var ket   = document.getElementById('ekKet').value.trim();
+  var elErr = document.getElementById('ekErr');
+  var btn   = document.getElementById('ekSimpanBtn');
+  elErr.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var kat   = document.getElementById('ekKategori').value;
+  var res = await dbUpdate('in_bank_statement', {id:'eq.'+selectedId}, {keterangan_manual: ket, kategori: kat});
+  btn.disabled = false; btn.textContent = 'Simpan';
+  var err = (res !== null && res !== undefined && !Array.isArray(res) && res && (res.code || res.status === 'error'))
+    ? (res.message || res.code || 'Error') : null;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+  if (rowStore[selectedId]) { rowStore[selectedId].keterangan_manual = ket; rowStore[selectedId].kategori = kat; }
+  bootstrap.Modal.getInstance(document.getElementById('modalEditKet')).hide();
+  muatRekap();
+  var activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+  if (activeTab === 'koran') muatKoran(true);
+  else if (activeTab === 'done') muatDone(true);
+}
+
+// ── TAB NAVIGATION ──────────────────────────────────────────
+function gantiTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
+  var map = {koran:'tabKoran', posting:'tabPosting', alokdir:'tabAlokdir', kaskecil:'tabKasKecil', belum:'tabBelum', approve:'tabApprove', done:'tabDone'};
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
+  var el = document.getElementById(map[tab]);
+  if (el) el.classList.add('active');
+  openDetailId = null;
+  if      (tab === 'koran')   muatKoran(true);
+  else if (tab === 'posting') muatPosting(true);
+  else if (tab === 'alokdir') muatAlokDir();
+  else if (tab === 'kaskecil') muatKasKecilAlok();
+  else if (tab === 'belum')   muatBelum();
+  else if (tab === 'approve') muatApprove();
+  else if (tab === 'done')    muatDone(true);
+}
+
+// ── IMPORT CSV BCA ──────────────────────────────────────────
+var importSections = [];
+
+function bukaImportCsv() {
+  document.getElementById('impStep1').style.display = '';
+  document.getElementById('impStep2').style.display = 'none';
+  document.getElementById('impStep3').style.display = 'none';
+  document.getElementById('impErr').style.display = 'none';
+  document.getElementById('impConfirmBtn').style.display = 'none';
+  document.getElementById('impFileInput').value = '';
+  document.getElementById('impParseInfo').textContent = '';
+  importSections = [];
+  new bootstrap.Modal(document.getElementById('modalImportCsv')).show();
+}
+
+function parseCsvLine(line) {
+  var res = [], cur = '', inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { res.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  res.push(cur.trim());
+  return res;
+}
+
+function parseJumlah(s) {
+  s = s.trim();
+  var jenis = s.endsWith('CR') ? 'CR' : 'DB';
+  var nominal = parseFloat(s.replace(/[^\d.]/g, ''));
+  return {jenis: jenis, nominal: nominal};
+}
+
+function parseSaldo(s) { return parseFloat(s.replace(/[^\d.]/g, '')); }
+
+function parseTglCorp(s) {
+  s = s.trim();
+  if (s === 'PEND') {
+    var t = new Date();
+    return t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+  }
+  var p = s.split('/');
+  return p[2] + '-' + p[1] + '-' + p[0];
+}
+
+var REK_MAP = {
+  '8175057770': {id_rekening: 'BCA_DK', prefix: 'BDK'},
+  '0158001414': {id_rekening: 'BCA_PT', prefix: 'BPT'},
+};
+
+function parseCorpAcctCsv(text) {
+  var lines = text.split('\n');
+  var sections = [], cur = null, inData = false;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var cols = parseCsvLine(line);
+    if (cols[0].startsWith('No. rekening')) {
+      if (cur) sections.push(cur);
+      var norek = cols[0].replace('No. rekening :', '').trim();
+      var info = REK_MAP[norek] || null;
+      cur = {norek: norek, id_rekening: info ? info.id_rekening : norek, prefix: info ? info.prefix : null, rows: []};
+      inData = false;
+      continue;
+    }
+    if (cols[0] === 'Tanggal Transaksi') { inData = true; continue; }
+    if (!inData || !cur) continue;
+    if (cols[0].startsWith('Saldo') || cols[0].startsWith('Mutasi')) continue;
+    if (cols.length < 5 || !cols[0]) continue;
+    try {
+      var tgl = parseTglCorp(cols[0]);
+      var jn  = parseJumlah(cols[3]);
+      var saldo = parseSaldo(cols[4]);
+      cur.rows.push({tgl: tgl, desc: cols[1], jenis: jn.jenis, nominal: jn.nominal, saldo: saldo});
+    } catch(e) {}
+  }
+  if (cur) sections.push(cur);
+  return sections;
+}
+
+function handleCsvFile(input) {
+  var file = input.files[0];
+  if (!file) return;
+  document.getElementById('impParseInfo').textContent = 'Membaca file…';
+  var reader = new FileReader();
+  reader.onload = function(e) { handleCsvText(e.target.result); };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function handleCsvText(text) {
+  var sections = parseCorpAcctCsv(text);
+  if (!sections.length) {
+    document.getElementById('impParseInfo').textContent = 'Tidak ada data yang bisa dibaca dari file ini.';
+    return;
+  }
+  document.getElementById('impParseInfo').textContent = 'Memeriksa data terbaru di database…';
+  importSections = [];
+  for (var i = 0; i < sections.length; i++) {
+    var sec = sections[i];
+    if (!sec.prefix) { document.getElementById('impParseInfo').textContent += '\nRekening ' + sec.norek + ' tidak dikenali, dilewati.'; continue; }
+    var maxIdRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'id', order:'id.desc', limit:1});
+    var lastSeq = 0;
+    if (Array.isArray(maxIdRes) && maxIdRes[0]) lastSeq = parseInt(maxIdRes[0].id.replace(/[^0-9]/g,''), 10) || 0;
+    var tglRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'tgl_transaksi', order:'tgl_transaksi.desc,id.desc', limit:1});
+    var lastTgl = (Array.isArray(tglRes) && tglRes[0]) ? tglRes[0].tgl_transaksi : '2000-01-01';
+    var existRes = [];
+    if (lastTgl !== '2000-01-01') {
+      existRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, tgl_transaksi:'eq.'+lastTgl, select:'jenis,nominal'});
+    }
+    var existKeys = {};
+    if (Array.isArray(existRes)) existRes.forEach(function(r){ existKeys[r.jenis+'|'+r.nominal] = true; });
+    var newRows = sec.rows.filter(function(r) {
+      if (r.tgl > lastTgl) return true;
+      if (r.tgl === lastTgl) return !existKeys[r.jenis+'|'+r.nominal];
+      return false;
+    });
+    importSections.push({id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq, last_tgl: lastTgl, total_csv: sec.rows.length, new_rows: newRows});
+  }
+  buildPreview();
+}
+
+function buildPreview() {
+  var wrap = document.getElementById('impPreviewWrap');
+  var html = '';
+  var hasNew = false;
+  importSections.forEach(function(sec) {
+    var n = sec.new_rows.length;
+    if (n > 0) hasNew = true;
+    html += '<div style="margin-bottom:1rem"><div style="font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--navy);margin-bottom:.4rem">';
+    html += sec.id_rekening + ' — <span style="color:' + (n>0?'var(--green)':'var(--muted)') + '">' + n + ' baris baru</span>';
+    html += ' <span style="color:var(--muted);font-weight:400">(CSV: ' + sec.total_csv + ' | last DB: ' + sec.last_tgl + ')</span></div>';
+    if (n === 0) {
+      html += '<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Data sudah up to date.</div>';
+    } else {
+      html += '<div class="tbl-wrap" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Tgl</th><th>Deskripsi</th><th>Jenis</th><th class="td-right">Nominal</th><th class="td-right">Saldo</th></tr></thead><tbody>';
+      sec.new_rows.slice(0,50).forEach(function(r) {
+        html += '<tr><td class="td-mono" style="white-space:nowrap">' + r.tgl + '</td>';
+        html += '<td style="font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + h(r.desc) + '</td>';
+        html += '<td>' + (r.jenis==='CR'?'<span class="badge-jenis j-cr">↑CR</span>':'<span class="badge-jenis j-db">↓DB</span>') + '</td>';
+        html += '<td class="td-right td-mono">' + Number(r.nominal).toLocaleString('id-ID') + '</td>';
+        html += '<td class="td-right td-mono">' + Number(r.saldo).toLocaleString('id-ID') + '</td></tr>';
+      });
+      if (sec.new_rows.length > 50) html += '<tr><td colspan="5" class="loading">… dan ' + (sec.new_rows.length-50) + ' baris lagi</td></tr>';
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+  });
+  wrap.innerHTML = html;
+  document.getElementById('impStep1').style.display = 'none';
+  document.getElementById('impStep2').style.display = '';
+  document.getElementById('impParseInfo').textContent = '';
+  document.getElementById('impConfirmBtn').style.display = hasNew ? '' : 'none';
+}
+
+async function doImport() {
+  var btn = document.getElementById('impConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Mengimport…';
+  document.getElementById('impErr').style.display = 'none';
+  var totalInserted = 0;
+  var errors = [];
+  for (var i = 0; i < importSections.length; i++) {
+    var sec = importSections[i];
+    if (!sec.new_rows.length) continue;
+    var seq = sec.last_seq;
+    var rows = sec.new_rows.map(function(r) {
+      seq++;
+      return {
+        id: sec.prefix + String(seq).padStart(5,'0'),
+        id_rekening: sec.id_rekening,
+        tgl_transaksi: r.tgl,
+        keterangan_bank: r.desc,
+        jenis: r.jenis,
+        nominal: r.nominal,
+        saldo_akhir: r.saldo,
+        sisa_nominal: r.nominal,
+        status: 'UNPOSTED',
+        status_alokasi: 'BELUM_DIALOKASI'
+      };
+    });
+    var res = await dbInsert('in_bank_statement', rows);
+    var insertErr = null;
+    if (res === null || res === undefined || Array.isArray(res)) {
+      insertErr = null;
+    } else if (res && (res.code || res.status === 'error')) {
+      var msg = res.message || res.code || 'Error tidak diketahui';
+      if (msg.indexOf('duplicate') >= 0 || msg.indexOf('unique') >= 0 || msg.indexOf('23505') >= 0)
+        insertErr = 'ID bentrok — sequence tidak sinkron.';
+      else insertErr = msg;
+    }
+    if (insertErr) { errors.push(sec.id_rekening + ': ' + insertErr); continue; }
+    var seqUpd = await dbUpdate('in_bank_stmt_seq', {id_rekening:'eq.'+sec.id_rekening}, {last_seq: seq});
+    if (seqUpd !== null && seqUpd !== undefined && !Array.isArray(seqUpd) && seqUpd && (seqUpd.code || seqUpd.status === 'error'))
+      errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence. last_seq=' + seq);
+    totalInserted += rows.length;
+  }
+  btn.disabled = false; btn.textContent = 'Import Sekarang';
+  document.getElementById('impStep2').style.display = 'none';
+  document.getElementById('impStep3').style.display = '';
+  if (errors.length) {
+    document.getElementById('impStep3').innerHTML = '<span style="color:var(--red)">❌ Error:<br>' + errors.join('<br>') + '</span>';
+  } else {
+    document.getElementById('impStep3').innerHTML = '<span style="color:var(--green)">✓ Berhasil import ' + totalInserted + ' baris baru.</span>';
+    document.getElementById('impConfirmBtn').style.display = 'none';
+    setTimeout(function(){ muatRekap(); muatPosting(true); }, 500);
+  }
+}
+
+// ── INIT ────────────────────────────────────────────────────
+window.addEventListener('load', function() {
+  if (!guardHalaman()) return;
+  roleUser = getRoleUser();
+  if (roleUser !== 'DIREKTUR') {
+    window.location.replace('../index.html');
+    return;
+  }
+  initNav('bank');
+  document.getElementById('kontenBank').style.display = '';
+  document.getElementById('importBtnWrap').style.display = '';
+  muatRekap();
+  muatKoran(true);
+  muatCacheSupplierBank();
+});
+</script>
+</body>
+</html>
