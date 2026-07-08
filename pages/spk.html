@@ -530,7 +530,7 @@ function initAcItem(){
     renderAC(dropEl,data,inputEl);
   });
   inputEl.addEventListener('focus',function(){if(this.value.trim())this.dispatchEvent(new Event('input'));});
-  inputEl.addEventListener('blur',function(){setTimeout(tutupAC,200);});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){if(!dropEl._touching)tutupAC();},250);});
 }
 
 function renderAC(dropEl,data,inputEl){
@@ -552,9 +552,14 @@ function renderAC(dropEl,data,inputEl){
         '<span class="ac-item-nama">'+esc(d.NAMA_ITEM)+(d.SUBITEM?' <span class="ac-item-sub">'+esc(d.SUBITEM)+'</span>':'')+'</span>'+
         '<span class="ac-item-pps">QTY Sisa: '+fmtAngka(qtySisa)+' '+esc(d.SATUAN)+(saranPps>0?' | Saran PPS: <strong>'+saranPps+'</strong>':'')+'</span>';
       div.addEventListener('mousedown',function(e){e.preventDefault();pilihItem(d,inputEl,dropEl);});
-      div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;});
-      div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;});
-      div.addEventListener('touchend',function(e){if(this._moved)return;e.preventDefault();pilihItem(d,inputEl,dropEl);});
+      div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;dropEl._touching=true;},{passive:true});
+      div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;},{passive:true});
+      div.addEventListener('touchend',function(e){
+        e.preventDefault();
+        dropEl._touching=false;
+        if(this._moved) return;
+        pilihItem(d,inputEl,dropEl);
+      });
       dropEl.appendChild(div);
     });
   }
@@ -601,9 +606,14 @@ function buatAcOperator(inputEl){
       var div=document.createElement('div');div.className='ac-item';
       div.innerHTML='<span class="ac-item-id">'+esc(op.id_operator)+'</span><span class="ac-item-nama">'+esc(op.nama_operator)+'</span>';
       div.addEventListener('mousedown',function(e){e.preventDefault();pilih(op);});
-      div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;});
-      div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;});
-      div.addEventListener('touchend',function(e){if(this._moved)return;e.preventDefault();pilih(op);});
+      div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;dropEl._touching=true;},{passive:true});
+      div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;},{passive:true});
+      div.addEventListener('touchend',function(e){
+        e.preventDefault();
+        dropEl._touching=false;
+        if(this._moved) return;
+        pilih(op);
+      });
       dropEl.appendChild(div);
     });}
     posisi(); dropEl.style.display='block';
@@ -612,7 +622,7 @@ function buatAcOperator(inputEl){
   function filter(q){return semuaOperator.filter(function(op){return (op.nama_operator||'').toLowerCase().includes(q)||(op.id_operator||'').toLowerCase().includes(q);}).slice(0,20);}
   inputEl.addEventListener('input',function(){var q=this.value.toLowerCase().trim();if(!q){dropEl.style.display='none';return;}render(filter(q));});
   inputEl.addEventListener('focus',function(){var q=this.value.toLowerCase().trim();if(q) render(filter(q));});
-  inputEl.addEventListener('blur',function(){setTimeout(function(){dropEl.style.display='none';},200);});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){if(!dropEl._touching)dropEl.style.display='none';},250);});
 }
 
 function hitungQty(oplah,pps,satuan,isiBuku){
