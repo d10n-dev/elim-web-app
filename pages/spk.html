@@ -552,7 +552,9 @@ function renderAC(dropEl,data,inputEl){
         '<span class="ac-item-nama">'+esc(d.NAMA_ITEM)+(d.SUBITEM?' <span class="ac-item-sub">'+esc(d.SUBITEM)+'</span>':'')+'</span>'+
         '<span class="ac-item-pps">QTY Sisa: '+fmtAngka(qtySisa)+' '+esc(d.SATUAN)+(saranPps>0?' | Saran PPS: <strong>'+saranPps+'</strong>':'')+'</span>';
       div.addEventListener('mousedown',function(e){e.preventDefault();pilihItem(d,inputEl,dropEl);});
-      div.addEventListener('touchend',function(e){e.preventDefault();pilihItem(d,inputEl,dropEl);});
+      div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;});
+      div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;});
+      div.addEventListener('touchend',function(e){if(this._moved)return;e.preventDefault();pilihItem(d,inputEl,dropEl);});
       dropEl.appendChild(div);
     });
   }
@@ -599,7 +601,9 @@ function buatAcOperator(inputEl){
       var div=document.createElement('div');div.className='ac-item';
       div.innerHTML='<span class="ac-item-id">'+esc(op.id_operator)+'</span><span class="ac-item-nama">'+esc(op.nama_operator)+'</span>';
       div.addEventListener('mousedown',function(e){e.preventDefault();pilih(op);});
-      div.addEventListener('touchend',function(e){e.preventDefault();pilih(op);});
+      div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;});
+      div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;});
+      div.addEventListener('touchend',function(e){if(this._moved)return;e.preventDefault();pilih(op);});
       dropEl.appendChild(div);
     });}
     posisi(); dropEl.style.display='block';
