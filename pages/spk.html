@@ -431,7 +431,10 @@ document.addEventListener('DOMContentLoaded', function(){
   ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value=hari;
   });
-  document.addEventListener('touchstart',tutupAC);
+  document.addEventListener('touchstart',function(e){
+    var d=document.getElementById('dropItem');
+    if(d&&!d.contains(e.target)) tutupAC();
+  });
   document.addEventListener('mousedown',function(e){
     var d=document.getElementById('dropItem');
     if(d&&!d.contains(e.target)) tutupAC();
