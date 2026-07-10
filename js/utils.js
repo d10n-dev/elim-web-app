@@ -51,8 +51,10 @@ function isManager()  { return getRoleUser() === 'MANAGER'; }
 async function punyaAksesModul(modul) {
   if (isDirektur()) return true;
   // MANAGER auto-lolos khusus modul 'pembelian' (bantu input), tanpa perlu grant manual.
-  // Modul finansial lain (kas_kecil, bank, dst) tetap wajib grant per-email seperti semula.
   if (modul === 'pembelian' && isManager()) return true;
+  // ADMIN auto-lolos modul 'kas_kecil' dan 'pembelian', tanpa perlu grant manual.
+  // Modul finansial lain (bank, dst) tetap wajib grant per-email seperti semula.
+  if ((modul === 'kas_kecil' || modul === 'pembelian') && getRoleUser() === 'ADMIN') return true;
   const info = getUserInfo();
   if (!info || !info.email) return false;
   try {
