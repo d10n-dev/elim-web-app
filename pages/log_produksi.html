@@ -337,6 +337,11 @@ function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
 function esc(s){return escHtml(s);}
 function badgeJenis(j){var k=(j||'').toLowerCase();return '<span class="badge-jenis bj-'+k+'">'+esc(j)+'</span>';}
 
+// ── AC touch helper (scroll-vs-tap) ──
+function _acTouchStart(e){var el=e.currentTarget;el._ty=e.touches[0].clientY;el._moved=false;if(el.parentElement)el.parentElement._touching=true;}
+function _acTouchMove(e){var el=e.currentTarget;if(Math.abs(e.touches[0].clientY-el._ty)>10)el._moved=true;}
+function _acTouchEnd(e,cb){e.preventDefault();var el=e.currentTarget;if(el.parentElement)el.parentElement._touching=false;if(el._moved)return;cb();}
+
 // ── AC SPK ──
 var _spkAcEl=null, _spkAcDrop=null;
 function initSpkAC(inputEl){
@@ -346,13 +351,13 @@ function initSpkAC(inputEl){
   document.body.appendChild(_spkAcDrop);
   inputEl.addEventListener('input',function(){renderSpkDrop(inputEl.value);posisiDrop(inputEl,_spkAcDrop);});
   inputEl.addEventListener('focus',function(){renderSpkDrop(inputEl.value);posisiDrop(inputEl,_spkAcDrop);_spkAcDrop.style.display='block';});
-  inputEl.addEventListener('blur',function(){setTimeout(function(){_spkAcDrop.style.display='none';},200);});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){if(!_spkAcDrop._touching)_spkAcDrop.style.display='none';},250);});
 }
 function renderSpkDrop(q){
   q=q.toLowerCase();
   var hasil=semuaSPK.filter(function(s){return s.id_spk.toLowerCase().indexOf(q)>=0;}).slice(0,20);
   _spkAcDrop.innerHTML=hasil.length?hasil.map(function(s){
-    return '<div class="ac-item" onmousedown="event.preventDefault();pilihSpk(\''+esc(s.id_spk)+'\')" ontouchend="event.preventDefault();pilihSpk(\''+esc(s.id_spk)+'\')">'+
+    return '<div class="ac-item" onmousedown="event.preventDefault();pilihSpk(\''+esc(s.id_spk)+'\')" ontouchstart="_acTouchStart(event)" ontouchmove="_acTouchMove(event)" ontouchend="_acTouchEnd(event,function(){pilihSpk(\''+esc(s.id_spk)+'\')})">'+
       '<span class="ac-item-id">'+esc(s.id_spk)+'</span>'+
       '<span style="font-size:.72rem;color:var(--muted)">'+esc(s.status)+'</span>'+
     '</div>';
@@ -370,13 +375,13 @@ function initEditOperatorAC(){
   document.body.appendChild(drop);
   inp.addEventListener('input',function(){renderOpDrop(inp.value,drop);posisiDrop(inp,drop);});
   inp.addEventListener('focus',function(){renderOpDrop(inp.value,drop);posisiDrop(inp,drop);drop.style.display='block';});
-  inp.addEventListener('blur',function(){setTimeout(function(){drop.style.display='none';},200);});
+  inp.addEventListener('blur',function(){setTimeout(function(){if(!drop._touching)drop.style.display='none';},250);});
 }
 function renderOpDrop(q,drop){
   q=q.toLowerCase();
   var hasil=semuaOperator.filter(function(o){return (o.nama||'').toLowerCase().indexOf(q)>=0;}).slice(0,15);
   drop.innerHTML=hasil.length?hasil.map(function(o){
-    return '<div class="ac-item" onmousedown="event.preventDefault();pilihOpEdit(\''+esc(o.nama)+'\')" ontouchend="event.preventDefault();pilihOpEdit(\''+esc(o.nama)+'\')">'+
+    return '<div class="ac-item" onmousedown="event.preventDefault();pilihOpEdit(\''+esc(o.nama)+'\')" ontouchstart="_acTouchStart(event)" ontouchmove="_acTouchMove(event)" ontouchend="_acTouchEnd(event,function(){pilihOpEdit(\''+esc(o.nama)+'\')})">'+
       '<span style="font-size:.8rem">'+esc(o.nama)+'</span>'+
     '</div>';
   }).join(''):'<div class="ac-empty">Tidak ditemukan</div>';

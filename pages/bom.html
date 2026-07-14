@@ -138,7 +138,9 @@
             ? `<span class="ac-item-nama">${escHtml(d[namaKey])}</span>`
             : `<span class="ac-item-id">${escHtml(d[idKey])}</span><span class="ac-item-nama">${escHtml(d[namaKey])}</span>`;
           div.addEventListener('mousedown', e => { e.preventDefault(); pilih(d); });
-          div.addEventListener('touchend',  e => { e.preventDefault(); pilih(d); });
+          div.addEventListener('touchstart', function(e){ this._ty = e.touches[0].clientY; this._moved = false; dropEl._touching = true; }, {passive:true});
+          div.addEventListener('touchmove', function(e){ if (Math.abs(e.touches[0].clientY - this._ty) > 10) this._moved = true; }, {passive:true});
+          div.addEventListener('touchend', function(e){ e.preventDefault(); dropEl._touching = false; if (this._moved) return; pilih(d); });
           dropEl.appendChild(div);
         });
       }
@@ -169,7 +171,7 @@
       if (q.length > 0 && !selectedId) render(filter(q));
     });
 
-    inputEl.addEventListener('blur', () => { setTimeout(tutup, 200); });
+    inputEl.addEventListener('blur', () => { setTimeout(() => { if (!dropEl._touching) tutup(); }, 250); });
 
     inputEl._getSelectedId = () => selectedId;
     inputEl._setItem = (d) => { if (d) pilih(d); };

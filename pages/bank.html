@@ -711,7 +711,9 @@ function buatAC(inputEl,dropEl,dataArr,idKey,namaKey,onSelect){
       div.style.cssText='padding:.45rem .75rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid #f0f0f0';
       div.textContent=d[namaKey];
       div.addEventListener('mousedown',function(e){e.preventDefault();pilih(d);});
-      div.addEventListener('touchend',function(e){e.preventDefault();pilih(d);});
+      div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;dropEl._touching=true;},{passive:true});
+      div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;},{passive:true});
+      div.addEventListener('touchend',function(e){e.preventDefault();dropEl._touching=false;if(this._moved)return;pilih(d);});
       dropEl.appendChild(div);
     });
     var rect=inputEl.getBoundingClientRect();
@@ -720,7 +722,7 @@ function buatAC(inputEl,dropEl,dataArr,idKey,namaKey,onSelect){
     dropEl.style.minWidth=rect.width+'px';
     dropEl.style.display='block';
   });
-  inputEl.addEventListener('blur',function(){setTimeout(function(){dropEl.style.display='none';},200);});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){if(!dropEl._touching)dropEl.style.display='none';},250);});
 }
 
 var cacheSupplierBank=[];

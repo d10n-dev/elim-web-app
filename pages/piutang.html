@@ -490,14 +490,14 @@ function buatAC(inputEl,dropEl,dataArr,idKey,namaKey,onSelect){
   function rend(items){
     dropEl.innerHTML='';
     if(!items.length){dropEl.innerHTML='<div style="padding:.5rem .75rem;font-size:.78rem;color:var(--muted)">Tidak ditemukan</div>';}
-    else{items.forEach(function(d){var div=document.createElement('div');div.style.cssText='padding:.45rem .75rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid #f0f0f0';div.textContent=d[namaKey];div.addEventListener('mousedown',function(e){e.preventDefault();pilih(d);});div.addEventListener('touchend',function(e){e.preventDefault();pilih(d);});dropEl.appendChild(div);});}
+    else{items.forEach(function(d){var div=document.createElement('div');div.style.cssText='padding:.45rem .75rem;cursor:pointer;font-size:.82rem;border-bottom:1px solid #f0f0f0';div.textContent=d[namaKey];div.addEventListener('mousedown',function(e){e.preventDefault();pilih(d);});div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;dropEl._touching=true;},{passive:true});div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;},{passive:true});div.addEventListener('touchend',function(e){e.preventDefault();dropEl._touching=false;if(this._moved)return;pilih(d);});dropEl.appendChild(div);});}
     pos();dropEl.style.display='block';
   }
   function pilih(d){inputEl.value=d[namaKey];dropEl.style.display='none';if(onSelect)onSelect(d);}
   function tutup(){dropEl.style.display='none';}
   inputEl.addEventListener('input',function(){var q=inputEl.value.trim();if(!q.length){tutup();return;}rend(filt(q));});
   inputEl.addEventListener('focus',function(){var q=inputEl.value.trim();if(q.length>0)rend(filt(q));});
-  inputEl.addEventListener('blur',function(){setTimeout(tutup,200);});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){if(!dropEl._touching)tutup();},250);});
 }
 var ROLE = null;
 

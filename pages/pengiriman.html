@@ -343,6 +343,11 @@ function filterTabel(){
   }));
 }
 
+// ── AC touch helper (scroll-vs-tap) ──
+function _acTouchStart(e){var el=e.currentTarget;el._ty=e.touches[0].clientY;el._moved=false;if(el.parentElement)el.parentElement._touching=true;}
+function _acTouchMove(e){var el=e.currentTarget;if(Math.abs(e.touches[0].clientY-el._ty)>10)el._moved=true;}
+function _acTouchEnd(e,cb){e.preventDefault();var el=e.currentTarget;if(el.parentElement)el.parentElement._touching=false;if(el._moved)return;cb();}
+
 // ── AC PELANGGAN ──
 function acPelanggan(inp){
   var q=inp.value.toLowerCase().trim();
@@ -351,13 +356,13 @@ function acPelanggan(inp){
   var hasil=semuaPelanggan.filter(function(p){return p.nama.toLowerCase().indexOf(q)>=0;}).slice(0,20);
   if(!hasil.length){drop.style.display='none';return;}
   drop.innerHTML=hasil.map(function(p){
-    return '<div class="ac-item" onmousedown="event.preventDefault();pilihPelanggan(\''+esc(p.id_pelanggan)+'\',\''+esc(p.nama)+'\')" ontouchend="event.preventDefault();pilihPelanggan(\''+esc(p.id_pelanggan)+'\',\''+esc(p.nama)+'\')">'+
+    return '<div class="ac-item" onmousedown="event.preventDefault();pilihPelanggan(\''+esc(p.id_pelanggan)+'\',\''+esc(p.nama)+'\')" ontouchstart="_acTouchStart(event)" ontouchmove="_acTouchMove(event)" ontouchend="_acTouchEnd(event,function(){pilihPelanggan(\''+esc(p.id_pelanggan)+'\',\''+esc(p.nama)+'\')})">'+
       esc(p.nama)+'<div class="ac-sub">'+esc(p.id_pelanggan)+'</div></div>';
   }).join('');
   var r=inp.getBoundingClientRect();
   drop.style.top=r.bottom+'px'; drop.style.left=r.left+'px'; drop.style.width=r.width+'px';
   drop.style.display='block';
-  inp.addEventListener('blur',function(){setTimeout(function(){drop.style.display='none';},200);},{once:true});
+  inp.addEventListener('blur',function(){setTimeout(function(){if(!drop._touching)drop.style.display='none';},250);},{once:true});
 }
 
 function pilihPelanggan(id,nama){

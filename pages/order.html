@@ -325,7 +325,9 @@ function buatAC(inputEl, dropEl, data, idKey, namaKey, onPilih) {
         div.className='ac-item';
         div.innerHTML='<span class="ac-item-id">'+esc(d[idKey])+'</span><span class="ac-item-nama">'+esc(d[namaKey])+'</span>';
         div.addEventListener('mousedown',function(e){e.preventDefault();pilih(d);});
-        div.addEventListener('touchend', function(e){e.preventDefault();pilih(d);});
+        div.addEventListener('touchstart',function(e){this._ty=e.touches[0].clientY;this._moved=false;dropEl._touching=true;},{passive:true});
+        div.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientY-this._ty)>10)this._moved=true;},{passive:true});
+        div.addEventListener('touchend',function(e){e.preventDefault();dropEl._touching=false;if(this._moved)return;pilih(d);});
         dropEl.appendChild(div);
       });
     }
@@ -349,7 +351,7 @@ function buatAC(inputEl, dropEl, data, idKey, namaKey, onPilih) {
     var q=inputEl.value.trim();
     if(q&&!inputEl.classList.contains('ac-selected')) render(filter(q));
   });
-  inputEl.addEventListener('blur',function(){setTimeout(tutup,200);});
+  inputEl.addEventListener('blur',function(){setTimeout(function(){if(!dropEl._touching)tutup();},250);});
   inputEl._getId=function(){
     if(!inputEl.classList.contains('ac-selected')) return '';
     return inputEl.value.split(' | ')[0].trim();
