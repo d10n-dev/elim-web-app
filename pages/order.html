@@ -252,7 +252,7 @@
         <div class="form-group"><label class="form-label">Keterangan</label><input type="text" class="form-control-edit" id="editKeterangan"/></div>
         <div class="modal-section">Item &amp; Harga</div>
         <div class="row g-2">
-          <div class="col-8"><div class="form-group"><label class="form-label">Nama Item</label><input type="text" class="form-control-edit" id="editNamaItem" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div></div>
+          <div class="col-8"><div class="form-group"><label class="form-label">Nama Item</label><input type="text" class="form-control-edit" id="editNamaItem" readonly style="text-transform:uppercase;background:#f5f7fb;color:var(--muted)" title="Item tidak bisa diganti lewat Edit — buat order baru jika item berbeda."/><div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.2rem">Item tidak bisa diganti di sini. Untuk item lain, buat order baru.</div></div></div>
           <div class="col-4"><div class="form-group"><label class="form-label">Harga (Rp)</label><input type="number" class="form-control-edit" id="editHarga" min="0"/></div></div>
         </div>
         <div class="modal-section">Subitem &amp; Qty</div>
@@ -1017,6 +1017,10 @@ function simpanEdit(){
   var newDeadline=document.getElementById('editDeadline').value;
   var newKet=document.getElementById('editKeterangan').value.trim();
   var newNamaItem=document.getElementById('editNamaItem').value.trim().toUpperCase();
+  if(newNamaItem!==(orderAktif.nama_item||'').toUpperCase()){
+    alertEl.innerHTML='<div class="alert-box alert-err">Item order tidak bisa diubah lewat Edit. Buat order baru untuk item berbeda.</div>';
+    return;
+  }
   var newHarga=parseFloat(document.getElementById('editHarga').value)||0;
   var hargaLama=detailCache.length?(detailCache[0].harga||0):0;
 
