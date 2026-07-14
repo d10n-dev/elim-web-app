@@ -664,10 +664,11 @@ function tambahItem(){
   var isiBuku=parseInt((document.getElementById('inIsiBuku')||{value:'50'}).value,10)||50;
   var qtyHasil=hitungQty(oplah,ppsInput,satuan,isiBuku);
   var ppsItem=parseInt(itemDipilih.PPS||0,10); if(!ppsItem||ppsItem<=0) ppsItem=ppsInput;
-  if(maxPpsForm===0) maxPpsForm=ppsItem;
-  else if(ppsItem!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">PPS item ini ('+ppsItem+') berbeda dengan Max PPS SPK ('+maxPpsForm+'). Tidak bisa digabung.</div>';return;}
+  var maxPpsCek=maxPpsForm===0?ppsItem:maxPpsForm;
+  if(maxPpsForm!==0&&ppsItem!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">PPS item ini ('+ppsItem+') berbeda dengan Max PPS SPK ('+maxPpsForm+'). Tidak bisa digabung.</div>';return;}
   var totalPpsSkrg=daftarItem.reduce(function(s,it){return s+it.ppsInput;},0);
-  if(totalPpsSkrg+ppsInput>maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">Total PPS melebihi Max PPS ('+maxPpsForm+'). Sisa: '+(maxPpsForm-totalPpsSkrg)+'.</div>';return;}
+  if(totalPpsSkrg+ppsInput>maxPpsCek){alertEl.innerHTML='<div class="alert-box alert-err">Total PPS melebihi Max PPS ('+maxPpsCek+'). Sisa: '+(maxPpsCek-totalPpsSkrg)+'.</div>';return;}
+  maxPpsForm=maxPpsCek;
   daftarItem.push({
     idDetail:itemDipilih.ID_DETAIL,idOrder:itemDipilih.ID_ORDER,idItem:itemDipilih.ID_ITEM,
     namaItem:itemDipilih.NAMA_ITEM,subitem:itemDipilih.SUBITEM||'',
