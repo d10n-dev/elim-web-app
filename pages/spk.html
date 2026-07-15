@@ -1181,12 +1181,16 @@ async function closeSPK(idSpk,approver){
   for(var i=0;i<sdetFull.length;i++){
     var sd=sdetFull[i];
     if(sd.id_detail){
-      await dbUpdate('in_order_detail',{id_detail:'eq.'+sd.id_detail},{status_spk:'DONE'});
-      // Ambil id_order dari detail
-      var odRes=await dbGet('in_order_detail',{id_detail:'eq.'+sd.id_detail,select:'id_order'});
-      if(Array.isArray(odRes)&&odRes.length) ordSet[odRes[0].id_order]=true;
+      var odRes=await dbGet('in_order_detail',{id_detail:'eq.'+sd.id_detail,select:'id_order,qty,qty_spk'});
+      if(Array.isArray(odRes)&&odRes.length){
+        var od=odRes[0];
+        var qtyOrd=parseInt(od.qty,10)||0;
+        var qtySpkNow=parseInt(od.qty_spk,10)||0;
+        var stFinal=qtySpkNow>=qtyOrd?'DONE':'SEBAGIAN';
+        await dbUpdate('in_order_detail',{id_detail:'eq.'+sd.id_detail},{status_spk:stFinal});
+        ordSet[od.id_order]=true;
+      }
     }
-
   }
   // Update status order → PRODUKSI (siap kirim) kecuali sudah SEBAGIAN_KIRIM/SELESAI
   for(var idOrd in ordSet){
