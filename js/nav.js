@@ -56,7 +56,7 @@ const NAV_MENU = [
       { key: 'antar_entitas', label: 'Antar-Entitas',     icon: '🔁', href: 'pages/antar_entitas.html' },
       { key: 'bank',          label: 'Bank',              icon: '🏦', href: 'pages/bank.html' },
       { key: 'pembelian', label: 'Pembelian',         icon: '🛒', href: 'pages/pembelian.html' },
-      { key: 'laporan',   label: 'Laporan',           icon: '📈', href: '#', soon: true },
+      { key: 'laporan',   label: 'Laporan',           icon: '📈', href: 'pages/laporan.html' },
     ]
   },
   {
