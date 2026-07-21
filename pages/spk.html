@@ -110,6 +110,16 @@
     @media print{body>*:not(#printArea){display:none!important;}.spk-page{page-break-after:always;}}
     .spk-page{display:none;}
     #printArea{display:none;}
+    /* Accordion item (pola sama seperti bank.html) */
+    .td-item{cursor:pointer;font-size:.78rem;color:var(--navy);line-height:1.35;}
+    .td-item:hover{text-decoration:underline;}
+    .td-item.open{color:var(--orange);font-weight:600;}
+    .row-detail td{background:#f4f7fc;padding:.75rem 1.1rem;border-top:none;}
+    .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.5rem .85rem;margin-bottom:.75rem;}
+    .detail-grid .full{grid-column:1/-1;}
+    .df-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+    .df-val{font-family:var(--mono);font-size:.75rem;color:var(--navy);margin-top:.15rem;word-break:break-word;}
+    .df-val.big{font-family:var(--sans);font-size:.82rem;color:var(--text);font-weight:500;white-space:normal;}
   </style>
 </head>
 <body>
@@ -135,9 +145,9 @@
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>ID SPK</th><th>Tanggal</th><th>Oplah</th><th>Status</th><th>Keterangan</th><th></th>
+        <th>ID SPK</th><th>Tanggal</th><th>Item</th><th>Oplah</th><th>Status</th><th>Keterangan</th><th></th>
       </tr></thead>
-      <tbody id="tblBody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+      <tbody id="tblBody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -146,7 +156,7 @@
 <div class="modal fade" id="modalBuat" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header"><span class="modal-title">Buat SPK</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-header"><span class="modal-title" id="modalBuatTitle">Buat SPK</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
         <div id="alertBuat"></div>
         <div class="form-row form-row-2">
@@ -181,23 +191,6 @@
       <div class="modal-footer">
         <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
         <button class="btn-simpan" id="btnSimpanSPK" onclick="simpanSPK()">Simpan SPK</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL DETAIL -->
-<div class="modal fade" id="modalDetail" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header"><span class="modal-title" id="detailTitle">Detail SPK</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body" id="detailBody"><div class="loading">Memuat…</div></div>
-      <div class="modal-footer">
-        <button class="btn-print" id="btnPrintSPK" onclick="printSPK()">🔍 Preview SPK</button>
-        <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
-        <button class="btn-tolak" id="btnTolakSPK" onclick="bukaModalTolak()" style="display:none">✗ Tolak</button>
-        <button class="btn-approve" id="btnApproveSPK" onclick="bukaModalApprove()" style="display:none">✓ Approve</button>
-        <button class="btn-simpan" id="btnCloseSPK" onclick="bukaModalClosing()" style="background:#6c757d;display:none">✓ Close SPK</button>
       </div>
     </div>
   </div>
@@ -399,6 +392,8 @@ var semuaSPK=[], semuaOrdDtl=[], sdetAktif=[], daftarItem=[], semuaOperator=[];
 var filterAktif='OPEN', idSpkAktif=null, itemDipilih=null, maxPpsForm=0, tabLogAktif='CETAK';
 var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]}, _bahanMap={}, _tintaMap={};
 var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
+// Accordion + edit mode
+var rowStore={}, sdetBySpk={}, pelangganByOrder={}, openSpkId=null, editModeSpk=null;
 
 function cekErrorSupabase(res){
   if(!res){throw new Error('Tidak ada respon dari server.');}
@@ -443,13 +438,50 @@ document.addEventListener('DOMContentLoaded', function(){
 
 // ── MUAT DATA ──
 function muatSPK(){
-  document.getElementById('tblBody').innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+  document.getElementById('tblBody').innerHTML='<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  openSpkId=null;
   dbGet('in_spk',{order:'tgl_spk.desc'}).then(function(res){
     semuaSPK=Array.isArray(res)?res:[];
-    renderTabel();
+    rowStore={}; semuaSPK.forEach(function(s){rowStore[s.id_spk]=s;});
+    muatSdetRingkas();
   }).catch(function(){
-    document.getElementById('tblBody').innerHTML='<tr><td colspan="6" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
+    document.getElementById('tblBody').innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
   });
+}
+
+// Ambil semua in_spk_detail sekaligus (utk tampilkan nama item ringkas di tabel + accordion),
+// plus nama_pelanggan per id_order (join manual, in_spk_detail tidak simpan pelanggan)
+function muatSdetRingkas(){
+  if(!semuaSPK.length){ sdetBySpk={}; renderTabel(); return; }
+  dbGet('in_spk_detail',{select:'id_sdet,id_spk,id_detail,id_order,id_item,nama_item,subitem,qty_order,satuan,pps,qty_spk,status,qty_pack'}).then(function(res){
+    var rows=Array.isArray(res)?res:[];
+    sdetBySpk={};
+    var idOrderSet={};
+    rows.forEach(function(r){
+      if(!sdetBySpk[r.id_spk]) sdetBySpk[r.id_spk]=[];
+      sdetBySpk[r.id_spk].push(r);
+      if(r.id_order) idOrderSet[r.id_order]=true;
+    });
+    var idOrderList=Object.keys(idOrderSet);
+    if(!idOrderList.length){ pelangganByOrder={}; renderTabel(); return; }
+    dbGet('in_order',{id_order:'in.('+idOrderList.join(',')+')',select:'id_order,nama_pelanggan'}).then(function(r2){
+      pelangganByOrder={};
+      (Array.isArray(r2)?r2:[]).forEach(function(o){ pelangganByOrder[o.id_order]=o.nama_pelanggan||''; });
+      renderTabel();
+    }).catch(function(){ pelangganByOrder={}; renderTabel(); });
+  }).catch(function(){ sdetBySpk={}; renderTabel(); });
+}
+
+// Ringkasan nama ITEM saja (bukan subitem) untuk kolom tabel. Item unik dipisah ";"
+function ringkasItemSpk(idSpk){
+  var det=sdetBySpk[idSpk]||[];
+  if(!det.length) return '—';
+  var namaUnik=[];
+  det.forEach(function(r){
+    var nm=r.nama_item||'';
+    if(nm && namaUnik.indexOf(nm)===-1) namaUnik.push(nm);
+  });
+  return namaUnik.length?namaUnik.join('; '):'—';
 }
 
 function muatOrderDetail(){
@@ -478,21 +510,94 @@ function muatOrderDetail(){
 // ── TABEL ──
 function renderTabel(){
   var data=filterAktif?semuaSPK.filter(function(s){return s.status===filterAktif;}):semuaSPK;
-  if (!data.length){document.getElementById('tblBody').innerHTML='<tr><td colspan="6" class="loading">Belum ada data SPK.</td></tr>';return;}
+  if (!data.length){document.getElementById('tblBody').innerHTML='<tr><td colspan="7" class="loading">Belum ada data SPK.</td></tr>';return;}
   var aktifStatus=['OPEN','CETAK','POTONG','FINISHING','PACKING','SIAP_CLOSE'];
   document.getElementById('tblBody').innerHTML=data.map(function(s){
     var bisa=aktifStatus.indexOf(s.status)>=0;
+    var openCls=openSpkId===s.id_spk?' open':'';
     return '<tr>'+
       '<td class="td-mono">'+esc(s.id_spk)+'</td>'+
       '<td class="td-mono td-muted">'+fmtTgl(s.tgl_spk)+'</td>'+
+      '<td class="td-item'+openCls+'" onclick="toggleDetailSpk(this,\''+esc(s.id_spk)+'\')" title="Tap untuk detail">'+esc(ringkasItemSpk(s.id_spk))+'</td>'+
       '<td class="td-mono">'+fmtAngka(s.total_oplah)+'</td>'+
       '<td><span class="badge-status bs-'+((s.status||'').toLowerCase())+'">'+esc(s.status)+'</span></td>'+
       '<td class="td-muted">'+esc(s.keterangan||'—')+'</td>'+
       '<td style="white-space:nowrap;display:flex;gap:.35rem;flex-wrap:wrap">'+
-        '<button class="btn-print" onclick="bukaDetail(\''+esc(s.id_spk)+'\')">Detail</button>'+
         (bisa?'<button class="btn-progress" onclick="bukaProgress(\''+esc(s.id_spk)+'\')">📊 Progress</button>':'')+
       '</td></tr>';
   }).join('');
+}
+
+// ── ACCORDION DETAIL (pola sama seperti bank.html) ──
+function toggleDetailSpk(tdEl,idSpk){
+  var tr=tdEl.closest('tr');
+  document.querySelectorAll('.row-detail').forEach(function(el){el.remove();});
+  document.querySelectorAll('.td-item.open').forEach(function(el){el.classList.remove('open');});
+  if(openSpkId===idSpk){ openSpkId=null; idSpkAktif=null; return; }
+  openSpkId=idSpk; idSpkAktif=idSpk;
+  tdEl.classList.add('open');
+  var spk=rowStore[idSpk];
+  if(!spk) return;
+  var sdet=sdetBySpk[idSpk]||[];
+  sdetAktif=sdet;
+  var cols=tr.closest('table').querySelector('thead tr').children.length;
+  var det=document.createElement('tr');
+  det.className='row-detail';
+  det.innerHTML='<td colspan="'+cols+'">'+renderAccordionBody(spk,sdet)+'</td>';
+  tr.insertAdjacentElement('afterend',det);
+}
+
+function renderAccordionBody(spk,sdet){
+  var totPps=0,totQty=0;
+  sdet.forEach(function(r){totPps+=parseInt(r.pps,10)||0;totQty+=parseInt(r.qty_spk,10)||0;});
+  var html='<div class="detail-grid">'+
+    '<div><div class="df-lbl">ID SPK</div><div class="df-val">'+esc(spk.id_spk)+'</div></div>'+
+    '<div><div class="df-lbl">Tanggal</div><div class="df-val">'+fmtTgl(spk.tgl_spk)+'</div></div>'+
+    '<div><div class="df-lbl">Total Oplah</div><div class="df-val">'+fmtAngka(spk.total_oplah)+' lembar</div></div>'+
+    '<div><div class="df-lbl">Max PPS</div><div class="df-val">'+fmtAngka(spk.pps)+' pcs</div></div>'+
+    '<div><div class="df-lbl">Status</div><div class="df-val"><span class="badge-status bs-'+((spk.status||'').toLowerCase())+'">'+esc(spk.status)+'</span></div></div>'+
+    '<div class="full"><div class="df-lbl">Keterangan</div><div class="df-val big">'+esc(spk.keterangan||'—')+'</div></div>'+
+  '</div>';
+  if(!sdet.length){html+='<div class="sdet-empty">Belum ada item dalam SPK ini.</div>';}
+  else{
+    html+='<div class="section-divider">Daftar Item</div>'+
+      '<div style="overflow-x:auto"><table class="sdet-table"><thead><tr>'+
+      '<th>#</th><th>Pelanggan</th><th>ID Order</th><th>Item</th><th>Subitem</th><th style="text-align:right">PPS</th><th style="text-align:right">QTY SPK</th><th>Sat</th><th style="text-align:right">Pack</th>'+
+      '</tr></thead><tbody>';
+    sdet.forEach(function(r,i){
+      var pct=r.qty_spk>0?Math.min(Math.round((r.qty_pack/r.qty_spk)*100),100):0;
+      html+='<tr>'+
+        '<td style="color:var(--muted);font-family:var(--mono);font-size:.68rem">'+(i+1)+'</td>'+
+        '<td style="font-size:.72rem">'+esc(pelangganByOrder[r.id_order]||'—')+'</td>'+
+        '<td class="td-mono" style="font-size:.68rem">'+esc(r.id_order)+'</td>'+
+        '<td style="font-size:.78rem">'+esc(r.nama_item)+'</td>'+
+        '<td class="td-mono" style="font-size:.68rem">'+esc(r.subitem||'—')+'</td>'+
+        '<td class="td-mono" style="text-align:right">'+fmtAngka(r.pps)+'</td>'+
+        '<td class="td-mono" style="text-align:right">'+fmtAngka(r.qty_spk)+'</td>'+
+        '<td class="td-mono" style="font-size:.68rem">'+esc(r.satuan)+'</td>'+
+        '<td class="td-mono" style="text-align:right;color:'+(pct>=100?'var(--green)':'var(--muted)')+'">'+fmtAngka(r.qty_pack)+' ('+pct+'%)</td>'+
+      '</tr>';
+    });
+    html+='<tr style="border-top:2px solid var(--border);font-weight:700"><td colspan="5" style="text-align:right;padding:.4rem .6rem">Total</td>'+
+      '<td class="td-mono" style="text-align:right">'+totPps+'</td>'+
+      '<td class="td-mono" style="text-align:right">'+fmtAngka(totQty)+'</td><td colspan="2"></td></tr>';
+    html+='</tbody></table></div>';
+  }
+  // Tombol aksi — kondisi sama seperti bukaDetail() versi lama
+  var status=String(spk.status||'');
+  var isMP=(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR');
+  var showEdit=status==='OPEN';
+  var showClose=status==='SIAP_CLOSE';
+  var showApprove=isMP&&status==='MENUNGGU_APPROVE';
+  var showTolak=isMP&&status==='MENUNGGU_APPROVE';
+  html+='<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.85rem;border-top:1px solid var(--border);padding-top:.75rem">'+
+    '<button class="btn-print" id="btnPrintSPK" onclick="printSPK()">🔍 Preview SPK</button>'+
+    (showEdit?'<button class="btn-progress" id="btnEditSPK" onclick="bukaEditSPK(\''+esc(spk.id_spk)+'\')">✎ Edit SPK</button>':'')+
+    (showTolak?'<button class="btn-tolak" id="btnTolakSPK" onclick="bukaModalTolak()">✗ Tolak</button>':'')+
+    (showApprove?'<button class="btn-approve" id="btnApproveSPK" onclick="bukaModalApprove()">✓ Approve</button>':'')+
+    (showClose?'<button class="btn-simpan" id="btnCloseSPK" onclick="bukaModalClosing()" style="background:#6c757d">✓ Close SPK</button>':'')+
+  '</div>';
+  return html;
 }
 
 function setFilter(val,el){
@@ -504,12 +609,47 @@ function setFilter(val,el){
 
 // ── BUAT SPK ──
 function bukaBuatSPK(){
+  editModeSpk=null;
   daftarItem=[];maxPpsForm=0;itemDipilih=null;
   ['inOplah','inKet','inAcItem','inPps','previewQty'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   var wb=document.getElementById('wrapIsiBuku'); if(wb)wb.style.display='none';
   var ib=document.getElementById('inIsiBuku'); if(ib)ib.value='50';
   document.getElementById('alertBuat').innerHTML='';
   document.getElementById('alertTambah').innerHTML='';
+  document.getElementById('modalBuatTitle').textContent='Buat SPK';
+  document.getElementById('btnSimpanSPK').textContent='Simpan SPK';
+  renderItemList(); updatePPSBar();
+  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+  muatOrderDetail();
+}
+
+// ── EDIT SPK (hanya saat status OPEN) ──
+function bukaEditSPK(idSpk){
+  var spk=rowStore[idSpk];
+  if(!spk){alert('Data SPK tidak ditemukan.');return;}
+  if(spk.status!=='OPEN'){alert('SPK hanya bisa diedit selama status masih OPEN.');return;}
+  editModeSpk=idSpk;
+  itemDipilih=null;
+  document.getElementById('inOplah').value=spk.total_oplah||'';
+  document.getElementById('inKet').value=spk.keterangan||'';
+  document.getElementById('inAcItem').value=''; document.getElementById('inPps').value=''; document.getElementById('previewQty').value='';
+  var wb=document.getElementById('wrapIsiBuku'); if(wb)wb.style.display='none';
+  var ib=document.getElementById('inIsiBuku'); if(ib)ib.value='50';
+  document.getElementById('alertBuat').innerHTML='';
+  document.getElementById('alertTambah').innerHTML='';
+  document.getElementById('modalBuatTitle').textContent='Edit SPK — '+idSpk;
+  document.getElementById('btnSimpanSPK').textContent='Simpan Perubahan';
+  var sdet=sdetBySpk[idSpk]||[];
+  daftarItem=sdet.map(function(r){
+    return {
+      idDetail:r.id_detail,idOrder:r.id_order,idItem:r.id_item,
+      namaItem:r.nama_item,subitem:r.subitem||'',
+      qtyOrder:parseInt(r.qty_order,10)||0,satuan:r.satuan||'',
+      pps:parseInt(r.pps,10)||0,ppsInput:parseInt(r.pps,10)||0,
+      isiBuku:null,qty:parseInt(r.qty_spk,10)||0
+    };
+  });
+  maxPpsForm=parseInt(spk.pps,10)||0;
   renderItemList(); updatePPSBar();
   new bootstrap.Modal(document.getElementById('modalBuat')).show();
   muatOrderDetail();
@@ -739,6 +879,7 @@ function genIdLogProd(){return 'LP'+Date.now()+Math.floor(Math.random()*1000);}
 
 // ── SIMPAN SPK ──
 async function simpanSPK(){
+  if(editModeSpk){ await simpanEditSPK(); return; }
   var alertEl=document.getElementById('alertBuat'); alertEl.innerHTML='';
   var oplah=parseInt(document.getElementById('inOplah').value,10);
   var ket=document.getElementById('inKet').value.trim();
@@ -786,63 +927,65 @@ async function simpanSPK(){
   } finally{btn.disabled=false;btn.textContent='Simpan SPK';}
 }
 
+// Sinkronkan qty_spk & status_spk di in_order_detail setelah delta (bisa negatif saat hapus item edit)
+async function syncQtySpkOrderDetail(idDetail,deltaQty){
+  var res=await dbGet('in_order_detail',{id_detail:'eq.'+idDetail,select:'qty,qty_spk'});
+  var od=(Array.isArray(res)&&res[0])?res[0]:null;
+  if(!od) return;
+  var qtyOrd=parseInt(od.qty,10)||0;
+  var qtySpkBaru=Math.max(0,(parseInt(od.qty_spk,10)||0)+deltaQty);
+  var st=qtySpkBaru<=0?'BELUM':(qtySpkBaru>=qtyOrd?'SELESAI':'SEBAGIAN');
+  await dbUpdate('in_order_detail',{id_detail:'eq.'+idDetail},{qty_spk:qtySpkBaru,status_spk:st});
+}
+
+// ── SIMPAN EDIT SPK (hanya saat status OPEN) — hitung delta vs data lama, jangan sekadar overwrite ──
+async function simpanEditSPK(){
+  var alertEl=document.getElementById('alertBuat'); alertEl.innerHTML='';
+  var idSpk=editModeSpk;
+  var oplah=parseInt(document.getElementById('inOplah').value,10);
+  var ket=document.getElementById('inKet').value.trim();
+  if(!oplah||oplah<=0){alertEl.innerHTML='<div class="alert-box alert-err">Total oplah wajib diisi.</div>';return;}
+  if(!daftarItem.length){alertEl.innerHTML='<div class="alert-box alert-err">Minimal 1 item harus ditambahkan.</div>';return;}
+  var totalPps=daftarItem.reduce(function(s,it){return s+it.ppsInput;},0);
+  if(totalPps!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">Total PPS belum genap. Terpakai: '+totalPps+' dari '+maxPpsForm+'. Sisa: '+(maxPpsForm-totalPps)+'.</div>';return;}
+  var btn=document.getElementById('btnSimpanSPK');
+  btn.disabled=true; btn.textContent='Menyimpan…';
+  try{
+    var spkCek=rowStore[idSpk];
+    if(!spkCek||spkCek.status!=='OPEN') throw new Error('SPK sudah tidak berstatus OPEN, edit dibatalkan. Muat ulang halaman.');
+    // Update header
+    await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{total_oplah:oplah,pps:maxPpsForm,keterangan:ket});
+    // Data lama vs baru (kunci: id_detail)
+    var lamaRes=await dbGet('in_spk_detail',{id_spk:'eq.'+idSpk});
+    var lama=Array.isArray(lamaRes)?lamaRes:[];
+    var lamaByDetail={}; lama.forEach(function(r){lamaByDetail[r.id_detail]=r;});
+    var baruByDetail={}; daftarItem.forEach(function(it){baruByDetail[it.idDetail]=it;});
+    // 1) Item yang dihapus dari form → hapus baris + kurangi qty_spk order
+    for(var idDetailLama in lamaByDetail){
+      if(!baruByDetail[idDetailLama]){
+        var rHapus=lamaByDetail[idDetailLama];
+        await dbDelete('in_spk_detail',{id_sdet:'eq.'+rHapus.id_sdet});
+        await syncQtySpkOrderDetail(rHapus.id_detail,-(parseInt(rHapus.qty_spk,10)||0));
+      }
+    }
+    // 2) Item baru ditambahkan di form → insert + tambah qty_spk order
+    for(var idDetailBaru in baruByDetail){
+      if(!lamaByDetail[idDetailBaru]){
+        var itBaru=baruByDetail[idDetailBaru];
+        await dbInsert('in_spk_detail',{id_sdet:'SDET'+Date.now()+Math.floor(Math.random()*9999),id_spk:idSpk,id_detail:itBaru.idDetail,id_order:itBaru.idOrder,id_item:itBaru.idItem,nama_item:itBaru.namaItem,subitem:itBaru.subitem,qty_order:itBaru.qtyOrder,satuan:itBaru.satuan,pps:itBaru.ppsInput,qty_spk:itBaru.qty,status:'OPEN',qty_pack:0});
+        await syncQtySpkOrderDetail(itBaru.idDetail,itBaru.qty);
+      }
+    }
+    // Item yang tetap ada di kedua sisi tidak diubah (edit-in-place item tidak didukung — hapus lalu tambah ulang kalau perlu ubah qty/PPS)
+    bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
+    editModeSpk=null;
+    muatSPK(); muatOrderDetail();
+  }catch(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error tidak diketahui.')+'</div>';
+  }finally{btn.disabled=false;btn.textContent='Simpan Perubahan';}
+}
+
 // ── DETAIL SPK ──
-function bukaDetail(idSpk){
-  idSpkAktif=idSpk;
-  var spk=semuaSPK.find(function(s){return s.id_spk===idSpk;});
-  document.getElementById('detailTitle').textContent='Detail SPK — '+idSpk;
-  document.getElementById('detailBody').innerHTML='<div class="loading">Memuat…</div>';
-  var status=spk?String(spk.status):'';
-  var isMP=(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR');
-  document.getElementById('btnCloseSPK').style.display=status==='SIAP_CLOSE'?'':'none';
-  document.getElementById('btnApproveSPK').style.display=(isMP&&status==='MENUNGGU_APPROVE')?'':'none';
-  document.getElementById('btnTolakSPK').style.display=(isMP&&status==='MENUNGGU_APPROVE')?'':'none';
-  new bootstrap.Modal(document.getElementById('modalDetail')).show();
-  dbGet('in_spk_detail',{id_spk:'eq.'+idSpk}).then(function(res){
-    sdetAktif=Array.isArray(res)?res:[];
-    renderDetailBody(spk,sdetAktif);
-  }).catch(function(){
-    document.getElementById('detailBody').innerHTML='<div class="loading" style="color:var(--red)">Gagal memuat detail.</div>';
-  });
-}
-
-function renderDetailBody(spk,sdet){
-  if(!spk) return;
-  var totPps=0,totQty=0;
-  sdet.forEach(function(r){totPps+=parseInt(r.pps,10)||0;totQty+=parseInt(r.qty_spk,10)||0;});
-  var html='<div class="kv-list">'+
-    kv('ID SPK',spk.id_spk)+kv('Tanggal',fmtTgl(spk.tgl_spk))+
-    kv('Total Oplah',fmtAngka(spk.total_oplah)+' lembar')+kv('Max PPS',fmtAngka(spk.pps)+' pcs')+
-    kv('Status','<span class="badge-status bs-'+((spk.status||'').toLowerCase())+'">'+esc(spk.status)+'</span>')+
-    kv('Keterangan',spk.keterangan||'—')+
-  '</div>';
-  if(!sdet.length){html+='<div class="sdet-empty">Belum ada item dalam SPK ini.</div>';}
-  else {
-    html+='<div class="section-divider">Daftar Item</div>'+
-      '<div style="overflow-x:auto"><table class="sdet-table"><thead><tr>'+
-      '<th>#</th><th>ID Order</th><th>Item</th><th>Subitem</th><th style="text-align:right">PPS</th><th style="text-align:right">QTY SPK</th><th>Sat</th><th style="text-align:right">Pack</th>'+
-      '</tr></thead><tbody>';
-    sdet.forEach(function(r,i){
-      var pct=r.qty_spk>0?Math.min(Math.round((r.qty_pack/r.qty_spk)*100),100):0;
-      html+='<tr>'+
-        '<td style="color:var(--muted);font-family:var(--mono);font-size:.68rem">'+(i+1)+'</td>'+
-        '<td class="td-mono" style="font-size:.68rem">'+esc(r.id_order)+'</td>'+
-        '<td style="font-size:.78rem">'+esc(r.nama_item)+'</td>'+
-        '<td class="td-mono" style="font-size:.68rem">'+esc(r.subitem||'—')+'</td>'+
-        '<td class="td-mono" style="text-align:right">'+fmtAngka(r.pps)+'</td>'+
-        '<td class="td-mono" style="text-align:right">'+fmtAngka(r.qty_spk)+'</td>'+
-        '<td class="td-mono" style="font-size:.68rem">'+esc(r.satuan)+'</td>'+
-        '<td class="td-mono" style="text-align:right;color:'+(pct>=100?'var(--green)':'var(--muted)')+'">'+fmtAngka(r.qty_pack)+' ('+pct+'%)</td>'+
-      '</tr>';
-    });
-    html+='<tr style="border-top:2px solid var(--border);font-weight:700"><td colspan="4" style="text-align:right;padding:.4rem .6rem">Total</td>'+
-      '<td class="td-mono" style="text-align:right">'+totPps+'</td>'+
-      '<td class="td-mono" style="text-align:right">'+fmtAngka(totQty)+'</td><td colspan="2"></td></tr>';
-    html+='</tbody></table></div>';
-  }
-  document.getElementById('detailBody').innerHTML=html;
-}
-
 // ── PROGRESS ──
 function bukaProgress(idSpk){
   idSpkAktif=idSpk;
@@ -1140,7 +1283,7 @@ function bukaModalClosing(){
     alertEl.innerHTML='<div class="alert-box alert-ok">✓ Semua item sudah 100%. SPK siap ditutup.</div>';
     btn.textContent='✓ Close SPK';
   }
-  ['modalDetail','modalProgress'].forEach(function(id){
+  ['modalProgress'].forEach(function(id){
     var m=bootstrap.Modal.getInstance(document.getElementById(id)); if(m) m.hide();
   });
   setTimeout(function(){new bootstrap.Modal(document.getElementById('modalClosing')).show();},300);
@@ -1219,7 +1362,7 @@ function bukaModalApprove(){
   });
   html+='</tbody></table></div>';
   document.getElementById('approveClosingInfo').innerHTML=html;
-  ['modalDetail','modalProgress'].forEach(function(id){var m=bootstrap.Modal.getInstance(document.getElementById(id));if(m)m.hide();});
+  ['modalProgress'].forEach(function(id){var m=bootstrap.Modal.getInstance(document.getElementById(id));if(m)m.hide();});
   setTimeout(function(){new bootstrap.Modal(document.getElementById('modalApprove')).show();},300);
 }
 
@@ -1238,7 +1381,7 @@ async function konfirmasiApprove(){
 function bukaModalTolak(){
   document.getElementById('alertTolak').innerHTML='';
   document.getElementById('inAlasanTolak').value='';
-  ['modalDetail','modalProgress'].forEach(function(id){var m=bootstrap.Modal.getInstance(document.getElementById(id));if(m)m.hide();});
+  ['modalProgress'].forEach(function(id){var m=bootstrap.Modal.getInstance(document.getElementById(id));if(m)m.hide();});
   setTimeout(function(){new bootstrap.Modal(document.getElementById('modalTolak')).show();},300);
 }
 
