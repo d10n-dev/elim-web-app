@@ -80,7 +80,12 @@
     <div class="rekap-card"><div class="lbl">Total Piutang</div><div class="val">…</div></div>
   </div>
   <div class="toolbar">
-    <input type="text" id="rkCari" placeholder="Cari pelanggan / no. SJ…" oninput="muatRekap()"/>
+    <input type="text" id="rkCari" placeholder="Cari no. SJ / nota…" oninput="muatRekap()"/>
+    <div class="ac-wrap" style="position:relative;min-width:220px">
+      <input type="text" class="form-control" id="rkCariPelanggan" placeholder="Pelanggan (pilih dari daftar)…" autocomplete="off" oninput="onInputRkPelanggan()"/>
+      <div class="ac-dropdown" id="rkDropPelanggan" style="position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none;max-height:220px;overflow-y:auto;min-width:260px"></div>
+    </div>
+    <button class="btn-outline" id="btnRkResetPelanggan" style="display:none" onclick="resetRkPelanggan()">✕ Pelanggan</button>
     <select id="rkStatus" onchange="muatRekap()">
       <option value="">Semua Status</option>
       <option value="BELUM_DITAGIH">Belum Ditagih</option>
@@ -104,14 +109,22 @@
     </label>
   </div>
   <div class="info-bar" id="rkInfoBar">Memuat data…</div>
+  <div class="toolbar-batch" id="rkBatchWrap" style="justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <input type="checkbox" class="chk-batch" id="chkRkAll" onclick="toggleSemuaRk(this)"/>
+      <label style="font-family:var(--mono);font-size:.72rem">Pilih Semua</label>
+    </div>
+    <div style="font-family:var(--mono);font-size:.78rem;font-weight:600" id="rkTotalDipilih">Total dipilih: Rp 0</div>
+    <button class="btn-navy" id="btnRkAlokasi" disabled onclick="bukaPilihBankUntukRekap()">🏦 Alokasikan ke Transfer</button>
+  </div>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
-        <th>No. SJ / Nota</th><th>Tanggal</th><th>Pelanggan</th><th>Entitas</th>
+        <th></th><th>No. SJ / Nota</th><th>Tanggal</th><th>Pelanggan</th><th>Entitas</th>
         <th class="td-right">Total Tagih</th><th class="td-right">Sisa</th>
         <th>Jatuh Tempo</th><th>Status</th>
       </tr></thead>
-      <tbody id="rkTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
+      <tbody id="rkTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
     </table>
   </div>
   <div class="sec-label" style="margin-top:1.2rem">Rekap per Pelanggan</div>
@@ -385,6 +398,35 @@
   </div>
 </div>
 
+<!-- ═══ MODAL: PILIH BANK CR UNTUK ALOKASI DARI REKAP ═══ -->
+<div class="modal fade" id="modalPilihBankRk" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Pilih Transaksi Bank untuk Alokasi</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertPilihBankRk"></div>
+        <div style="font-family:var(--mono);font-size:.75rem;margin-bottom:.6rem" id="infoTotalRkTerpilih"></div>
+        <input type="text" class="form-control" id="inpCariPilihBankRk" placeholder="Cari keterangan bank / rekening…" autocomplete="off" oninput="filterPilihBankRk()" style="margin-bottom:.6rem"/>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Tanggal</th><th>Rekening</th><th>Keterangan Bank</th>
+              <th class="td-right">Nominal</th><th class="td-right">Sisa</th><th></th>
+            </tr></thead>
+            <tbody id="pbrTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ MODAL: ALOKASI TRANSFER KE NOTA ═══ -->
 <div class="modal fade" id="modalAlokasiTF" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -405,6 +447,7 @@
           <div id="acNotaATFDrop" style="position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none;max-height:220px;overflow-y:auto;min-width:260px"></div>
         </div>
         <div id="daftarNotaATFWrap" style="margin-top:.5rem"></div>
+        <div style="text-align:right;font-family:var(--mono);font-size:.75rem;font-weight:600;margin-top:.3rem" id="totalCentangATF"></div>
         <div class="sec-label">Nota Terpilih</div>
         <div id="notaTerpilihATFWrap"></div>
         <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalATFInfo">Total alokasi: Rp 0</div>
@@ -538,7 +581,7 @@ function gantiTab(tab){
 }
 
 function muatSemuaData(){
-  muatRekapCards(); muatRekap(); muatPenagihan(); muatFaktur();
+  muatRekapCards(); muatRekap(); muatPenagihan(); muatFaktur(); muatPelangganRkCache();
 }
 
 // ── REKAP ────────────────────────────────────────────────────
@@ -554,6 +597,9 @@ function muatRekapCards(){
     document.getElementById('rekapCards').innerHTML=html;
   });
 }
+var rkPelangganTerpilih=null; // {id_pelanggan,nama} — hasil pick exact dari dropdown
+var rkRowStore={}; // key unik baris -> data baris (utk alokasi)
+var rkChecked={}; // key unik baris -> true kalau dicentang
 function cardRekap(lbl,val,warn){
   return '<div class="rekap-card'+(warn?' warn':'')+'"><div class="lbl">'+esc(lbl)+'</div><div class="val">'+val+'</div></div>';
 }
@@ -572,8 +618,10 @@ function muatRekap(){
   var status=document.getElementById('rkStatus').value||null;
   var entitas=document.getElementById('rkEntitas').value||null;
   var tampilLunas=document.getElementById('rkTampilLunas').checked;
+  var idPelLock=rkPelangganTerpilih?rkPelangganTerpilih.id_pelanggan:null;
+  var namaPelLock=rkPelangganTerpilih?rkPelangganTerpilih.nama:null;
   var fn=tampilLunas?'get_rekap_piutang_semua':'get_rekap_piutang';
-  var params=tampilLunas?{p_id_pelanggan:null,p_status:status,p_entitas:entitas}:{p_jatuh_tempo_maks:jt,p_id_pelanggan:null,p_status:status,p_entitas:entitas};
+  var params=tampilLunas?{p_id_pelanggan:idPelLock,p_status:status,p_entitas:entitas}:{p_jatuh_tempo_maks:jt,p_id_pelanggan:idPelLock,p_status:status,p_entitas:entitas};
   document.getElementById('rkInfoBar').textContent='Memuat data…';
   // Fetch paralel: in_pengiriman + in_saldo_awal_piutang
   var pSJ = dbRpc(fn, params).then(function(r){return Array.isArray(r)?r:[];});
@@ -588,10 +636,12 @@ function muatRekap(){
     if(!tampilLunas) dataSA = dataSA.filter(function(r){return r.status_piutang!=='LUNAS'&&r.sisa_piutang>0;});
     if(status) dataSA = dataSA.filter(function(r){return r.status_piutang===status;});
     if(entitas) dataSA = dataSA.filter(function(r){return r.entitas===entitas;});
+    // Kunci ke 1 pelanggan (exact match nama teks, saldo awal tidak punya id_pelanggan)
+    if(namaPelLock) dataSA = dataSA.filter(function(r){return (r.nama_pelanggan||'').trim().toUpperCase()===namaPelLock.trim().toUpperCase();});
     // Normalisasi saldo awal ke format yang sama
     var saNorm = dataSA.map(function(r){
       return {
-        _sumber:'IMPORT',
+        _sumber:'IMPORT', _idRef:r.id_saldo, _sumberAlokasi:'SALDO_AWAL',
         no_sj: r.no_sj||'—',
         no_nota: r.no_nota,
         tgl: r.tgl,
@@ -605,28 +655,34 @@ function muatRekap(){
       };
     });
     // Tandai SJ dari pengiriman
-    var sjNorm = dataSJ.map(function(r){ r._sumber='BARU'; return r; });
+    var sjNorm = dataSJ.map(function(r){ r._sumber='BARU'; r._idRef=r.id_sj; r._sumberAlokasi='PENGIRIMAN'; return r; });
     // Gabung dan sort tgl ASC
     var gabung = sjNorm.concat(saNorm).sort(function(a,b){
       return new Date(a.tgl)-new Date(b.tgl);
     });
-    // Filter search
+    // Filter search no. SJ/Nota (teks bebas, pelanggan sudah terkunci lewat dropdown)
     var q=document.getElementById('rkCari').value.toLowerCase();
     if(q) gabung=gabung.filter(function(r){
-      return(r.nama_pelanggan+' '+r.no_sj+' '+r.no_nota).toLowerCase().indexOf(q)>=0;
+      return(r.no_sj+' '+r.no_nota).toLowerCase().indexOf(q)>=0;
     });
-    renderRekapTabel(gabung); muatRekapPerPelanggan();
+    rkChecked={};
+    renderRekapTabel(gabung); muatRekapPerPelanggan(); updateRkTotalDipilih();
   }).catch(function(e){document.getElementById('rkInfoBar').textContent='Error: '+(e&&e.message?e.message:JSON.stringify(e));});
 }
 function renderRekapTabel(data){
   document.getElementById('rkInfoBar').textContent=data.length+' SJ ditemukan.';
   var tb=document.getElementById('rkTbody');
-  if(!data.length){tb.innerHTML='<tr><td colspan="8" class="loading">Tidak ada data.</td></tr>';return;}
+  rkRowStore={};
+  if(!data.length){tb.innerHTML='<tr><td colspan="9" class="loading">Tidak ada data.</td></tr>';return;}
   tb.innerHTML=data.map(function(r){
+    var key=r._sumberAlokasi+'_'+r._idRef;
+    rkRowStore[key]=r;
+    var bisaAlokasi=r.status_piutang!=='LUNAS'&&(parseFloat(r.sisa_piutang)||0)>0;
     var badgeSumber=r._sumber==='IMPORT'?'<span class="badge-sumber-import">IMPORT</span> ':'';
     var noSJCell=badgeSumber+'<span class="td-mono">'+esc(r.no_sj)+'</span><br><span style="color:var(--muted);font-size:.68rem">'+esc(r.no_nota)+'</span>';
     var jatuhTempo=r.tgl_jatuh_tempo?badgeJatuhTempo(r.hari_terlambat,r.tgl_jatuh_tempo):'<span style="color:var(--muted)">—</span>';
     return '<tr>'+
+      '<td>'+(bisaAlokasi?'<input type="checkbox" class="chk-rk-row" data-key="'+esc(key)+'" onclick="toggleRkRow(\''+esc(key)+'\',this.checked)"/>':'')+'</td>'+
       '<td>'+noSJCell+'</td>'+
       '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+'<td>'+esc(r.nama_pelanggan)+'</td>'+
       '<td class="td-mono">'+esc(r.entitas)+'</td>'+
@@ -636,6 +692,23 @@ function renderRekapTabel(data){
       '<td>'+badgeStatusPiutang(r.status_piutang)+'</td>'+
     '</tr>';
   }).join('');
+}
+function toggleRkRow(key,checked){
+  if(checked) rkChecked[key]=true; else delete rkChecked[key];
+  updateRkTotalDipilih();
+}
+function toggleSemuaRk(chk){
+  document.querySelectorAll('.chk-rk-row').forEach(function(el){
+    el.checked=chk.checked;
+    if(chk.checked) rkChecked[el.dataset.key]=true; else delete rkChecked[el.dataset.key];
+  });
+  updateRkTotalDipilih();
+}
+function updateRkTotalDipilih(){
+  var keys=Object.keys(rkChecked);
+  var total=keys.reduce(function(s,k){var r=rkRowStore[k];return s+(r?(parseFloat(r.sisa_piutang)||0):0);},0);
+  document.getElementById('rkTotalDipilih').textContent='Total dipilih: '+fmtRupiah(total)+' ('+keys.length+' nota)';
+  document.getElementById('btnRkAlokasi').disabled=keys.length===0;
 }
 function muatRekapPerPelanggan(){
   dbRpc('get_piutang_per_pelanggan',{}).then(function(res){
@@ -647,6 +720,92 @@ function muatRekapPerPelanggan(){
       return '<tr><td>'+esc(nm)+'</td>'+'<td class="td-mono td-right">'+jml+'</td>'+'<td class="td-mono td-right">'+jt+'</td>'+'<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(ss)+'</td></tr>';
     }).join('');
   });
+}
+
+// ── Filter pelanggan terkunci (Rekap) ──
+function muatPelangganRkCache(){
+  if(pelangganTMCache.length){inisAcRkPelanggan();return;}
+  dbGet('m_pelanggan',{select:'id_pelanggan,nama',status:'eq.AKTIF',order:'nama.asc'}).then(function(res){
+    pelangganTMCache=Array.isArray(res)?res:[]; inisAcRkPelanggan();
+  });
+}
+function inisAcRkPelanggan(){
+  var inp=document.getElementById('rkCariPelanggan');
+  var drop=document.getElementById('rkDropPelanggan');
+  if(!inp||inp._acInited) return; inp._acInited=true;
+  buatAC(inp,drop,pelangganTMCache,'id_pelanggan','nama',function(p){
+    rkPelangganTerpilih=p;
+    inp.value=p.nama;
+    document.getElementById('btnRkResetPelanggan').style.display='';
+    muatRekap();
+  });
+}
+function onInputRkPelanggan(){
+  if(!document.getElementById('rkCariPelanggan').value.trim()){
+    resetRkPelanggan();
+  }
+}
+function resetRkPelanggan(){
+  rkPelangganTerpilih=null;
+  document.getElementById('rkCariPelanggan').value='';
+  document.getElementById('btnRkResetPelanggan').style.display='none';
+  muatRekap();
+}
+
+// ── Alokasi langsung dari Rekap ──
+var _pbrDataCache=[];
+function bukaPilihBankUntukRekap(){
+  var keys=Object.keys(rkChecked);
+  if(!keys.length){return;}
+  var total=keys.reduce(function(s,k){var r=rkRowStore[k];return s+(r?(parseFloat(r.sisa_piutang)||0):0);},0);
+  document.getElementById('alertPilihBankRk').innerHTML='';
+  document.getElementById('infoTotalRkTerpilih').textContent=keys.length+' nota dipilih dari Rekap — Total: '+fmtRupiah(total);
+  document.getElementById('inpCariPilihBankRk').value='';
+  document.getElementById('pbrTbody').innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+  new bootstrap.Modal(document.getElementById('modalPilihBankRk')).show();
+  dbRpc('get_bank_cr_piutang_belum_dialokasi',{p_id_rekening:null}).then(function(res){
+    _pbrDataCache=Array.isArray(res)?res:[];
+    renderPbrTabel(_pbrDataCache);
+  }).catch(function(){document.getElementById('pbrTbody').innerHTML='<tr><td colspan="6" class="loading">Gagal memuat.</td></tr>';});
+}
+function renderPbrTabel(data){
+  var tb=document.getElementById('pbrTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="6" class="loading">Tidak ada transaksi bank yang bisa dialokasi.</td></tr>';return;}
+  tb.innerHTML=data.map(function(r){
+    return '<tr><td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
+      '<td class="td-mono">'+esc(r.nama_rekening)+'</td>'+
+      '<td style="word-break:break-word;max-width:200px;white-space:normal">'+esc(r.keterangan_bank)+(r.keterangan_manual?'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.keterangan_manual)+'</span>':'')+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.nominal)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.sisa_nominal)+'</td>'+
+      '<td><button class="btn-sm-action btn-approve" onclick="pilihBankUntukAlokasiRk(\''+esc(r.id)+'\')">Pilih</button></td></tr>';
+  }).join('');
+}
+function filterPilihBankRk(){
+  var q=document.getElementById('inpCariPilihBankRk').value.trim().toLowerCase();
+  if(!q){renderPbrTabel(_pbrDataCache);return;}
+  renderPbrTabel(_pbrDataCache.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q)>=0 ||
+           (r.keterangan_manual||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_rekening||'').toLowerCase().indexOf(q)>=0;
+  }));
+}
+function pilihBankUntukAlokasiRk(idBank){
+  // Prefill notaTerpilihATF dari baris yang dicentang di Rekap, lalu buka modal Alokasi Transfer yang sudah ada
+  var r=(_pbrDataCache||[]).find(function(x){return String(x.id)===String(idBank);})||{};
+  idBankATFAktif=idBank;
+  tfRowStore[idBank]=r;
+  notaTerpilihATF=Object.keys(rkChecked).map(function(k){
+    var row=rkRowStore[k];
+    return {sumber:row._sumberAlokasi,id_ref:row._idRef,no_nota:row.no_nota,nama_pelanggan:row.nama_pelanggan,sisa:parseFloat(row.sisa_piutang)||0,nominal:parseFloat(row.sisa_piutang)||0};
+  });
+  bootstrap.Modal.getInstance(document.getElementById('modalPilihBankRk')).hide();
+  document.getElementById('alertAlokasiTF').innerHTML='';
+  document.getElementById('infoBarATF').textContent=fmtTgl(r.tgl_transaksi)+' — '+esc(r.keterangan_bank||'')+'  |  Sisa: '+fmtRupiah(r.sisa_nominal||0);
+  document.getElementById('inpCariNotaATF').value='';
+  document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama pelanggan untuk menambah nota lain (opsional).</div>';
+  renderNotaTerpilihATF();
+  setTimeout(function(){new bootstrap.Modal(document.getElementById('modalAlokasiTF')).show();},250);
+  muatPelangganATFCache();
 }
 
 // ── PENAGIHAN ────────────────────────────────────────────────
@@ -1119,6 +1278,7 @@ function bukaAlokasiTF(idBank){
   document.getElementById('infoBarATF').textContent=fmtTgl(r.tgl_transaksi)+' — '+esc(r.keterangan_bank||'')+'  |  Sisa: '+fmtRupiah(r.sisa_nominal||0);
   document.getElementById('inpCariNotaATF').value='';
   document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama pelanggan untuk melihat nota.</div>';
+  var elTotalC=document.getElementById('totalCentangATF'); if(elTotalC) elTotalC.textContent='';
   notaTerpilihATF=[]; renderNotaTerpilihATF();
   new bootstrap.Modal(document.getElementById('modalAlokasiTF')).show();
   muatPelangganATFCache();
@@ -1164,12 +1324,19 @@ function muatNotaPelangganATF(idPel,namaPel){
       var sudah=notaTerpilihATF.some(function(a){return a.id_ref===r.id_ref;});
       return '<label class="sj-pick-row" style="'+(sudah?'opacity:.45':'')+'">'+
         '<input type="checkbox" class="chk-nota-atf" value="'+esc(r.id_ref)+'" '+(sudah?'disabled':'')+
-          ' data-sumber="'+esc(r.sumber)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-sisa="'+r.sisa_piutang+'"/>'+
+          ' data-sumber="'+esc(r.sumber)+'" data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_pelanggan)+'" data-sisa="'+r.sisa_piutang+'" onchange="updateTotalCentangATF()"/>'+
         '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">'+esc(r.nama_pelanggan)+' · '+fmtTgl(r.tgl)+'</div></div>'+
         '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_piutang)+'</div></label>';
     }).join('')+'</div>'+
     '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahNotaTerpilihATF()">+ Tambahkan</button>';
+    updateTotalCentangATF();
   });
+}
+function updateTotalCentangATF(){
+  var el=document.getElementById('totalCentangATF'); if(!el) return;
+  var checked=document.querySelectorAll('.chk-nota-atf:checked');
+  var total=0; checked.forEach(function(c){total+=parseFloat(c.dataset.sisa)||0;});
+  el.textContent=checked.length?('Dipilih: '+checked.length+' nota — Total: '+fmtRupiah(total)):'';
 }
 function tambahNotaTerpilihATF(){
   var checked=document.querySelectorAll('.chk-nota-atf:checked');
@@ -1182,6 +1349,7 @@ function tambahNotaTerpilihATF(){
     });
   });
   document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Cari lagi untuk tambah nota lain.</div>';
+  document.getElementById('totalCentangATF').textContent='';
   renderNotaTerpilihATF();
 }
 function renderNotaTerpilihATF(){
