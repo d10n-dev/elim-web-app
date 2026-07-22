@@ -5,14 +5,62 @@
 const SUPA_URL  = 'https://sodwffpzgwocujsqrncd.supabase.co';
 const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZHdmZnB6Z3dvY3Vqc3FybmNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NDkwNjAsImV4cCI6MjA5NzEyNTA2MH0.hMUyH2Td64AMstyh0j3HQGOMaIqRk8h2V_tfj6QiBK4';
 
-// Ambil access token dari session Supabase
-function getSupaToken() {
+// Ambil sesi utuh dari localStorage
+function getSupaSesi() {
   try {
     const raw = localStorage.getItem('sieo_sesi');
     if (!raw) return null;
-    const sesi = JSON.parse(raw);
-    return sesi.access_token || null;
+    return JSON.parse(raw);
   } catch(e) { return null; }
+}
+
+// Ambil access token dari session Supabase
+function getSupaToken() {
+  const sesi = getSupaSesi();
+  return sesi ? (sesi.access_token || null) : null;
+}
+
+// ============================================================
+// AUTO-REFRESH TOKEN — dipanggil sebelum tiap request
+// Refresh proaktif kalau token akan expire dalam < 5 menit
+// ============================================================
+let _refreshPromise = null; // cegah refresh dobel kalau ada request paralel
+
+function pastikanTokenValid() {
+  const sesi = getSupaSesi();
+  if (!sesi || !sesi.refresh_token) return Promise.resolve(); // belum login, biarkan lewat
+
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = sesi.expires_at || 0;
+  const akanExpireSoon = (expiresAt - now) < 300; // < 5 menit lagi
+
+  if (!akanExpireSoon) return Promise.resolve();
+
+  if (_refreshPromise) return _refreshPromise; // sudah ada proses refresh jalan
+
+  _refreshPromise = fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+    body: JSON.stringify({ refresh_token: sesi.refresh_token })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.access_token) {
+        sesi.access_token  = data.access_token;
+        sesi.refresh_token = data.refresh_token || sesi.refresh_token;
+        sesi.expires_at    = data.expires_at || (Math.floor(Date.now()/1000) + (data.expires_in || 3600));
+        localStorage.setItem('sieo_sesi', JSON.stringify(sesi));
+      } else {
+        // refresh_token juga sudah invalid -> paksa login ulang
+        localStorage.removeItem('sieo_sesi');
+        localStorage.removeItem('sieo_idtoken');
+        window.location.href = '/login.html';
+      }
+    })
+    .catch(() => { /* diamkan, biarkan request asli yang gagal & fallback 401 handle */ })
+    .finally(() => { _refreshPromise = null; });
+
+  return _refreshPromise;
 }
 
 // Header standar untuk semua request
@@ -27,6 +75,35 @@ function _headers(extra = {}) {
   };
 }
 
+// Wrapper fetch: pastikan token valid dulu, retry sekali kalau tetap 401/JWT expired
+function dbFetch(url, options = {}) {
+  return pastikanTokenValid().then(() => {
+    const opts = Object.assign({}, options, { headers: _headers(options.headers || {}) });
+    return fetch(url, opts).then(r => r.json()).then(data => {
+      const expired = data && (data.message === 'JWT expired' || data.code === 'PGRST301');
+      if (expired) {
+        // fallback terakhir: paksa refresh lalu retry sekali
+        return pastikanTokenValidPaksa().then(() => {
+          const opts2 = Object.assign({}, options, { headers: _headers(options.headers || {}) });
+          return fetch(url, opts2).then(r2 => r2.json());
+        });
+      }
+      return data;
+    });
+  });
+}
+
+function pastikanTokenValidPaksa() {
+  const sesi = getSupaSesi();
+  if (!sesi || !sesi.refresh_token) {
+    window.location.href = '/login.html';
+    return Promise.resolve();
+  }
+  sesi.expires_at = 0; // paksa dianggap expired
+  localStorage.setItem('sieo_sesi', JSON.stringify(sesi));
+  return pastikanTokenValid();
+}
+
 // ============================================================
 // REST HELPERS
 // ============================================================
@@ -36,47 +113,41 @@ function _headers(extra = {}) {
 function dbGet(table, params = {}) {
   const q = new URLSearchParams(params).toString();
   const url = `${SUPA_URL}/rest/v1/${table}${q ? '?' + q : ''}`;
-  return fetch(url, { headers: _headers() }).then(r => r.json());
+  return dbFetch(url, { method: 'GET' });
 }
 
 // POST — insert satu row
 function dbInsert(table, data) {
-  const h = Object.assign({}, _headers(), { 'Prefer': 'return=representation' });
-  return fetch(`${SUPA_URL}/rest/v1/${table}`, {
+  return dbFetch(`${SUPA_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: h,
+    headers: { 'Prefer': 'return=representation' },
     body: JSON.stringify(data)
-  }).then(r => r.json());
+  });
 }
 
 // PATCH — update row berdasarkan filter
 // contoh: dbUpdate('m_pelanggan', { status: 'eq.NONAKTIF' }, { status: 'AKTIF' })
 function dbUpdate(table, filter, data) {
   const q = new URLSearchParams(filter).toString();
-  return fetch(`${SUPA_URL}/rest/v1/${table}?${q}`, {
+  return dbFetch(`${SUPA_URL}/rest/v1/${table}?${q}`, {
     method: 'PATCH',
-    headers: _headers(),
     body: JSON.stringify(data)
-  }).then(r => r.json());
+  });
 }
 
 // DELETE
 function dbDelete(table, filter) {
   const q = new URLSearchParams(filter).toString();
-  return fetch(`${SUPA_URL}/rest/v1/${table}?${q}`, {
-    method: 'DELETE',
-    headers: _headers()
-  }).then(r => r.json());
+  return dbFetch(`${SUPA_URL}/rest/v1/${table}?${q}`, { method: 'DELETE' });
 }
 
 // RPC — panggil PostgreSQL function
 // contoh: dbRpc('get_saldo_stok', { p_id_item: 'ITM001' })
 function dbRpc(fnName, params = {}) {
-  return fetch(`${SUPA_URL}/rest/v1/rpc/${fnName}`, {
+  return dbFetch(`${SUPA_URL}/rest/v1/rpc/${fnName}`, {
     method: 'POST',
-    headers: _headers(),
     body: JSON.stringify(params)
-  }).then(r => r.json());
+  });
 }
 
 // ============================================================
