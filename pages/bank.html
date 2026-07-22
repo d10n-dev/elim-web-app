@@ -717,8 +717,8 @@ function buatAC(inputEl,dropEl,dataArr,idKey,namaKey,onSelect){
       dropEl.appendChild(div);
     });
     var rect=inputEl.getBoundingClientRect();
-    dropEl.style.top=(rect.bottom+window.scrollY)+'px';
-    dropEl.style.left=(rect.left+window.scrollX)+'px';
+    dropEl.style.top=rect.bottom+'px';
+    dropEl.style.left=rect.left+'px';
     dropEl.style.minWidth=rect.width+'px';
     dropEl.style.display='block';
   });
