@@ -1326,6 +1326,7 @@ function inisAcSupplierAH() {
   var drop = document.getElementById('ahAcDrop');
   if (inp._acInited) return;
   inp._acInited = true;
+  if (drop.parentNode !== document.body) document.body.appendChild(drop); // agar tidak terpotong/salah posisi di dalam modal-body
   buatAC(inp, drop, cacheSupplierBank, 'id_supplier', 'nama', function(s){
     muatNotaSupplierAH(s.id_supplier, s.nama);
   });
