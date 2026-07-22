@@ -242,16 +242,36 @@
           <div style="margin-top:.75rem;text-align:right"><button class="btn-simpan" id="btnSimpanPotong" onclick="simpanLog('POTONG')">+ Simpan Log Potong</button></div>
         </div>
         <div class="log-panel" id="panelFINISHING">
-          <div class="form-row form-row-2">
-            <div><label class="form-label">Tanggal</label><input type="date" class="form-control" id="logFinishingTgl"/></div>
-            <div><label class="form-label">Qty</label><input type="number" class="form-control" id="logFinishingQty" placeholder="maks = oplah" min="1" oninput="validasiQtyLog('logFinishingQty')"/></div>
+          <div id="finishingKosongWrap" style="display:none">
+            <div class="alert-box alert-ok">Tidak ada proses finishing yang disyaratkan untuk item pada SPK ini (sesuai BOM).</div>
+            <div style="text-align:right"><button class="btn-simpan" onclick="lewatiFinishingKosong()">Lewati & Lanjut ke Packing</button></div>
           </div>
-          <div class="form-row form-row-2">
-            <div><label class="form-label">Mesin / Vendor</label><input type="text" class="form-control" id="logFinishingMesin" placeholder="cth: HAMADA / Vendor X"/></div>
-            <div><label class="form-label">Operator / PIC</label><input type="text" class="form-control" id="logFinishingOperator" placeholder="Nama"/></div>
+          <div id="finishingLegacyWrap" style="display:none">
+            <div class="alert-box alert-warn" style="margin-bottom:.6rem">SPK ini sudah punya catatan finishing dari sebelum update sistem — pakai mode lama.</div>
+            <div class="form-row form-row-2">
+              <div><label class="form-label">Tanggal</label><input type="date" class="form-control" id="logFinishingTgl"/></div>
+              <div><label class="form-label">Qty</label><input type="number" class="form-control" id="logFinishingQty" placeholder="maks = oplah" min="1" oninput="validasiQtyLog('logFinishingQty')"/></div>
+            </div>
+            <div class="form-row form-row-2">
+              <div><label class="form-label">Mesin / Vendor</label><input type="text" class="form-control" id="logFinishingMesin" placeholder="cth: HAMADA / Vendor X"/></div>
+              <div><label class="form-label">Operator / PIC</label><input type="text" class="form-control" id="logFinishingOperator" placeholder="Nama"/></div>
+            </div>
+            <div><label class="form-label">Keterangan</label><input type="text" class="form-control" id="logFinishingKet" placeholder="Opsional"/></div>
+            <div style="margin-top:.75rem;text-align:right"><button class="btn-simpan" id="btnSimpanFinishing" onclick="simpanLog('FINISHING')">+ Simpan Log Finishing</button></div>
           </div>
-          <div><label class="form-label">Keterangan</label><input type="text" class="form-control" id="logFinishingKet" placeholder="Opsional"/></div>
-          <div style="margin-top:.75rem;text-align:right"><button class="btn-simpan" id="btnSimpanFinishing" onclick="simpanLog('FINISHING')">+ Simpan Log Finishing</button></div>
+          <div id="finishingBaruWrap">
+            <div class="form-row form-row-2">
+              <div><label class="form-label">Tanggal</label><input type="date" class="form-control" id="logFinishingTglBaru"/></div>
+              <div><label class="form-label">Operator / PIC</label><input type="text" class="form-control" id="logFinishingOperatorBaru" placeholder="Nama"/></div>
+            </div>
+            <div class="form-row form-row-2">
+              <div><label class="form-label">Mesin / Vendor</label><input type="text" class="form-control" id="logFinishingMesinBaru" placeholder="cth: HAMADA / Vendor X"/></div>
+              <div><label class="form-label">Keterangan</label><input type="text" class="form-control" id="logFinishingKetBaru" placeholder="Opsional"/></div>
+            </div>
+            <div class="section-divider">Proses Finishing per Item (sesuai BOM)</div>
+            <div id="finishingItemList"><div class="sdet-empty">Memuat…</div></div>
+            <div style="margin-top:.75rem;text-align:right"><button class="btn-simpan" id="btnSimpanFinishingBaru" onclick="simpanLogFinishingBaru()">+ Simpan Log Finishing</button></div>
+          </div>
         </div>
         <div class="log-panel" id="panelPACKING">
           <div class="form-row form-row-2">
@@ -398,6 +418,7 @@ var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bo
 var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
 // Accordion + edit mode
 var rowStore={}, sdetBySpk={}, pelangganByOrder={}, openSpkId=null, editModeSpk=null;
+var bomFinishingAktif={}, finishingProgress={}, finishingLegacyAktif=false, bomFinishingNameMap={}, finishingReqKosong=false;
 
 function cekErrorSupabase(res){
   if(!res){throw new Error('Tidak ada respon dari server.');}
@@ -1024,15 +1045,133 @@ function bukaProgress(idSpk){
   gantiTabLog('CETAK',document.querySelector('#modalProgress .log-tab'));
   resetFormLog();
   // Pasang AC operator ke semua field operator
-  ['logCetakOperator','logPotongOperator','logFinishingOperator','logPackingOperator'].forEach(function(id){
+  ['logCetakOperator','logPotongOperator','logFinishingOperator','logFinishingOperatorBaru','logPackingOperator'].forEach(function(id){
     buatAcOperator(document.getElementById(id));
   });
   dbGet('in_spk_detail',{id_spk:'eq.'+idSpk}).then(function(res){
     sdetAktif=Array.isArray(res)?res:[];
     renderPackingItemList();
+    muatFinishingRequirement(idSpk);
   });
   muatRiwayatLog(idSpk);
   new bootstrap.Modal(document.getElementById('modalProgress')).show();
+}
+
+// ── FINISHING GRANULAR (per item x jenis_finishing dari BOM) ──
+function muatFinishingRequirement(idSpk){
+  var idItemUnik=[];
+  sdetAktif.forEach(function(r){ if(r.id_item && idItemUnik.indexOf(r.id_item)===-1) idItemUnik.push(r.id_item); });
+  if(!idItemUnik.length){
+    bomFinishingAktif={}; finishingProgress={}; finishingLegacyAktif=false; finishingReqKosong=true;
+    renderFinishingItemList(); return;
+  }
+  var filterIn='in.('+idItemUnik.join(',')+')';
+  Promise.all([
+    dbGet('m_bom_finishing',{id_item:filterIn,order:'urut.asc'}),
+    dbGet('log_produksi',{id_spk:'eq.'+idSpk,jenis:'eq.FINISHING'})
+  ]).then(function(r){
+    var bomFin=Array.isArray(r[0])?r[0]:[];
+    var logsFin=Array.isArray(r[1])?r[1]:[];
+    // Susun kebutuhan per id_item
+    bomFinishingAktif={};
+    bomFin.forEach(function(f){
+      if(!bomFinishingAktif[f.id_item]) bomFinishingAktif[f.id_item]=[];
+      bomFinishingAktif[f.id_item].push(f);
+      bomFinishingNameMap[f.id]=f.jenis_finishing;
+    });
+    // Legacy: ada log FINISHING lama (id_bom_finishing kosong) → SPK ini digrandfather, tidak pakai gate baru
+    finishingLegacyAktif=logsFin.some(function(l){ return !l.id_bom_finishing; });
+    // Progress granular: sum qty per id_spk_detail + id_bom_finishing
+    finishingProgress={};
+    logsFin.forEach(function(l){
+      if(!l.id_bom_finishing) return;
+      var key=l.id_spk_detail+'_'+l.id_bom_finishing;
+      finishingProgress[key]=(finishingProgress[key]||0)+(parseInt(l.qty,10)||0);
+    });
+    // Cek apakah ada kebutuhan finishing sama sekali untuk item2 di SPK ini
+    finishingReqKosong=!sdetAktif.some(function(r){ return (bomFinishingAktif[r.id_item]||[]).length>0; });
+    renderFinishingItemList();
+  }).catch(function(){
+    bomFinishingAktif={}; finishingProgress={}; finishingLegacyAktif=false; finishingReqKosong=false;
+    renderFinishingItemList();
+  });
+}
+
+function finishingLunas(){
+  if(finishingLegacyAktif||finishingReqKosong) return true;
+  return sdetAktif.every(function(r){
+    var reqs=bomFinishingAktif[r.id_item]||[];
+    var target=parseInt(r.qty_spk,10)||0;
+    return reqs.every(function(f){
+      var terpakai=finishingProgress[r.id_sdet+'_'+f.id]||0;
+      return terpakai>=target;
+    });
+  });
+}
+
+function renderFinishingItemList(){
+  var wrapLegacy=document.getElementById('finishingLegacyWrap');
+  var wrapBaruLuar=document.getElementById('finishingBaruWrap');
+  var wrapBaru=document.getElementById('finishingItemList');
+  var wrapKosong=document.getElementById('finishingKosongWrap');
+  if(!wrapBaru) return;
+  if(finishingLegacyAktif){
+    wrapLegacy.style.display='';
+    wrapBaruLuar.style.display='none';
+    wrapBaru.innerHTML='';
+    if(wrapKosong) wrapKosong.style.display='none';
+    return;
+  }
+  wrapLegacy.style.display='none';
+  if(finishingReqKosong){
+    wrapBaruLuar.style.display='none';
+    wrapBaru.innerHTML='';
+    if(wrapKosong) wrapKosong.style.display='';
+    return;
+  }
+  if(wrapKosong) wrapKosong.style.display='none';
+  wrapBaruLuar.style.display='';
+  var html='';
+  sdetAktif.forEach(function(r){
+    var reqs=bomFinishingAktif[r.id_item]||[];
+    if(!reqs.length) return;
+    var target=parseInt(r.qty_spk,10)||0;
+    html+='<div class="section-divider" style="margin-top:.6rem">'+esc(r.nama_item)+(r.subitem?' — '+esc(r.subitem):'')+'</div>';
+    reqs.forEach(function(f){
+      var terpakai=finishingProgress[r.id_sdet+'_'+f.id]||0;
+      var sisa=target-terpakai;
+      var lunas=sisa<=0;
+      var pct=target>0?Math.min(Math.round((terpakai/target)*100),100):0;
+      html+='<div class="packing-row" style="'+(lunas?'opacity:0.5':'')+'">'+
+        '<div class="packing-row-info">'+
+          '<div class="packing-row-label">'+esc(f.jenis_finishing)+'</div>'+
+          '<div class="packing-row-target">Target: '+fmtAngka(target)+' '+esc(r.satuan||'')+
+            ' | Terpakai: <strong>'+fmtAngka(terpakai)+'</strong>'+
+            (lunas?' <span style="color:var(--green)">✓ Lunas</span>':' Sisa: <strong style="color:var(--red)">'+fmtAngka(sisa)+'</strong>')+
+          '</div>'+
+          '<div class="progress-bar-mini"><div class="progress-bar-fill'+(pct>=100?' full':'')+'" style="width:'+pct+'%"></div></div>'+
+        '</div>'+
+        (lunas
+          ?'<div style="font-family:var(--mono);font-size:.7rem;color:var(--green);padding:.3rem .5rem">✓</div>'
+          :'<input type="number" class="packing-qty-input" id="finQty_'+esc(r.id_sdet)+'_'+esc(f.id)+'" '+
+             'data-sdet="'+esc(r.id_sdet)+'" data-bomfin="'+esc(f.id)+'" data-target="'+sisa+'" '+
+             'placeholder="maks '+fmtAngka(sisa)+'" min="0" max="'+sisa+'">')+
+      '</div>';
+    });
+  });
+  wrapBaru.innerHTML=html||'<div class="sdet-empty">Tidak ada proses finishing untuk item pada SPK ini.</div>';
+}
+
+async function lewatiFinishingKosong(){
+  var spk=semuaSPK.find(function(s){return s.id_spk===idSpkAktif;});
+  var curStatus=spk?spk.status:'OPEN';
+  if(_statusLebihTinggi('PACKING',curStatus)){
+    await dbUpdate('in_spk',{id_spk:'eq.'+idSpkAktif},{status:'PACKING'});
+    var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpkAktif;});
+    if(si>=0) semuaSPK[si].status='PACKING';
+    renderTabel();
+  }
+  document.getElementById('alertProgress').innerHTML='<div class="alert-box alert-ok">✓ Tidak ada proses finishing diperlukan. Lanjut ke Packing.</div>';
 }
 
 function gantiTabLog(jenis,elBtn){
@@ -1046,10 +1185,11 @@ function gantiTabLog(jenis,elBtn){
 
 function resetFormLog(){
   var hari=new Date().toISOString().split('T')[0];
-  ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=hari;});
+  ['logCetakTgl','logPotongTgl','logFinishingTgl','logFinishingTglBaru','logPackingTgl'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=hari;});
   ['logCetakQty','logCetakInsheet','logCetakMesin','logCetakOperator','logCetakKet',
    'logPotongQty','logPotongOperator','logPotongKet',
    'logFinishingQty','logFinishingMesin','logFinishingOperator','logFinishingKet',
+   'logFinishingMesinBaru','logFinishingOperatorBaru','logFinishingKetBaru',
    'logPackingOperator','logPackingKet'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
 }
 
@@ -1234,6 +1374,71 @@ async function simpanLog(jenis){
   }
 }
 
+async function simpanLogFinishingBaru(){
+  var alertEl=document.getElementById('alertProgress'); alertEl.innerHTML='';
+  var tgl=document.getElementById('logFinishingTglBaru').value;
+  var operator=(document.getElementById('logFinishingOperatorBaru').value||'').trim();
+  var mesin=(document.getElementById('logFinishingMesinBaru').value||'').trim();
+  var ket=(document.getElementById('logFinishingKetBaru').value||'').trim();
+  if(!operator){alertEl.innerHTML='<div class="alert-box alert-err">Operator wajib diisi.</div>';return;}
+  var rows=[];
+  sdetAktif.forEach(function(r){
+    var reqs=bomFinishingAktif[r.id_item]||[];
+    reqs.forEach(function(f){
+      var inp=document.getElementById('finQty_'+r.id_sdet+'_'+f.id);
+      if(!inp) return;
+      var qty=parseInt(inp.value,10)||0;
+      if(qty>0) rows.push({sdet:r,bomfin:f,qty:qty});
+    });
+  });
+  if(!rows.length){alertEl.innerHTML='<div class="alert-box alert-err">Minimal 1 proses finishing harus diisi qty-nya.</div>';return;}
+  var btn=document.getElementById('btnSimpanFinishingBaru');
+  btn.disabled=true; btn.textContent='Menyimpan…';
+  try{
+    var nowIso=new Date().toISOString();
+    var logRows=rows.map(function(it){
+      return {id_log:genIdLogProd(),id_spk:idSpkAktif,tgl_produksi:tgl,tgl_input:nowIso,jenis:'FINISHING',
+        id_spk_detail:it.sdet.id_sdet,id_order_detail:it.sdet.id_detail,id_bom_finishing:it.bomfin.id,
+        qty:it.qty,satuan:it.sdet.satuan||'',mesin_vendor:mesin,operator:operator,keterangan:ket,user_input:getNamaUser()};
+    });
+    var res=await dbInsert('log_produksi',logRows);
+    if(res&&res.code) throw new Error(res.message);
+    // Refresh progress dari DB lalu evaluasi status
+    await muatFinishingRequirementSync(idSpkAktif);
+    var spk=semuaSPK.find(function(s){return s.id_spk===idSpkAktif;});
+    var curStatus=spk?spk.status:'OPEN';
+    var lunas=finishingLunas();
+    var statusBaru=lunas?'PACKING':'FINISHING';
+    if(_statusLebihTinggi(statusBaru,curStatus)){
+      await dbUpdate('in_spk',{id_spk:'eq.'+idSpkAktif},{status:statusBaru});
+      var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpkAktif;});
+      if(si>=0) semuaSPK[si].status=statusBaru;
+      renderTabel();
+    }
+    alertEl.innerHTML='<div class="alert-box alert-ok">Log Finishing berhasil disimpan.'+(lunas?' ✓ Semua proses finishing lunas — Packing terbuka.':' Masih ada proses finishing yang belum lunas.')+'</div>';
+    document.getElementById('logFinishingKetBaru').value='';
+    renderFinishingItemList();
+    muatRiwayatLog(idSpkAktif);
+  }catch(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error')+'</div>';
+  }finally{
+    btn.disabled=false; btn.textContent='+ Simpan Log Finishing';
+  }
+}
+
+function muatFinishingRequirementSync(idSpk){
+  return dbGet('log_produksi',{id_spk:'eq.'+idSpk,jenis:'eq.FINISHING'}).then(function(res){
+    var logsFin=Array.isArray(res)?res:[];
+    finishingLegacyAktif=logsFin.some(function(l){ return !l.id_bom_finishing; });
+    finishingProgress={};
+    logsFin.forEach(function(l){
+      if(!l.id_bom_finishing) return;
+      var key=l.id_spk_detail+'_'+l.id_bom_finishing;
+      finishingProgress[key]=(finishingProgress[key]||0)+(parseInt(l.qty,10)||0);
+    });
+  });
+}
+
 var STATUS_URUTAN=['OPEN','CETAK','POTONG','FINISHING','PACKING','SIAP_CLOSE','MENUNGGU_APPROVE','SELESAI'];
 function _statusLebihTinggi(a,b){return STATUS_URUTAN.indexOf(a)>STATUS_URUTAN.indexOf(b);}
 
@@ -1248,6 +1453,7 @@ function muatRiwayatLog(idSpk){
       return '<div class="log-entry">'+
         '<div class="log-entry-hdr">'+
           '<div><span class="badge-status bs-'+((l.jenis||'').toLowerCase())+'" style="font-size:.6rem">'+esc(l.jenis)+'</span>'+
+          (l.id_bom_finishing&&bomFinishingNameMap[l.id_bom_finishing]?' <span style="font-size:.68rem;font-weight:500">'+esc(bomFinishingNameMap[l.id_bom_finishing])+'</span>':'')+
           (l.id_order_detail?' <span style="font-family:var(--mono);font-size:.63rem;color:var(--muted)">'+esc(l.id_order_detail)+'</span>':'')+'</div>'+
           '<div class="log-entry-tgl">'+fmtTgl(l.tgl_produksi)+'</div>'+
         '</div>'+
