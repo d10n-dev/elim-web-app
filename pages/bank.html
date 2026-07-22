@@ -240,15 +240,17 @@
         <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
         <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
       </select>
+      <button class="btn-sm-action" id="adBtnExport" onclick="exportAlokDirCsv()" disabled style="margin-left:auto">⬇ Export CSV (0)</button>
     </div>
     <div class="info-bar" id="adInfo">Memuat…</div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
+          <th style="width:32px"><input type="checkbox" id="adCbAll" onclick="toggleAdCbAll(this)"/></th>
           <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
           <th class="td-right">Masuk</th><th class="td-right">Keluar</th><th></th>
         </tr></thead>
-        <tbody id="adTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+        <tbody id="adTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1058,7 +1060,9 @@ function muatAlokDirFilter() {
   var adHtml = '';
   rows.forEach(function(r) {
     rowStore[r.id] = r;
+    var cbChecked = adCbSelected[r.id] ? 'checked' : '';
     adHtml += '<tr data-rid="' + r.id + '">' +
+      '<td style="text-align:center"><input type="checkbox" class="ad-cb" data-id="' + r.id + '" ' + cbChecked + ' onclick="toggleAdCbRow(this)"/></td>' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
       '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
@@ -1068,9 +1072,71 @@ function muatAlokDirFilter() {
       '<td><button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button></td>' +
       '</tr>';
   });
-  if (!adHtml) adHtml = '<tr><td colspan="7" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
+  if (!adHtml) adHtml = '<tr><td colspan="8" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
   document.getElementById('adTbody').innerHTML = adHtml;
   document.getElementById('adInfo').textContent = rows.length + ' transaksi' + (q ? ' (filter: ' + q + ')' : ' menunggu alokasi');
+  document.getElementById('adCbAll').checked = false;
+  updateAdExportBtn();
+}
+
+// ── SELEKSI CHECKBOX + EXPORT CSV ───────────────────────────
+var adCbSelected = {}; // {id: true}
+
+function toggleAdCbAll(el) {
+  document.querySelectorAll('#adTbody .ad-cb').forEach(function(cb){
+    cb.checked = el.checked;
+    if (el.checked) adCbSelected[cb.dataset.id] = true; else delete adCbSelected[cb.dataset.id];
+  });
+  updateAdExportBtn();
+}
+
+function toggleAdCbRow(el) {
+  if (el.checked) adCbSelected[el.dataset.id] = true; else delete adCbSelected[el.dataset.id];
+  updateAdExportBtn();
+}
+
+function updateAdExportBtn() {
+  var n = Object.keys(adCbSelected).length;
+  var btn = document.getElementById('adBtnExport');
+  btn.textContent = '⬇ Export CSV (' + n + ')';
+  btn.disabled = n === 0;
+}
+
+function exportAlokDirCsv() {
+  var ids = Object.keys(adCbSelected);
+  if (!ids.length) return;
+  var rows = ids.map(function(id){ return rowStore[id]; }).filter(Boolean);
+  var header = ['Tanggal','Rekening','Keterangan Bank','Kategori','Jenis','Nominal','Keterangan Manual'];
+  var csvLines = [header.join(',')];
+  rows.forEach(function(r){
+    var line = [
+      fmtTgl(r.tgl_transaksi),
+      r.id_rekening,
+      r.keterangan_bank,
+      r.kategori,
+      r.jenis,
+      r.nominal,
+      r.keterangan_manual || ''
+    ].map(csvEsc).join(',');
+    csvLines.push(line);
+  });
+  var csvContent = '\uFEFF' + csvLines.join('\r\n'); // BOM agar Excel baca UTF-8 dengan benar
+  var blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var tgl = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'bank_belum_dialokasi_' + tgl + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvEsc(val) {
+  var s = (val === null || val === undefined) ? '' : String(val);
+  if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+  return s;
 }
 async function muatAlokDir() {
   var rek = document.getElementById('adRekening').value;
