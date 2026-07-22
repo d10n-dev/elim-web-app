@@ -260,17 +260,9 @@
             <div style="margin-top:.75rem;text-align:right"><button class="btn-simpan" id="btnSimpanFinishing" onclick="simpanLog('FINISHING')">+ Simpan Log Finishing</button></div>
           </div>
           <div id="finishingBaruWrap">
-            <div class="form-row form-row-2">
-              <div><label class="form-label">Tanggal</label><input type="date" class="form-control" id="logFinishingTglBaru"/></div>
-              <div><label class="form-label">Operator / PIC</label><input type="text" class="form-control" id="logFinishingOperatorBaru" placeholder="Nama"/></div>
-            </div>
-            <div class="form-row form-row-2">
-              <div><label class="form-label">Mesin / Vendor</label><input type="text" class="form-control" id="logFinishingMesinBaru" placeholder="cth: HAMADA / Vendor X"/></div>
-              <div><label class="form-label">Keterangan</label><input type="text" class="form-control" id="logFinishingKetBaru" placeholder="Opsional"/></div>
-            </div>
+            <datalist id="dlMesinVendor"></datalist>
             <div class="section-divider">Proses Finishing per Item (sesuai BOM)</div>
             <div id="finishingItemList"><div class="sdet-empty">Memuat…</div></div>
-            <div style="margin-top:.75rem;text-align:right"><button class="btn-simpan" id="btnSimpanFinishingBaru" onclick="simpanLogFinishingBaru()">+ Simpan Log Finishing</button></div>
           </div>
         </div>
         <div class="log-panel" id="panelPACKING">
@@ -418,7 +410,7 @@ var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bo
 var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
 // Accordion + edit mode
 var rowStore={}, sdetBySpk={}, pelangganByOrder={}, openSpkId=null, editModeSpk=null;
-var bomFinishingAktif={}, finishingProgress={}, finishingLegacyAktif=false, bomFinishingNameMap={}, finishingReqKosong=false;
+var bomFinishingAktif={}, finishingProgress={}, finishingLogsByRow={}, finishingLegacyAktif=false, bomFinishingNameMap={}, finishingReqKosong=false;
 
 function cekErrorSupabase(res){
   if(!res){throw new Error('Tidak ada respon dari server.');}
@@ -1045,7 +1037,7 @@ function bukaProgress(idSpk){
   gantiTabLog('CETAK',document.querySelector('#modalProgress .log-tab'));
   resetFormLog();
   // Pasang AC operator ke semua field operator
-  ['logCetakOperator','logPotongOperator','logFinishingOperator','logFinishingOperatorBaru','logPackingOperator'].forEach(function(id){
+  ['logCetakOperator','logPotongOperator','logFinishingOperator','logPackingOperator'].forEach(function(id){
     buatAcOperator(document.getElementById(id));
   });
   dbGet('in_spk_detail',{id_spk:'eq.'+idSpk}).then(function(res){
@@ -1062,39 +1054,52 @@ function muatFinishingRequirement(idSpk){
   var idItemUnik=[];
   sdetAktif.forEach(function(r){ if(r.id_item && idItemUnik.indexOf(r.id_item)===-1) idItemUnik.push(r.id_item); });
   if(!idItemUnik.length){
-    bomFinishingAktif={}; finishingProgress={}; finishingLegacyAktif=false; finishingReqKosong=true;
+    bomFinishingAktif={}; finishingProgress={}; finishingLogsByRow={}; finishingLegacyAktif=false; finishingReqKosong=true;
     renderFinishingItemList(); return;
   }
   var filterIn='in.('+idItemUnik.join(',')+')';
   Promise.all([
     dbGet('m_bom_finishing',{id_item:filterIn,order:'urut.asc'}),
-    dbGet('log_produksi',{id_spk:'eq.'+idSpk,jenis:'eq.FINISHING'})
+    dbGet('log_produksi',{id_spk:'eq.'+idSpk,jenis:'eq.FINISHING',order:'tgl_produksi.asc'}),
+    muatMesinVendorCache()
   ]).then(function(r){
     var bomFin=Array.isArray(r[0])?r[0]:[];
     var logsFin=Array.isArray(r[1])?r[1]:[];
-    // Susun kebutuhan per id_item
     bomFinishingAktif={};
     bomFin.forEach(function(f){
       if(!bomFinishingAktif[f.id_item]) bomFinishingAktif[f.id_item]=[];
       bomFinishingAktif[f.id_item].push(f);
       bomFinishingNameMap[f.id]=f.jenis_finishing;
     });
-    // Legacy: ada log FINISHING lama (id_bom_finishing kosong) → SPK ini digrandfather, tidak pakai gate baru
     finishingLegacyAktif=logsFin.some(function(l){ return !l.id_bom_finishing; });
-    // Progress granular: sum qty per id_spk_detail + id_bom_finishing
-    finishingProgress={};
+    finishingProgress={}; finishingLogsByRow={};
     logsFin.forEach(function(l){
       if(!l.id_bom_finishing) return;
       var key=l.id_spk_detail+'_'+l.id_bom_finishing;
       finishingProgress[key]=(finishingProgress[key]||0)+(parseInt(l.qty,10)||0);
+      if(!finishingLogsByRow[key]) finishingLogsByRow[key]=[];
+      finishingLogsByRow[key].push({qty:parseInt(l.qty,10)||0,mesin_vendor:l.mesin_vendor||'',tgl:l.tgl_produksi});
     });
-    // Cek apakah ada kebutuhan finishing sama sekali untuk item2 di SPK ini
     finishingReqKosong=!sdetAktif.some(function(r){ return (bomFinishingAktif[r.id_item]||[]).length>0; });
     renderFinishingItemList();
   }).catch(function(){
-    bomFinishingAktif={}; finishingProgress={}; finishingLegacyAktif=false; finishingReqKosong=false;
+    bomFinishingAktif={}; finishingProgress={}; finishingLogsByRow={}; finishingLegacyAktif=false; finishingReqKosong=false;
     renderFinishingItemList();
   });
+}
+
+var mesinVendorCache=null;
+function muatMesinVendorCache(){
+  if(mesinVendorCache) return Promise.resolve(mesinVendorCache);
+  return dbGet('log_produksi',{select:'mesin_vendor',jenis:'eq.FINISHING'}).then(function(res){
+    var list=Array.isArray(res)?res:[];
+    var uniq={};
+    list.forEach(function(l){ if(l.mesin_vendor) uniq[l.mesin_vendor.trim()]=true; });
+    mesinVendorCache=Object.keys(uniq).sort();
+    var dl=document.getElementById('dlMesinVendor');
+    if(dl) dl.innerHTML=mesinVendorCache.map(function(v){return '<option value="'+esc(v)+'">';}).join('');
+    return mesinVendorCache;
+  }).catch(function(){ mesinVendorCache=[]; return mesinVendorCache; });
 }
 
 function finishingLunas(){
@@ -1138,28 +1143,78 @@ function renderFinishingItemList(){
     var target=parseInt(r.qty_spk,10)||0;
     html+='<div class="section-divider" style="margin-top:.6rem">'+esc(r.nama_item)+(r.subitem?' — '+esc(r.subitem):'')+'</div>';
     reqs.forEach(function(f){
-      var terpakai=finishingProgress[r.id_sdet+'_'+f.id]||0;
+      var key=r.id_sdet+'_'+f.id;
+      var terpakai=finishingProgress[key]||0;
       var sisa=target-terpakai;
       var lunas=sisa<=0;
       var pct=target>0?Math.min(Math.round((terpakai/target)*100),100):0;
-      html+='<div class="packing-row" style="'+(lunas?'opacity:0.5':'')+'">'+
-        '<div class="packing-row-info">'+
+      var riwayat=finishingLogsByRow[key]||[];
+      var riwayatHtml=riwayat.length?'<div style="display:flex;flex-direction:column;gap:4px;margin:.4rem 0">'+riwayat.map(function(h){
+        return '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);background:var(--bg);padding:.25rem .5rem;border-radius:5px">'+
+          fmtAngka(h.qty)+' · '+esc(h.mesin_vendor||'—')+' · '+fmtTgl(h.tgl)+'</div>';
+      }).join('')+'</div>':'';
+      html+='<div class="packing-row" style="flex-direction:column;align-items:stretch;'+(lunas?'opacity:0.6':'')+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center">'+
           '<div class="packing-row-label">'+esc(f.jenis_finishing)+'</div>'+
-          '<div class="packing-row-target">Target: '+fmtAngka(target)+' '+esc(r.satuan||'')+
-            ' | Terpakai: <strong>'+fmtAngka(terpakai)+'</strong>'+
-            (lunas?' <span style="color:var(--green)">✓ Lunas</span>':' Sisa: <strong style="color:var(--red)">'+fmtAngka(sisa)+'</strong>')+
-          '</div>'+
-          '<div class="progress-bar-mini"><div class="progress-bar-fill'+(pct>=100?' full':'')+'" style="width:'+pct+'%"></div></div>'+
+          '<div class="packing-row-target">'+fmtAngka(terpakai)+' / '+fmtAngka(target)+' '+esc(r.satuan||'')+(lunas?' <span style="color:var(--green)">✓</span>':'')+'</div>'+
         '</div>'+
-        (lunas
-          ?'<div style="font-family:var(--mono);font-size:.7rem;color:var(--green);padding:.3rem .5rem">✓</div>'
-          :'<input type="number" class="packing-qty-input" id="finQty_'+esc(r.id_sdet)+'_'+esc(f.id)+'" '+
-             'data-sdet="'+esc(r.id_sdet)+'" data-bomfin="'+esc(f.id)+'" data-target="'+sisa+'" '+
-             'placeholder="maks '+fmtAngka(sisa)+'" min="0" max="'+sisa+'">')+
+        '<div class="progress-bar-mini"><div class="progress-bar-fill'+(pct>=100?' full':'')+'" style="width:'+pct+'%"></div></div>'+
+        riwayatHtml+
+        (lunas?'':
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:.4rem">'+
+            '<input type="number" class="form-control" id="finQty_'+esc(key)+'" placeholder="Qty (maks '+fmtAngka(sisa)+')" min="1" max="'+sisa+'" style="grid-column:span 2">'+
+            '<input type="text" class="form-control" id="finMesin_'+esc(key)+'" list="dlMesinVendor" placeholder="Mesin / Vendor">'+
+            '<input type="text" class="form-control" id="finOperator_'+esc(key)+'" placeholder="Operator / PIC">'+
+          '</div>'+
+          '<button type="button" class="btn-simpan" style="margin-top:.4rem;width:100%" onclick="simpanFinishingBaris(\''+esc(r.id_sdet)+'\',\''+esc(f.id)+'\','+sisa+',this)">+ Simpan baris ini</button>')+
       '</div>';
     });
   });
   wrapBaru.innerHTML=html||'<div class="sdet-empty">Tidak ada proses finishing untuk item pada SPK ini.</div>';
+  document.querySelectorAll('#finishingItemList input[id^="finOperator_"]').forEach(function(el){ buatAcOperator(el); });
+}
+
+async function simpanFinishingBaris(idSdet,idBomFin,sisa,btn){
+  var key=idSdet+'_'+idBomFin;
+  var alertEl=document.getElementById('alertProgress'); alertEl.innerHTML='';
+  var qtyInp=document.getElementById('finQty_'+key);
+  var mesinInp=document.getElementById('finMesin_'+key);
+  var opInp=document.getElementById('finOperator_'+key);
+  var qty=parseInt(qtyInp.value,10)||0;
+  var mesin=(mesinInp.value||'').trim();
+  var operator=(opInp.value||'').trim();
+  if(!qty){alertEl.innerHTML='<div class="alert-box alert-err">Qty wajib diisi.</div>';return;}
+  if(qty>sisa){alertEl.innerHTML='<div class="alert-box alert-err">Qty melebihi sisa ('+fmtAngka(sisa)+').</div>';return;}
+  if(!mesin){alertEl.innerHTML='<div class="alert-box alert-err">Mesin / Vendor wajib diisi.</div>';return;}
+  if(!operator){alertEl.innerHTML='<div class="alert-box alert-err">Operator wajib diisi.</div>';return;}
+  var sdet=sdetAktif.find(function(r){return r.id_sdet===idSdet;});
+  if(btn){btn.disabled=true;btn.textContent='Menyimpan…';}
+  try{
+    var nowIso=new Date().toISOString();
+    var row={id_log:genIdLogProd(),id_spk:idSpkAktif,tgl_produksi:nowIso.split('T')[0],tgl_input:nowIso,jenis:'FINISHING',
+      id_spk_detail:idSdet,id_order_detail:sdet?sdet.id_detail:null,id_bom_finishing:idBomFin,
+      qty:qty,satuan:sdet?(sdet.satuan||''):'',mesin_vendor:mesin,operator:operator,user_input:getNamaUser()};
+    var res=await dbInsert('log_produksi',row);
+    if(res&&res.code) throw new Error(res.message);
+    if(!mesinVendorCache||mesinVendorCache.indexOf(mesin)<0) mesinVendorCache=null;
+    await muatFinishingRequirementSync(idSpkAktif);
+    var spk=semuaSPK.find(function(s){return s.id_spk===idSpkAktif;});
+    var curStatus=spk?spk.status:'OPEN';
+    var lunas=finishingLunas();
+    var statusBaru=lunas?'PACKING':'FINISHING';
+    if(_statusLebihTinggi(statusBaru,curStatus)){
+      await dbUpdate('in_spk',{id_spk:'eq.'+idSpkAktif},{status:statusBaru});
+      var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpkAktif;});
+      if(si>=0) semuaSPK[si].status=statusBaru;
+      renderTabel();
+    }
+    alertEl.innerHTML='<div class="alert-box alert-ok">Log Finishing disimpan.'+(lunas?' ✓ Semua proses finishing lunas — Packing terbuka.':'')+'</div>';
+    await muatFinishingRequirement(idSpkAktif);
+    muatRiwayatLog(idSpkAktif);
+  }catch(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error')+'</div>';
+    if(btn){btn.disabled=false;btn.textContent='+ Simpan baris ini';}
+  }
 }
 
 async function lewatiFinishingKosong(){
@@ -1185,11 +1240,10 @@ function gantiTabLog(jenis,elBtn){
 
 function resetFormLog(){
   var hari=new Date().toISOString().split('T')[0];
-  ['logCetakTgl','logPotongTgl','logFinishingTgl','logFinishingTglBaru','logPackingTgl'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=hari;});
+  ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=hari;});
   ['logCetakQty','logCetakInsheet','logCetakMesin','logCetakOperator','logCetakKet',
    'logPotongQty','logPotongOperator','logPotongKet',
    'logFinishingQty','logFinishingMesin','logFinishingOperator','logFinishingKet',
-   'logFinishingMesinBaru','logFinishingOperatorBaru','logFinishingKetBaru',
    'logPackingOperator','logPackingKet'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
 }
 
@@ -1371,58 +1425,6 @@ async function simpanLog(jenis){
     alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error')+'</div>';
   } finally{
     if(btn){btn.disabled=false;btn.textContent='+ Simpan Log '+jenis.charAt(0)+jenis.slice(1).toLowerCase();}
-  }
-}
-
-async function simpanLogFinishingBaru(){
-  var alertEl=document.getElementById('alertProgress'); alertEl.innerHTML='';
-  var tgl=document.getElementById('logFinishingTglBaru').value;
-  var operator=(document.getElementById('logFinishingOperatorBaru').value||'').trim();
-  var mesin=(document.getElementById('logFinishingMesinBaru').value||'').trim();
-  var ket=(document.getElementById('logFinishingKetBaru').value||'').trim();
-  if(!operator){alertEl.innerHTML='<div class="alert-box alert-err">Operator wajib diisi.</div>';return;}
-  var rows=[];
-  sdetAktif.forEach(function(r){
-    var reqs=bomFinishingAktif[r.id_item]||[];
-    reqs.forEach(function(f){
-      var inp=document.getElementById('finQty_'+r.id_sdet+'_'+f.id);
-      if(!inp) return;
-      var qty=parseInt(inp.value,10)||0;
-      if(qty>0) rows.push({sdet:r,bomfin:f,qty:qty});
-    });
-  });
-  if(!rows.length){alertEl.innerHTML='<div class="alert-box alert-err">Minimal 1 proses finishing harus diisi qty-nya.</div>';return;}
-  var btn=document.getElementById('btnSimpanFinishingBaru');
-  btn.disabled=true; btn.textContent='Menyimpan…';
-  try{
-    var nowIso=new Date().toISOString();
-    var logRows=rows.map(function(it){
-      return {id_log:genIdLogProd(),id_spk:idSpkAktif,tgl_produksi:tgl,tgl_input:nowIso,jenis:'FINISHING',
-        id_spk_detail:it.sdet.id_sdet,id_order_detail:it.sdet.id_detail,id_bom_finishing:it.bomfin.id,
-        qty:it.qty,satuan:it.sdet.satuan||'',mesin_vendor:mesin,operator:operator,keterangan:ket,user_input:getNamaUser()};
-    });
-    var res=await dbInsert('log_produksi',logRows);
-    if(res&&res.code) throw new Error(res.message);
-    // Refresh progress dari DB lalu evaluasi status
-    await muatFinishingRequirementSync(idSpkAktif);
-    var spk=semuaSPK.find(function(s){return s.id_spk===idSpkAktif;});
-    var curStatus=spk?spk.status:'OPEN';
-    var lunas=finishingLunas();
-    var statusBaru=lunas?'PACKING':'FINISHING';
-    if(_statusLebihTinggi(statusBaru,curStatus)){
-      await dbUpdate('in_spk',{id_spk:'eq.'+idSpkAktif},{status:statusBaru});
-      var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpkAktif;});
-      if(si>=0) semuaSPK[si].status=statusBaru;
-      renderTabel();
-    }
-    alertEl.innerHTML='<div class="alert-box alert-ok">Log Finishing berhasil disimpan.'+(lunas?' ✓ Semua proses finishing lunas — Packing terbuka.':' Masih ada proses finishing yang belum lunas.')+'</div>';
-    document.getElementById('logFinishingKetBaru').value='';
-    renderFinishingItemList();
-    muatRiwayatLog(idSpkAktif);
-  }catch(e){
-    alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error')+'</div>';
-  }finally{
-    btn.disabled=false; btn.textContent='+ Simpan Log Finishing';
   }
 }
 
