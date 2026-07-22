@@ -142,6 +142,9 @@
     <button class="filter-btn" id="btnApproveReprintSpk" style="display:none" onclick="bukaApproveReprintSpk()">🔔 Approve Reprint</button>
     <button class="filter-btn" id="btnLogReprintSpk" style="display:none" onclick="bukaLogReprintSpk()">📋 Log Reprint</button>
   </div>
+  <div style="padding:.6rem 1rem 0">
+    <input type="text" id="inSearchSpk" class="form-control form-control-sm" style="font-family:var(--mono);font-size:.82rem;max-width:360px" placeholder="Cari: ID SPK / No PO / Item / Pelanggan / Keterangan…" oninput="onSearchSpkInput()" autocomplete="off"/>
+  </div>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -390,6 +393,7 @@
 // ── STATE ──
 var semuaSPK=[], semuaOrdDtl=[], sdetAktif=[], daftarItem=[], semuaOperator=[];
 var filterAktif='OPEN', idSpkAktif=null, itemDipilih=null, maxPpsForm=0, tabLogAktif='CETAK';
+var poByOrder={}, searchSpk='';
 var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]}, _bahanMap={}, _tintaMap={};
 var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
 // Accordion + edit mode
@@ -464,11 +468,11 @@ function muatSdetRingkas(){
     });
     var idOrderList=Object.keys(idOrderSet);
     if(!idOrderList.length){ pelangganByOrder={}; renderTabel(); return; }
-    dbGet('in_order',{id_order:'in.('+idOrderList.join(',')+')',select:'id_order,nama_pelanggan'}).then(function(r2){
-      pelangganByOrder={};
-      (Array.isArray(r2)?r2:[]).forEach(function(o){ pelangganByOrder[o.id_order]=o.nama_pelanggan||''; });
+    dbGet('in_order',{id_order:'in.('+idOrderList.join(',')+')',select:'id_order,nama_pelanggan,no_po'}).then(function(r2){
+      pelangganByOrder={}; poByOrder={};
+      (Array.isArray(r2)?r2:[]).forEach(function(o){ pelangganByOrder[o.id_order]=o.nama_pelanggan||''; poByOrder[o.id_order]=o.no_po||''; });
       renderTabel();
-    }).catch(function(){ pelangganByOrder={}; renderTabel(); });
+    }).catch(function(){ pelangganByOrder={}; poByOrder={}; renderTabel(); });
   }).catch(function(){ sdetBySpk={}; renderTabel(); });
 }
 
@@ -507,10 +511,28 @@ function muatOrderDetail(){
   }).catch(function(){});
 }
 
+function onSearchSpkInput(){
+  searchSpk=(document.getElementById('inSearchSpk').value||'').trim().toLowerCase();
+  renderTabel();
+}
+
+function cocokSearchSpk(s){
+  if(!searchSpk) return true;
+  var det=sdetBySpk[s.id_spk]||[];
+  var idOrderSet={}; det.forEach(function(r){ if(r.id_order) idOrderSet[r.id_order]=true; });
+  var noPoGabung=Object.keys(idOrderSet).map(function(o){return poByOrder[o]||'';}).join(' ');
+  var pelangganGabung=Object.keys(idOrderSet).map(function(o){return pelangganByOrder[o]||'';}).join(' ');
+  var haystack=[
+    s.id_spk||'', s.keterangan||'', ringkasItemSpk(s.id_spk), noPoGabung, pelangganGabung
+  ].join(' ').toLowerCase();
+  return haystack.indexOf(searchSpk)>=0;
+}
+
 // ── TABEL ──
 function renderTabel(){
   var data=filterAktif?semuaSPK.filter(function(s){return s.status===filterAktif;}):semuaSPK;
-  if (!data.length){document.getElementById('tblBody').innerHTML='<tr><td colspan="7" class="loading">Belum ada data SPK.</td></tr>';return;}
+  data=data.filter(cocokSearchSpk);
+  if (!data.length){document.getElementById('tblBody').innerHTML='<tr><td colspan="7" class="loading">'+(searchSpk?'Tidak ada hasil untuk pencarian ini.':'Belum ada data SPK.')+'</td></tr>';return;}
   var aktifStatus=['OPEN','CETAK','POTONG','FINISHING','PACKING','SIAP_CLOSE'];
   document.getElementById('tblBody').innerHTML=data.map(function(s){
     var bisa=aktifStatus.indexOf(s.status)>=0;
