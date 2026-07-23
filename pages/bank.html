@@ -229,11 +229,11 @@
       </select>
       <select id="adKategori" onchange="muatAlokDir()" style="font-family:var(--mono);font-size:.78rem;min-width:140px">
         <option value="">Semua Kategori</option>
+        <option value="PIUTANG_KARYAWAN">PIUTANG_KARYAWAN</option>
+        <option value="HUTANG_KEUANGAN">HUTANG_KEUANGAN</option>
         <option value="GAJI">GAJI</option>
         <option value="PAJAK">PAJAK</option>
         <option value="PRIVE">PRIVE</option>
-        <option value="OPERASIONAL">OPERASIONAL</option>
-        <option value="PEMELIHARAAN">PEMELIHARAAN</option>
         <option value="INVESTASI">INVESTASI</option>
         <option value="ANTAR_REKENING">ANTAR_REKENING</option>
         <option value="MODAL_MASUK">MODAL_MASUK</option>
@@ -296,6 +296,8 @@
         <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
         <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
         <option value="HUTANG_KEUANGAN">HUTANG_KEUANGAN</option>
+        <option value="OPERASIONAL">OPERASIONAL</option>
+        <option value="PEMELIHARAAN">PEMELIHARAAN</option>
       </select>
     </div>
     <div class="info-bar" id="blInfo">Memuat…</div>
@@ -1430,7 +1432,7 @@ async function muatBelum() {
 function bukaAlokAdmin(id) {
   aaSelectedId = id;
   var r = rowStore[id] || {};
-  if (r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON') {
+  if (r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON' || r.kategori === 'OPERASIONAL' || r.kategori === 'PEMELIHARAAN') {
     bukaAlokHutang(id);
     return;
   }
