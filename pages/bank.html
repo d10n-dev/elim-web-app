@@ -449,8 +449,10 @@
         <!-- Khusus ANTAR_REKENING -->
         <div id="adAntarWrap" style="display:none">
           <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Link Mutasi Antar Entitas <span style="font-weight:400;color:var(--muted)">(opsional)</span></label>
-          <input type="text" id="adIdMutasi" class="form-control form-control-sm mt-1 mb-1" style="font-family:var(--mono);font-size:.78rem" placeholder="ID mutasi antar entitas…"/>
-          <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Kosongkan jika tidak ada mutasi terkait</div>
+          <select id="adIdMutasi" class="form-select form-select-sm mt-1 mb-1" style="font-family:var(--mono);font-size:.76rem">
+            <option value="">— Tidak ada / kosongkan —</option>
+          </select>
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hanya menampilkan mutasi yang belum ter-link ke transaksi bank manapun</div>
         </div>
         <div id="adErr" style="display:none;margin-top:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
       </div>
@@ -1188,10 +1190,32 @@ function bukaAlokDir(id) {
     (r.jenis==='CR'?'<span class="masuk-val">↑ '+fmtRp(r.nominal)+'</span>':'<span class="keluar-val">↓ '+fmtRp(r.nominal)+'</span>') + '<br>' +
     '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
   document.getElementById('adKeterangan').value = r.keterangan_manual || '';
-  document.getElementById('adIdMutasi').value = '';
-  document.getElementById('adAntarWrap').style.display = r.kategori === 'ANTAR_REKENING' ? '' : 'none';
+  var isAntar = r.kategori === 'ANTAR_REKENING';
+  document.getElementById('adAntarWrap').style.display = isAntar ? '' : 'none';
+  if (isAntar) {
+    muatMutasiAntarDropdown(r.id_rekening === 'BCA_DK' ? 'DK' : (r.id_rekening === 'BCA_PT' ? 'PT' : null), r.nominal);
+  } else {
+    document.getElementById('adIdMutasi').innerHTML = '<option value="">— Tidak ada / kosongkan —</option>';
+  }
   document.getElementById('adErr').style.display = 'none';
   new bootstrap.Modal(document.getElementById('modalAlokDir')).show();
+}
+
+async function muatMutasiAntarDropdown(entitas, nominalBank) {
+  var sel = document.getElementById('adIdMutasi');
+  sel.innerHTML = '<option value="">Memuat…</option>';
+  var rows = await dbRpc('get_mutasi_antar_belum_link', {p_entitas: entitas});
+  var err = cekErrorSupabase(rows);
+  if (err || !Array.isArray(rows)) { sel.innerHTML = '<option value="">— Tidak ada / kosongkan —</option>'; return; }
+  var opts = '<option value="">— Tidak ada / kosongkan —</option>';
+  rows.forEach(function(m) {
+    var cocokNominal = nominalBank && Number(m.nominal) === Number(nominalBank) ? ' ⭐' : '';
+    opts += '<option value="' + h(m.id_mutasi) + '">' +
+      fmtTgl(m.tgl) + ' | ' + h(m.entitas_menalangi) + '→' + h(m.entitas_ditalangi) + ' | ' + fmtRp(m.nominal) + cocokNominal +
+      (m.keterangan ? ' | ' + h(m.keterangan) : '') +
+      '</option>';
+  });
+  sel.innerHTML = opts;
 }
 
 async function simpanAlokDir() {
