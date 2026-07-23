@@ -240,7 +240,8 @@
         <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
         <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
       </select>
-      <button class="btn-sm-action" id="adBtnExport" onclick="exportAlokDirCsv()" disabled style="margin-left:auto">⬇ Export CSV (0)</button>
+      <button class="btn-navy" id="adBtnBulk" onclick="bukaAlokDirBulk()" disabled style="margin-left:auto">Alokasi Terpilih (0)</button>
+      <button class="btn-sm-action" id="adBtnExport" onclick="exportAlokDirCsv()" disabled>⬇ Export CSV (0)</button>
     </div>
     <div class="info-bar" id="adInfo">Memuat…</div>
     <div class="tbl-wrap">
@@ -462,8 +463,29 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════
-     MODAL: LINK KAS KECIL KE TOPUP
+     MODAL: ALOKASI DIREKTUR — BULK
 ════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalAlokDirBulk" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" style="font-family:var(--mono)">Alokasi Bulk</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="adbInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.6rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <div id="adbSkipWarn" style="display:none;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-bottom:.6rem"></div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Keterangan (dipakai untuk semua baris terpilih) <span style="color:var(--red)">*</span></label>
+        <textarea id="adbKeterangan" class="form-control form-control-sm mt-1 mb-2" rows="3" style="font-family:var(--mono);font-size:.78rem" placeholder="mis. Alokasi rutin bulan Juli 2026"></textarea>
+        <div id="adbErr" style="display:none;margin-top:.4rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="adbSimpanBtn" onclick="simpanAlokDirBulk()">Alokasi Semua</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="modalKasKecil" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -1102,6 +1124,9 @@ function updateAdExportBtn() {
   var btn = document.getElementById('adBtnExport');
   btn.textContent = '⬇ Export CSV (' + n + ')';
   btn.disabled = n === 0;
+  var btnBulk = document.getElementById('adBtnBulk');
+  btnBulk.textContent = 'Alokasi Terpilih (' + n + ')';
+  btnBulk.disabled = n === 0;
 }
 
 function exportAlokDirCsv() {
@@ -1194,6 +1219,69 @@ async function simpanAlokDir() {
   bootstrap.Modal.getInstance(document.getElementById('modalAlokDir')).hide();
   muatRekap();
   muatAlokDir();
+}
+
+function bukaAlokDirBulk() {
+  var ids = Object.keys(adCbSelected);
+  if (!ids.length) return;
+  var rows = ids.map(function(id){ return rowStore[id]; }).filter(Boolean);
+  var antarIds = rows.filter(function(r){ return r.kategori === 'ANTAR_REKENING'; }).map(function(r){ return r.id; });
+  var eligible = rows.filter(function(r){ return r.kategori !== 'ANTAR_REKENING'; });
+
+  document.getElementById('adbInfo').textContent = eligible.length + ' transaksi akan dialokasi (total nominal: ' +
+    fmtRp(eligible.reduce(function(s,r){ return s + Number(r.nominal||0); }, 0)) + ')';
+  var warnEl = document.getElementById('adbSkipWarn');
+  if (antarIds.length) {
+    warnEl.style.display = '';
+    warnEl.textContent = antarIds.length + ' baris kategori ANTAR_REKENING dilewati (' + antarIds.join(', ') + ') — alokasikan satu-satu lewat tombol "Alokasi" karena butuh link mutasi antar entitas.';
+  } else {
+    warnEl.style.display = 'none';
+  }
+  if (!eligible.length) { alert('Semua baris terpilih kategori ANTAR_REKENING, tidak ada yang bisa di-bulk. Gunakan tombol Alokasi satu-satu.'); return; }
+
+  adbEligibleIds = eligible.map(function(r){ return r.id; });
+  document.getElementById('adbKeterangan').value = '';
+  document.getElementById('adbErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokDirBulk')).show();
+}
+
+var adbEligibleIds = [];
+
+async function simpanAlokDirBulk() {
+  var ket = document.getElementById('adbKeterangan').value.trim();
+  var elErr = document.getElementById('adbErr');
+  var btn = document.getElementById('adbSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!ket) { elErr.textContent = 'Keterangan wajib diisi.'; elErr.style.display = ''; return; }
+  if (!adbEligibleIds.length) return;
+  if (!confirm('Alokasi ' + adbEligibleIds.length + ' transaksi dengan keterangan yang sama?')) return;
+
+  btn.disabled = true;
+  var okCount = 0, gagal = [];
+  for (var i = 0; i < adbEligibleIds.length; i++) {
+    var id = adbEligibleIds[i];
+    btn.textContent = 'Memproses ' + (i + 1) + '/' + adbEligibleIds.length + '…';
+    try {
+      var res = await dbRpc('alokasi_direktur', {
+        p_id_bank_stmt: id, p_keterangan: ket, p_user: getUser(), p_id_mutasi_antar: null
+      });
+      var err = cekErrorSupabase(res);
+      if (!err && res && res.status === 'error') err = res.message;
+      if (err) gagal.push(id + ': ' + err); else { okCount++; delete adCbSelected[id]; }
+    } catch (e) {
+      gagal.push(id + ': ' + e.message);
+    }
+  }
+  btn.disabled = false; btn.textContent = 'Alokasi Semua';
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokDirBulk')).hide();
+  muatRekap();
+  muatAlokDir();
+
+  var ringkasan = okCount + ' dari ' + adbEligibleIds.length + ' berhasil dialokasi.';
+  if (gagal.length) ringkasan += '\n\nGagal:\n' + gagal.join('\n');
+  alert(ringkasan);
 }
 
 // ── TAB 3B: KAS KECIL (link ke TOPUP) ───────────────────────
