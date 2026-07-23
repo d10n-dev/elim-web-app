@@ -776,10 +776,10 @@ function muatRekap() {
       el.closest('.rekap-card').classList.toggle('warn', n > 0);
     });
 
-  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK
+  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK/KAS_KECIL
   dbGet('in_bank_statement', {
     select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
-    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK)',
+    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK,KAS_KECIL)',
     limit:9999
   }).then(function(r){
     var n = Array.isArray(r) ? r.length : 0;
