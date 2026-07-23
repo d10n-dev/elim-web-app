@@ -49,6 +49,7 @@
   <button class="tab-btn"        data-tab="hutang"    onclick="gantiTab('hutang')">📤 Aging Hutang</button>
   <button class="tab-btn"        data-tab="penjualan" onclick="gantiTab('penjualan')">💰 Penjualan</button>
   <button class="tab-btn"        data-tab="pembelian" onclick="gantiTab('pembelian')">🛒 Pembelian</button>
+  <button class="tab-btn"        data-tab="produksi"  onclick="gantiTab('produksi')">🏭 Produksi</button>
 </div>
 
 <!-- ═══ TAB PIUTANG ═══ -->
@@ -244,6 +245,41 @@
   </div>
 </div>
 
+<!-- ═══ TAB PRODUKSI ═══ -->
+<div class="tab-pane" id="tabProduksi">
+  <div class="toolbar">
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
+    <input type="date" id="pdTglDari"/>
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Sampai:</label>
+    <input type="date" id="pdTglSampai"/>
+    <select id="pdFilterEntitas" onchange="muatProduksi()">
+      <option value="">Semua Entitas</option>
+      <option value="PT">PT Elim Citra Offset</option>
+      <option value="DK">DK Offset</option>
+    </select>
+    <button class="btn-primary" onclick="muatProduksi()">Tampilkan</button>
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+  </div>
+  <div id="alertProduksi"></div>
+  <div class="rekap-grid" id="cardsProduksi">
+    <div class="rekap-card"><div class="lbl">Total Log</div><div class="val" id="pdTotalLog">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total Qty</div><div class="val" id="pdTotalQty">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total Qty Pack</div><div class="val" id="pdTotalQtyPack">…</div></div>
+  </div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Produksi per Jenis Proses / Mesin</div>
+  <div style="overflow-x:auto">
+    <table class="tbl-laporan">
+      <thead>
+        <tr>
+          <th>Jenis Proses</th><th>Mesin/Vendor</th><th class="td-right">Jml Log</th>
+          <th class="td-right">Total Qty</th><th class="td-right">Total Qty Pack</th><th class="td-right">Jml Operator</th>
+        </tr>
+      </thead>
+      <tbody id="bodyProduksi"><tr><td colspan="6" class="empty-state">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/utils.js"></script>
@@ -312,6 +348,11 @@ window.addEventListener('load', function () {
   document.getElementById('pbBulanSampai').value = bulanIni();
   muatPenjualan();
   muatPembelian();
+  var hariIni = new Date();
+  var tigaPuluhHariLalu = new Date(); tigaPuluhHariLalu.setDate(hariIni.getDate()-30);
+  document.getElementById('pdTglDari').value = tigaPuluhHariLalu.toISOString().slice(0,10);
+  document.getElementById('pdTglSampai').value = hariIni.toISOString().slice(0,10);
+  muatProduksi();
 });
 
 function gantiTab(nama){
@@ -415,6 +456,39 @@ function fmtBulan(s){
   var d=new Date(s);
   if(isNaN(d)) return s;
   return d.toLocaleDateString('id-ID',{month:'short',year:'numeric'});
+}
+
+// ═══ PRODUKSI ═══
+function muatProduksi(){
+  var dari = document.getElementById('pdTglDari').value;
+  var sampai = document.getElementById('pdTglSampai').value;
+  if(!dari || !sampai) return;
+  var entitas = document.getElementById('pdFilterEntitas').value || null;
+  showAlert('alertProduksi','');
+  dbRpc('get_laporan_produksi_proses',{p_tgl_dari:dari,p_tgl_sampai:sampai,p_entitas:entitas}).then(function(res){
+    var err=cekErrorSupabase(res);
+    if(err){ showAlert('alertProduksi', esc(err)); return; }
+    renderProduksi(Array.isArray(res)?res:[]);
+  }).catch(function(){ showAlert('alertProduksi','Gagal memuat data produksi.'); });
+}
+function renderProduksi(data){
+  var tb=document.getElementById('bodyProduksi');
+  var totLog=0,totQty=0,totQtyPack=0;
+  data.forEach(function(r){ totLog+=Number(r.jml_log||0); totQty+=Number(r.total_qty||0); totQtyPack+=Number(r.total_qty_pack||0); });
+  document.getElementById('pdTotalLog').textContent=totLog;
+  document.getElementById('pdTotalQty').textContent=totQty.toLocaleString('id-ID');
+  document.getElementById('pdTotalQtyPack').textContent=totQtyPack.toLocaleString('id-ID');
+  if(!data.length){ tb.innerHTML='<tr><td colspan="6" class="empty-state">Tidak ada data.</td></tr>'; return; }
+  tb.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td>'+esc(r.jenis)+'</td>'+
+      '<td class="td-mono">'+esc(r.mesin_vendor)+'</td>'+
+      '<td class="td-mono td-right">'+r.jml_log+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600">'+Number(r.total_qty).toLocaleString('id-ID')+'</td>'+
+      '<td class="td-mono td-right">'+Number(r.total_qty_pack).toLocaleString('id-ID')+'</td>'+
+      '<td class="td-mono td-right">'+r.jml_operator+'</td>'+
+      '</tr>';
+  }).join('');
 }
 
 // ═══ PIUTANG ═══
