@@ -45,8 +45,10 @@
 <div id="navRoot"></div>
 
 <div class="tab-nav" id="tabNav">
-  <button class="tab-btn active" data-tab="piutang" onclick="gantiTab('piutang')">📥 Aging Piutang</button>
-  <button class="tab-btn"        data-tab="hutang"  onclick="gantiTab('hutang')">📤 Aging Hutang</button>
+  <button class="tab-btn active" data-tab="piutang"   onclick="gantiTab('piutang')">📥 Aging Piutang</button>
+  <button class="tab-btn"        data-tab="hutang"    onclick="gantiTab('hutang')">📤 Aging Hutang</button>
+  <button class="tab-btn"        data-tab="penjualan" onclick="gantiTab('penjualan')">💰 Penjualan</button>
+  <button class="tab-btn"        data-tab="pembelian" onclick="gantiTab('pembelian')">🛒 Pembelian</button>
 </div>
 
 <!-- ═══ TAB PIUTANG ═══ -->
@@ -161,6 +163,87 @@
   </div>
 </div>
 
+<!-- ═══ TAB PENJUALAN ═══ -->
+<div class="tab-pane" id="tabPenjualan">
+  <div class="toolbar">
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
+    <input type="month" id="pjBulanDari" onchange="muatPenjualan()"/>
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Sampai:</label>
+    <input type="month" id="pjBulanSampai" onchange="muatPenjualan()"/>
+    <select id="pjFilterEntitas" onchange="muatPenjualan()">
+      <option value="">Semua Entitas</option>
+      <option value="PT">PT Elim Citra Offset</option>
+      <option value="DK">DK Offset</option>
+    </select>
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+  </div>
+  <div id="alertPenjualan"></div>
+  <div class="rekap-grid" id="cardsPenjualan">
+    <div class="rekap-card"><div class="lbl">Total DPP (Terkirim)</div><div class="val" id="pjTotalDpp">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total PPN</div><div class="val" id="pjTotalPpn">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total Tagih</div><div class="val" id="pjTotalTagih">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total Nilai Order</div><div class="val" id="pjTotalOrder">…</div></div>
+  </div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Penjualan Terkirim (SJ) per Pelanggan</div>
+  <div style="overflow-x:auto;margin-bottom:1.1rem">
+    <table class="tbl-laporan">
+      <thead>
+        <tr>
+          <th>Bulan</th><th>Pelanggan</th><th>Entitas</th><th class="td-right">Jml SJ</th>
+          <th class="td-right">DPP</th><th class="td-right">PPN</th><th class="td-right">Total Tagih</th>
+        </tr>
+      </thead>
+      <tbody id="bodyPenjualanSJ"><tr><td colspan="7" class="empty-state">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Order Masuk per Pelanggan (pembanding, belum tentu terkirim)</div>
+  <div style="overflow-x:auto">
+    <table class="tbl-laporan">
+      <thead>
+        <tr>
+          <th>Bulan</th><th>Pelanggan</th><th>Entitas</th>
+          <th class="td-right">Jml Order</th><th class="td-right">Nilai Order</th>
+        </tr>
+      </thead>
+      <tbody id="bodyPenjualanOrder"><tr><td colspan="5" class="empty-state">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB PEMBELIAN ═══ -->
+<div class="tab-pane" id="tabPembelian">
+  <div class="toolbar">
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
+    <input type="month" id="pbBulanDari" onchange="muatPembelian()"/>
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Sampai:</label>
+    <input type="month" id="pbBulanSampai" onchange="muatPembelian()"/>
+    <select id="pbFilterEntitas" onchange="muatPembelian()">
+      <option value="">Semua Entitas</option>
+      <option value="PT">PT Elim Citra Offset</option>
+      <option value="DK">DK Offset</option>
+    </select>
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+  </div>
+  <div id="alertPembelian"></div>
+  <div class="rekap-grid" id="cardsPembelian">
+    <div class="rekap-card"><div class="lbl">Total DPP</div><div class="val" id="pbTotalDpp">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total PPN</div><div class="val" id="pbTotalPpn">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total Tagihan</div><div class="val" id="pbTotalTagihan">…</div></div>
+  </div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Pembelian per Supplier</div>
+  <div style="overflow-x:auto">
+    <table class="tbl-laporan">
+      <thead>
+        <tr>
+          <th>Bulan</th><th>Supplier</th><th>Entitas</th><th class="td-right">Jml Nota</th>
+          <th class="td-right">DPP</th><th class="td-right">PPN</th><th class="td-right">Total Tagihan</th>
+        </tr>
+      </thead>
+      <tbody id="bodyPembelianSupplier"><tr><td colspan="7" class="empty-state">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/utils.js"></script>
@@ -201,17 +284,137 @@ function statusClass(s){
 var DATA_PIUTANG = [];
 var DATA_HUTANG = [];
 
+function bulanIni(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function bulanMinus(n){
+  var d=new Date(); d.setMonth(d.getMonth()-n);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function monthToRange(monthStr, isEnd){
+  // monthStr = 'YYYY-MM' -> tanggal awal / akhir bulan (YYYY-MM-DD)
+  var parts = monthStr.split('-');
+  var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+  if (!isEnd) return y+'-'+String(m).padStart(2,'0')+'-01';
+  var lastDay = new Date(y, m, 0).getDate();
+  return y+'-'+String(m).padStart(2,'0')+'-'+String(lastDay).padStart(2,'0');
+}
+
 window.addEventListener('load', function () {
   if (!guardHalaman()) return;
   initNav('laporan');
   muatPiutang();
   muatHutang();
+  document.getElementById('pjBulanDari').value = bulanMinus(2);
+  document.getElementById('pjBulanSampai').value = bulanIni();
+  document.getElementById('pbBulanDari').value = bulanMinus(2);
+  document.getElementById('pbBulanSampai').value = bulanIni();
+  muatPenjualan();
+  muatPembelian();
 });
 
 function gantiTab(nama){
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===nama);});
   document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
   document.getElementById('tab'+nama.charAt(0).toUpperCase()+nama.slice(1)).classList.add('active');
+}
+
+// ═══ PENJUALAN ═══
+function muatPenjualan(){
+  var dari = document.getElementById('pjBulanDari').value;
+  var sampai = document.getElementById('pjBulanSampai').value;
+  if(!dari || !sampai) return;
+  var tglDari = monthToRange(dari,false);
+  var tglSampai = monthToRange(sampai,true);
+  var entitas = document.getElementById('pjFilterEntitas').value || null;
+  showAlert('alertPenjualan','');
+  var pSJ = dbRpc('get_laporan_penjualan_pelanggan',{p_tgl_dari:tglDari,p_tgl_sampai:tglSampai,p_entitas:entitas})
+    .then(function(r){var e=cekErrorSupabase(r); if(e) throw new Error(e); return Array.isArray(r)?r:[];});
+  var pOrder = dbRpc('get_laporan_order_pelanggan',{p_tgl_dari:tglDari,p_tgl_sampai:tglSampai,p_entitas:entitas})
+    .then(function(r){var e=cekErrorSupabase(r); if(e) throw new Error(e); return Array.isArray(r)?r:[];});
+  Promise.all([pSJ,pOrder]).then(function(res){
+    renderPenjualanSJ(res[0]);
+    renderPenjualanOrder(res[1]);
+  }).catch(function(e){ showAlert('alertPenjualan', esc(e.message||'Gagal memuat data penjualan.')); });
+}
+function renderPenjualanSJ(data){
+  var tb=document.getElementById('bodyPenjualanSJ');
+  var totDpp=0,totPpn=0,totTagih=0;
+  data.forEach(function(r){ totDpp+=Number(r.dpp||0); totPpn+=Number(r.ppn||0); totTagih+=Number(r.total_tagih||0); });
+  document.getElementById('pjTotalDpp').textContent=fmtRupiah(totDpp);
+  document.getElementById('pjTotalPpn').textContent=fmtRupiah(totPpn);
+  document.getElementById('pjTotalTagih').textContent=fmtRupiah(totTagih);
+  if(!data.length){ tb.innerHTML='<tr><td colspan="7" class="empty-state">Tidak ada data.</td></tr>'; return; }
+  tb.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+fmtBulan(r.bulan)+'</td>'+
+      '<td>'+esc(r.nama_pelanggan)+'</td>'+
+      '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+      '<td class="td-mono td-right">'+r.jml_sj+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.dpp)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.ppn)+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.total_tagih)+'</td>'+
+      '</tr>';
+  }).join('');
+}
+function renderPenjualanOrder(data){
+  var tb=document.getElementById('bodyPenjualanOrder');
+  var totOrder=0;
+  data.forEach(function(r){ totOrder+=Number(r.nilai_order||0); });
+  document.getElementById('pjTotalOrder').textContent=fmtRupiah(totOrder);
+  if(!data.length){ tb.innerHTML='<tr><td colspan="5" class="empty-state">Tidak ada data.</td></tr>'; return; }
+  tb.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+fmtBulan(r.bulan)+'</td>'+
+      '<td>'+esc(r.nama_pelanggan)+'</td>'+
+      '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+      '<td class="td-mono td-right">'+r.jml_order+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.nilai_order)+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+// ═══ PEMBELIAN ═══
+function muatPembelian(){
+  var dari = document.getElementById('pbBulanDari').value;
+  var sampai = document.getElementById('pbBulanSampai').value;
+  if(!dari || !sampai) return;
+  var tglDari = monthToRange(dari,false);
+  var tglSampai = monthToRange(sampai,true);
+  var entitas = document.getElementById('pbFilterEntitas').value || null;
+  showAlert('alertPembelian','');
+  dbRpc('get_laporan_pembelian_supplier',{p_tgl_dari:tglDari,p_tgl_sampai:tglSampai,p_entitas:entitas}).then(function(res){
+    var err=cekErrorSupabase(res);
+    if(err){ showAlert('alertPembelian', esc(err)); return; }
+    renderPembelian(Array.isArray(res)?res:[]);
+  }).catch(function(){ showAlert('alertPembelian','Gagal memuat data pembelian.'); });
+}
+function renderPembelian(data){
+  var tb=document.getElementById('bodyPembelianSupplier');
+  var totDpp=0,totPpn=0,totTagihan=0;
+  data.forEach(function(r){ totDpp+=Number(r.dpp||0); totPpn+=Number(r.ppn||0); totTagihan+=Number(r.total_tagihan||0); });
+  document.getElementById('pbTotalDpp').textContent=fmtRupiah(totDpp);
+  document.getElementById('pbTotalPpn').textContent=fmtRupiah(totPpn);
+  document.getElementById('pbTotalTagihan').textContent=fmtRupiah(totTagihan);
+  if(!data.length){ tb.innerHTML='<tr><td colspan="7" class="empty-state">Tidak ada data.</td></tr>'; return; }
+  tb.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+fmtBulan(r.bulan)+'</td>'+
+      '<td>'+esc(r.nama_supplier)+'</td>'+
+      '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+      '<td class="td-mono td-right">'+r.jml_nota+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.dpp)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.ppn)+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.total_tagihan)+'</td>'+
+      '</tr>';
+  }).join('');
+}
+function fmtBulan(s){
+  if(!s) return '—';
+  var d=new Date(s);
+  if(isNaN(d)) return s;
+  return d.toLocaleDateString('id-ID',{month:'short',year:'numeric'});
 }
 
 // ═══ PIUTANG ═══
