@@ -778,10 +778,10 @@ function muatRekap() {
       el.closest('.rekap-card').classList.toggle('warn', n > 0);
     });
 
-  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK/KAS_KECIL
+  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK/KAS_KECIL/OPERASIONAL/PEMELIHARAAN
   dbGet('in_bank_statement', {
     select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
-    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK,KAS_KECIL)',
+    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK,KAS_KECIL,OPERASIONAL,PEMELIHARAAN)',
     limit:9999
   }).then(function(r){
     var n = Array.isArray(r) ? r.length : 0;
@@ -790,10 +790,10 @@ function muatRekap() {
     el.closest('.rekap-card').classList.toggle('warn', n > 0);
   });
 
-  // Belum Dialokasi admin: PIUTANG/HUTANG saja
+  // Belum Dialokasi admin: PIUTANG/HUTANG/OPERASIONAL/PEMELIHARAAN
   dbGet('in_bank_statement', {
     select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
-    'kategori': 'in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON)',
+    'kategori': 'in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,OPERASIONAL,PEMELIHARAAN)',
     limit:9999
   }).then(function(r){
     var n = Array.isArray(r) ? r.length : 0;
