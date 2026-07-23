@@ -133,6 +133,20 @@
     <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
   </div>
   <div id="alertHutang"></div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Ringkasan per Supplier (klik baris untuk filter detail)</div>
+  <div style="overflow-x:auto;margin-bottom:1.1rem">
+    <table class="tbl-laporan">
+      <thead>
+        <tr>
+          <th>Supplier</th><th class="td-right">Jml Nota</th>
+          <th class="td-right">Total Tagihan</th><th class="td-right">Total Sisa</th>
+          <th class="td-right">Hari Terlambat Maks</th>
+        </tr>
+      </thead>
+      <tbody id="bodyHutangSupplier"><tr><td colspan="5" class="empty-state">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Detail Nota</div>
   <div style="overflow-x:auto">
     <table class="tbl-laporan">
       <thead>
@@ -338,6 +352,40 @@ function renderHutang(){
       '<td><span class="badge-status '+statusClass(r.status_hutang)+'">'+esc(r.status_hutang)+'</span></td>' +
       '</tr>';
   }).join('');
+  renderHutangPerSupplier();
+}
+
+function renderHutangPerSupplier(){
+  var tbody = document.getElementById('bodyHutangSupplier');
+  var grup = {};
+  DATA_HUTANG.forEach(function(r){
+    var nm = r.nama_supplier || '—';
+    if (!grup[nm]) grup[nm] = { jml:0, tagih:0, sisa:0, maxHari:0 };
+    grup[nm].jml += 1;
+    grup[nm].tagih += Number(r.total_tagihan||0);
+    grup[nm].sisa += Number(r.sisa_hutang||0);
+    grup[nm].maxHari = Math.max(grup[nm].maxHari, Number(r.hari_terlambat||0));
+  });
+  var list = Object.keys(grup).map(function(nm){
+    return { nama: nm, jml: grup[nm].jml, tagih: grup[nm].tagih, sisa: grup[nm].sisa, maxHari: grup[nm].maxHari };
+  }).sort(function(a,b){ return b.sisa - a.sisa; });
+  if (!list.length){ tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Tidak ada data.</td></tr>'; return; }
+  tbody.innerHTML = list.map(function(x){
+    return '<tr style="cursor:pointer" onclick="pilihSupplierRingkasan(\''+esc(x.nama).replace(/'/g,"\\'")+'\')">' +
+      '<td>'+esc(x.nama)+'</td>' +
+      '<td class="td-mono td-right">'+x.jml+'</td>' +
+      '<td class="td-mono td-right">'+fmtRupiah(x.tagih)+'</td>' +
+      '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(x.sisa)+'</td>' +
+      '<td class="td-mono td-right">'+(x.maxHari>0?x.maxHari+' hr':'—')+'</td>' +
+      '</tr>';
+  }).join('');
+}
+function pilihSupplierRingkasan(nama){
+  document.getElementById('hFilterNama').value = nama;
+  document.getElementById('hFilterBucket').value = '';
+  renderHutang();
+  var det = document.getElementById('bodyHutang');
+  if (det) det.scrollIntoView({behavior:'smooth', block:'start'});
 }
 </script>
 </body>
