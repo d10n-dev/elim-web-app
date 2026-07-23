@@ -57,6 +57,7 @@
     <button class="tab-btn" data-tab="kasbon" onclick="gantiTab('kasbon')">⏳ Kasbon Pending</button>
     <button class="tab-btn" data-tab="batal" onclick="gantiTab('batal')">🚫 Persetujuan Batal</button>
     <button class="tab-btn" data-tab="golongan" onclick="gantiTab('golongan')">🏷️ Golongan</button>
+    <button class="tab-btn" data-tab="penyesuaian" id="btnTabPenyesuaian" onclick="gantiTab('penyesuaian')" style="display:none">🛠️ Penyesuaian</button>
   </div>
 
   <!-- ============== TAB: MUTASI ============== -->
@@ -77,7 +78,18 @@
       <select id="mtGolongan" onchange="muatRiwayat()">
         <option value="">Semua Golongan</option>
       </select>
+      <select id="mtJenis" onchange="muatRiwayat()">
+        <option value="">Semua Jenis</option>
+        <option value="TOPUP">Top-up</option>
+        <option value="LANGSUNG">Keluar Langsung</option>
+        <option value="KASBON">Kasbon</option>
+        <option value="KEMBALIAN_KASBON">Kembalian</option>
+        <option value="PENYESUAIAN">Penyesuaian</option>
+      </select>
       <button class="btn-outline" onclick="resetFilterMutasi()">Reset</button>
+    </div>
+    <div class="toolbar" style="margin-top:.4rem">
+      <input type="text" id="mtSearch" placeholder="Cari penerima/keterangan/no. transaksi…" oninput="renderRiwayatFiltered()" style="flex:1;min-width:200px"/>
     </div>
 
     <div class="info-bar" id="mtInfoBar">Memuat data…</div>
@@ -131,6 +143,67 @@
         <thead><tr><th>Nama Golongan</th><th>Status</th><th class="td-right">Total Pemakaian (semua waktu)</th><th></th></tr></thead>
         <tbody id="glTbody"><tr><td colspan="4" class="loading">Memuat…</td></tr></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: PENYESUAIAN (khusus Direktur) ============== -->
+  <div class="tab-pane" id="tabPenyesuaian">
+    <div class="toolbar">
+      <button class="btn-tambah" style="background:#856404" onclick="bukaPenyesuaian()">+ Penyesuaian</button>
+    </div>
+    <div class="info-bar" id="pyInfoBar">Memuat data…</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Tanggal</th><th>No.</th><th>Pihak/Keterangan Pihak</th><th>Alasan</th>
+          <th class="td-right">Masuk</th><th class="td-right">Keluar</th><th class="td-right">Saldo</th>
+        </tr></thead>
+        <tbody id="pyTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: PENYESUAIAN KAS ============== -->
+<div class="modal fade" id="modalPenyesuaian" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Penyesuaian Kas Kecil</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertPenyesuaian"></div>
+        <form id="frmPenyesuaian">
+          <div class="mb-2">
+            <label class="form-label">Tanggal</label>
+            <input type="date" class="form-control" id="inpTglPenyesuaian" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Arah Koreksi</label>
+            <select class="form-select" id="inpArahPenyesuaian" required>
+              <option value="MASUK">Tambah Saldo (Masuk)</option>
+              <option value="KELUAR">Kurangi Saldo (Keluar)</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Pihak / Keterangan Singkat</label>
+            <input type="text" class="form-control" id="inpPihakPenyesuaian" placeholder="mis. Koreksi Migrasi Supabase" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Nominal</label>
+            <input type="number" class="form-control" id="inpNominalPenyesuaian" min="1" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Alasan (wajib)</label>
+            <textarea class="form-control" id="inpAlasanPenyesuaian" rows="3" placeholder="mis. selisih saldo migrasi dari Google Sheet ke Supabase per tgl X" required></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-warning" onclick="submitPenyesuaian(this)">Simpan Penyesuaian</button>
+      </div>
     </div>
   </div>
 </div>
@@ -317,6 +390,9 @@ window.addEventListener('load', async function () {
     return;
   }
   document.getElementById('kontenKasKecil').style.display='block';
+  if (isDirektur()) {
+    document.getElementById('btnTabPenyesuaian').style.display='';
+  }
   muatSemuaData();
 });
 
@@ -333,6 +409,7 @@ function muatSemuaData(){
   muatKasbonPending();
   muatPengajuanBatal();
   muatGolongan();
+  if (isDirektur()) muatPenyesuaian();
 }
 
 // ============================================================
@@ -385,21 +462,44 @@ function resetFilterMutasi(){
   document.getElementById('mtTglMulai').value='';
   document.getElementById('mtTglAkhir').value='';
   document.getElementById('mtGolongan').value='';
+  document.getElementById('mtJenis').value='';
+  document.getElementById('mtSearch').value='';
   muatRiwayat();
 }
+
+var riwayatKasCache=[];
 
 function muatRiwayat(){
   var tglMulai=document.getElementById('mtTglMulai').value||null;
   var tglAkhir=document.getElementById('mtTglAkhir').value||null;
   var idGol=document.getElementById('mtGolongan').value||null;
+  var jenis=document.getElementById('mtJenis').value||null;
 
   document.getElementById('mtInfoBar').textContent='Memuat data…';
-  dbRpc('get_riwayat_kas',{p_tgl_mulai:tglMulai,p_tgl_akhir:tglAkhir,p_id_golongan:idGol}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    document.getElementById('mtInfoBar').textContent=data.length+' transaksi'+(!tglMulai&&!tglAkhir?' (semua waktu — gunakan filter tanggal kalau data banyak)':'.');
-    var tb=document.getElementById('mtTbody');
-    if(!data.length){tb.innerHTML='<tr><td colspan="10" class="loading">Tidak ada data.</td></tr>';return;}
-    tb.innerHTML=data.map(function(r){
+  dbRpc('get_riwayat_kas',{p_tgl_mulai:tglMulai,p_tgl_akhir:tglAkhir,p_id_golongan:idGol,p_jenis:jenis}).then(function(res){
+    riwayatKasCache=Array.isArray(res)?res:[];
+    renderRiwayatFiltered();
+  }).catch(function(){
+    document.getElementById('mtInfoBar').textContent='Gagal memuat riwayat.';
+  });
+}
+
+function renderRiwayatFiltered(){
+  var tglMulai=document.getElementById('mtTglMulai').value;
+  var tglAkhir=document.getElementById('mtTglAkhir').value;
+  var q=(document.getElementById('mtSearch').value||'').trim().toLowerCase();
+  var data=riwayatKasCache;
+  if(q){
+    data=data.filter(function(r){
+      return (r.penerima||'').toLowerCase().indexOf(q)>-1 ||
+             (r.keterangan||'').toLowerCase().indexOf(q)>-1 ||
+             (r.no_transaksi||'').toLowerCase().indexOf(q)>-1;
+    });
+  }
+  document.getElementById('mtInfoBar').textContent=data.length+' transaksi'+(!tglMulai&&!tglAkhir?' (semua waktu — gunakan filter tanggal kalau data banyak)':'.');
+  var tb=document.getElementById('mtTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="10" class="loading">Tidak ada data.</td></tr>';return;}
+  tb.innerHTML=data.map(function(r){
       var dibatalkan=r.status_aktif==='DIBATALKAN';
       var pendingBatal=r.status_aktif==='MENUNGGU_APPROVE_BATAL';
       var rowStyle=dibatalkan?' style="opacity:.5;text-decoration:line-through"':'';
@@ -422,13 +522,10 @@ function muatRiwayat(){
         '<td>'+aksi+'</td>'+
       '</tr>';
     }).join('');
-  }).catch(function(){
-    document.getElementById('mtInfoBar').textContent='Gagal memuat riwayat.';
-  });
 }
 
 function badgeJenis(j){
-  var lbl={TOPUP:'Top-up',KEMBALIAN_KASBON:'Kembalian',LANGSUNG:'Keluar Langsung',KASBON:'Kasbon'}[j]||j;
+  var lbl={TOPUP:'Top-up',KEMBALIAN_KASBON:'Kembalian',LANGSUNG:'Keluar Langsung',KASBON:'Kasbon',PENYESUAIAN:'Penyesuaian'}[j]||j;
   return '<span class="badge-jenis j-'+j.toLowerCase()+'">'+lbl+'</span>';
 }
 
@@ -786,6 +883,71 @@ async function prosesApproveBatal(tabel,idTransaksi,disetujui){
     muatPengajuanBatal(); muatRiwayat(); muatSaldoCards(); muatKasbonPending();
   }catch(e){
     alert('Gagal: '+e.message);
+  }
+}
+
+// ============================================================
+// TAB: PENYESUAIAN (khusus Direktur — koreksi data migrasi)
+// ============================================================
+function muatPenyesuaian(){
+  document.getElementById('pyInfoBar').textContent='Memuat data…';
+  dbRpc('get_riwayat_kas',{p_tgl_mulai:null,p_tgl_akhir:null,p_id_golongan:null,p_jenis:'PENYESUAIAN'}).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    document.getElementById('pyInfoBar').textContent=data.length+' penyesuaian tercatat.';
+    var tb=document.getElementById('pyTbody');
+    if(!data.length){tb.innerHTML='<tr><td colspan="7" class="loading">Belum ada penyesuaian.</td></tr>';return;}
+    tb.innerHTML=data.map(function(r){
+      return '<tr>'+
+        '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+        '<td class="td-mono">'+esc(r.no_transaksi)+'</td>'+
+        '<td>'+esc(r.penerima)+'</td>'+
+        '<td style="max-width:220px">'+esc(r.keterangan||'—')+'</td>'+
+        '<td class="td-mono td-right">'+(r.masuk>0?'<span class="masuk-val">'+fmtRupiah(r.masuk)+'</span>':'—')+'</td>'+
+        '<td class="td-mono td-right">'+(r.keluar>0?'<span class="keluar-val">'+fmtRupiah(r.keluar)+'</span>':'—')+'</td>'+
+        '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.saldo_berjalan)+'</td>'+
+      '</tr>';
+    }).join('');
+  }).catch(function(){
+    document.getElementById('pyInfoBar').textContent='Gagal memuat data penyesuaian.';
+  });
+}
+
+function bukaPenyesuaian(){
+  if(!isDirektur()){alert('Hanya Direktur yang boleh melakukan penyesuaian kas.');return;}
+  document.getElementById('frmPenyesuaian').reset();
+  document.getElementById('alertPenyesuaian').innerHTML='';
+  document.getElementById('inpTglPenyesuaian').value=new Date().toISOString().slice(0,10);
+  new bootstrap.Modal(document.getElementById('modalPenyesuaian')).show();
+}
+
+function genIdPenyesuaian(){return'PY'+Date.now();}
+
+async function submitPenyesuaian(btn){
+  var tgl=document.getElementById('inpTglPenyesuaian').value;
+  var arah=document.getElementById('inpArahPenyesuaian').value;
+  var pihak=document.getElementById('inpPihakPenyesuaian').value.trim();
+  var nominal=Number(document.getElementById('inpNominalPenyesuaian').value);
+  var alasan=document.getElementById('inpAlasanPenyesuaian').value.trim();
+
+  if(!tgl){showAlert('alertPenyesuaian','Tanggal wajib diisi.');return;}
+  if(!pihak){showAlert('alertPenyesuaian','Pihak/keterangan wajib diisi.');return;}
+  if(!nominal||nominal<=0){showAlert('alertPenyesuaian','Nominal harus lebih dari 0.');return;}
+  if(!alasan){showAlert('alertPenyesuaian','Alasan wajib diisi.');return;}
+
+  var idTrx=genIdPenyesuaian();
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var res=await dbRpc('buat_penyesuaian_kas',{
+      p_id_transaksi:idTrx,p_no_transaksi:idTrx,p_tgl:tgl,p_arah:arah,
+      p_pihak:pihak,p_nominal:nominal,p_alasan:alasan,p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalPenyesuaian')).hide();
+    muatPenyesuaian(); muatRiwayat(); muatSaldoCards();
+  }catch(e){
+    showAlert('alertPenyesuaian','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Penyesuaian';
   }
 }
 </script>
