@@ -319,15 +319,17 @@
         <option value="BCA_DK">BCA DK</option>
         <option value="BCA_PT">BCA PT</option>
       </select>
+      <button class="btn-navy" style="font-size:.75rem" id="apBatchBtn" disabled onclick="jalankanBulkApprove()">Approve Terpilih (0)</button>
     </div>
     <div class="info-bar" id="apInfo">Memuat…</div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
+          <th style="width:32px"><input type="checkbox" id="apCbAll" onclick="toggleApCbAll(this)"/></th>
           <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
           <th class="td-right">Nominal</th><th>Status</th><th>Oleh</th><th></th>
         </tr></thead>
-        <tbody id="apTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
+        <tbody id="apTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1485,23 +1487,28 @@ async function simpanAlokHutang() {
 async function muatApprove() {
   var rek = document.getElementById('apRekening').value;
   var params = {p_id_rekening: rek || null};
-  document.getElementById('apTbody').innerHTML = '<tr><td colspan="8" class="loading">Memuat…</td></tr>';
+  document.getElementById('apTbody').innerHTML = '<tr><td colspan="9" class="loading">Memuat…</td></tr>';
   var rows = await dbRpc('get_bank_perlu_approve', params);
   var err = cekErrorSupabase(rows);
-  if (err) { renderErr('apTbody', 8, err); return; }
+  if (err) { renderErr('apTbody', 9, err); return; }
   if (!Array.isArray(rows)) rows = [];
 
+  apChecked.clear();
   var isDir = roleUser === 'DIREKTUR';
   var isMgr = roleUser === 'MANAGER' || isDir;
   var html = '';
   rows.forEach(function(r) {
     rowStore[r.id] = r;
     var aksi = '';
-    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
-      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">✓ Approve</button>';
-    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
-      aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">✓ Approve</button>';
+    var eligible = false, level = null;
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr) { eligible = true; level = 'manager'; }
+    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir) { eligible = true; level = 'direktur'; }
+    if (eligible) aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'' + level + '\')">✓ Approve</button>';
+    var cb = eligible
+      ? '<input type="checkbox" class="ap-cb" data-id="' + r.id + '" data-level="' + level + '" onclick="toggleApCbRow(this)"/>'
+      : '<input type="checkbox" disabled title="Bukan giliran level approve Anda"/>';
     html += '<tr data-rid="' + r.id + '">' +
+      '<td style="text-align:center">' + cb + '</td>' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
       '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
@@ -1512,10 +1519,74 @@ async function muatApprove() {
       '<td>' + aksi + '</td>' +
       '</tr>';
   });
-  if (!html) html = '<tr><td colspan="8" class="loading" style="color:var(--green)">Tidak ada yang perlu di-approve ✓</td></tr>';
+  if (!html) html = '<tr><td colspan="9" class="loading" style="color:var(--green)">Tidak ada yang perlu di-approve ✓</td></tr>';
   document.getElementById('apTbody').innerHTML = html;
   document.getElementById('apInfo').textContent = rows.length + ' transaksi perlu approve';
+  document.getElementById('apCbAll').checked = false;
+  updateApBatchBtn();
 }
+
+function toggleApCbRow(cb) {
+  var id = cb.dataset.id;
+  if (cb.checked) apChecked.set(id, cb.dataset.level);
+  else apChecked.delete(id);
+  cb.closest('tr').classList.toggle('row-checked', cb.checked);
+  updateApBatchBtn();
+}
+
+function toggleApCbAll(cbAll) {
+  var cbs = document.querySelectorAll('#apTbody .ap-cb');
+  cbs.forEach(function(cb) {
+    cb.checked = cbAll.checked;
+    if (cbAll.checked) apChecked.set(cb.dataset.id, cb.dataset.level);
+    else apChecked.delete(cb.dataset.id);
+    cb.closest('tr').classList.toggle('row-checked', cbAll.checked);
+  });
+  updateApBatchBtn();
+}
+
+function updateApBatchBtn() {
+  var n = apChecked.size;
+  var btn = document.getElementById('apBatchBtn');
+  btn.textContent = 'Approve Terpilih (' + n + ')';
+  btn.disabled = n === 0;
+}
+
+async function jalankanBulkApprove() {
+  var n = apChecked.size;
+  if (n === 0) return;
+  if (!confirm('Approve ' + n + ' transaksi terpilih?')) return;
+
+  var btn = document.getElementById('apBatchBtn');
+  btn.disabled = true;
+  var okCount = 0, gagal = [];
+  var entries = Array.from(apChecked.entries());
+  for (var i = 0; i < entries.length; i++) {
+    var id = entries[i][0], level = entries[i][1];
+    btn.textContent = 'Memproses ' + (i + 1) + '/' + entries.length + '…';
+    var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
+    try {
+      var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser()});
+      var err = cekErrorSupabase(res);
+      if (!err && res && res.status === 'error') err = res.message;
+      if (err) gagal.push(id + ': ' + err); else okCount++;
+    } catch (e) {
+      gagal.push(id + ': ' + e.message);
+    }
+  }
+
+  apChecked.clear();
+  muatRekap();
+  muatApprove();
+  if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+
+  var ringkasan = okCount + ' dari ' + n + ' berhasil di-approve.';
+  if (gagal.length) ringkasan += '\n\nGagal:\n' + gagal.join('\n');
+  alert(ringkasan);
+}
+
+var apChecked = new Map();
+
 
 async function approveAlokasi(id, level) {
   if (!confirm('Approve alokasi ' + id + '?')) return;
