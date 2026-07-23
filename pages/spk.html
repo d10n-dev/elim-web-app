@@ -1303,6 +1303,47 @@ function validasiQtyLog(inputId){
   }
 }
 
+// ── POTONG STOK BAHAN DARI PRODUKSI CETAK ──
+// Total lembar bahan terpakai = qty (lembar oplah tercetak) + insheet, diambil dari BOM
+// item PERTAMA di SPK (asumsi semua item dalam 1 SPK cetak di kertas/bahan yang sama).
+async function prosesKeluarProduksiBahan(data, idLog){
+  if(!sdetAktif||!sdetAktif.length) return;
+  var totalLembar=(parseInt(data.qty,10)||0)+(parseInt(data.insheet,10)||0);
+  if(totalLembar<=0) return;
+  var idItem=sdetAktif[0].id_item;
+  if(!idItem) return;
+  var bomBahan=await dbGet('m_bom_bahan',{id_item:'eq.'+idItem});
+  bomBahan=Array.isArray(bomBahan)?bomBahan:[];
+  bomBahan=bomBahan.filter(function(b){return !!b.id_bahan;});
+  if(!bomBahan.length) return;
+  var idBahanList=bomBahan.map(function(b){return b.id_bahan;});
+  var bahanMaster=await dbGet('m_bahan',{id_bahan:'in.('+idBahanList.join(',')+')'});
+  bahanMaster=Array.isArray(bahanMaster)?bahanMaster:[];
+  var bahanMap={};
+  bahanMaster.forEach(function(b){bahanMap[b.id_bahan]=b;});
+  var tglLog=data.tgl_produksi?(data.tgl_produksi+'T00:00:00+07:00'):new Date().toISOString();
+  var rows=bomBahan.map(function(b,i){
+    var qtyKeluar=totalLembar*(parseFloat(b.jumlah_per_lembar)||1);
+    var master=bahanMap[b.id_bahan]||{};
+    return {
+      id_log_bahan:idLog+'-LSB'+(i+1),
+      tgl:tglLog,
+      jenis:'KELUAR_PRODUKSI',
+      id_bahan:b.id_bahan,
+      nama_bahan:master.nama_bahan||'',
+      qty:qtyKeluar,
+      satuan:master.satuan||'',
+      id_ref:idLog,
+      keterangan:'Auto dari produksi CETAK SPK '+idSpkAktif+' ('+fmtAngka(totalLembar)+' lembar)',
+      user_input:data.user_input
+    };
+  });
+  if(rows.length){
+    var resStok=await dbInsert('log_stok_bahan',rows);
+    if(resStok&&resStok.code) console.error('Gagal insert log_stok_bahan:',resStok.message);
+  }
+}
+
 // ── SIMPAN LOG PRODUKSI ──
 async function simpanLog(jenis){
   var alertEl=document.getElementById('alertProgress'); alertEl.innerHTML='';
@@ -1409,6 +1450,10 @@ async function simpanLog(jenis){
       var logRow={id_log:genIdLogProd(),id_spk:idSpkAktif,tgl_produksi:data.tgl_produksi,tgl_input:data.tgl_input,jenis:jenis,qty:data.qty,insheet:data.insheet||0,satuan:data.satuan,mesin_vendor:data.mesin_vendor||'',operator:data.operator||'',keterangan:data.keterangan||'',user_input:data.user_input};
       var resL=await dbInsert('log_produksi',logRow);
       if(resL&&resL.code) throw new Error(resL.message);
+      if(jenis==='CETAK'){
+        try{ await prosesKeluarProduksiBahan(data, logRow.id_log); }
+        catch(eBahan){ console.error('Gagal potong stok bahan:', eBahan); }
+      }
       // Update status SPK kalau jenis lebih tinggi dari status sekarang
       var curStatus=spk?spk.status:'OPEN';
       if(_statusLebihTinggi(jenis,curStatus)){
