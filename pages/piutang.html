@@ -28,6 +28,7 @@
     .s-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
     .s-ditolak,.s-dibatalkan{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
     .s-disetorkan{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;}
+    .s-void{background:#f8d7da;color:#842029;border:1px solid #f1aeb5;}
     .s-menunggu_approve{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
     .s-teralokasi{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
     .badge-jt{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.15rem .4rem;border-radius:3px;}
@@ -161,6 +162,7 @@
       <option value="PENDING">Menunggu Approve</option>
       <option value="APPROVED">Disetujui</option>
       <option value="DISETORKAN">Disetorkan</option>
+      <option value="VOID">Void</option>
     </select>
     <button class="btn-tambah" id="btnTambahTM" onclick="bukaBuatTunaiMasuk()">+ Input Tunai Masuk</button>
   </div>
@@ -985,6 +987,9 @@ function renderTunaiMasuk(){
       aksi='<button class="btn-sm-action btn-approve" onclick="bukaLinkTunaiBank(\''+esc(r.id_tunai)+'\')">Link ke Bank</button>';
     }
     aksi+=' <button class="btn-sm-action" onclick="bukaTMDetail(\''+esc(r.id_tunai)+'\')">Detail</button>';
+    if(isDir&&(r.status==='PENDING'||r.status==='APPROVED'||r.status==='DISETORKAN')){
+      aksi+=' <button class="btn-sm-action btn-tolak" onclick="voidTunaiMasuk(\''+esc(r.id_tunai)+'\',\''+esc(r.no_tunai)+'\')">Void</button>';
+    }
     var chkCell=tampilChk&&r.status==='PENDING'
       ?'<input type="checkbox" class="chk-batch chk-tm" value="'+esc(r.id_tunai)+'"/>'
       :'';
@@ -1006,6 +1011,18 @@ async function batchApproveTM(){
   if(!confirm('Approve '+ids.length+' tunai masuk?'))return;
   try{
     var res=await dbRpc('approve_tunai_masuk',{p_id_list:ids,p_approved_by:getNamaUser()});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    muatTunaiMasuk();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+async function voidTunaiMasuk(idTM,noTM){
+  if(ROLE!=='DIREKTUR'){alert('Hanya Direktur yang bisa void.');return;}
+  var alasan=prompt('Alasan void tunai masuk '+noTM+':');
+  if(alasan===null)return;
+  if(!alasan.trim()){alert('Alasan wajib diisi.');return;}
+  if(!confirm('Yakin void tunai masuk '+noTM+'? Tindakan ini tidak bisa dibatalkan.'))return;
+  try{
+    var res=await dbRpc('void_tunai_masuk',{p_id_tunai:idTM,p_role:ROLE,p_user:getNamaUser(),p_alasan:alasan.trim()});
     var e=cekErrorSupabase(res); if(e) throw new Error(e);
     muatTunaiMasuk();
   }catch(e){alert('Gagal: '+e.message);}
