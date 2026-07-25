@@ -76,6 +76,7 @@
     <button class="tab-btn active" data-tab="rekap" onclick="gantiTab('rekap')">📊 Rekap</button>
     <button class="tab-btn" data-tab="input" onclick="gantiTab('input')">🧾 Input Pembelian</button>
     <button class="tab-btn" data-tab="bayar" onclick="gantiTab('bayar')">💳 Alokasi Kas Kecil</button>
+    <button class="tab-btn" data-tab="alokasibank" onclick="gantiTab('alokasibank')">🏦 Alokasi Transfer Bank</button>
     <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">📑 Faktur Pajak Masukan</button>
     <button class="tab-btn" data-tab="supplier" onclick="gantiTab('supplier')">🏭 Supplier</button>
   </div>
@@ -139,6 +140,20 @@
         <th class="td-right">Nominal</th><th>Keterangan</th><th></th>
       </tr></thead>
       <tbody id="bayarTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: ALOKASI TRANSFER BANK ============== -->
+  <div class="tab-pane" id="tabAlokasibank">
+    <div class="info-bar" id="abInfoBar">Transfer bank keluar (kategori HUTANG_BAHAN / HUTANG_MAKLOON) yang belum dialokasikan ke hutang pembelian.</div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Tanggal</th><th>Rekening</th><th>Keterangan Bank</th><th>Kategori</th>
+        <th class="td-right">Nominal</th><th class="td-right">Sisa</th><th></th>
+      </tr></thead>
+      <tbody id="alokBankTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
     </table>
     </div>
   </div>
@@ -329,6 +344,37 @@
 </div>
 
 <!-- ============== MODAL: FAKTUR PAJAK MASUKAN ============== -->
+<!-- ============== MODAL: ALOKASI TRANSFER BANK KE HUTANG ============== -->
+<div class="modal fade" id="modalAlokasiBank" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Alokasi Transfer Bank ke Hutang</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertAlokasiBank"></div>
+        <div id="infoBarAlokBank" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
+
+        <div class="sec-label">Cari Supplier untuk Tambah Nota</div>
+        <div style="position:relative">
+          <input type="text" class="form-control" id="inpCariSupplierAlokBank" placeholder="Ketik nama supplier…" autocomplete="off"/>
+          <div id="acSupplierAlokBankDrop" class="ac-dropdown"></div>
+        </div>
+        <div id="notaSupplierAlokBankWrap" style="margin-top:.5rem;display:none"></div>
+
+        <div class="sec-label">Nota Terpilih (bisa dari banyak supplier)</div>
+        <div id="alokasiBankTerpilihWrap"></div>
+        <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalAlokasiBankInfo">Total alokasi: Rp 0</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="btnSimpanAlokBank" onclick="submitAlokasiBank(this)">Simpan Alokasi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="modalInputFaktur" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -561,7 +607,170 @@ function muatSemuaData(){
   muatRekapCards();
   muatInputList();
   muatPembayaranList();
+  muatAlokasiBankList();
   muatFakturList();
+}
+
+// ============================================================
+// ALOKASI TRANSFER BANK KE HUTANG
+// ============================================================
+var bankStmtStore={};
+var alokasiBankTerpilih=[]; // [{id_pembelian, no_nota, nama_supplier, sisa, nominal}]
+var bankStmtAktif=null;
+
+function muatAlokasiBankList(){
+  var tbody=document.getElementById('alokBankTbody');
+  dbRpc('get_bank_belum_dialokasi',{p_id_rekening:null,p_mode:'ADMIN'}).then(function(res){
+    var errMsg=cekErrorSupabase(res);
+    if(errMsg){ tbody.innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">'+esc(errMsg)+'</td></tr>'; return; }
+    var data=(Array.isArray(res)?res:[]).filter(function(r){
+      return r.kategori==='HUTANG_BAHAN' || r.kategori==='HUTANG_MAKLOON';
+    });
+    if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">Tidak ada transfer bank menunggu alokasi.</td></tr>'; return; }
+    data.forEach(function(r){bankStmtStore[r.id]=r;});
+    tbody.innerHTML=data.map(function(r){
+      return '<tr>'+
+        '<td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
+        '<td>'+esc(r.nama_rekening||'')+'</td>'+
+        '<td>'+esc(r.keterangan_bank||'')+'</td>'+
+        '<td><span class="badge-status">'+esc(r.kategori)+'</span></td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(r.sisa_nominal)+'</td>'+
+        '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiBank(\''+esc(r.id)+'\')">Alokasi</button></td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+function inisAcSupplierAlokBank(){
+  var inp=document.getElementById('inpCariSupplierAlokBank');
+  var drop=document.getElementById('acSupplierAlokBankDrop');
+  if(inp._acInited)return;
+  inp._acInited=true;
+  buatAC(inp,drop,cacheSupplier,'id_supplier','nama',function(s){
+    muatNotaSupplierUtkAlokBank(s.id_supplier,s.nama);
+  });
+}
+
+function muatNotaSupplierUtkAlokBank(idSup,namaSup){
+  var wrap=document.getElementById('notaSupplierAlokBankWrap');
+  wrap.style.display='block';
+  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota belum lunas milik '+esc(namaSup)+'…</div>';
+  dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:null}).then(function(res){
+    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>0;});
+    if(!data.length){
+      wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaSup)+' tidak punya nota outstanding.</div>';
+      return;
+    }
+    wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+      var sudahAda=alokasiBankTerpilih.some(function(a){return a.id_pembelian===r.id_pembelian;});
+      return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
+        '<input type="checkbox" class="chk-alokbank-cari" value="'+esc(r.id_pembelian)+'" '+(sudahAda?'disabled':'')+' '+
+          'data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_supplier)+'" data-sisa="'+r.sisa_hutang+'"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">Sisa: '+fmtRupiah(r.sisa_hutang)+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
+        '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_hutang)+'</div>'+
+      '</label>';
+    }).join('')+'</div>'+
+    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahNotaAlokBank()">+ Tambahkan ke Alokasi</button>';
+  });
+}
+
+function tambahNotaAlokBank(){
+  var checked=document.querySelectorAll('.chk-alokbank-cari:checked');
+  if(!checked.length){alert('Pilih minimal 1 nota dulu.');return;}
+  checked.forEach(function(chk){
+    alokasiBankTerpilih.push({
+      id_pembelian:chk.value, no_nota:chk.dataset.noNota,
+      nama_supplier:chk.dataset.nama, sisa:parseFloat(chk.dataset.sisa),
+      nominal:parseFloat(chk.dataset.sisa)
+    });
+  });
+  document.getElementById('inpCariSupplierAlokBank').value='';
+  document.getElementById('notaSupplierAlokBankWrap').style.display='none';
+  document.getElementById('notaSupplierAlokBankWrap').innerHTML='';
+  renderAlokasiBankTerpilih();
+}
+
+function renderAlokasiBankTerpilih(){
+  var wrap=document.getElementById('alokasiBankTerpilihWrap');
+  if(!alokasiBankTerpilih.length){
+    wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Belum ada nota dipilih. Cari supplier di atas untuk menambahkan.</div>';
+  }else{
+    wrap.innerHTML='<div class="sj-pick-wrap">'+alokasiBankTerpilih.map(function(a,i){
+      return '<div class="sj-pick-row">'+
+        '<button type="button" onclick="hapusAlokasiBankTerpilih('+i+')" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>'+
+        '<div><div class="sj-pick-nama">'+esc(a.nama_supplier)+'</div><div class="sj-pick-sub">'+esc(a.no_nota)+' · Sisa: '+fmtRupiah(a.sisa)+'</div></div>'+
+        '<input type="number" class="alokasi-input" value="'+a.nominal+'" oninput="updateNominalAlokBank('+i+',this.value)"/>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
+  var total=alokasiBankTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('totalAlokasiBankInfo').textContent='Total alokasi: '+fmtRupiah(total);
+}
+
+function updateNominalAlokBank(idx,val){
+  alokasiBankTerpilih[idx].nominal=parseFloat(val)||0;
+  var total=alokasiBankTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('totalAlokasiBankInfo').textContent='Total alokasi: '+fmtRupiah(total);
+}
+
+function hapusAlokasiBankTerpilih(idx){
+  alokasiBankTerpilih.splice(idx,1);
+  renderAlokasiBankTerpilih();
+}
+
+function bukaAlokasiBank(idBankStmt){
+  bankStmtAktif=bankStmtStore[idBankStmt]||null;
+  if(!bankStmtAktif){alert('Data transfer bank tidak ditemukan, muat ulang halaman.');return;}
+  document.getElementById('alertAlokasiBank').innerHTML='';
+  document.getElementById('infoBarAlokBank').textContent=
+    fmtTgl(bankStmtAktif.tgl_transaksi)+' | '+esc(bankStmtAktif.nama_rekening||'')+
+    ' | '+esc(bankStmtAktif.kategori)+' | Nominal: '+fmtRupiah(bankStmtAktif.nominal)+
+    ' | Sisa: '+fmtRupiah(bankStmtAktif.sisa_nominal)+
+    ' | '+esc(bankStmtAktif.keterangan_bank||'');
+  document.getElementById('inpCariSupplierAlokBank').value='';
+  document.getElementById('notaSupplierAlokBankWrap').innerHTML='';
+  document.getElementById('notaSupplierAlokBankWrap').style.display='none';
+  alokasiBankTerpilih=[];
+  renderAlokasiBankTerpilih();
+  new bootstrap.Modal(document.getElementById('modalAlokasiBank')).show();
+  inisAcSupplierAlokBank();
+}
+
+async function submitAlokasiBank(btn){
+  var elErr=document.getElementById('alertAlokasiBank');
+  elErr.innerHTML='';
+  if(!bankStmtAktif||!bankStmtAktif.id){
+    showAlert('alertAlokasiBank','Data transfer bank tidak valid — tutup modal dan coba lagi.');return;
+  }
+  var detail=[];
+  alokasiBankTerpilih.forEach(function(a){
+    var nominal=parseFloat(a.nominal)||0;
+    if(nominal>0) detail.push({id_pembelian:a.id_pembelian,nominal_alokasi:nominal});
+  });
+  if(!detail.length){showAlert('alertAlokasiBank','Pilih minimal 1 nota dan isi nominal.');return;}
+  var total=detail.reduce(function(s,a){return s+a.nominal_alokasi;},0);
+  if(total>Number(bankStmtAktif.sisa_nominal||0)){
+    showAlert('alertAlokasiBank','Total alokasi ('+fmtRupiah(total)+') melebihi sisa nominal bank ('+fmtRupiah(bankStmtAktif.sisa_nominal)+').');
+    return;
+  }
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var res=await dbRpc('alokasi_transfer_ke_hutang',{
+      p_id_bank_stmt:bankStmtAktif.id,
+      p_detail:detail,
+      p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    if(res && res.status==='error') throw new Error(res.message);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalAlokasiBank')).hide();
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertAlokasiBank','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Alokasi';
+  }
 }
 
 function gantiTab(tab){
