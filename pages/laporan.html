@@ -77,6 +77,8 @@
     <div class="ac-wrap" style="min-width:220px">
       <input type="text" class="form-control" id="pFilterNama" placeholder="Cari pelanggan…" oninput="muatPiutang()"/>
     </div>
+    <button class="btn-outline" onclick="exportPiutangRingkasan()">⬇ Export Ringkasan CSV</button>
+    <button class="btn-outline" onclick="exportPiutangDetail()">⬇ Export Detail CSV</button>
     <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
   </div>
   <div id="alertPiutang"></div>
@@ -133,6 +135,8 @@
     <div class="ac-wrap" style="min-width:220px">
       <input type="text" class="form-control" id="hFilterNama" placeholder="Cari supplier…" oninput="muatHutang()"/>
     </div>
+    <button class="btn-outline" onclick="exportHutangRingkasan()">⬇ Export Ringkasan CSV</button>
+    <button class="btn-outline" onclick="exportHutangDetail()">⬇ Export Detail CSV</button>
     <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
   </div>
   <div id="alertHutang"></div>
@@ -319,6 +323,26 @@ function statusClass(s){
 
 var DATA_PIUTANG = [];
 var DATA_HUTANG = [];
+
+// ═══ EXPORT CSV HELPER ═══
+function csvEscape(v){
+  var s = (v===null||v===undefined) ? '' : String(v);
+  if (/[",\n;]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function downloadCSV(filename, headers, rows){
+  var lines = [headers.map(csvEscape).join(',')];
+  rows.forEach(function(r){ lines.push(r.map(csvEscape).join(',')); });
+  var csv = '\uFEFF' + lines.join('\r\n');
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function tglCSV(s){ return s ? fmtTgl(s) : ''; }
+
 
 function bulanIni(){
   var d=new Date();
@@ -577,6 +601,43 @@ function pilihPelangganRingkasan(nama){
   var det = document.getElementById('bodyPiutang');
   if (det) det.scrollIntoView({behavior:'smooth', block:'start'});
 }
+function exportPiutangRingkasan(){
+  var grup = {};
+  DATA_PIUTANG.forEach(function(r){
+    var nm = r.nama_pelanggan || '—';
+    if (!grup[nm]) grup[nm] = { jml:0, tagih:0, sisa:0, maxHari:0 };
+    grup[nm].jml += 1;
+    grup[nm].tagih += Number(r.total_tagih||0);
+    grup[nm].sisa += Number(r.sisa_piutang||0);
+    grup[nm].maxHari = Math.max(grup[nm].maxHari, Number(r.hari_terlambat||0));
+  });
+  var list = Object.keys(grup).map(function(nm){ return {nama:nm, d:grup[nm]}; })
+    .sort(function(a,b){ return b.d.sisa - a.d.sisa; });
+  if (!list.length){ alert('Tidak ada data untuk diexport.'); return; }
+  var rows = list.map(function(x){
+    return [x.nama, x.d.jml, x.d.tagih, x.d.sisa, x.d.maxHari];
+  });
+  downloadCSV('ringkasan_piutang_pelanggan_'+Date.now()+'.csv',
+    ['Pelanggan','Jml Nota','Total Tagih','Total Sisa','Hari Terlambat Maks'], rows);
+}
+function exportPiutangDetail(){
+  var bucketF = document.getElementById('pFilterBucket').value;
+  var namaF = (document.getElementById('pFilterNama').value||'').trim().toLowerCase();
+  var rows = DATA_PIUTANG.filter(function(r){
+    var b = bucketDari(r.hari_terlambat);
+    if (bucketF !== '' && String(b) !== bucketF) return false;
+    if (namaF && !(r.nama_pelanggan||'').toLowerCase().includes(namaF)) return false;
+    return true;
+  });
+  if (!rows.length){ alert('Tidak ada data untuk diexport.'); return; }
+  var out = rows.map(function(r){
+    var b = bucketDari(r.hari_terlambat);
+    return [r.nama_pelanggan, r.entitas, r.no_sj||r.no_nota||'', tglCSV(r.tgl), tglCSV(r.tgl_jatuh_tempo),
+      bucketLabel(b), r.total_tagih||0, (r.total_tagih||0)-(r.sisa_piutang||0), r.sisa_piutang||0, r.status_piutang];
+  });
+  downloadCSV('detail_piutang_'+Date.now()+'.csv',
+    ['Pelanggan','Entitas','No SJ/Nota','Tanggal','Jatuh Tempo','Bucket','Total Tagih','Dibayar','Sisa','Status'], out);
+}
 
 // ═══ HUTANG ═══
 function muatHutang(){
@@ -663,6 +724,43 @@ function pilihSupplierRingkasan(nama){
   renderHutang();
   var det = document.getElementById('bodyHutang');
   if (det) det.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function exportHutangRingkasan(){
+  var grup = {};
+  DATA_HUTANG.forEach(function(r){
+    var nm = r.nama_supplier || '—';
+    if (!grup[nm]) grup[nm] = { jml:0, tagih:0, sisa:0, maxHari:0 };
+    grup[nm].jml += 1;
+    grup[nm].tagih += Number(r.total_tagihan||0);
+    grup[nm].sisa += Number(r.sisa_hutang||0);
+    grup[nm].maxHari = Math.max(grup[nm].maxHari, Number(r.hari_terlambat||0));
+  });
+  var list = Object.keys(grup).map(function(nm){ return {nama:nm, d:grup[nm]}; })
+    .sort(function(a,b){ return b.d.sisa - a.d.sisa; });
+  if (!list.length){ alert('Tidak ada data untuk diexport.'); return; }
+  var rows = list.map(function(x){
+    return [x.nama, x.d.jml, x.d.tagih, x.d.sisa, x.d.maxHari];
+  });
+  downloadCSV('ringkasan_hutang_supplier_'+Date.now()+'.csv',
+    ['Supplier','Jml Nota','Total Tagihan','Total Sisa','Hari Terlambat Maks'], rows);
+}
+function exportHutangDetail(){
+  var bucketF = document.getElementById('hFilterBucket').value;
+  var namaF = (document.getElementById('hFilterNama').value||'').trim().toLowerCase();
+  var rows = DATA_HUTANG.filter(function(r){
+    var b = bucketDari(r.hari_terlambat);
+    if (bucketF !== '' && String(b) !== bucketF) return false;
+    if (namaF && !(r.nama_supplier||'').toLowerCase().includes(namaF)) return false;
+    return true;
+  });
+  if (!rows.length){ alert('Tidak ada data untuk diexport.'); return; }
+  var out = rows.map(function(r){
+    var b = bucketDari(r.hari_terlambat);
+    return [r.nama_supplier, r.entitas, r.no_nota, tglCSV(r.tgl_pembelian), tglCSV(r.tgl_jatuh_tempo),
+      bucketLabel(b), r.total_tagihan||0, r.total_dibayar||0, r.sisa_hutang||0, r.status_hutang];
+  });
+  downloadCSV('detail_hutang_'+Date.now()+'.csv',
+    ['Supplier','Entitas','No Nota','Tanggal','Jatuh Tempo','Bucket','Total Tagihan','Dibayar','Sisa','Status'], out);
 }
 </script>
 </body>
