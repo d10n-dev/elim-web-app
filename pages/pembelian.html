@@ -356,14 +356,21 @@
         <div id="alertAlokasiBank"></div>
         <div id="infoBarAlokBank" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
 
-        <div class="sec-label">Cari Supplier untuk Tambah Nota</div>
+        <div class="sec-label">Cari Nota Supplier</div>
         <div style="position:relative">
-          <input type="text" class="form-control" id="inpCariSupplierAlokBank" placeholder="Ketik nama supplier…" autocomplete="off"/>
-          <div id="acSupplierAlokBankDrop" class="ac-dropdown"></div>
+          <div style="display:flex;gap:.4rem">
+            <input type="text" class="form-control" id="inpCariNotaAlokBank" placeholder="Ketik nama supplier…" autocomplete="off" oninput="onInputCariNotaAlokBank()"/>
+            <button type="button" class="btn-outline" onclick="cariNotaAlokBankManual()" style="white-space:nowrap">🔍 Cari</button>
+          </div>
         </div>
-        <div id="notaSupplierAlokBankWrap" style="margin-top:.5rem;display:none"></div>
 
-        <div class="sec-label">Nota Terpilih (bisa dari banyak supplier)</div>
+        <div id="totalCentangAlokBank" style="text-align:right;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.3rem .1rem;background:#fff;position:sticky;top:0;z-index:5;min-height:1.1rem"></div>
+
+        <div id="daftarNotaAlokBankWrap" style="margin-top:.3rem">
+          <div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama supplier untuk melihat nota.</div>
+        </div>
+
+        <div class="sec-label">Nota Terpilih</div>
         <div id="alokasiBankTerpilihWrap"></div>
         <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalAlokasiBankInfo">Total alokasi: Rp 0</div>
       </div>
@@ -642,37 +649,51 @@ function muatAlokasiBankList(){
   });
 }
 
-function inisAcSupplierAlokBank(){
-  var inp=document.getElementById('inpCariSupplierAlokBank');
-  var drop=document.getElementById('acSupplierAlokBankDrop');
-  if(inp._acInited)return;
-  inp._acInited=true;
-  buatAC(inp,drop,cacheSupplier,'id_supplier','nama',function(s){
-    muatNotaSupplierUtkAlokBank(s.id_supplier,s.nama);
-  });
+var _alokBankTimer=null;
+function onInputCariNotaAlokBank(){
+  var nama=document.getElementById('inpCariNotaAlokBank').value.trim();
+  if(nama.length<2){
+    document.getElementById('daftarNotaAlokBankWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik minimal 2 huruf.</div>';
+    document.getElementById('totalCentangAlokBank').textContent='';
+    return;
+  }
+  clearTimeout(_alokBankTimer);
+  _alokBankTimer=setTimeout(function(){ muatNotaAlokBank(nama); },300);
 }
-
-function muatNotaSupplierUtkAlokBank(idSup,namaSup){
-  var wrap=document.getElementById('notaSupplierAlokBankWrap');
-  wrap.style.display='block';
-  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota belum lunas milik '+esc(namaSup)+'…</div>';
-  dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:null}).then(function(res){
+function cariNotaAlokBankManual(){
+  var nama=document.getElementById('inpCariNotaAlokBank').value.trim();
+  if(!nama){alert('Isi nama supplier dulu.');return;}
+  clearTimeout(_alokBankTimer);
+  muatNotaAlokBank(nama);
+}
+function muatNotaAlokBank(namaSup){
+  var wrap=document.getElementById('daftarNotaAlokBankWrap');
+  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota outstanding…</div>';
+  dbRpc('get_rekap_hutang',{p_id_supplier:null,p_status:null,p_nama_supplier:namaSup}).then(function(res){
     var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>0;});
     if(!data.length){
-      wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaSup)+' tidak punya nota outstanding.</div>';
+      wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada nota outstanding untuk "'+esc(namaSup)+'".</div>';
+      document.getElementById('totalCentangAlokBank').textContent='';
       return;
     }
     wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
       var sudahAda=alokasiBankTerpilih.some(function(a){return a.id_pembelian===r.id_pembelian;});
       return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
         '<input type="checkbox" class="chk-alokbank-cari" value="'+esc(r.id_pembelian)+'" '+(sudahAda?'disabled':'')+' '+
-          'data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_supplier)+'" data-sisa="'+r.sisa_hutang+'"/>'+
-        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">Sisa: '+fmtRupiah(r.sisa_hutang)+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
+          'data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_supplier)+'" data-sisa="'+r.sisa_hutang+'" onchange="updateTotalCentangAlokBank()"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">'+esc(r.nama_supplier)+' · '+fmtTgl(r.tgl_pembelian)+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
         '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_hutang)+'</div>'+
       '</label>';
     }).join('')+'</div>'+
-    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahNotaAlokBank()">+ Tambahkan ke Alokasi</button>';
+    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahNotaAlokBank()">+ Tambahkan yang Dicentang</button>';
+    updateTotalCentangAlokBank();
   });
+}
+function updateTotalCentangAlokBank(){
+  var el=document.getElementById('totalCentangAlokBank'); if(!el) return;
+  var checked=document.querySelectorAll('.chk-alokbank-cari:checked');
+  var total=0; checked.forEach(function(c){total+=parseFloat(c.dataset.sisa)||0;});
+  el.textContent=checked.length?('Dipilih: '+checked.length+' nota — Total: '+fmtRupiah(total)):'';
 }
 
 function tambahNotaAlokBank(){
@@ -685,9 +706,9 @@ function tambahNotaAlokBank(){
       nominal:parseFloat(chk.dataset.sisa)
     });
   });
-  document.getElementById('inpCariSupplierAlokBank').value='';
-  document.getElementById('notaSupplierAlokBankWrap').style.display='none';
-  document.getElementById('notaSupplierAlokBankWrap').innerHTML='';
+  document.getElementById('inpCariNotaAlokBank').value='';
+  document.getElementById('daftarNotaAlokBankWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Cari lagi untuk tambah nota lain.</div>';
+  document.getElementById('totalCentangAlokBank').textContent='';
   renderAlokasiBankTerpilih();
 }
 
@@ -728,13 +749,12 @@ function bukaAlokasiBank(idBankStmt){
     ' | '+esc(bankStmtAktif.kategori)+' | Nominal: '+fmtRupiah(bankStmtAktif.nominal)+
     ' | Sisa: '+fmtRupiah(bankStmtAktif.sisa_nominal)+
     ' | '+esc(bankStmtAktif.keterangan_bank||'');
-  document.getElementById('inpCariSupplierAlokBank').value='';
-  document.getElementById('notaSupplierAlokBankWrap').innerHTML='';
-  document.getElementById('notaSupplierAlokBankWrap').style.display='none';
+  document.getElementById('inpCariNotaAlokBank').value='';
+  document.getElementById('daftarNotaAlokBankWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama supplier untuk melihat nota.</div>';
+  document.getElementById('totalCentangAlokBank').textContent='';
   alokasiBankTerpilih=[];
   renderAlokasiBankTerpilih();
   new bootstrap.Modal(document.getElementById('modalAlokasiBank')).show();
-  inisAcSupplierAlokBank();
 }
 
 async function submitAlokasiBank(btn){
