@@ -851,8 +851,48 @@ function toggleDetail(tdEl, rowId) {
       (r.diapprove_manager ? '<div><div class="df-lbl">Approve Manager</div><div class="df-val">' + h(r.diapprove_manager) + '</div></div>' : '') +
       (r.diapprove_direktur ? '<div><div class="df-lbl">Approve Direktur</div><div class="df-val">' + h(r.diapprove_direktur) + '</div></div>' : '') +
       '<div class="full"><div class="df-lbl">Keterangan Alokasi</div><div class="df-val big">' + h(r.keterangan_manual) + '</div></div>' +
+      '<div class="full" id="notaAlokWrap-' + h(r.id) + '"></div>' +
     '</div></td>';
   tr.insertAdjacentElement('afterend', det);
+
+  muatNotaAlokasiDetail(r);
+}
+
+function muatNotaAlokasiDetail(r) {
+  var wrap = document.getElementById('notaAlokWrap-' + r.id);
+  if (!wrap) return;
+  var table, selectCols, namaKol;
+  if (r.kategori === 'PIUTANG') {
+    table = 'in_bank_alokasi_piutang';
+    selectCols = 'no_nota,nama_pelanggan,nominal_alokasi,status_alokasi';
+    namaKol = 'nama_pelanggan';
+  } else if (r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON') {
+    table = 'in_bank_alokasi_hutang';
+    selectCols = 'no_nota,nama_supplier,nominal_alokasi,status_alokasi';
+    namaKol = 'nama_supplier';
+  } else {
+    return; // kategori lain (OPERASIONAL, dll) tidak punya alokasi per-nota
+  }
+  wrap.innerHTML = '<div class="df-lbl">Dialokasikan ke Nota</div><div class="loading" style="padding:.4rem 0;font-size:.72rem">Memuat…</div>';
+  dbGet(table, {id_bank_statement: 'eq.' + r.id, select: selectCols, order: 'no_nota.asc'}).then(function(res) {
+    var rows = Array.isArray(res) ? res : [];
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="df-lbl">Dialokasikan ke Nota</div><div class="df-val" style="font-size:.72rem;color:var(--muted)">Belum ada nota dialokasikan.</div>';
+      return;
+    }
+    var total = rows.reduce(function(s, x) { return s + (parseFloat(x.nominal_alokasi) || 0); }, 0);
+    var html = '<div class="df-lbl">Dialokasikan ke Nota (' + rows.length + ')</div>' +
+      '<table style="width:100%;font-family:var(--mono);font-size:.72rem;margin-top:.25rem">' +
+      '<thead><tr style="color:var(--muted)"><th style="text-align:left">No. Nota</th><th style="text-align:left">' + (namaKol==='nama_pelanggan'?'Pelanggan':'Supplier') + '</th><th style="text-align:right">Nominal</th><th style="text-align:left">Status</th></tr></thead><tbody>' +
+      rows.map(function(x) {
+        return '<tr><td>' + h(x.no_nota) + '</td><td>' + h(x[namaKol]) + '</td><td style="text-align:right">' + fmtRp(x.nominal_alokasi) + '</td><td>' + h(x.status_alokasi) + '</td></tr>';
+      }).join('') +
+      '</tbody><tfoot><tr style="font-weight:600;border-top:1px solid var(--border)"><td colspan="2">Total</td><td style="text-align:right">' + fmtRp(total) + '</td><td></td></tr></tfoot>' +
+      '</table>';
+    wrap.innerHTML = html;
+  }).catch(function() {
+    wrap.innerHTML = '<div class="df-lbl">Dialokasikan ke Nota</div><div class="df-val" style="font-size:.72rem;color:var(--red)">Gagal memuat daftar nota.</div>';
+  });
 }
 
 // ── TAB 1: REKENING KORAN ───────────────────────────────────
