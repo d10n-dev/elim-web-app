@@ -42,6 +42,12 @@
     .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
     @keyframes spin{to{transform:rotate(360deg);}}
     .alert-bar{padding:8px 16px;font-family:var(--mono);font-size:12px;}
+    .bb-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;}
+    .bb-row:last-child{border-bottom:none;}
+    .bb-nama{font-weight:600;}
+    .bb-meta{color:var(--muted);font-size:11px;font-family:var(--mono);}
+    .btn-lengkapi{background:none;border:1px solid var(--navy);color:var(--navy);border-radius:6px;padding:4px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
+    .btn-lengkapi:hover{background:var(--navy);color:#fff;}
   </style>
 </head>
 <body>
@@ -57,6 +63,16 @@
     <button class="btn-load" onclick="muatBom()">Muat BOM</button>
   </div>
   <div class="item-info" id="itemInfo"></div>
+</div>
+
+<div class="panel" id="panelBelumBom" style="border-top:none">
+  <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleBelumBom()">
+    <span>⚠️ Item Belum Ada BOM <span id="belumBomCount" style="font-weight:400"></span></span>
+    <span id="belumBomToggleIcon">▾</span>
+  </label>
+  <div id="belumBomWrap" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;margin-top:4px">
+    <div class="loading-state" style="padding:16px"><span class="spinner"></span> Memuat…</div>
+  </div>
 </div>
 
 <div id="alertBar" class="alert-bar"></div>
@@ -210,10 +226,55 @@
           idBomAktif = null;
         }
       );
+
+      muatItemBelumBom();
     }).catch(() => {
       tampilAlert('Gagal memuat data master. Refresh halaman.', 'danger');
     });
   });
+
+  // ===================== ITEM BELUM ADA BOM =====================
+  function muatItemBelumBom() {
+    const wrap = document.getElementById('belumBomWrap');
+    dbRpc('get_item_belum_bom', { p_bulan: 12 }).then(res => {
+      const rows = Array.isArray(res) ? res : [];
+      document.getElementById('belumBomCount').textContent = '(' + rows.length + ')';
+      if (!rows.length) {
+        wrap.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">Semua item yang dipesan 12 bulan terakhir sudah ada BOM-nya ✓</div>';
+        return;
+      }
+      wrap.innerHTML = rows.map(r => `
+        <div class="bb-row">
+          <div>
+            <div class="bb-nama">${escHtml(r.nama_item)}</div>
+            <div class="bb-meta">${escHtml(r.id_item)} · ${escHtml(r.kategori || '-')} · dipesan ${r.jumlah_order_pakai}x · terakhir ${formatTanggal(r.terakhir_dipesan)}</div>
+          </div>
+          <button class="btn-lengkapi" onclick="lengkapiBom('${r.id_item}')">Lengkapi BOM</button>
+        </div>
+      `).join('');
+    }).catch(() => {
+      wrap.innerHTML = '<div style="padding:16px;text-align:center;color:var(--danger,#dc2626);font-size:12px">Gagal memuat daftar.</div>';
+    });
+  }
+
+  function toggleBelumBom() {
+    const wrap = document.getElementById('belumBomWrap');
+    const icon = document.getElementById('belumBomToggleIcon');
+    const hidden = wrap.style.display === 'none';
+    wrap.style.display = hidden ? 'block' : 'none';
+    icon.textContent = hidden ? '▾' : '▸';
+  }
+
+  function lengkapiBom(idItem) {
+    const d = dataItem.find(x => x.id_item === idItem);
+    if (!d) { tampilAlert('Item tidak ditemukan di master, refresh halaman.', 'warning'); return; }
+    const inputItem = document.getElementById('inputItem');
+    inputItem._setItem(d);
+    document.getElementById('itemInfo').textContent =
+      'Kategori: ' + d.kategori + ' | Satuan: ' + d.satuan + ' | PPS: ' + d.pps;
+    muatBom();
+    inputItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // ===================== MUAT BOM =====================
   function muatBom() {
