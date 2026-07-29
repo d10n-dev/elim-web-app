@@ -541,6 +541,37 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════
+     MODAL: ALOKASI LEGACY (TANPA NOTA) — Direktur only
+     Untuk transfer terkait saldo lama yang sudah LUNAS di data
+     hasil migrasi, tidak ada nota aktif untuk dicocokkan.
+════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalAlokLegacy" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" style="font-family:var(--mono)">Alokasi Legacy (Tanpa Nota)</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alModalInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.6rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.7rem">
+          Gunakan HANYA untuk transfer yang berkaitan dengan saldo lama yang sudah LUNAS di data hasil migrasi
+          (tidak ada nota aktif yang bisa dicocokkan). Nominal penuh akan langsung ditutup, tidak ada nota/piutang/hutang
+          manapun yang berubah statusnya.
+        </div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Keterangan <span style="color:var(--red)">*</span></label>
+        <textarea id="alKeterangan" class="form-control form-control-sm mt-1 mb-2" rows="3" style="font-family:var(--mono);font-size:.78rem" placeholder="Contoh: Pelunasan saldo lama a.n. ... (referensi nota lama sudah LUNAS saat migrasi)"></textarea>
+        <div id="alErr" style="display:none;margin-top:.4rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="alSimpanBtn" onclick="simpanAlokLegacy()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
      MODAL: ALOKASI HUTANG TRANSFER (HUTANG_BAHAN / HUTANG_MAKLOON)
 ════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalAlokHutang" tabindex="-1" data-bs-backdrop="static">
@@ -1454,6 +1485,10 @@ async function muatBelum() {
     rowStore[r.id] = r;
     var isAdm = ['ADMIN','MANAGER','DIREKTUR'].includes(roleUser);
     var aksi = isAdm ? '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>' : '';
+    var isLegacyKat = ['PIUTANG','HUTANG_BAHAN','HUTANG_MAKLOON'].includes(r.kategori);
+    if (isLegacyKat) {
+      aksi += ' <button class="btn-sm-action" style="color:#c45a00;border-color:#f5c98a" onclick="bukaAlokLegacy(\'' + r.id + '\')">Legacy</button>';
+    }
     html += '<tr data-rid="' + r.id + '">' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
@@ -1467,6 +1502,46 @@ async function muatBelum() {
   if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Semua sudah dialokasi ✓</td></tr>';
   document.getElementById('blTbody').innerHTML = html;
   document.getElementById('blInfo').textContent = rows.length + ' transaksi menunggu alokasi';
+}
+
+var alSelectedId = null;
+function bukaAlokLegacy(id) {
+  alSelectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('alModalInfo').innerHTML =
+    '<b>' + h(r.id) + '</b> | ' + fmtTgl(r.tgl_transaksi) + ' | ' + badgeRek(r.id_rekening) + '<br>' +
+    '<span class="badge-kat">' + h(r.kategori) + '</span> ' +
+    (r.jenis==='CR'?'<span class="masuk-val">↑ '+fmtRp(r.nominal)+'</span>':'<span class="keluar-val">↓ '+fmtRp(r.nominal)+'</span>') + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
+  document.getElementById('alKeterangan').value = '';
+  document.getElementById('alErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokLegacy')).show();
+}
+
+async function simpanAlokLegacy() {
+  var ket = document.getElementById('alKeterangan').value.trim();
+  var elErr = document.getElementById('alErr');
+  var btn = document.getElementById('alSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!ket) { elErr.textContent = 'Keterangan wajib diisi.'; elErr.style.display = ''; return; }
+  if (!confirm('Tutup baris bank ini tanpa nota? Pastikan ini memang transfer terkait saldo lama yang sudah LUNAS di data migrasi.')) return;
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc('alokasi_direktur_legacy', {
+    p_id_bank_stmt: alSelectedId,
+    p_keterangan: ket,
+    p_user: getUser()
+  });
+  btn.disabled = false; btn.textContent = 'Simpan';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokLegacy')).hide();
+  muatRekap();
+  muatBelum();
 }
 
 function bukaAlokAdmin(id) {

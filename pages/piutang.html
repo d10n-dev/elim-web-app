@@ -462,6 +462,33 @@
   </div>
 </div>
 
+<!-- ═══ MODAL: ALOKASI LEGACY (TANPA NOTA) — Direktur only ═══ -->
+<div class="modal fade" id="modalAlokLegacyPiutang" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Alokasi Legacy (Tanpa Nota)</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alpModalInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.6rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.7rem">
+          Gunakan HANYA untuk transfer terkait saldo piutang lama yang sudah LUNAS di data hasil migrasi
+          (tidak ada nota aktif yang bisa dicocokkan). Nominal penuh langsung ditutup; tidak ada nota/saldo
+          piutang manapun yang berubah statusnya.
+        </div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Keterangan *</label>
+        <textarea id="alpKeterangan" class="form-control form-control-sm mt-1 mb-2" rows="3" style="font-family:var(--mono);font-size:.78rem" placeholder="Contoh: Pelunasan saldo piutang lama a.n. ... (nota lama sudah LUNAS saat migrasi)"></textarea>
+        <div id="alpErr" style="display:none;margin-top:.4rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="alpSimpanBtn" onclick="simpanAlokLegacyPiutang()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ MODAL: ALOKASI TUNAI KE NOTA ═══ -->
 <div class="modal fade" id="modalAlokasiTN" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -1274,7 +1301,9 @@ function renderTF(data){
       '<td style="word-break:break-word;max-width:200px;white-space:normal">'+esc(r.keterangan_bank)+(r.keterangan_manual?'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.keterangan_manual)+'</span>':'')+'</td>'+
       '<td class="td-mono td-right">'+fmtRupiah(r.nominal)+'</td>'+
       '<td class="td-mono td-right">'+fmtRupiah(r.sisa_nominal)+'</td>'+
-      '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiTF(\''+esc(r.id)+'\')">Alokasi</button></td></tr>';
+      '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiTF(\''+esc(r.id)+'\')">Alokasi</button>'+
+      (isDirektur()?' <button class="btn-sm-action" style="color:#c45a00;border-color:#f5c98a" onclick="bukaAlokLegacyPiutang(\''+esc(r.id)+'\')">Legacy</button>':'')+
+      '</td></tr>';
   }).join('');
 }
 function filterTF(){
@@ -1286,6 +1315,44 @@ function filterTF(){
            (r.nama_rekening||'').toLowerCase().indexOf(q)>=0;
   });
   renderTF(filtered);
+}
+
+var alpSelectedId = null;
+function bukaAlokLegacyPiutang(idBank){
+  alpSelectedId = idBank;
+  var r = tfRowStore[idBank] || {};
+  document.getElementById('alpModalInfo').innerHTML =
+    fmtTgl(r.tgl_transaksi)+' | '+esc(r.nama_rekening||'')+'<br>'+
+    '<span style="font-size:.7rem">'+esc(r.keterangan_bank||'')+'</span><br>'+
+    'Sisa: '+fmtRupiah(r.sisa_nominal||0);
+  document.getElementById('alpKeterangan').value = '';
+  document.getElementById('alpErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokLegacyPiutang')).show();
+}
+
+async function simpanAlokLegacyPiutang(){
+  var ket = document.getElementById('alpKeterangan').value.trim();
+  var elErr = document.getElementById('alpErr');
+  var btn = document.getElementById('alpSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!ket) { elErr.textContent = 'Keterangan wajib diisi.'; elErr.style.display = ''; return; }
+  if (!confirm('Tutup baris bank ini tanpa nota? Pastikan ini memang transfer terkait saldo piutang lama yang sudah LUNAS di data migrasi.')) return;
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc('alokasi_direktur_legacy', {
+    p_id_bank_stmt: alpSelectedId,
+    p_keterangan: ket,
+    p_user: getNamaUser()
+  });
+  btn.disabled = false; btn.textContent = 'Simpan';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokLegacyPiutang')).hide();
+  muatAlokasiTF();
 }
 
 function bukaAlokasiTF(idBank){

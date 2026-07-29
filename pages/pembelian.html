@@ -382,6 +382,33 @@
   </div>
 </div>
 
+<!-- MODAL: ALOKASI LEGACY (TANPA NOTA) — Direktur only -->
+<div class="modal fade" id="modalAlokLegacyHutang" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Alokasi Legacy (Tanpa Nota)</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alhModalInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.6rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.7rem">
+          Gunakan HANYA untuk transfer terkait saldo hutang lama yang sudah LUNAS di data hasil migrasi
+          (tidak ada nota aktif yang bisa dicocokkan). Nominal penuh langsung ditutup; tidak ada nota/saldo
+          hutang manapun yang berubah statusnya.
+        </div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Keterangan *</label>
+        <textarea id="alhKeterangan" class="form-control form-control-sm mt-1 mb-2" rows="3" style="font-family:var(--mono);font-size:.78rem" placeholder="Contoh: Pelunasan saldo hutang lama a.n. ... (nota lama sudah LUNAS saat migrasi)"></textarea>
+        <div id="alhErr" style="display:none;margin-top:.4rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="alhSimpanBtn" onclick="simpanAlokLegacyHutang()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="modalInputFaktur" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -643,7 +670,9 @@ function muatAlokasiBankList(){
         '<td><span class="badge-status">'+esc(r.kategori)+'</span></td>'+
         '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
         '<td class="td-right td-mono">'+fmtRupiah(r.sisa_nominal)+'</td>'+
-        '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiBank(\''+esc(r.id)+'\')">Alokasi</button></td>'+
+        '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiBank(\''+esc(r.id)+'\')">Alokasi</button>'+
+        (isDirektur()?' <button class="btn-sm-action" style="color:#c45a00;border-color:#f5c98a" onclick="bukaAlokLegacyHutang(\''+esc(r.id)+'\')">Legacy</button>':'')+
+        '</td>'+
       '</tr>';
     }).join('');
   });
@@ -738,6 +767,44 @@ function updateNominalAlokBank(idx,val){
 function hapusAlokasiBankTerpilih(idx){
   alokasiBankTerpilih.splice(idx,1);
   renderAlokasiBankTerpilih();
+}
+
+var alhSelectedId = null;
+function bukaAlokLegacyHutang(idBankStmt){
+  alhSelectedId = idBankStmt;
+  var r = bankStmtStore[idBankStmt] || {};
+  document.getElementById('alhModalInfo').innerHTML =
+    fmtTgl(r.tgl_transaksi)+' | '+esc(r.nama_rekening||'')+'<br>'+
+    '<span style="font-size:.7rem">'+esc(r.keterangan_bank||'')+'</span><br>'+
+    'Sisa: '+fmtRupiah(r.sisa_nominal||0);
+  document.getElementById('alhKeterangan').value = '';
+  document.getElementById('alhErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokLegacyHutang')).show();
+}
+
+async function simpanAlokLegacyHutang(){
+  var ket = document.getElementById('alhKeterangan').value.trim();
+  var elErr = document.getElementById('alhErr');
+  var btn = document.getElementById('alhSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!ket) { elErr.textContent = 'Keterangan wajib diisi.'; elErr.style.display = ''; return; }
+  if (!confirm('Tutup baris bank ini tanpa nota? Pastikan ini memang transfer terkait saldo hutang lama yang sudah LUNAS di data migrasi.')) return;
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc('alokasi_direktur_legacy', {
+    p_id_bank_stmt: alhSelectedId,
+    p_keterangan: ket,
+    p_user: getNamaUser()
+  });
+  btn.disabled = false; btn.textContent = 'Simpan';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokLegacyHutang')).hide();
+  muatAlokasiBankList();
 }
 
 function bukaAlokasiBank(idBankStmt){
