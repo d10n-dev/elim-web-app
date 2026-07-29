@@ -199,7 +199,6 @@
           <select class="form-select" id="selJenisPrint" onchange="cekReprint()">
             <option value="SJ">Surat Jalan (SJ)</option>
             <option value="INVOICE">Invoice / Nota</option>
-            <option value="KEDUANYA">SJ + Invoice (Keduanya)</option>
           </select>
         </div>
         <div id="alasanBox" style="display:none">
@@ -985,8 +984,8 @@ function previewDokumen(){
   dbGet('in_pengiriman_detail',{id_sj:'eq.'+sjAktif.id_sj,order:'id_pgdet.asc'}).then(function(res){
     var items=Array.isArray(res)?res:[];
     var html='';
-    if(jenis==='SJ'||jenis==='KEDUANYA') html+=layoutSJ(sjAktif,items);
-    if(jenis==='INVOICE'||jenis==='KEDUANYA') html+=layoutInvoice(sjAktif,items);
+    if(jenis==='SJ') html+=layoutSJ(sjAktif,items);
+    if(jenis==='INVOICE') html+=layoutInvoice(sjAktif,items);
     var lm=win.document.getElementById('lm');
     if(lm) lm.remove();
     win.document.body.insertAdjacentHTML('beforeend',html);
@@ -995,8 +994,8 @@ function previewDokumen(){
 
 function cetakDokumen(sj,items,jenis){
   var html='';
-  if(jenis==='SJ'||jenis==='KEDUANYA') html+=layoutSJ(sj,items);
-  if(jenis==='INVOICE'||jenis==='KEDUANYA') html+=layoutInvoice(sj,items);
+  if(jenis==='SJ') html+=layoutSJ(sj,items);
+  if(jenis==='INVOICE') html+=layoutInvoice(sj,items);
   var pa=document.getElementById('printArea');
   pa.innerHTML=html;
   document.body.classList.add('printing');
