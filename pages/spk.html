@@ -163,7 +163,7 @@
       <div class="modal-body">
         <div id="alertBuat"></div>
         <div class="form-row form-row-2">
-          <div><label class="form-label">Total Oplah *</label><input type="number" class="form-control" id="inOplah" placeholder="cth: 1000" min="1" oninput="updatePreviewQty()"/></div>
+          <div><label class="form-label">Total Oplah *</label><input type="number" class="form-control" id="inOplah" placeholder="cth: 1000" min="1" oninput="updatePreviewQty();recalcSemuaItemQty();"/></div>
           <div><label class="form-label">Keterangan</label><input type="text" class="form-control" id="inKet" placeholder="Opsional"/></div>
         </div>
         <div class="pps-bar-wrap" id="ppsBarWrap" style="display:none">
@@ -838,6 +838,7 @@ function tambahItem(){
   var satuan=itemDipilih.SATUAN||'';
   var isiBuku=parseInt((document.getElementById('inIsiBuku')||{value:'50'}).value,10)||50;
   var qtyHasil=hitungQty(oplah,ppsInput,satuan,isiBuku);
+  if(qtyHasil<=0){alertEl.innerHTML='<div class="alert-box alert-err">Qty hasil hitung = 0 (cek Oplah / PPS / Isi per Buku). Item tidak ditambahkan.</div>';return;}
   var ppsItem=parseInt(itemDipilih.PPS||0,10); if(!ppsItem||ppsItem<=0) ppsItem=ppsInput;
   var maxPpsCek=maxPpsForm===0?ppsItem:maxPpsForm;
   if(maxPpsForm!==0&&ppsItem!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">PPS item ini ('+ppsItem+') berbeda dengan Max PPS SPK ('+maxPpsForm+'). Tidak bisa digabung.</div>';return;}
@@ -860,6 +861,24 @@ function tambahItem(){
 }
 
 function hapusItemList(idx){daftarItem.splice(idx,1);if(!daftarItem.length)maxPpsForm=0;renderItemList();updatePPSBar();}
+
+// Hitung ulang qty semua item di daftarItem saat Total Oplah diubah setelah item sudah ditambahkan.
+// Mencegah qty item "beku" pada oplah lama (akar masalah qty_spk=0 pada SPK260700092).
+function recalcSemuaItemQty(){
+  if(!daftarItem.length) return;
+  var oplah=parseInt(document.getElementById('inOplah').value,10)||0;
+  if(!oplah) return;
+  var alertEl=document.getElementById('alertTambah');
+  var adaZero=false;
+  daftarItem.forEach(function(it){
+    it.qty=hitungQty(oplah,it.ppsInput,it.satuan,it.isiBuku);
+    if(it.qty<=0) adaZero=true;
+  });
+  renderItemList();
+  if(adaZero&&alertEl){
+    alertEl.innerHTML='<div class="alert-box alert-err">Perhatian: perubahan Oplah membuat qty salah satu item jadi 0. Cek Isi per Buku / PPS item tersebut sebelum simpan.</div>';
+  }
+}
 
 function renderItemList(){
   var wrap=document.getElementById('itemList');
@@ -922,6 +941,8 @@ async function simpanSPK(){
   if(!daftarItem.length){alertEl.innerHTML='<div class="alert-box alert-err">Minimal 1 item harus ditambahkan.</div>';return;}
   var totalPps=daftarItem.reduce(function(s,it){return s+it.ppsInput;},0);
   if(totalPps!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">Total PPS belum genap. Terpakai: '+totalPps+' dari '+maxPpsForm+'. Sisa: '+(maxPpsForm-totalPps)+'.</div>';return;}
+  var itemZero=daftarItem.find(function(it){return !it.qty||it.qty<=0;});
+  if(itemZero){alertEl.innerHTML='<div class="alert-box alert-err">Item "'+esc(itemZero.namaItem)+'" punya qty 0. Cek Isi per Buku / PPS / Oplah sebelum simpan.</div>';return;}
   var btn=document.getElementById('btnSimpanSPK');
   btn.disabled=true; btn.textContent='Menyimpan…';
   try {
@@ -983,6 +1004,8 @@ async function simpanEditSPK(){
   if(!daftarItem.length){alertEl.innerHTML='<div class="alert-box alert-err">Minimal 1 item harus ditambahkan.</div>';return;}
   var totalPps=daftarItem.reduce(function(s,it){return s+it.ppsInput;},0);
   if(totalPps!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">Total PPS belum genap. Terpakai: '+totalPps+' dari '+maxPpsForm+'. Sisa: '+(maxPpsForm-totalPps)+'.</div>';return;}
+  var itemZeroEdit=daftarItem.find(function(it){return !it.qty||it.qty<=0;});
+  if(itemZeroEdit){alertEl.innerHTML='<div class="alert-box alert-err">Item "'+esc(itemZeroEdit.namaItem)+'" punya qty 0. Cek Isi per Buku / PPS / Oplah sebelum simpan.</div>';return;}
   var btn=document.getElementById('btnSimpanSPK');
   btn.disabled=true; btn.textContent='Menyimpan…';
   try{
@@ -1142,6 +1165,10 @@ function renderFinishingItemList(){
     if(!reqs.length) return;
     var target=parseInt(r.qty_spk,10)||0;
     html+='<div class="section-divider" style="margin-top:.6rem">'+esc(r.nama_item)+(r.subitem?' — '+esc(r.subitem):'')+'</div>';
+    if(target<=0){
+      html+='<div class="alert-box alert-err" style="margin:.3rem 0">qty_spk item ini = 0 — kemungkinan bug saat SPK dibuat (cek Isi per Buku/PPS). Finishing tidak bisa dihitung sampai qty_spk diperbaiki.</div>';
+      return;
+    }
     reqs.forEach(function(f){
       var key=r.id_sdet+'_'+f.id;
       var terpakai=finishingProgress[key]||0;
