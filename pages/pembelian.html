@@ -106,9 +106,9 @@
     <table>
       <thead><tr>
         <th>No. Nota</th><th>Tanggal</th><th>Supplier</th><th>Entitas</th>
-        <th class="td-right">Tagihan</th><th class="td-right">Dibayar</th><th class="td-right">Sisa</th><th>Status</th>
+        <th class="td-right">Tagihan</th><th class="td-right">Dibayar</th><th class="td-right">Sisa</th><th>Status</th><th>Aksi</th>
       </tr></thead>
-      <tbody id="rekapTbody"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
+      <tbody id="rekapTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
     </table>
     </div>
   </div>
@@ -281,6 +281,113 @@
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
         <button class="btn-navy" onclick="submitInputPembelian(this)">Simpan Pembelian</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: EDIT NOTA PEMBELIAN ============== -->
+<div class="modal fade" id="modalEditPembelian" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Edit Nota Pembelian</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalEdit"></div>
+        <div class="info-c1">
+          Hanya bisa dipakai selama nota belum ada pembayaran/alokasi transfer bank/faktur pajak.
+          Baris yang dihapus/diubah akan otomatis mengoreksi stok bahan (log koreksi), tidak menghapus histori lama.
+        </div>
+        <form id="frmEditPembelian" onsubmit="return false;">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">No. Nota Supplier *</label>
+              <input type="text" class="form-control" id="editNoNota"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Tanggal Pembelian *</label>
+              <input type="date" class="form-control" id="editTglPembelian"/>
+            </div>
+            <div class="col-12" style="position:relative">
+              <label class="form-label">Supplier *</label>
+              <input type="text" class="form-control" id="editCariSupplier" placeholder="Ketik nama supplier…" autocomplete="off"/>
+              <input type="hidden" id="editIdSupplier"/>
+              <div id="acSupplierEditDrop" class="ac-dropdown"></div>
+            </div>
+            <div class="col-6 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="editAdaPPN" onchange="toggleFieldPPNEdit()"/>
+                <label class="form-check-label" for="editAdaPPN" style="font-size:.82rem">Ada PPN (supplier PKP)</label>
+              </div>
+            </div>
+            <div class="col-6" id="editWrapModePPN" style="display:none">
+              <label class="form-label">Harga per item di nota ini adalah</label>
+              <select class="form-select" id="editModePPN" onchange="updateKalkulasiPPNEdit()">
+                <option value="DPP">DPP (PPN ditambahkan di atasnya)</option>
+                <option value="TERMASUK_PPN">Sudah termasuk PPN</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Potongan / Diskon Nota</label>
+              <input type="number" class="form-control" id="editDiskonNota" value="0" oninput="updateKalkulasiPPNEdit()"/>
+            </div>
+            <div class="col-12" id="editInfoKalkulasiPPN" style="display:none">
+              <div class="alert alert-info py-2" style="font-size:.75rem;font-family:var(--mono);margin-top:.2rem">
+                <div>Subtotal item: <b id="editKalkSubtotal">Rp 0</b></div>
+                <div>Setelah diskon: <b id="editKalkSetelahDiskon">Rp 0</b></div>
+                <div>DPP: <b id="editKalkDPP">Rp 0</b> &nbsp;|&nbsp; PPN (11%): <b id="editKalkPPN">Rp 0</b></div>
+                <div>Total Tagihan: <b id="editKalkTotal">Rp 0</b></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec-label">Item Pembelian (sesuai nota)</div>
+          <div id="editItemPembelianWrap"></div>
+          <button type="button" class="btn-outline" style="margin-top:.4rem" onclick="tambahBarisItemEdit()">+ Tambah Item</button>
+
+          <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.7rem" id="editTotalItemInfo">
+            Subtotal: Rp 0
+          </div>
+
+          <div class="mb-2" style="margin-top:.6rem">
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="editKetPembelian"/>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitEditPembelian(this)">Simpan Perubahan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: VOID NOTA PEMBELIAN ============== -->
+<div class="modal fade" id="modalVoidPembelian" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Void Nota Pembelian</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalVoid"></div>
+        <div class="info-c1">
+          Nota <b id="voidNoNota"></b> akan ditandai VOID. Stok bahan yang sudah masuk dari nota ini akan
+          dikoreksi balik otomatis. Data tidak dihapus fisik — tetap tercatat untuk histori/audit.
+        </div>
+        <input type="hidden" id="voidIdPembelian"/>
+        <div class="mb-2">
+          <label class="form-label">Alasan Void *</label>
+          <input type="text" class="form-control" id="voidAlasan" placeholder="mis. double input, salah nota"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" style="background:var(--red)" onclick="submitVoidPembelian(this)">Ya, Void Nota Ini</button>
       </div>
     </div>
   </div>
@@ -900,9 +1007,15 @@ function muatRekap(){
   tbody.innerHTML='<tr><td colspan="8" class="loading">Memuat…</td></tr>';
   dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:status}).then(function(res){
     var data=Array.isArray(res)?res:[];
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="8" class="loading">Tidak ada data.</td></tr>'; return; }
+    if(!data.length){ tbody.innerHTML='<tr><td colspan="9" class="loading">Tidak ada data.</td></tr>'; return; }
+    rekapStore={};
+    data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
     tbody.innerHTML=data.map(function(r){
       var stCls='s-'+r.status_hutang.toLowerCase();
+      var aksiHtml=r.boleh_edit
+        ? '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;margin-right:.3rem" onclick="bukaEditPembelian(\''+r.id_pembelian+'\')">Edit</button>'+
+          '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;color:var(--red)" onclick="bukaVoidPembelian(\''+r.id_pembelian+'\')">Void</button>'
+        : '<span style="font-size:.68rem;color:var(--muted)" title="Sudah ada pembayaran/alokasi/faktur — pakai Nota Debit/Kredit">—</span>';
       return '<tr>'+
         '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
         '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
@@ -912,6 +1025,7 @@ function muatRekap(){
         '<td class="td-right td-mono">'+fmtRupiah(r.total_dibayar)+'</td>'+
         '<td class="td-right td-mono">'+fmtRupiah(r.sisa_hutang)+'</td>'+
         '<td><span class="badge-status '+stCls+'">'+esc(r.status_hutang)+'</span></td>'+
+        '<td>'+aksiHtml+'</td>'+
       '</tr>';
     }).join('');
   });
@@ -1206,6 +1320,303 @@ function muatInputList(){
       '</tr>';
     }).join('');
   });
+}
+</script>
+
+<script>
+// ============================================================
+// EDIT & VOID NOTA PEMBELIAN
+// ============================================================
+var rekapStore={};       // id_pembelian -> row rekap (utk isi nama nota di modal void)
+var editItemBaris=[];    // sama struktur itemBaris + id_pbldet (null=baris baru)
+var editIdPembelian=null;
+
+function inisAcSupplierEdit(){
+  var inp=document.getElementById('editCariSupplier');
+  var drop=document.getElementById('acSupplierEditDrop');
+  if(inp._acInited)return;
+  inp._acInited=true;
+  buatAC(inp,drop,cacheSupplier,'id_supplier','nama',function(s){
+    document.getElementById('editIdSupplier').value=s.id_supplier;
+  });
+}
+
+function toggleFieldPPNEdit(){
+  var ada=document.getElementById('editAdaPPN').checked;
+  document.getElementById('editWrapModePPN').style.display=ada?'block':'none';
+  document.getElementById('editInfoKalkulasiPPN').style.display=ada?'block':'none';
+  updateKalkulasiPPNEdit();
+}
+
+function updateKalkulasiPPNEdit(){
+  var adaPPN=document.getElementById('editAdaPPN').checked;
+  if(!adaPPN) return;
+  var subtotal=editItemBaris.reduce(function(s,it){
+    return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));
+  },0);
+  var diskon=parseFloat(document.getElementById('editDiskonNota').value)||0;
+  var setelahDiskon=Math.max(0, subtotal-diskon);
+  var mode=document.getElementById('editModePPN').value;
+  var dpp,ppn,total;
+  if(mode==='DPP'){ dpp=setelahDiskon; ppn=Math.round(dpp*0.11); total=dpp+ppn; }
+  else{ dpp=Math.round(setelahDiskon/1.11); ppn=setelahDiskon-dpp; total=setelahDiskon; }
+  document.getElementById('editKalkSubtotal').textContent=fmtRupiah(subtotal);
+  document.getElementById('editKalkSetelahDiskon').textContent=fmtRupiah(setelahDiskon);
+  document.getElementById('editKalkDPP').textContent=fmtRupiah(dpp);
+  document.getElementById('editKalkPPN').textContent=fmtRupiah(ppn);
+  document.getElementById('editKalkTotal').textContent=fmtRupiah(total);
+}
+
+async function bukaEditPembelian(idPembelian){
+  document.getElementById('frmEditPembelian').reset();
+  document.getElementById('alertModalEdit').innerHTML='';
+  editIdPembelian=idPembelian;
+  var m=new bootstrap.Modal(document.getElementById('modalEditPembelian'));
+  m.show();
+  document.getElementById('editItemPembelianWrap').innerHTML='<div class="loading">Memuat…</div>';
+
+  var res=await dbRpc('get_pembelian_detail',{p_id_pembelian:idPembelian});
+  var errMsg=cekErrorSupabase(res);
+  if(errMsg || !res || res.status==='error'){
+    showAlert('alertModalEdit','Gagal memuat data: '+(errMsg||(res&&res.message)||'unknown'));
+    return;
+  }
+  var h=res.header, details=res.details||[];
+
+  document.getElementById('editNoNota').value=h.no_nota||'';
+  document.getElementById('editTglPembelian').value=(h.tgl_pembelian||'').slice(0,10);
+  document.getElementById('editIdSupplier').value=h.id_supplier||'';
+  document.getElementById('editCariSupplier').value=h.nama_supplier||'';
+  document.getElementById('editAdaPPN').checked=!!h.ada_ppn;
+  document.getElementById('editModePPN').value=h.mode_ppn||'DPP';
+  document.getElementById('editDiskonNota').value=h.diskon_nota||0;
+  document.getElementById('editKetPembelian').value=h.keterangan||'';
+  toggleFieldPPNEdit();
+
+  editItemBaris=details.map(function(d){
+    return {
+      id_pbldet:d.id_pbldet, id_akun:d.id_akun, nama_item_nota:d.nama_item_nota,
+      jumlah:d.jumlah, satuan:d.satuan, harga_satuan:d.harga_satuan,
+      alokasi:(d.alokasi||[]).map(function(a){return {id_bahan:a.id_bahan, pps_per_lembar:a.pps_per_lembar, keterangan:a.keterangan||''};})
+    };
+  });
+  window._editIdAwal=details.map(function(d){return d.id_pbldet;});
+  renderItemBarisEdit();
+  inisAcSupplierEdit();
+}
+
+function tambahBarisItemEdit(){
+  editItemBaris.push({id_pbldet:null,id_akun:'',nama_item_nota:'',jumlah:'',satuan:'',harga_satuan:'',alokasi:[]});
+  renderItemBarisEdit();
+}
+function hapusBarisItemEdit(idx){
+  editItemBaris.splice(idx,1);
+  renderItemBarisEdit();
+}
+function tambahBarisAlokasiEdit(idxItem){
+  editItemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',keterangan:''});
+  renderItemBarisEdit();
+}
+function hapusBarisAlokasiEdit(idxItem,idxAlokasi){
+  editItemBaris[idxItem].alokasi.splice(idxAlokasi,1);
+  renderItemBarisEdit();
+}
+function updateAlokasiBarisEdit(idxItem,idxAlokasi,field,val){
+  editItemBaris[idxItem].alokasi[idxAlokasi][field]=val;
+  if(field==='pps_per_lembar'){
+    var jumlahItem=parseFloat(editItemBaris[idxItem].jumlah)||0;
+    var qtyHasil=jumlahItem*(parseFloat(val)||0);
+    var lbl=document.getElementById('editHasilPcs_'+idxItem+'_'+idxAlokasi);
+    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+  }
+}
+function updateAlokasiBarisStrukturalEdit(idxItem,idxAlokasi,field,val){
+  editItemBaris[idxItem].alokasi[idxAlokasi][field]=val;
+  renderItemBarisEdit();
+}
+function updateItemBarisStrukturalEdit(idx,field,val){
+  editItemBaris[idx][field]=val;
+  renderItemBarisEdit();
+}
+function updateItemBarisEdit(idx,field,val){
+  editItemBaris[idx][field]=val;
+  if(field==='jumlah'||field==='harga_satuan'){
+    var it=editItemBaris[idx];
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var subtotal=jumlahItem*(parseFloat(it.harga_satuan)||0);
+    var elSub=document.getElementById('editSubtotalItem_'+idx);
+    if(elSub) elSub.textContent='Subtotal: '+fmtRupiah(subtotal);
+    if(field==='jumlah'){
+      it.alokasi.forEach(function(a,ai){
+        var qtyHasil=jumlahItem*(parseFloat(a.pps_per_lembar)||0);
+        var lbl=document.getElementById('editHasilPcs_'+idx+'_'+ai);
+        if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+      });
+    }
+    updateTotalItemEdit();
+    updateKalkulasiPPNEdit();
+  }
+}
+function updateTotalItemEdit(){
+  var total=editItemBaris.reduce(function(s,it){return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));},0);
+  document.getElementById('editTotalItemInfo').textContent='Subtotal: '+fmtRupiah(total);
+}
+
+function renderItemBarisEdit(){
+  var wrap=document.getElementById('editItemPembelianWrap');
+  function buatOpsi(arr, idKey, namaKey, selectedVal, placeholder){
+    var html='<option value="">'+placeholder+'</option>';
+    arr.forEach(function(d){
+      var sel = (selectedVal && d[idKey]===selectedVal) ? ' selected' : '';
+      html += '<option value="'+d[idKey]+'"'+sel+'>'+esc(d[namaKey])+'</option>';
+    });
+    return html;
+  }
+  wrap.innerHTML=editItemBaris.map(function(it,i){
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var alokasiHtml=it.alokasi.map(function(a,ai){
+      var qtyHasil=jumlahItem*(parseFloat(a.pps_per_lembar)||0);
+      return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+        '<div>'+
+          '<select class="form-select form-select-sm mb-1" onchange="updateAlokasiBarisStrukturalEdit('+i+','+ai+',\'id_bahan\',this.value)">'+
+            buatOpsi(cacheBahan,'id_bahan','nama_bahan',a.id_bahan,'— pilih bahan jadi —')+
+          '</select>'+
+          '<div id="editHasilPcs_'+i+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
+        '</div>'+
+        '<div><input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateAlokasiBarisEdit('+i+','+ai+',\'pps_per_lembar\',this.value)"/></div>'+
+        '<button type="button" onclick="hapusBarisAlokasiEdit('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
+      '</div>';
+    }).join('');
+    return '<div class="item-row-form">'+
+      (editItemBaris.length>1?'<button type="button" class="item-row-remove" onclick="hapusBarisItemEdit('+i+')">✕</button>':'')+
+      (it.id_pbldet?'<div style="font-size:.62rem;color:var(--muted);font-family:var(--mono);margin-bottom:.2rem">baris existing: '+esc(it.id_pbldet)+'</div>':'<div style="font-size:.62rem;color:var(--navy);font-family:var(--mono);margin-bottom:.2rem">baris baru</div>')+
+      '<div class="row g-2">'+
+        '<div class="col-6"><label class="form-label" style="font-size:.7rem">Kategori (AKUN) *</label>'+
+          '<select class="form-select form-select-sm" onchange="updateItemBarisStrukturalEdit('+i+',\'id_akun\',this.value)">'+
+            buatOpsi(cacheAkun,'id_akun','nama_akun',it.id_akun,'— pilih —')+
+          '</select></div>'+
+        '<div class="col-6"><label class="form-label" style="font-size:.7rem">Nama Item (sesuai nota) *</label>'+
+          '<input type="text" class="form-control form-control-sm" value="'+esc(it.nama_item_nota)+'" oninput="updateItemBarisEdit('+i+',\'nama_item_nota\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Jumlah Beli *</label>'+
+          '<input type="number" class="form-control form-control-sm" value="'+it.jumlah+'" oninput="updateItemBarisEdit('+i+',\'jumlah\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Satuan Beli *</label>'+
+          '<input type="text" class="form-control form-control-sm" value="'+esc(it.satuan)+'" oninput="updateItemBarisEdit('+i+',\'satuan\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Harga Satuan *</label>'+
+          '<input type="number" class="form-control form-control-sm" value="'+it.harga_satuan+'" oninput="updateItemBarisEdit('+i+',\'harga_satuan\',this.value)"/></div>'+
+      '</div>'+
+      '<div id="editSubtotalItem_'+i+'" style="text-align:right;font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.3rem;margin-bottom:.5rem">'+
+        'Subtotal: '+fmtRupiah(jumlahItem*(parseFloat(it.harga_satuan)||0))+
+      '</div>'+
+      '<div style="font-size:.68rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">'+
+        '↳ Hasil Potong / Alokasi Stok'+
+      '</div>'+
+      alokasiHtml+
+      '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.3rem .6rem" onclick="tambahBarisAlokasiEdit('+i+')">+ Tambah Hasil Potong</button>'+
+    '</div>';
+  }).join('');
+  updateTotalItemEdit();
+  updateKalkulasiPPNEdit();
+}
+
+async function submitEditPembelian(btn){
+  var noNota=document.getElementById('editNoNota').value.trim();
+  var tgl=document.getElementById('editTglPembelian').value;
+  var idSupplier=document.getElementById('editIdSupplier').value;
+  var adaPPN=document.getElementById('editAdaPPN').checked;
+  var modePPN=document.getElementById('editModePPN').value;
+  var diskonNota=parseFloat(document.getElementById('editDiskonNota').value)||0;
+  var ket=document.getElementById('editKetPembelian').value.trim();
+
+  if(!noNota){showAlert('alertModalEdit','No. nota wajib diisi.');return;}
+  if(!idSupplier){showAlert('alertModalEdit','Pilih supplier dari daftar (ketik nama, lalu klik hasil pencarian).');return;}
+  if(!tgl){showAlert('alertModalEdit','Tanggal wajib diisi.');return;}
+  if(diskonNota<0){showAlert('alertModalEdit','Diskon tidak boleh negatif.');return;}
+
+  var itemsValid=editItemBaris.filter(function(it){return it.id_akun&&it.nama_item_nota&&it.jumlah&&it.satuan&&it.harga_satuan;});
+  if(!itemsValid.length){showAlert('alertModalEdit','Minimal 1 item lengkap (kategori, nama, jumlah, satuan, harga).');return;}
+
+  for(var i=0;i<itemsValid.length;i++){
+    var alokasiTidakLengkap=(itemsValid[i].alokasi||[]).some(function(a){
+      return (a.id_bahan && !a.pps_per_lembar) || (!a.id_bahan && a.pps_per_lembar);
+    });
+    if(alokasiTidakLengkap){
+      showAlert('alertModalEdit','Ada baris hasil potong yang belum lengkap (bahan jadi & pps/lembar harus diisi keduanya).');
+      return;
+    }
+  }
+
+  var supplierObj=cacheSupplier.find(function(s){return s.id_supplier===idSupplier;});
+
+  // baris yg ada di data awal tapi sudah tidak ada lagi di editItemBaris -> DELETE
+  var idAwal=[]; // ambil ulang dari server terakhir load via editItemBaris awal disimpan di dataset? simpan saat bukaEditPembelian
+  var idMasihAda=itemsValid.filter(function(it){return it.id_pbldet;}).map(function(it){return it.id_pbldet;});
+  var idDihapus=(window._editIdAwal||[]).filter(function(id){return idMasihAda.indexOf(id)===-1;});
+
+  var payloadDetails=itemsValid.map(function(it){
+    return {
+      aksi: it.id_pbldet?'UPDATE':'ADD',
+      id_pbldet: it.id_pbldet||null,
+      id_akun:it.id_akun, nama_item_nota:it.nama_item_nota,
+      jumlah:parseFloat(it.jumlah), satuan:it.satuan, harga_satuan:parseFloat(it.harga_satuan),
+      alokasi:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;}).map(function(a){
+        return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+      })
+    };
+  }).concat(idDihapus.map(function(id){return {aksi:'DELETE', id_pbldet:id};}));
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var res=await dbRpc('edit_pembelian',{
+      p_id_pembelian:editIdPembelian,
+      p_no_nota:noNota,
+      p_no_faktur:null,
+      p_tgl_pembelian:tgl+'T00:00:00+07:00',
+      p_id_supplier:idSupplier,
+      p_nama_supplier:supplierObj?supplierObj.nama:'',
+      p_diskon_nota:diskonNota,
+      p_ada_ppn:adaPPN,
+      p_mode_ppn:adaPPN?modePPN:null,
+      p_keterangan:ket||null,
+      p_details:payloadDetails,
+      p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalEditPembelian')).hide();
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertModalEdit','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Perubahan';
+  }
+}
+
+function bukaVoidPembelian(idPembelian){
+  var r=rekapStore[idPembelian];
+  document.getElementById('alertModalVoid').innerHTML='';
+  document.getElementById('voidIdPembelian').value=idPembelian;
+  document.getElementById('voidNoNota').textContent=r?r.no_nota:idPembelian;
+  document.getElementById('voidAlasan').value='';
+  new bootstrap.Modal(document.getElementById('modalVoidPembelian')).show();
+}
+
+async function submitVoidPembelian(btn){
+  var idPembelian=document.getElementById('voidIdPembelian').value;
+  var alasan=document.getElementById('voidAlasan').value.trim();
+  if(!alasan){showAlert('alertModalVoid','Alasan void wajib diisi.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Memproses…';
+  try{
+    var res=await dbRpc('void_pembelian',{
+      p_id_pembelian:idPembelian, p_alasan:alasan, p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalVoidPembelian')).hide();
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertModalVoid','Gagal void: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Ya, Void Nota Ini';
+  }
 }
 </script>
 
