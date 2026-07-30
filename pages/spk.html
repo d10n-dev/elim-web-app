@@ -622,7 +622,7 @@ function renderAccordionBody(spk,sdet){
   var status=String(spk.status||'');
   var isMP=(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR');
   var showEdit=status==='OPEN';
-  var showClose=status==='SIAP_CLOSE';
+  var showClose=(status==='SIAP_CLOSE'||status==='PACKING');
   var showApprove=isMP&&status==='MENUNGGU_APPROVE';
   var showTolak=isMP&&status==='MENUNGGU_APPROVE';
   html+='<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.85rem;border-top:1px solid var(--border);padding-top:.75rem">'+
@@ -1054,7 +1054,7 @@ function bukaProgress(idSpk){
   document.getElementById('alertProgress').innerHTML='';
   var status=spk?String(spk.status):'';
   var isMP=(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR');
-  document.getElementById('btnProgressClose').style.display=status==='SIAP_CLOSE'?'':'none';
+  document.getElementById('btnProgressClose').style.display=(status==='SIAP_CLOSE'||status==='PACKING')?'':'none';
   document.getElementById('btnProgressApprove').style.display=(isMP&&status==='MENUNGGU_APPROVE')?'':'none';
   document.getElementById('btnProgressTolak').style.display=(isMP&&status==='MENUNGGU_APPROVE')?'':'none';
   gantiTabLog('CETAK',document.querySelector('#modalProgress .log-tab'));
