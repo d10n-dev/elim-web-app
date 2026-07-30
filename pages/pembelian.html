@@ -79,6 +79,7 @@
     <button class="tab-btn" data-tab="alokasibank" onclick="gantiTab('alokasibank')">🏦 Alokasi Transfer Bank</button>
     <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">📑 Faktur Pajak Masukan</button>
     <button class="tab-btn" data-tab="supplier" onclick="gantiTab('supplier')">🏭 Supplier</button>
+    <button class="tab-btn" data-tab="riwayat" onclick="gantiTab('riwayat')">🗑️ Riwayat Void/Edit</button>
   </div>
 
   <!-- ============== TAB: REKAP ============== -->
@@ -184,6 +185,29 @@
     <table>
       <thead><tr><th>Nama</th><th>Telepon</th><th>NPWP</th><th>Status</th><th></th></tr></thead>
       <tbody id="supplierTbody"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: RIWAYAT VOID/EDIT ============== -->
+  <div class="tab-pane" id="tabRiwayat">
+    <div class="info-bar">Log audit nota pembelian yang pernah di-Edit atau di-Void. Klik "Detail" untuk lihat isi nota sebelum vs sesudah.</div>
+    <div class="toolbar">
+      <input type="date" id="rwTglAwal" class="form-control" style="max-width:160px" onchange="muatRiwayat()"/>
+      <input type="date" id="rwTglAkhir" class="form-control" style="max-width:160px" onchange="muatRiwayat()"/>
+      <select id="rwAksi" style="max-width:160px" onchange="muatRiwayat()">
+        <option value="">Semua Aksi</option>
+        <option value="EDIT">Edit</option>
+        <option value="VOID">Void</option>
+      </select>
+      <button class="btn-outline" onclick="resetFilterRiwayat()">Reset</button>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Waktu</th><th>No. Nota</th><th>Aksi</th><th>User</th><th>Keterangan</th><th></th>
+      </tr></thead>
+      <tbody id="riwayatTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
     </table>
     </div>
   </div>
@@ -388,6 +412,34 @@
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
         <button class="btn-navy" style="background:var(--red)" onclick="submitVoidPembelian(this)">Ya, Void Nota Ini</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: DETAIL SNAPSHOT AUDIT ============== -->
+<div class="modal fade" id="modalDetailAudit" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Detail Perubahan Nota</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="auditInfoBar" class="info-c1" style="margin-bottom:.6rem"></div>
+        <div class="row g-3">
+          <div class="col-6">
+            <div style="font-weight:600;color:var(--red);margin-bottom:.3rem">Sebelum</div>
+            <div id="auditSebelumWrap"></div>
+          </div>
+          <div class="col-6">
+            <div style="font-weight:600;color:var(--navy);margin-bottom:.3rem">Sesudah</div>
+            <div id="auditSesudahWrap"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Tutup</button>
       </div>
     </div>
   </div>
@@ -750,6 +802,7 @@ function muatSemuaData(){
   muatPembayaranList();
   muatAlokasiBankList();
   muatFakturList();
+  muatRiwayat();
 }
 
 // ============================================================
@@ -1617,6 +1670,85 @@ async function submitVoidPembelian(btn){
   }finally{
     btn.disabled=false; btn.innerHTML='Ya, Void Nota Ini';
   }
+}
+
+// ============================================================
+// RIWAYAT VOID/EDIT (log audit)
+// ============================================================
+var riwayatStore={};
+
+function resetFilterRiwayat(){
+  document.getElementById('rwTglAwal').value='';
+  document.getElementById('rwTglAkhir').value='';
+  document.getElementById('rwAksi').value='';
+  muatRiwayat();
+}
+
+function muatRiwayat(){
+  var tglAwal=document.getElementById('rwTglAwal')?document.getElementById('rwTglAwal').value||null:null;
+  var tglAkhir=document.getElementById('rwTglAkhir')?document.getElementById('rwTglAkhir').value||null:null;
+  var aksi=document.getElementById('rwAksi')?document.getElementById('rwAksi').value||null:null;
+  var tbody=document.getElementById('riwayatTbody');
+  if(!tbody) return;
+  tbody.innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+  dbRpc('get_log_audit_pembelian',{p_id_pembelian:null,p_tgl_awal:tglAwal,p_tgl_akhir:tglAkhir}).then(function(res){
+    var data=(Array.isArray(res)?res:[]);
+    if(aksi){ data=data.filter(function(r){return r.aksi===aksi;}); }
+    if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada data.</td></tr>'; return; }
+    riwayatStore={};
+    data.forEach(function(r){riwayatStore[r.id_log]=r;});
+    tbody.innerHTML=data.map(function(r){
+      var aksiCls=r.aksi==='VOID'?'color:var(--red)':'color:var(--navy)';
+      return '<tr>'+
+        '<td class="td-mono">'+fmtTgl(r.waktu)+'</td>'+
+        '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+        '<td style="'+aksiCls+';font-weight:600">'+esc(r.aksi)+'</td>'+
+        '<td>'+esc(r.user_input)+'</td>'+
+        '<td>'+esc(r.keterangan||'-')+'</td>'+
+        '<td><button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="tampilDetailAudit(\''+r.id_log+'\')">Detail</button></td>'+
+      '</tr>';
+    }).join('');
+  }).catch(function(){
+    tbody.innerHTML='<tr><td colspan="6" class="loading">Gagal memuat riwayat.</td></tr>';
+  });
+}
+
+function renderSnapshotWrap(snap){
+  if(!snap || !snap.header){ return '<div style="color:var(--muted);font-size:.78rem">- tidak ada data -</div>'; }
+  var h=snap.header, details=snap.details||[];
+  var html='<div style="font-family:var(--mono);font-size:.75rem;background:var(--bg);padding:.5rem;border-radius:6px;margin-bottom:.5rem">'+
+    '<div>No. Nota: <b>'+esc(h.no_nota||'-')+'</b></div>'+
+    '<div>Tanggal: '+fmtTgl(h.tgl_pembelian)+'</div>'+
+    '<div>Supplier: '+esc(h.nama_supplier||'-')+'</div>'+
+    '<div>Diskon: '+fmtRupiah(h.diskon_nota||0)+'</div>'+
+    '<div>DPP: '+fmtRupiah(h.dpp||0)+' | PPN: '+fmtRupiah(h.ppn||0)+'</div>'+
+    '<div>Total Tagihan: <b>'+fmtRupiah(h.total_tagihan||0)+'</b></div>'+
+    (h.is_void?'<div style="color:var(--red)">STATUS: VOID</div>':'')+
+  '</div>';
+  html+='<table style="width:100%;font-size:.72rem"><thead><tr>'+
+    '<th style="text-align:left">Item</th><th class="td-right">Jml</th><th class="td-right">Harga</th><th class="td-right">Subtotal</th>'+
+  '</tr></thead><tbody>'+
+  details.map(function(d){
+    return '<tr>'+
+      '<td>'+esc(d.nama_item_nota)+'</td>'+
+      '<td class="td-right">'+fmtAngka(d.jumlah)+' '+esc(d.satuan)+'</td>'+
+      '<td class="td-right">'+fmtRupiah(d.harga_satuan)+'</td>'+
+      '<td class="td-right">'+fmtRupiah(d.subtotal_item)+'</td>'+
+    '</tr>';
+  }).join('')+
+  '</tbody></table>';
+  return html;
+}
+
+function tampilDetailAudit(idLog){
+  var r=riwayatStore[idLog];
+  if(!r) return;
+  document.getElementById('auditInfoBar').textContent=
+    'Nota '+r.no_nota+' — aksi '+r.aksi+' oleh '+r.user_input+' pada '+fmtTgl(r.waktu)+
+    (r.keterangan?(' — "'+r.keterangan+'"'):'');
+  document.getElementById('auditSebelumWrap').innerHTML=renderSnapshotWrap(r.snapshot_sebelum);
+  document.getElementById('auditSesudahWrap').innerHTML=renderSnapshotWrap(r.snapshot_sesudah);
+  new bootstrap.Modal(document.getElementById('modalDetailAudit')).show();
 }
 </script>
 
