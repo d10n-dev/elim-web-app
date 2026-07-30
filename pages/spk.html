@@ -1087,6 +1087,11 @@ function muatFinishingRequirement(idSpk){
     muatMesinVendorCache()
   ]).then(function(r){
     var bomFin=Array.isArray(r[0])?r[0]:[];
+    // POTONG sudah dilacak lewat stage terpisah (tab POTONG, jenis='POTONG' di log_produksi,
+    // level whole-SPK karena mengikuti perhitungan bahan per lembar/PPS, bukan per item).
+    // Baris BOM finishing berjenis POTONG karenanya DIKECUALIKAN dari perhitungan target/lunas
+    // granular di sini, supaya tidak dobel-catat dan tidak membuat status macet secara keliru.
+    bomFin=bomFin.filter(function(f){return !/^POTONG/i.test((f.jenis_finishing||'').trim());});
     var logsFin=Array.isArray(r[1])?r[1]:[];
     bomFinishingAktif={};
     bomFin.forEach(function(f){
