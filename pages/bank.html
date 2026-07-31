@@ -266,8 +266,10 @@
         <option value="BCA_DK">BCA DK</option>
         <option value="BCA_PT">BCA PT</option>
       </select>
+      <input type="text" id="kkCari" placeholder="🔍 Cari deskripsi…" oninput="renderKasKecil()" style="flex:1;min-width:160px;font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem"/>
     </div>
     <div class="info-bar" id="kkInfo">Memuat…</div>
+
     <div class="tbl-wrap">
       <table>
         <thead><tr>
@@ -289,7 +291,7 @@
         <option value="BCA_DK">BCA DK</option>
         <option value="BCA_PT">BCA PT</option>
       </select>
-      <select id="blKategori" onchange="muatBelum()" style="font-family:var(--mono);font-size:.78rem">
+      <select id="blKategori" onchange="renderBelum()" style="font-family:var(--mono);font-size:.78rem">
         <option value="">Semua</option>
         <option value="PIUTANG">PIUTANG</option>
         <option value="PIUTANG_KARYAWAN">PIUTANG_KARYAWAN</option>
@@ -299,6 +301,7 @@
         <option value="OPERASIONAL">OPERASIONAL</option>
         <option value="PEMELIHARAAN">PEMELIHARAAN</option>
       </select>
+      <input type="text" id="blCari" placeholder="🔍 Cari deskripsi…" oninput="renderBelum()" style="flex:1;min-width:160px;font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem"/>
     </div>
     <div class="info-bar" id="blInfo">Memuat…</div>
     <div class="tbl-wrap">
@@ -323,6 +326,7 @@
         <option value="BCA_PT">BCA PT</option>
       </select>
       <button class="btn-navy" style="font-size:.75rem" id="apBatchBtn" disabled onclick="jalankanBulkApprove()">Approve Terpilih (0)</button>
+      <input type="text" id="apCari" placeholder="🔍 Cari deskripsi…" oninput="renderApprove()" style="flex:1;min-width:160px;font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem"/>
     </div>
     <div class="info-bar" id="apInfo">Memuat…</div>
     <div class="tbl-wrap">
@@ -1385,6 +1389,7 @@ async function simpanAlokDirBulk() {
 var kkSelectedId = null;
 var kkRowStore = {};
 
+var kkDataCache = [];
 async function muatKasKecilAlok() {
   var rek = document.getElementById('kkRekening').value;
   document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading">Memuat…</td></tr>';
@@ -1392,10 +1397,20 @@ async function muatKasKecilAlok() {
   var err = cekErrorSupabase(rows);
   if (err) { renderErr('kkTbody', 5, err); return; }
   if (!Array.isArray(rows)) rows = [];
+  kkDataCache = rows;
+  renderKasKecil();
+}
+
+function renderKasKecil() {
+  var q = (document.getElementById('kkCari')||{value:''}).value.trim().toLowerCase();
+  var rows = q ? kkDataCache.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q) >= 0 ||
+           (r.id||'').toLowerCase().indexOf(q) >= 0;
+  }) : kkDataCache;
 
   if (!rows.length) {
-    document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading" style="color:var(--green)">Tidak ada yang perlu dialokasi ✓</td></tr>';
-    document.getElementById('kkInfo').textContent = '0 transaksi menunggu link';
+    document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading" style="color:var(--green)">' + (q ? 'Tidak ada hasil pencarian' : 'Tidak ada yang perlu dialokasi ✓') + '</td></tr>';
+    document.getElementById('kkInfo').textContent = (q ? rows.length + ' hasil (filter: ' + q + ')' : '0 transaksi menunggu link');
     return;
   }
   var html = '';
@@ -1410,7 +1425,7 @@ async function muatKasKecilAlok() {
       '</tr>';
   });
   document.getElementById('kkTbody').innerHTML = html;
-  document.getElementById('kkInfo').textContent = rows.length + ' transaksi menunggu link';
+  document.getElementById('kkInfo').textContent = rows.length + ' transaksi menunggu link' + (q ? ' (filter: ' + q + ')' : '');
 }
 
 async function bukaKasKecil(id) {
@@ -1468,17 +1483,28 @@ async function submitLinkKasKecil(idKasmasuk) {
 }
 
 // ── TAB 4: BELUM DIALOKASI (Admin) ──────────────────────────
+var blDataCache = [];
 async function muatBelum() {
   var rek = document.getElementById('blRekening').value;
-  var kat = document.getElementById('blKategori').value;
   var params = {p_id_rekening: rek || null, p_mode: 'ADMIN'};
   document.getElementById('blTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
   var rows = await dbRpc('get_bank_belum_dialokasi', params);
   var err = cekErrorSupabase(rows);
   if (err) { renderErr('blTbody', 7, err); return; }
   if (!Array.isArray(rows)) rows = [];
+  blDataCache = rows;
+  renderBelum();
+}
 
+function renderBelum() {
+  var kat = document.getElementById('blKategori').value;
+  var q = (document.getElementById('blCari')||{value:''}).value.trim().toLowerCase();
+  var rows = blDataCache;
   if (kat) rows = rows.filter(function(r){ return r.kategori === kat; });
+  if (q) rows = rows.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q) >= 0 ||
+           (r.id||'').toLowerCase().indexOf(q) >= 0;
+  });
 
   var html = '';
   rows.forEach(function(r) {
@@ -1499,9 +1525,9 @@ async function muatBelum() {
       '<td>' + aksi + '</td>' +
       '</tr>';
   });
-  if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">Semua sudah dialokasi ✓</td></tr>';
+  if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">' + (q||kat ? 'Tidak ada hasil sesuai filter' : 'Semua sudah dialokasi ✓') + '</td></tr>';
   document.getElementById('blTbody').innerHTML = html;
-  document.getElementById('blInfo').textContent = rows.length + ' transaksi menunggu alokasi';
+  document.getElementById('blInfo').textContent = rows.length + ' transaksi menunggu alokasi' + (q ? ' (cari: ' + q + ')' : '');
 }
 
 var alSelectedId = null;
@@ -1713,6 +1739,7 @@ async function simpanAlokHutang() {
 }
 
 // ── TAB 5: PERLU APPROVE ────────────────────────────────────
+var apDataCache = [];
 async function muatApprove() {
   var rek = document.getElementById('apRekening').value;
   var params = {p_id_rekening: rek || null};
@@ -1721,8 +1748,19 @@ async function muatApprove() {
   var err = cekErrorSupabase(rows);
   if (err) { renderErr('apTbody', 9, err); return; }
   if (!Array.isArray(rows)) rows = [];
-
+  apDataCache = rows;
   apChecked.clear();
+  renderApprove();
+}
+
+function renderApprove() {
+  var q = (document.getElementById('apCari')||{value:''}).value.trim().toLowerCase();
+  var rows = q ? apDataCache.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q) >= 0 ||
+           (r.id||'').toLowerCase().indexOf(q) >= 0 ||
+           (r.kategori||'').toLowerCase().indexOf(q) >= 0;
+  }) : apDataCache;
+
   var isDir = roleUser === 'DIREKTUR';
   var isMgr = roleUser === 'MANAGER' || isDir;
   var html = '';
@@ -1748,9 +1786,9 @@ async function muatApprove() {
       '<td>' + aksi + '</td>' +
       '</tr>';
   });
-  if (!html) html = '<tr><td colspan="9" class="loading" style="color:var(--green)">Tidak ada yang perlu di-approve ✓</td></tr>';
+  if (!html) html = '<tr><td colspan="9" class="loading" style="color:var(--green)">' + (q ? 'Tidak ada hasil pencarian' : 'Tidak ada yang perlu di-approve ✓') + '</td></tr>';
   document.getElementById('apTbody').innerHTML = html;
-  document.getElementById('apInfo').textContent = rows.length + ' transaksi perlu approve';
+  document.getElementById('apInfo').textContent = rows.length + ' transaksi perlu approve' + (q ? ' (cari: ' + q + ')' : '');
   document.getElementById('apCbAll').checked = false;
   updateApBatchBtn();
 }

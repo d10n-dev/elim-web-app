@@ -101,6 +101,7 @@
         <option value="MENUNGGU_KONFIRMASI">Menunggu Konfirmasi</option>
         <option value="LUNAS">Lunas</option>
       </select>
+      <input type="text" class="form-control" id="rkCari" placeholder="🔍 Cari no. nota / supplier…" autocomplete="off" oninput="renderRekap()" style="flex:1;min-width:180px"/>
       <button class="btn-outline" onclick="resetFilterRekap()">Reset</button>
     </div>
     <div class="tbl-wrap">
@@ -119,6 +120,7 @@
     <div id="alertInput" class="alert alert-danger py-2" style="font-size:.78rem;display:none"></div>
     <div class="toolbar">
       <button class="btn-tambah" onclick="bukaInputPembelian()">+ Input Nota Pembelian</button>
+      <input type="text" class="form-control" id="inputCari" placeholder="🔍 Cari no. nota / supplier…" autocomplete="off" oninput="renderInputList()" style="flex:1;min-width:180px"/>
     </div>
     <div class="tbl-wrap">
     <table>
@@ -134,6 +136,7 @@
   <!-- ============== TAB: ALOKASI KAS KECIL ============== -->
   <div class="tab-pane" id="tabBayar">
     <div class="info-bar" id="akkInfoBar">Kas keluar LANGSUNG yang belum dialokasikan ke hutang pembelian.</div>
+    <input type="text" class="form-control" id="bayarCari" placeholder="🔍 Cari no. kas keluar / penerima…" autocomplete="off" oninput="renderPembayaranList()" style="margin-bottom:.6rem"/>
     <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -148,6 +151,7 @@
   <!-- ============== TAB: ALOKASI TRANSFER BANK ============== -->
   <div class="tab-pane" id="tabAlokasibank">
     <div class="info-bar" id="abInfoBar">Transfer bank keluar (kategori HUTANG_BAHAN / HUTANG_MAKLOON) yang belum dialokasikan ke hutang pembelian.</div>
+    <input type="text" class="form-control" id="alokBankCari" placeholder="🔍 Cari keterangan bank / rekening…" autocomplete="off" oninput="renderAlokasiBankList()" style="margin-bottom:.6rem"/>
     <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -164,6 +168,7 @@
     <div id="alertFaktur" class="alert alert-danger py-2" style="font-size:.78rem;display:none"></div>
     <div class="toolbar">
       <button class="btn-tambah" onclick="bukaInputFaktur()">+ Catat Faktur Pajak Masukan</button>
+      <input type="text" class="form-control" id="fakturCari" placeholder="🔍 Cari NSFP / no. nota / supplier…" autocomplete="off" oninput="renderFakturList()" style="flex:1;min-width:180px"/>
     </div>
     <div class="tbl-wrap">
     <table>
@@ -180,6 +185,7 @@
   <div class="tab-pane" id="tabSupplier">
     <div class="toolbar">
       <button class="btn-tambah" onclick="bukaInputSupplier()">+ Tambah Supplier</button>
+      <input type="text" class="form-control" id="supplierCari" placeholder="🔍 Cari nama / telepon / NPWP…" autocomplete="off" oninput="renderSupplierTable()" style="flex:1;min-width:180px"/>
     </div>
     <div class="tbl-wrap">
     <table>
@@ -195,11 +201,12 @@
     <div class="toolbar">
       <input type="date" id="rwTglAwal" class="form-control" style="max-width:160px" onchange="muatRiwayat()"/>
       <input type="date" id="rwTglAkhir" class="form-control" style="max-width:160px" onchange="muatRiwayat()"/>
-      <select id="rwAksi" style="max-width:160px" onchange="muatRiwayat()">
+      <select id="rwAksi" style="max-width:160px" onchange="renderRiwayat()">
         <option value="">Semua Aksi</option>
         <option value="EDIT">Edit</option>
         <option value="VOID">Void</option>
       </select>
+      <input type="text" class="form-control" id="rwCari" placeholder="🔍 Cari no. nota / user / keterangan…" autocomplete="off" oninput="renderRiwayat()" style="flex:1;min-width:180px"/>
       <button class="btn-outline" onclick="resetFilterRiwayat()">Reset</button>
     </div>
     <div class="tbl-wrap">
@@ -812,30 +819,40 @@ var bankStmtStore={};
 var alokasiBankTerpilih=[]; // [{id_pembelian, no_nota, nama_supplier, sisa, nominal}]
 var bankStmtAktif=null;
 
+var semuaAlokBank=[];
 function muatAlokasiBankList(){
   var tbody=document.getElementById('alokBankTbody');
   dbRpc('get_bank_belum_dialokasi',{p_id_rekening:null,p_mode:'ADMIN'}).then(function(res){
     var errMsg=cekErrorSupabase(res);
     if(errMsg){ tbody.innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">'+esc(errMsg)+'</td></tr>'; return; }
-    var data=(Array.isArray(res)?res:[]).filter(function(r){
+    semuaAlokBank=(Array.isArray(res)?res:[]).filter(function(r){
       return r.kategori==='HUTANG_BAHAN' || r.kategori==='HUTANG_MAKLOON';
     });
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">Tidak ada transfer bank menunggu alokasi.</td></tr>'; return; }
-    data.forEach(function(r){bankStmtStore[r.id]=r;});
-    tbody.innerHTML=data.map(function(r){
-      return '<tr>'+
-        '<td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
-        '<td>'+esc(r.nama_rekening||'')+'</td>'+
-        '<td>'+esc(r.keterangan_bank||'')+'</td>'+
-        '<td><span class="badge-status">'+esc(r.kategori)+'</span></td>'+
-        '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
-        '<td class="td-right td-mono">'+fmtRupiah(r.sisa_nominal)+'</td>'+
-        '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiBank(\''+esc(r.id)+'\')">Alokasi</button>'+
-        (isDirektur()?' <button class="btn-sm-action" style="color:#c45a00;border-color:#f5c98a" onclick="bukaAlokLegacyHutang(\''+esc(r.id)+'\')">Legacy</button>':'')+
-        '</td>'+
-      '</tr>';
-    }).join('');
+    renderAlokasiBankList();
   });
+}
+function renderAlokasiBankList(){
+  var tbody=document.getElementById('alokBankTbody');
+  var q=(document.getElementById('alokBankCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaAlokBank.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_rekening||'').toLowerCase().indexOf(q)>=0;
+  }):semuaAlokBank;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada transfer bank menunggu alokasi.')+'</td></tr>'; return; }
+  data.forEach(function(r){bankStmtStore[r.id]=r;});
+  tbody.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
+      '<td>'+esc(r.nama_rekening||'')+'</td>'+
+      '<td>'+esc(r.keterangan_bank||'')+'</td>'+
+      '<td><span class="badge-status">'+esc(r.kategori)+'</span></td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.sisa_nominal)+'</td>'+
+      '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiBank(\''+esc(r.id)+'\')">Alokasi</button>'+
+      (isDirektur()?' <button class="btn-sm-action" style="color:#c45a00;border-color:#f5c98a" onclick="bukaAlokLegacyHutang(\''+esc(r.id)+'\')">Legacy</button>':'')+
+      '</td>'+
+    '</tr>';
+  }).join('');
 }
 
 var _alokBankTimer=null;
@@ -1050,20 +1067,32 @@ function muatRekapCards(){
 function resetFilterRekap(){
   document.getElementById('rkSupplier').value='';
   document.getElementById('rkStatus').value='';
+  document.getElementById('rkCari').value='';
   muatRekap();
 }
 
+var semuaRekap=[];
 function muatRekap(){
   var idSup=document.getElementById('rkSupplier').value||null;
   var status=document.getElementById('rkStatus').value||null;
   var tbody=document.getElementById('rekapTbody');
   tbody.innerHTML='<tr><td colspan="8" class="loading">Memuat…</td></tr>';
   dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:status}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="9" class="loading">Tidak ada data.</td></tr>'; return; }
-    rekapStore={};
-    data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
-    tbody.innerHTML=data.map(function(r){
+    semuaRekap=Array.isArray(res)?res:[];
+    renderRekap();
+  });
+}
+function renderRekap(){
+  var tbody=document.getElementById('rekapTbody');
+  var q=(document.getElementById('rkCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaRekap.filter(function(r){
+    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
+  }):semuaRekap;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="9" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada data.')+'</td></tr>'; return; }
+  rekapStore={};
+  data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
+  tbody.innerHTML=data.map(function(r){
       var stCls='s-'+r.status_hutang.toLowerCase();
       var aksiHtml=r.boleh_edit
         ? '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;margin-right:.3rem" onclick="bukaEditPembelian(\''+r.id_pembelian+'\')">Edit</button>'+
@@ -1080,8 +1109,7 @@ function muatRekap(){
         '<td><span class="badge-status '+stCls+'">'+esc(r.status_hutang)+'</span></td>'+
         '<td>'+aksiHtml+'</td>'+
       '</tr>';
-    }).join('');
-  });
+  }).join('');
 }
 
 // ============================================================
@@ -1356,23 +1384,32 @@ async function submitInputPembelian(btn){
   }
 }
 
+var semuaInput=[];
 function muatInputList(){
-  var tbody=document.getElementById('inputTbody');
   dbGet('in_pembelian',{select:'*',order:'tgl_pembelian.desc',limit:100}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">Belum ada data.</td></tr>'; return; }
-    tbody.innerHTML=data.map(function(r){
-      return '<tr>'+
-        '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
-        '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
-        '<td>'+esc(r.nama_supplier)+'</td>'+
-        '<td class="td-mono">'+esc(r.entitas)+'</td>'+
-        '<td class="td-right td-mono">'+fmtRupiah(r.subtotal)+'</td>'+
-        '<td class="td-right td-mono">'+fmtRupiah(r.ppn)+'</td>'+
-        '<td class="td-right td-mono">'+fmtRupiah(r.total_tagihan)+'</td>'+
-      '</tr>';
-    }).join('');
+    semuaInput=Array.isArray(res)?res:[];
+    renderInputList();
   });
+}
+function renderInputList(){
+  var tbody=document.getElementById('inputTbody');
+  var q=(document.getElementById('inputCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaInput.filter(function(r){
+    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
+  }):semuaInput;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">'+(q?'Tidak ada hasil pencarian.':'Belum ada data.')+'</td></tr>'; return; }
+  tbody.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
+      '<td>'+esc(r.nama_supplier)+'</td>'+
+      '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.subtotal)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.ppn)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.total_tagihan)+'</td>'+
+    '</tr>';
+  }).join('');
 }
 </script>
 
@@ -1681,36 +1718,50 @@ function resetFilterRiwayat(){
   document.getElementById('rwTglAwal').value='';
   document.getElementById('rwTglAkhir').value='';
   document.getElementById('rwAksi').value='';
+  document.getElementById('rwCari').value='';
   muatRiwayat();
 }
 
+var semuaRiwayat=[];
 function muatRiwayat(){
   var tglAwal=document.getElementById('rwTglAwal')?document.getElementById('rwTglAwal').value||null:null;
   var tglAkhir=document.getElementById('rwTglAkhir')?document.getElementById('rwTglAkhir').value||null:null;
-  var aksi=document.getElementById('rwAksi')?document.getElementById('rwAksi').value||null:null;
   var tbody=document.getElementById('riwayatTbody');
   if(!tbody) return;
   tbody.innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
   dbRpc('get_log_audit_pembelian',{p_id_pembelian:null,p_tgl_awal:tglAwal,p_tgl_akhir:tglAkhir}).then(function(res){
-    var data=(Array.isArray(res)?res:[]);
-    if(aksi){ data=data.filter(function(r){return r.aksi===aksi;}); }
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada data.</td></tr>'; return; }
-    riwayatStore={};
-    data.forEach(function(r){riwayatStore[r.id_log]=r;});
-    tbody.innerHTML=data.map(function(r){
-      var aksiCls=r.aksi==='VOID'?'color:var(--red)':'color:var(--navy)';
-      return '<tr>'+
-        '<td class="td-mono">'+fmtTgl(r.waktu)+'</td>'+
-        '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
-        '<td style="'+aksiCls+';font-weight:600">'+esc(r.aksi)+'</td>'+
-        '<td>'+esc(r.user_input)+'</td>'+
-        '<td>'+esc(r.keterangan||'-')+'</td>'+
-        '<td><button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="tampilDetailAudit(\''+r.id_log+'\')">Detail</button></td>'+
-      '</tr>';
-    }).join('');
+    semuaRiwayat=Array.isArray(res)?res:[];
+    renderRiwayat();
   }).catch(function(){
     tbody.innerHTML='<tr><td colspan="6" class="loading">Gagal memuat riwayat.</td></tr>';
   });
+}
+function renderRiwayat(){
+  var tbody=document.getElementById('riwayatTbody');
+  if(!tbody) return;
+  var aksi=document.getElementById('rwAksi')?document.getElementById('rwAksi').value||null:null;
+  var q=(document.getElementById('rwCari')||{value:''}).value.trim().toLowerCase();
+  var data=semuaRiwayat;
+  if(aksi){ data=data.filter(function(r){return r.aksi===aksi;}); }
+  if(q){ data=data.filter(function(r){
+    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.user_input||'').toLowerCase().indexOf(q)>=0 ||
+           (r.keterangan||'').toLowerCase().indexOf(q)>=0;
+  }); }
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada data.</td></tr>'; return; }
+  riwayatStore={};
+  data.forEach(function(r){riwayatStore[r.id_log]=r;});
+  tbody.innerHTML=data.map(function(r){
+    var aksiCls=r.aksi==='VOID'?'color:var(--red)':'color:var(--navy)';
+    return '<tr>'+
+      '<td class="td-mono">'+fmtTgl(r.waktu)+'</td>'+
+      '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+      '<td style="'+aksiCls+';font-weight:600">'+esc(r.aksi)+'</td>'+
+      '<td>'+esc(r.user_input)+'</td>'+
+      '<td>'+esc(r.keterangan||'-')+'</td>'+
+      '<td><button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="tampilDetailAudit(\''+r.id_log+'\')">Detail</button></td>'+
+    '</tr>';
+  }).join('');
 }
 
 function renderSnapshotWrap(snap){
@@ -1912,23 +1963,33 @@ async function submitPembayaranHutang(btn){
   }
 }
 
+var semuaBayar=[];
 function muatPembayaranList(){
-  var tbody=document.getElementById('bayarTbody');
   dbRpc('get_kas_keluar_belum_alokasi_hutang',{}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada kas keluar belum dialokasikan.</td></tr>'; return; }
-    data.forEach(function(r){kasKeluarStore[r.id_kaskeluar]=r;});
-    tbody.innerHTML=data.map(function(r){
-      return '<tr>'+
-        '<td class="td-mono">'+esc(r.no_kaskeluar)+'</td>'+
-        '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
-        '<td>'+esc(r.penerima)+'</td>'+
-        '<td class="td-right td-mono">'+fmtRupiah(r.nominal_diberikan)+'</td>'+
-        '<td>'+esc(r.keterangan||'—')+'</td>'+
-        '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiKasKecil(\''+esc(r.id_kaskeluar)+'\')">Alokasi</button></td>'+
-      '</tr>';
-    }).join('');
+    semuaBayar=Array.isArray(res)?res:[];
+    renderPembayaranList();
   });
+}
+function renderPembayaranList(){
+  var tbody=document.getElementById('bayarTbody');
+  var q=(document.getElementById('bayarCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaBayar.filter(function(r){
+    return (r.no_kaskeluar||'').toLowerCase().indexOf(q)>=0 ||
+           (r.penerima||'').toLowerCase().indexOf(q)>=0 ||
+           (r.keterangan||'').toLowerCase().indexOf(q)>=0;
+  }):semuaBayar;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada kas keluar belum dialokasikan.')+'</td></tr>'; return; }
+  data.forEach(function(r){kasKeluarStore[r.id_kaskeluar]=r;});
+  tbody.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_kaskeluar)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+      '<td>'+esc(r.penerima)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.nominal_diberikan)+'</td>'+
+      '<td>'+esc(r.keterangan||'—')+'</td>'+
+      '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiKasKecil(\''+esc(r.id_kaskeluar)+'\')">Alokasi</button></td>'+
+    '</tr>';
+  }).join('');
 }
 
 // ============================================================
@@ -2010,29 +2071,44 @@ async function submitInputFaktur(btn){
   }
 }
 
+var semuaFaktur=[];
 function muatFakturList(){
   var tbody=document.getElementById('fakturTbody');
   dbGet('in_faktur_pajak_masukan',{select:'*',order:'tgl_faktur.desc',limit:100}).then(function(res){
     var data=Array.isArray(res)?res:[];
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">Belum ada data.</td></tr>'; return; }
+    if(!data.length){ semuaFaktur=[]; renderFakturList(); return; }
 
     var idList=data.map(function(r){return r.id_pembelian;});
     dbGet('in_pembelian',{select:'id_pembelian,no_nota,nama_supplier',id_pembelian:'in.('+idList.join(',')+')'}).then(function(pblRes){
       var pblMap={};
       (Array.isArray(pblRes)?pblRes:[]).forEach(function(p){pblMap[p.id_pembelian]=p;});
-      tbody.innerHTML=data.map(function(r){
+      semuaFaktur=data.map(function(r){
         var pbl=pblMap[r.id_pembelian]||{};
-        return '<tr>'+
-          '<td class="td-mono">'+esc(r.no_nsfp)+'</td>'+
-          '<td class="td-mono">'+fmtTgl(r.tgl_faktur)+'</td>'+
-          '<td class="td-mono">'+esc(pbl.no_nota||'—')+'</td>'+
-          '<td>'+esc(pbl.nama_supplier||'—')+'</td>'+
-          '<td class="td-right td-mono">'+fmtRupiah(r.dpp)+'</td>'+
-          '<td class="td-right td-mono">'+fmtRupiah(r.ppn)+'</td>'+
-        '</tr>';
-      }).join('');
+        return Object.assign({},r,{no_nota:pbl.no_nota||'',nama_supplier:pbl.nama_supplier||''});
+      });
+      renderFakturList();
     });
   });
+}
+function renderFakturList(){
+  var tbody=document.getElementById('fakturTbody');
+  var q=(document.getElementById('fakturCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaFaktur.filter(function(r){
+    return (r.no_nsfp||'').toLowerCase().indexOf(q)>=0 ||
+           (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
+  }):semuaFaktur;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">'+(q?'Tidak ada hasil pencarian.':'Belum ada data.')+'</td></tr>'; return; }
+  tbody.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_nsfp)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_faktur)+'</td>'+
+      '<td class="td-mono">'+esc(r.no_nota||'—')+'</td>'+
+      '<td>'+esc(r.nama_supplier||'—')+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.dpp)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.ppn)+'</td>'+
+    '</tr>';
+  }).join('');
 }
 
 // ============================================================
@@ -2091,22 +2167,35 @@ async function submitSupplier(btn){
 }
 
 function muatDaftarSupplierTable(){
-  var tbody=document.getElementById('supplierTbody');
   dbGet('m_supplier',{select:'*',order:'nama.asc'}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    if(!data.length){ tbody.innerHTML='<tr><td colspan="5" class="loading">Belum ada data.</td></tr>'; return; }
-    window._supplierCacheTable=data;
-    tbody.innerHTML=data.map(function(s,i){
-      var stCls=s.status==='AKTIF'?'s-lunas':'s-belum_lunas';
-      return '<tr>'+
-        '<td>'+esc(s.nama)+'</td>'+
-        '<td class="td-mono">'+esc(s.telepon||'—')+'</td>'+
-        '<td class="td-mono">'+esc(s.npwp||'—')+'</td>'+
-        '<td><span class="badge-status '+stCls+'">'+esc(s.status)+'</span></td>'+
-        '<td><button class="btn-sm-action" onclick="bukaEditSupplier(window._supplierCacheTable['+i+'])">Edit</button></td>'+
-      '</tr>';
-    }).join('');
+    window._supplierCacheTable=Array.isArray(res)?res:[];
+    renderSupplierTable();
   });
+}
+function renderSupplierTable(){
+  var tbody=document.getElementById('supplierTbody');
+  var all=window._supplierCacheTable||[];
+  var q=(document.getElementById('supplierCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?all.filter(function(s){
+    return (s.nama||'').toLowerCase().indexOf(q)>=0 ||
+           (s.telepon||'').toLowerCase().indexOf(q)>=0 ||
+           (s.npwp||'').toLowerCase().indexOf(q)>=0;
+  }):all;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="5" class="loading">'+(q?'Tidak ada hasil pencarian.':'Belum ada data.')+'</td></tr>'; return; }
+  tbody.innerHTML=data.map(function(s){
+    var stCls=s.status==='AKTIF'?'s-lunas':'s-belum_lunas';
+    return '<tr>'+
+      '<td>'+esc(s.nama)+'</td>'+
+      '<td class="td-mono">'+esc(s.telepon||'—')+'</td>'+
+      '<td class="td-mono">'+esc(s.npwp||'—')+'</td>'+
+      '<td><span class="badge-status '+stCls+'">'+esc(s.status)+'</span></td>'+
+      '<td><button class="btn-sm-action" onclick="bukaEditSupplierById(\''+esc(s.id_supplier)+'\')">Edit</button></td>'+
+    '</tr>';
+  }).join('');
+}
+function bukaEditSupplierById(id){
+  var s=(window._supplierCacheTable||[]).find(function(x){return x.id_supplier===id;});
+  if(s) bukaEditSupplier(s);
 }
 </script>
 </body>

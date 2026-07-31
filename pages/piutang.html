@@ -141,6 +141,7 @@
 <div class="tab-pane" id="tabPenagihan">
   <div class="toolbar">
     <button class="btn-tambah" onclick="bukaBuatPenagihan()">+ Buat Penagihan</button>
+    <input type="text" class="form-control" id="pnCari" placeholder="🔍 Cari no. penagihan / penerima…" autocomplete="off" oninput="renderPenagihan()" style="flex:1;min-width:180px"/>
   </div>
   <div class="info-bar" id="pnInfoBar">Memuat data…</div>
   <div class="tbl-wrap">
@@ -165,6 +166,7 @@
       <option value="VOID">Void</option>
     </select>
     <button class="btn-tambah" id="btnTambahTM" onclick="bukaBuatTunaiMasuk()">+ Input Tunai Masuk</button>
+    <input type="text" class="form-control" id="tmCari" placeholder="🔍 Cari no. TM / nama pembayar…" autocomplete="off" oninput="renderTunaiMasuk()" style="flex:1;min-width:180px"/>
   </div>
   <!-- Batch approve Manager -->
   <div class="toolbar-batch" id="tmBatchWrap" style="display:none">
@@ -203,6 +205,7 @@
 <!-- ═══ TAB ALOKASI TUNAI ═══ -->
 <div class="tab-pane" id="tabAlokasitn">
   <div class="info-bar" id="tnInfoBar">Memuat data…</div>
+  <input type="text" class="form-control" id="tnCari" placeholder="🔍 Cari no. TM / nama pembayar…" autocomplete="off" oninput="renderAlokasiTN()" style="margin-bottom:.6rem"/>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -220,6 +223,7 @@
     <input type="checkbox" class="chk-batch" id="chkApvAll" onclick="toggleSemuaApprove(this)"/>
     <label style="font-family:var(--mono);font-size:.72rem">Pilih Semua</label>
     <button class="btn-navy" onclick="batchApproveAlokasi()">✓ Approve Terpilih</button>
+    <input type="text" class="form-control" id="apvCari" placeholder="🔍 Cari no. nota / pelanggan…" autocomplete="off" oninput="renderPerluApprove()" style="flex:1;min-width:180px"/>
   </div>
   <div class="info-bar" id="apvInfoBar">Memuat data…</div>
   <div class="tbl-wrap">
@@ -846,10 +850,15 @@ function muatPenagihan(){
   }).catch(function(){document.getElementById('pnInfoBar').textContent='Gagal memuat data penagihan.';});
 }
 function renderPenagihan(){
-  document.getElementById('pnInfoBar').textContent=semuaPenagihan.length+' batch penagihan.';
+  var q=(document.getElementById('pnCari')||{value:''}).value.trim().toLowerCase();
+  var rows=q?semuaPenagihan.filter(function(r){
+    return (r.no_penagihan||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_penerima||'').toLowerCase().indexOf(q)>=0;
+  }):semuaPenagihan;
+  document.getElementById('pnInfoBar').textContent=semuaPenagihan.length+' batch penagihan.'+(q?' ('+rows.length+' sesuai filter)':'');
   var tb=document.getElementById('pnTbody');
-  if(!semuaPenagihan.length){tb.innerHTML='<tr><td colspan="8" class="loading">Belum ada penagihan.</td></tr>';return;}
-  tb.innerHTML=semuaPenagihan.map(function(r){
+  if(!rows.length){tb.innerHTML='<tr><td colspan="8" class="loading">'+(q?'Tidak ada hasil pencarian.':'Belum ada penagihan.')+'</td></tr>';return;}
+  tb.innerHTML=rows.map(function(r){
     var jmlSJ=(r.in_penagihan_detail||[]).length;
     var stCls=r.status==='DITERIMA'?'s-lunas':'s-tertagih';
     var aksi=r.status==='DIKIRIM'
@@ -1000,14 +1009,19 @@ function muatTunaiMasuk(){
   }).catch(function(){document.getElementById('tmInfoBar').textContent='Gagal memuat data.';});
 }
 function renderTunaiMasuk(){
-  document.getElementById('tmInfoBar').textContent=semuaTM.length+' tunai masuk.';
+  var q=(document.getElementById('tmCari')||{value:''}).value.trim().toLowerCase();
+  var rows=q?semuaTM.filter(function(r){
+    return (r.no_tunai||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_pembayar||'').toLowerCase().indexOf(q)>=0;
+  }):semuaTM;
+  document.getElementById('tmInfoBar').textContent=semuaTM.length+' tunai masuk.'+(q?' ('+rows.length+' sesuai filter)':'');
   var tb=document.getElementById('tmTbody');
   var isMgr=ROLE==='MANAGER';
   var isDir=ROLE==='DIREKTUR';
   var tampilChk=isMgr||isDir;
   if(tampilChk) document.getElementById('thTMChk').innerHTML='<input type="checkbox" class="chk-batch" id="chkTMAllTb" onclick="toggleSemuaTM(this)"/>';
-  if(!semuaTM.length){tb.innerHTML='<tr><td colspan="7" class="loading">Belum ada data.</td></tr>';return;}
-  tb.innerHTML=semuaTM.map(function(r){
+  if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="loading">'+(q?'Tidak ada hasil pencarian.':'Belum ada data.')+'</td></tr>';return;}
+  tb.innerHTML=rows.map(function(r){
     var stCls='s-'+r.status.toLowerCase();
     var aksi='';
     if(r.status==='APPROVED'&&(isMgr||isDir)){
@@ -1471,22 +1485,31 @@ async function submitAlokasiTF(btn){
 }
 
 // ── ALOKASI TUNAI ─────────────────────────────────────────────
+var semuaTN=[];
 function muatAlokasiTN(){
   document.getElementById('tnInfoBar').textContent='Memuat data…';
   dbRpc('get_tunai_masuk',{p_status:'DISETORKAN',p_tgl_mulai:null,p_tgl_akhir:null}).then(function(res){
-    var data=Array.isArray(res)?res:[];
-    document.getElementById('tnInfoBar').textContent=data.length+' TM disetorkan, belum sepenuhnya dialokasi.';
-    var tb=document.getElementById('tnTbody');
-    if(!data.length){tb.innerHTML='<tr><td colspan="6" class="loading">Tidak ada data.</td></tr>';return;}
-    tb.innerHTML=data.map(function(r){
-      return '<tr><td class="td-mono">'+esc(r.no_tunai)+'</td>'+
-        '<td class="td-mono">'+fmtTgl(r.tgl_terima)+'</td>'+
-        '<td>'+esc(r.nama_pembayar)+'</td>'+
-        '<td class="td-mono td-right">'+fmtRupiah(r.nominal)+'</td>'+
-        '<td><span class="badge-status s-disetorkan">DISETORKAN</span></td>'+
-        '<td><button class="btn-sm-action" onclick="bukaTMDetail(\''+esc(r.id_tunai)+'\')">Lihat Detail</button></td></tr>';
-    }).join('');
+    semuaTN=Array.isArray(res)?res:[];
+    renderAlokasiTN();
   }).catch(function(){document.getElementById('tnInfoBar').textContent='Gagal memuat data.';});
+}
+function renderAlokasiTN(){
+  var q=(document.getElementById('tnCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaTN.filter(function(r){
+    return (r.no_tunai||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_pembayar||'').toLowerCase().indexOf(q)>=0;
+  }):semuaTN;
+  document.getElementById('tnInfoBar').textContent=semuaTN.length+' TM disetorkan, belum sepenuhnya dialokasi.'+(q?' ('+data.length+' sesuai filter)':'');
+  var tb=document.getElementById('tnTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="6" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada data.')+'</td></tr>';return;}
+  tb.innerHTML=data.map(function(r){
+    return '<tr><td class="td-mono">'+esc(r.no_tunai)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_terima)+'</td>'+
+      '<td>'+esc(r.nama_pembayar)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.nominal)+'</td>'+
+      '<td><span class="badge-status s-disetorkan">DISETORKAN</span></td>'+
+      '<td><button class="btn-sm-action" onclick="bukaTMDetail(\''+esc(r.id_tunai)+'\')">Lihat Detail</button></td></tr>';
+  }).join('');
 }
 
 // ── PERLU APPROVE ────────────────────────────────────────────
@@ -1495,23 +1518,31 @@ function muatPerluApprove(){
   document.getElementById('apvInfoBar').textContent='Memuat data…';
   dbRpc('get_alokasi_perlu_approve',{}).then(function(res){
     apvDataStore=Array.isArray(res)?res:[];
-    document.getElementById('apvInfoBar').textContent=apvDataStore.length+' alokasi menunggu approve.';
-    var tb=document.getElementById('apvTbody');
-    if(!apvDataStore.length){tb.innerHTML='<tr><td colspan="7" class="loading">Tidak ada yang perlu diapprove.</td></tr>';return;}
-    tb.innerHTML=apvDataStore.map(function(r){
-      var jenisBadge=r.jenis==='TRANSFER'
-        ?'<span class="badge-sumber-transfer">TRANSFER</span>'
-        :'<span class="badge-sumber-tunai">TUNAI</span>';
-      return '<tr>'+
-        '<td><input type="checkbox" class="chk-batch chk-apv" value="'+esc(r.id_alokasi)+'" data-jenis="'+esc(r.jenis)+'"/></td>'+
-        '<td>'+jenisBadge+'</td>'+
-        '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
-        '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
-        '<td>'+esc(r.nama_pelanggan)+'</td>'+
-        '<td class="td-mono td-right">'+fmtRupiah(r.nominal_alokasi)+'</td>'+
-        '<td class="td-mono">'+esc(r.dialokasi_oleh)+'</td></tr>';
-    }).join('');
+    renderPerluApprove();
   }).catch(function(){document.getElementById('apvInfoBar').textContent='Gagal memuat data.';});
+}
+function renderPerluApprove(){
+  var q=(document.getElementById('apvCari')||{value:''}).value.trim().toLowerCase();
+  var rows=q?apvDataStore.filter(function(r){
+    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_pelanggan||'').toLowerCase().indexOf(q)>=0;
+  }):apvDataStore;
+  document.getElementById('apvInfoBar').textContent=apvDataStore.length+' alokasi menunggu approve.'+(q?' ('+rows.length+' sesuai filter)':'');
+  var tb=document.getElementById('apvTbody');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada yang perlu diapprove.')+'</td></tr>';return;}
+  tb.innerHTML=rows.map(function(r){
+    var jenisBadge=r.jenis==='TRANSFER'
+      ?'<span class="badge-sumber-transfer">TRANSFER</span>'
+      :'<span class="badge-sumber-tunai">TUNAI</span>';
+    return '<tr>'+
+      '<td><input type="checkbox" class="chk-batch chk-apv" value="'+esc(r.id_alokasi)+'" data-jenis="'+esc(r.jenis)+'"/></td>'+
+      '<td>'+jenisBadge+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+      '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+      '<td>'+esc(r.nama_pelanggan)+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.nominal_alokasi)+'</td>'+
+      '<td class="td-mono">'+esc(r.dialokasi_oleh)+'</td></tr>';
+  }).join('');
 }
 function toggleSemuaApprove(masterChk){
   document.querySelectorAll('.chk-apv').forEach(function(c){c.checked=masterChk.checked;});
