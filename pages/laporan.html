@@ -21,6 +21,9 @@
     .badge-status{font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.05em;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
     .s-lunas{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
     .s-belum_lunas,.s-belum_bayar{background:#f0f2f6;color:var(--muted);border:1px solid var(--border);}
+    .s-menunggu_approve{background:#fef9c3;color:#713f12;border:1px solid #fde68a;}
+    .s-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-ditolak{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
     .s-sebagian_bayar,.s-tertagih{background:#fde9d2;color:#c45a00;border:1px solid #f5c98a;}
     .badge-bucket{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;white-space:nowrap;}
     .b-aman{background:var(--green-bg);color:var(--green);}
@@ -50,6 +53,7 @@
   <button class="tab-btn"        data-tab="penjualan" onclick="gantiTab('penjualan')">💰 Penjualan</button>
   <button class="tab-btn"        data-tab="pembelian" onclick="gantiTab('pembelian')">🛒 Pembelian</button>
   <button class="tab-btn"        data-tab="produksi"  onclick="gantiTab('produksi')">🏭 Produksi</button>
+  <button class="tab-btn"        data-tab="lebihorder" onclick="gantiTab('lebihorder')">⚠ SPK Lebih Order</button>
 </div>
 
 <!-- ═══ TAB PIUTANG ═══ -->
@@ -284,6 +288,45 @@
   </div>
 </div>
 
+<!-- ═══ TAB SPK LEBIH ORDER ═══ -->
+<div class="tab-pane" id="tabLebihorder">
+  <div class="toolbar">
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
+    <input type="date" id="loTglDari"/>
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Sampai:</label>
+    <input type="date" id="loTglSampai"/>
+    <select id="loFilterStatus">
+      <option value="">Semua Status</option>
+      <option value="MENUNGGU_APPROVE">Menunggu Approve</option>
+      <option value="APPROVED">Approved</option>
+      <option value="DITOLAK">Ditolak</option>
+    </select>
+    <button class="btn-primary" onclick="muatLebihOrder()">Tampilkan</button>
+    <button class="btn-outline" onclick="exportLebihOrderCSV()">⬇ Export CSV</button>
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+  </div>
+  <div id="alertLebihOrder"></div>
+  <div class="rekap-grid" id="cardsLebihOrder">
+    <div class="rekap-card"><div class="lbl">Total Kejadian</div><div class="val" id="loTotalKejadian">…</div></div>
+    <div class="rekap-card"><div class="lbl">Total Qty Lebih</div><div class="val" id="loTotalQtyLebih">…</div></div>
+    <div class="rekap-card"><div class="lbl">Menunggu Approve</div><div class="val" id="loTotalMenunggu">…</div></div>
+  </div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Riwayat SPK yang Melebihi Sisa Order</div>
+  <div style="overflow-x:auto">
+    <table class="tbl-laporan">
+      <thead>
+        <tr>
+          <th>ID SPK</th><th>Tgl Diajukan</th><th>Item</th>
+          <th class="td-right">Qty Order</th><th class="td-right">Sisa Sebelum</th>
+          <th class="td-right">Qty SPK Baru</th><th class="td-right">Qty Lebih</th>
+          <th>Status</th><th>Diajukan Oleh</th><th>Approved By / Catatan</th>
+        </tr>
+      </thead>
+      <tbody id="bodyLebihOrder"><tr><td colspan="10" class="empty-state">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/utils.js"></script>
@@ -377,6 +420,7 @@ window.addEventListener('load', function () {
   document.getElementById('pdTglDari').value = tigaPuluhHariLalu.toISOString().slice(0,10);
   document.getElementById('pdTglSampai').value = hariIni.toISOString().slice(0,10);
   muatProduksi();
+  muatLebihOrder();
 });
 
 function gantiTab(nama){
@@ -513,6 +557,59 @@ function renderProduksi(data){
       '<td class="td-mono td-right">'+r.jml_operator+'</td>'+
       '</tr>';
   }).join('');
+}
+
+// ═══ SPK LEBIH ORDER ═══
+var DATA_LEBIH_ORDER = [];
+function fmtAngkaLap(n){ return Number(n||0).toLocaleString('id-ID'); }
+function muatLebihOrder(){
+  var dari=document.getElementById('loTglDari').value;
+  var sampai=document.getElementById('loTglSampai').value;
+  var statusF=document.getElementById('loFilterStatus').value;
+  showAlert('alertLebihOrder','');
+  var params={select:'*',order:'tgl_diajukan.desc'};
+  if(statusF) params.status='eq.'+statusF;
+  dbGet('log_spk_lebih_order',params).then(function(res){
+    var err=cekErrorSupabase(res);
+    if(err){ showAlert('alertLebihOrder', esc(err)); return; }
+    var rows=Array.isArray(res)?res:[];
+    if(dari) rows=rows.filter(function(r){return String(r.tgl_diajukan||'').slice(0,10)>=dari;});
+    if(sampai) rows=rows.filter(function(r){return String(r.tgl_diajukan||'').slice(0,10)<=sampai;});
+    DATA_LEBIH_ORDER=rows;
+    renderLebihOrder(rows);
+  }).catch(function(){ showAlert('alertLebihOrder','Gagal memuat data SPK lebih order.'); });
+}
+function renderLebihOrder(rows){
+  var tb=document.getElementById('bodyLebihOrder');
+  document.getElementById('loTotalKejadian').textContent=fmtAngkaLap(rows.length);
+  var totalLebih=rows.reduce(function(s,r){return s+(parseInt(r.qty_lebih,10)||0);},0);
+  document.getElementById('loTotalQtyLebih').textContent=fmtAngkaLap(totalLebih);
+  var menunggu=rows.filter(function(r){return r.status==='MENUNGGU_APPROVE';}).length;
+  document.getElementById('loTotalMenunggu').textContent=fmtAngkaLap(menunggu);
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="10" class="empty-state">Tidak ada data.</td></tr>'; return; }
+  tb.innerHTML=rows.map(function(r){
+    var catatanTitle=r.catatan_manager?esc(r.catatan_manager):'';
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.id_spk)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_diajukan)+'</td>'+
+      '<td>'+esc(r.nama_item||'')+'</td>'+
+      '<td class="td-mono td-right">'+fmtAngkaLap(r.qty_order)+'</td>'+
+      '<td class="td-mono td-right">'+fmtAngkaLap(r.qty_sisa_order)+'</td>'+
+      '<td class="td-mono td-right">'+fmtAngkaLap(r.qty_spk_baru)+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600;color:#991b1b">'+fmtAngkaLap(r.qty_lebih)+'</td>'+
+      '<td><span class="badge-status '+statusClass(r.status)+'">'+esc(r.status)+'</span></td>'+
+      '<td>'+esc(r.diajukan_oleh||'—')+'</td>'+
+      '<td>'+esc(r.approved_by||'—')+(catatanTitle?' <span title="'+catatanTitle+'">📝</span>':'')+'</td>'+
+      '</tr>';
+  }).join('');
+}
+function exportLebihOrderCSV(){
+  downloadCSV('spk_lebih_order_'+Date.now()+'.csv',
+    ['ID SPK','Tgl Diajukan','Item','Qty Order','Qty Sisa Sebelum','Qty SPK Baru','Qty Lebih','Status','Diajukan Oleh','Approved By','Catatan'],
+    DATA_LEBIH_ORDER.map(function(r){
+      return [r.id_spk, tglCSV(r.tgl_diajukan), r.nama_item, r.qty_order, r.qty_sisa_order, r.qty_spk_baru, r.qty_lebih, r.status, r.diajukan_oleh||'', r.approved_by||'', r.catatan_manager||''];
+    })
+  );
 }
 
 // ═══ PIUTANG ═══
