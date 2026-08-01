@@ -41,6 +41,7 @@
     .bs-packing{background:#fce7f3;color:#9d174d;}
     .bs-siap_close{background:#fef3c7;color:#92400e;}
     .bs-menunggu_approve{background:#fef9c3;color:#713f12;}
+    .bs-menunggu_approve_manager{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;}
     .bs-selesai{background:var(--green-bg);color:var(--green);}
     .loading{text-align:center;padding:2rem;color:var(--muted);font-family:var(--mono);font-size:.78rem;}
     .form-row{display:grid;grid-template-columns:1fr;gap:.6rem;margin-bottom:.7rem;}
@@ -135,6 +136,7 @@
       <button class="filter-btn" onclick="setFilter('PACKING',this)">Packing</button>
       <button class="filter-btn" onclick="setFilter('SIAP_CLOSE',this)">Siap Close</button>
       <button class="filter-btn" onclick="setFilter('MENUNGGU_APPROVE',this)">Menunggu</button>
+      <button class="filter-btn" style="border-color:#fca5a5;color:#991b1b" onclick="setFilter('MENUNGGU_APPROVE_MANAGER',this)">⚠ Lebih Order</button>
       <button class="filter-btn" onclick="setFilter('SELESAI',this)">Selesai</button>
       <button class="filter-btn" onclick="setFilter('',this)">Semua</button>
     </div>
@@ -336,6 +338,29 @@
   </div>
 </div>
 
+<!-- MODAL REVIEW LEBIH ORDER -->
+<div class="modal fade" id="modalReviewLebih" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#991b1b"><span class="modal-title">⚠ Review SPK Melebihi Order</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div id="alertReviewLebih"></div>
+        <div id="infoReviewLebih" style="margin-bottom:.75rem;font-family:var(--mono);font-size:.8rem;"></div>
+        <div id="listReviewLebih"></div>
+        <div style="margin-top:.75rem;">
+          <label class="form-label">Catatan Manager (wajib diisi kalau Tolak)</label>
+          <textarea class="form-control" id="inCatatanReviewLebih" rows="2" placeholder="cth: Sesuai instruksi pelanggan, kelebihan masuk stok gudang"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
+        <button class="btn-tolak" id="btnTolakLebih" onclick="tolakLebihOrder()">✗ Tolak</button>
+        <button class="btn-approve" id="btnApproveLebih" onclick="approveLebihOrder()">✓ Approve & Lanjutkan Produksi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL APPROVE -->
 <div class="modal fade" id="modalApprove" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-lg">
@@ -409,7 +434,7 @@ var poByOrder={}, searchSpk='';
 var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]}, _bahanMap={}, _tintaMap={};
 var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
 // Accordion + edit mode
-var rowStore={}, sdetBySpk={}, pelangganByOrder={}, openSpkId=null, editModeSpk=null;
+var rowStore={}, sdetBySpk={}, pelangganByOrder={}, openSpkId=null, editModeSpk=null, idSpkReviewLebih=null;
 var bomFinishingAktif={}, finishingProgress={}, finishingLogsByRow={}, finishingLegacyAktif=false, bomFinishingNameMap={}, finishingReqKosong=false;
 
 function cekErrorSupabase(res){
@@ -559,6 +584,7 @@ function renderTabel(){
       '<td class="td-muted">'+esc(s.keterangan||'—')+'</td>'+
       '<td style="white-space:nowrap;display:flex;gap:.35rem;flex-wrap:wrap">'+
         (bisa?'<button class="btn-progress" onclick="bukaProgress(\''+esc(s.id_spk)+'\')">📊 Progress</button>':'')+
+        (s.status==='MENUNGGU_APPROVE_MANAGER'&&(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR')?'<button class="btn-progress" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" onclick="bukaReviewLebihOrder(\''+esc(s.id_spk)+'\')">⚠ Review</button>':'')+
       '</td></tr>';
   }).join('');
 }
@@ -931,6 +957,86 @@ function genIdSdet(existing){
 }
 function genIdLogProd(){return 'LP'+Date.now()+Math.floor(Math.random()*1000);}
 
+// ── CEK & CATAT LEBIH ORDER (approval gate Manager) ──
+// qtyLamaDiSpkIni: kontribusi qty_spk milik SPK ini sendiri yang mau dihitung ulang (0 utk item baru)
+async function cekLebihOrder(idDetail,qtyBaruFinal,qtyLamaDiSpkIni){
+  var res=await dbGet('in_order_detail',{id_detail:'eq.'+idDetail,select:'qty,qty_spk'});
+  var od=(Array.isArray(res)&&res[0])?res[0]:null;
+  var qtyOrder=od?(parseInt(od.qty,10)||0):0;
+  var qtySpkSekarang=od?(parseInt(od.qty_spk,10)||0):0;
+  var sisaTanpaSpkIni=qtyOrder-(qtySpkSekarang-(qtyLamaDiSpkIni||0));
+  var lebih=qtyBaruFinal-sisaTanpaSpkIni;
+  return {qtyOrder:qtyOrder,sisa:sisaTanpaSpkIni,qtyBaru:qtyBaruFinal,lebih:lebih>0?lebih:0};
+}
+async function insertLogLebihOrder(idSpk,idSdet,idItem,namaItem,idOrder,info){
+  await dbInsert('log_spk_lebih_order',{
+    id_log:'LSO'+Date.now()+Math.floor(Math.random()*1000),
+    id_spk:idSpk,id_sdet:idSdet,id_item:idItem,nama_item:namaItem,id_order:idOrder,
+    qty_order:info.qtyOrder,qty_sisa_order:info.sisa,qty_spk_baru:info.qtyBaru,qty_lebih:info.lebih,
+    status:'MENUNGGU_APPROVE',diajukan_oleh:getNamaUser()
+  });
+}
+
+// ── REVIEW LEBIH ORDER (Manager/Direktur) ──
+async function bukaReviewLebihOrder(idSpk){
+  idSpkReviewLebih=idSpk;
+  document.getElementById('alertReviewLebih').innerHTML='';
+  document.getElementById('inCatatanReviewLebih').value='';
+  document.getElementById('infoReviewLebih').textContent='Memuat…';
+  document.getElementById('listReviewLebih').innerHTML='';
+  new bootstrap.Modal(document.getElementById('modalReviewLebih')).show();
+  var res=await dbGet('log_spk_lebih_order',{id_spk:'eq.'+idSpk,status:'eq.MENUNGGU_APPROVE',select:'*'});
+  var rows=Array.isArray(res)?res:[];
+  var spk=rowStore[idSpk];
+  document.getElementById('infoReviewLebih').textContent=idSpk+' | Oplah: '+fmtAngka(spk?spk.total_oplah:0)+' | Diajukan oleh: '+(rows[0]?rows[0].diajukan_oleh:'—');
+  if(!rows.length){
+    document.getElementById('listReviewLebih').innerHTML='<div class="alert-box alert-err">Tidak ada data lebih order pending untuk SPK ini (mungkin sudah diproses).</div>';
+    return;
+  }
+  document.getElementById('listReviewLebih').innerHTML=rows.map(function(r){
+    return '<div style="border:1px solid #fca5a5;border-radius:6px;padding:.6rem;margin-bottom:.5rem;background:#fef2f2;">'+
+      '<div style="font-weight:600">'+esc(r.nama_item)+'</div>'+
+      '<div style="font-family:var(--mono);font-size:.78rem;color:#555;margin-top:.3rem;">'+
+        'Qty Order: '+fmtAngka(r.qty_order)+' | Qty SPK Baru: '+fmtAngka(r.qty_spk_baru)+
+        ' | <strong style="color:#991b1b">Lebih: '+fmtAngka(r.qty_lebih)+'</strong>'+
+      '</div></div>';
+  }).join('');
+}
+async function approveLebihOrder(){
+  var idSpk=idSpkReviewLebih;
+  var alertEl=document.getElementById('alertReviewLebih');
+  var catatan=document.getElementById('inCatatanReviewLebih').value.trim();
+  var btn=document.getElementById('btnApproveLebih');
+  btn.disabled=true;
+  try{
+    await dbUpdate('log_spk_lebih_order',{id_spk:'eq.'+idSpk,status:'eq.MENUNGGU_APPROVE'},{status:'APPROVED',approved_by:getNamaUser(),tgl_approve:new Date().toISOString(),catatan_manager:catatan||null});
+    await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{status:'OPEN'});
+    bootstrap.Modal.getInstance(document.getElementById('modalReviewLebih')).hide();
+    idSpkReviewLebih=null;
+    muatSPK();
+  }catch(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error tidak diketahui.')+'</div>';
+  }finally{btn.disabled=false;}
+}
+async function tolakLebihOrder(){
+  var idSpk=idSpkReviewLebih;
+  var alertEl=document.getElementById('alertReviewLebih');
+  var catatan=document.getElementById('inCatatanReviewLebih').value.trim();
+  if(!catatan){alertEl.innerHTML='<div class="alert-box alert-err">Catatan wajib diisi kalau menolak.</div>';return;}
+  var btn=document.getElementById('btnTolakLebih');
+  btn.disabled=true;
+  try{
+    await dbUpdate('log_spk_lebih_order',{id_spk:'eq.'+idSpk,status:'eq.MENUNGGU_APPROVE'},{status:'DITOLAK',approved_by:getNamaUser(),tgl_approve:new Date().toISOString(),catatan_manager:catatan});
+    await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{status:'OPEN'});
+    bootstrap.Modal.getInstance(document.getElementById('modalReviewLebih')).hide();
+    idSpkReviewLebih=null;
+    muatSPK();
+    alert('Ditolak. SPK '+idSpk+' kembali ke status OPEN — silakan edit oplah/qty sebelum diajukan ulang.');
+  }catch(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error tidak diketahui.')+'</div>';
+  }finally{btn.disabled=false;}
+}
+
 // ── SIMPAN SPK ──
 async function simpanSPK(){
   if(editModeSpk){ await simpanEditSPK(); return; }
@@ -947,13 +1053,23 @@ async function simpanSPK(){
   btn.disabled=true; btn.textContent='Menyimpan…';
   try {
     var idSpk=genIdSpk();
-    // Insert header SPK
-    var resSpk=await dbInsert('in_spk',{id_spk:idSpk,tgl_spk:new Date().toISOString(),total_oplah:oplah,pps:maxPpsForm,status:'OPEN',keterangan:ket,print_count:0,status_print:'BELUM'});
-    if(resSpk&&resSpk.code) throw new Error('Insert SPK: '+resSpk.message);
-    // Insert spk_detail
     var sdetRows=daftarItem.map(function(it){
       return {id_sdet:'SDET'+Date.now()+Math.floor(Math.random()*9999),id_spk:idSpk,id_detail:it.idDetail,id_order:it.idOrder,id_item:it.idItem,nama_item:it.namaItem,subitem:it.subitem,qty_order:it.qtyOrder,satuan:it.satuan,pps:it.ppsInput,qty_spk:it.qty,status:'OPEN',qty_pack:0};
     });
+    // Cek melebihi sisa order SEBELUM insert header (menentukan status awal SPK)
+    var lebihList=[];
+    for(var k=0;k<daftarItem.length;k++){
+      var itK=daftarItem[k];
+      var infoK=await cekLebihOrder(itK.idDetail,itK.qty,0);
+      if(infoK.lebih>0){
+        lebihList.push({idSdet:sdetRows[k].id_sdet,idItem:itK.idItem,namaItem:itK.namaItem,idOrder:itK.idOrder,info:infoK});
+      }
+    }
+    var statusAwal=lebihList.length?'MENUNGGU_APPROVE_MANAGER':'OPEN';
+    // Insert header SPK
+    var resSpk=await dbInsert('in_spk',{id_spk:idSpk,tgl_spk:new Date().toISOString(),total_oplah:oplah,pps:maxPpsForm,status:statusAwal,keterangan:ket,print_count:0,status_print:'BELUM'});
+    if(resSpk&&resSpk.code) throw new Error('Insert SPK: '+resSpk.message);
+    // Insert spk_detail
     var resSdet=await dbInsert('in_spk_detail',sdetRows);
     if(resSdet&&resSdet.code) throw new Error('Insert SPK detail: '+resSdet.message);
     // Update qty_spk dan status_spk di in_order_detail
@@ -965,6 +1081,11 @@ async function simpanSPK(){
       var qtySPKBaru=qtySPKLama+it.qty;
       var stSpk=qtySPKBaru>=qtyOrd?'SELESAI':'SEBAGIAN';
       await dbUpdate('in_order_detail',{id_detail:'eq.'+it.idDetail},{qty_spk:qtySPKBaru,status_spk:stSpk});
+    }
+    // Catat lebih order (kalau ada) utk approval Manager
+    for(var m=0;m<lebihList.length;m++){
+      var lr=lebihList[m];
+      await insertLogLebihOrder(idSpk,lr.idSdet,lr.idItem,lr.namaItem,lr.idOrder,lr.info);
     }
     // Update status in_order terkait
     var ordSet={};
@@ -978,6 +1099,9 @@ async function simpanSPK(){
     }
     bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
     muatSPK(); muatOrderDetail();
+    if(lebihList.length){
+      alert('SPK '+idSpk+' dibuat, namun '+lebihList.length+' item melebihi sisa order. SPK ditahan (status Menunggu Approve Manager) sebelum bisa mulai produksi.');
+    }
   } catch(e){
     alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error tidak diketahui.')+'</div>';
   } finally{btn.disabled=false;btn.textContent='Simpan SPK';}
@@ -1011,13 +1135,14 @@ async function simpanEditSPK(){
   try{
     var spkCek=rowStore[idSpk];
     if(!spkCek||spkCek.status!=='OPEN') throw new Error('SPK sudah tidak berstatus OPEN, edit dibatalkan. Muat ulang halaman.');
-    // Update header
+    // Update header (status ditentukan & ditulis belakangan, setelah tau ada lebih order atau tidak)
     await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{total_oplah:oplah,pps:maxPpsForm,keterangan:ket});
     // Data lama vs baru (kunci: id_detail)
     var lamaRes=await dbGet('in_spk_detail',{id_spk:'eq.'+idSpk});
     var lama=Array.isArray(lamaRes)?lamaRes:[];
     var lamaByDetail={}; lama.forEach(function(r){lamaByDetail[r.id_detail]=r;});
     var baruByDetail={}; daftarItem.forEach(function(it){baruByDetail[it.idDetail]=it;});
+    var lebihList=[];
     // 1) Item yang dihapus dari form → hapus baris + kurangi qty_spk order
     for(var idDetailLama in lamaByDetail){
       if(!baruByDetail[idDetailLama]){
@@ -1026,18 +1151,51 @@ async function simpanEditSPK(){
         await syncQtySpkOrderDetail(rHapus.id_detail,-(parseInt(rHapus.qty_spk,10)||0));
       }
     }
-    // 2) Item baru ditambahkan di form → insert + tambah qty_spk order
+    // 2) Item baru ditambahkan di form → insert + tambah qty_spk order + cek lebih order
     for(var idDetailBaru in baruByDetail){
       if(!lamaByDetail[idDetailBaru]){
         var itBaru=baruByDetail[idDetailBaru];
-        await dbInsert('in_spk_detail',{id_sdet:'SDET'+Date.now()+Math.floor(Math.random()*9999),id_spk:idSpk,id_detail:itBaru.idDetail,id_order:itBaru.idOrder,id_item:itBaru.idItem,nama_item:itBaru.namaItem,subitem:itBaru.subitem,qty_order:itBaru.qtyOrder,satuan:itBaru.satuan,pps:itBaru.ppsInput,qty_spk:itBaru.qty,status:'OPEN',qty_pack:0});
+        var idSdetBaru='SDET'+Date.now()+Math.floor(Math.random()*9999);
+        await dbInsert('in_spk_detail',{id_sdet:idSdetBaru,id_spk:idSpk,id_detail:itBaru.idDetail,id_order:itBaru.idOrder,id_item:itBaru.idItem,nama_item:itBaru.namaItem,subitem:itBaru.subitem,qty_order:itBaru.qtyOrder,satuan:itBaru.satuan,pps:itBaru.ppsInput,qty_spk:itBaru.qty,status:'OPEN',qty_pack:0});
         await syncQtySpkOrderDetail(itBaru.idDetail,itBaru.qty);
+        var infoBaru=await cekLebihOrder(itBaru.idDetail,itBaru.qty,0);
+        if(infoBaru.lebih>0){
+          lebihList.push({idSdet:idSdetBaru,idItem:itBaru.idItem,namaItem:itBaru.namaItem,idOrder:itBaru.idOrder,info:infoBaru});
+        }
       }
     }
-    // Item yang tetap ada di kedua sisi tidak diubah (edit-in-place item tidak didukung — hapus lalu tambah ulang kalau perlu ubah qty/PPS)
+    // 3) FIX BUG: item yang tetap ada di kedua sisi kini ikut di-recalc & disimpan sesuai oplah baru
+    //    (sebelumnya qty item ini dibiarkan beku di oplah lama — akar masalah SPK260700022)
+    for(var idDetailTetap in baruByDetail){
+      if(lamaByDetail[idDetailTetap]){
+        var itTetap=baruByDetail[idDetailTetap];
+        var rLama=lamaByDetail[idDetailTetap];
+        var qtyLama=parseInt(rLama.qty_spk,10)||0;
+        var qtyBaru=itTetap.qty;
+        var delta=qtyBaru-qtyLama;
+        if(delta!==0){
+          await dbUpdate('in_spk_detail',{id_sdet:'eq.'+rLama.id_sdet},{qty_spk:qtyBaru});
+          await syncQtySpkOrderDetail(itTetap.idDetail,delta);
+        }
+        var infoTetap=await cekLebihOrder(itTetap.idDetail,qtyBaru,qtyLama);
+        if(infoTetap.lebih>0){
+          lebihList.push({idSdet:rLama.id_sdet,idItem:itTetap.idItem,namaItem:itTetap.namaItem,idOrder:itTetap.idOrder,info:infoTetap});
+        }
+      }
+    }
+    // Catat lebih order (kalau ada) + tentukan status akhir SPK
+    for(var m=0;m<lebihList.length;m++){
+      var lr=lebihList[m];
+      await insertLogLebihOrder(idSpk,lr.idSdet,lr.idItem,lr.namaItem,lr.idOrder,lr.info);
+    }
+    var statusAkhir=lebihList.length?'MENUNGGU_APPROVE_MANAGER':'OPEN';
+    await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{status:statusAkhir});
     bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
     editModeSpk=null;
     muatSPK(); muatOrderDetail();
+    if(lebihList.length){
+      alert('Perubahan SPK '+idSpk+' tersimpan, namun '+lebihList.length+' item melebihi sisa order. SPK ditahan (status Menunggu Approve Manager) sebelum bisa lanjut produksi.');
+    }
   }catch(e){
     alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error tidak diketahui.')+'</div>';
   }finally{btn.disabled=false;btn.textContent='Simpan Perubahan';}
