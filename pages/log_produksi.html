@@ -133,10 +133,10 @@
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Tgl Produksi</th><th>ID SPK</th><th>Jenis</th><th>Qty</th><th>Insheet</th>
+          <th>Tgl Produksi</th><th>ID SPK</th><th>Item</th><th>Jenis</th><th>Qty</th><th>Insheet</th>
           <th>Mesin/Vendor</th><th>Operator</th><th>Keterangan</th><th>Input</th><th>Status</th><th></th>
         </tr></thead>
-        <tbody id="tblRiwayat"><tr><td colspan="11" class="loading">Pilih filter lalu klik Cari</td></tr></tbody>
+        <tbody id="tblRiwayat"><tr><td colspan="12" class="loading">Pilih filter lalu klik Cari</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -434,7 +434,46 @@ function resetFilterRiwayat(){
   var h=new Date().toISOString().slice(0,10);
   document.getElementById('filterDari').value=h;
   document.getElementById('filterSampai').value=h;
-  document.getElementById('tblRiwayat').innerHTML='<tr><td colspan="11" class="loading">Pilih filter lalu klik Cari</td></tr>';
+  document.getElementById('tblRiwayat').innerHTML='<tr><td colspan="12" class="loading">Pilih filter lalu klik Cari</td></tr>';
+}
+
+// Ambil nama item per baris log_produksi. Log dgn id_spk_detail terisi
+// (PACKING/FINISHING) → item spesifik itu. Log level-SPK tanpa
+// id_spk_detail (CETAK/POTONG) → semua item di SPK tsb (SPK bisa multi-item),
+// digabung dgn koma.
+async function muatNamaItemUntukLog(logs){
+  var map={};
+  var idSpkList=Array.from(new Set(logs.map(function(l){return l.id_spk;}).filter(Boolean)));
+  if (!idSpkList.length) return map;
+
+  var sdetAll=await dbGet('in_spk_detail',{id_spk:'in.('+idSpkList.join(',')+')',select:'id_sdet,id_spk,id_item',order:'id_sdet.asc'});
+  sdetAll=Array.isArray(sdetAll)?sdetAll:[];
+
+  var idItemList=Array.from(new Set(sdetAll.map(function(s){return s.id_item;}).filter(Boolean)));
+  var itemMap={};
+  if (idItemList.length){
+    var itemMaster=await dbGet('m_item',{id_item:'in.('+idItemList.join(',')+')',select:'id_item,nama_item'});
+    itemMaster=Array.isArray(itemMaster)?itemMaster:[];
+    itemMaster.forEach(function(it){itemMap[it.id_item]=it.nama_item;});
+  }
+
+  var sdetByIdMap={}; // id_sdet -> nama_item (utk log dgn id_spk_detail spesifik)
+  var spkItemsMap={}; // id_spk -> array nama_item unik (utk log level-SPK)
+  sdetAll.forEach(function(s){
+    var nama=itemMap[s.id_item]||'';
+    sdetByIdMap[s.id_sdet]=nama;
+    if (!spkItemsMap[s.id_spk]) spkItemsMap[s.id_spk]=[];
+    if (nama && spkItemsMap[s.id_spk].indexOf(nama)===-1) spkItemsMap[s.id_spk].push(nama);
+  });
+
+  logs.forEach(function(l){
+    if (l.id_spk_detail && sdetByIdMap[l.id_spk_detail]){
+      map[l.id_log]=sdetByIdMap[l.id_spk_detail];
+    } else if (spkItemsMap[l.id_spk] && spkItemsMap[l.id_spk].length){
+      map[l.id_log]=spkItemsMap[l.id_spk].join(', ');
+    }
+  });
+  return map;
 }
 
 function muatRiwayat(){
@@ -469,23 +508,31 @@ function muatRiwayat(){
 
   var url=SUPA_URL+'/rest/v1/log_produksi?'+qArr.join('&');
   var tbody=document.getElementById('tblRiwayat');
-  tbody.innerHTML='<tr><td colspan="11" class="loading">Memuat…</td></tr>';
+  tbody.innerHTML='<tr><td colspan="12" class="loading">Memuat…</td></tr>';
   document.getElementById('alertRiwayat').innerHTML='';
 
   fetch(url,{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+(getSupaToken()||SUPA_KEY)}})
     .then(function(r){return r.json();})
-    .then(function(res){
+    .then(async function(res){
       var logs=Array.isArray(res)?res:[];
-      if (!logs.length){tbody.innerHTML='<tr><td colspan="11" class="loading">Tidak ada data</td></tr>';return;}
+      if (!logs.length){tbody.innerHTML='<tr><td colspan="12" class="loading">Tidak ada data</td></tr>';return;}
+
+      // ── Ambil nama item: utk log dgn id_spk_detail (PACKING/FINISHING) ambil
+      // item spesifik itu; utk log level-SPK (CETAK/POTONG, tanpa id_spk_detail)
+      // ambil semua item di SPK tsb (SPK boleh multi-item, tampilkan semua).
+      var namaItemMap = await muatNamaItemUntukLog(logs);
+
       tbody.innerHTML=logs.map(function(l){
         var isPending=(l.status==='PENDING_EDIT'||l.status==='PENDING_VOID');
         var isDibatalkan=l.status==='DIBATALKAN';
         var catObj=null;
         if (isPending){try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}}
         var labelPending=l.status==='PENDING_VOID'?'PENDING VOID':'PENDING EDIT';
+        var namaItem=namaItemMap[l.id_log]||'—';
         return '<tr'+(isDibatalkan?' style="opacity:.5;text-decoration:line-through"':'')+'>'+
           '<td class="td-mono">'+fmtTgl(l.tgl_produksi)+'</td>'+
           '<td class="td-mono" style="font-size:.7rem">'+esc(l.id_spk)+'</td>'+
+          '<td class="td-muted" style="max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(namaItem)+'">'+esc(namaItem)+'</td>'+
           '<td>'+badgeJenis(l.jenis)+(isPending?'<br><span class="badge-jenis bj-pending" style="margin-top:.2rem">'+labelPending+'</span>':'')+'</td>'+
           '<td class="td-mono">'+fmtAngka(l.qty)+' '+(l.satuan||'')+'</td>'+
           '<td class="td-mono">'+(l.insheet||'—')+'</td>'+
@@ -504,7 +551,7 @@ function muatRiwayat(){
       }).join('');
     })
     .catch(function(){
-      tbody.innerHTML='<tr><td colspan="11" class="loading" style="color:var(--red)">Gagal memuat data</td></tr>';
+      tbody.innerHTML='<tr><td colspan="12" class="loading" style="color:var(--red)">Gagal memuat data</td></tr>';
     });
 }
 
