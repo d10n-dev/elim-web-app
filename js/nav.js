@@ -58,6 +58,7 @@ const NAV_MENU = [
       { key: 'bank',          label: 'Bank',              icon: '🏦', href: 'pages/bank.html' },
       { key: 'pembelian', label: 'Pembelian',         icon: '🛒', href: 'pages/pembelian.html' },
       { key: 'laporan',   label: 'Laporan',           icon: '📈', href: 'pages/laporan.html' },
+      { key: 'gajian', label: 'Gajian', icon: '💵', href: 'pages/gajian.html', role: ['DIREKTUR'] },
     ]
   },
   {
