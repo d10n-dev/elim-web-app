@@ -680,7 +680,7 @@ function bukaBuatSPK(){
   document.getElementById('modalBuatTitle').textContent='Buat SPK';
   document.getElementById('btnSimpanSPK').textContent='Simpan SPK';
   renderItemList(); updatePPSBar();
-  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBuat')).show();
   muatOrderDetail();
 }
 
@@ -712,7 +712,7 @@ function bukaEditSPK(idSpk){
   });
   maxPpsForm=parseInt(spk.pps,10)||0;
   renderItemList(); updatePPSBar();
-  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBuat')).show();
   muatOrderDetail();
 }
 
@@ -984,7 +984,7 @@ async function bukaReviewLebihOrder(idSpk){
   document.getElementById('inCatatanReviewLebih').value='';
   document.getElementById('infoReviewLebih').textContent='Memuat…';
   document.getElementById('listReviewLebih').innerHTML='';
-  new bootstrap.Modal(document.getElementById('modalReviewLebih')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalReviewLebih')).show();
   var res=await dbGet('log_spk_lebih_order',{id_spk:'eq.'+idSpk,status:'eq.MENUNGGU_APPROVE',select:'*'});
   var rows=Array.isArray(res)?res:[];
   var spk=rowStore[idSpk];
@@ -1227,7 +1227,7 @@ function bukaProgress(idSpk){
     muatFinishingRequirement(idSpk);
   });
   muatRiwayatLog(idSpk);
-  new bootstrap.Modal(document.getElementById('modalProgress')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalProgress')).show();
 }
 
 // ── FINISHING GRANULAR (per item x jenis_finishing dari BOM) ──
@@ -1751,7 +1751,7 @@ function bukaModalClosing(){
   ['modalProgress'].forEach(function(id){
     var m=bootstrap.Modal.getInstance(document.getElementById(id)); if(m) m.hide();
   });
-  setTimeout(function(){new bootstrap.Modal(document.getElementById('modalClosing')).show();},300);
+  setTimeout(function(){bootstrap.Modal.getOrCreateInstance(document.getElementById('modalClosing')).show();},300);
 }
 
 async function konfirmasiClosing(){
@@ -1828,7 +1828,7 @@ function bukaModalApprove(){
   html+='</tbody></table></div>';
   document.getElementById('approveClosingInfo').innerHTML=html;
   ['modalProgress'].forEach(function(id){var m=bootstrap.Modal.getInstance(document.getElementById(id));if(m)m.hide();});
-  setTimeout(function(){new bootstrap.Modal(document.getElementById('modalApprove')).show();},300);
+  setTimeout(function(){bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApprove')).show();},300);
 }
 
 async function konfirmasiApprove(){
@@ -1847,7 +1847,7 @@ function bukaModalTolak(){
   document.getElementById('alertTolak').innerHTML='';
   document.getElementById('inAlasanTolak').value='';
   ['modalProgress'].forEach(function(id){var m=bootstrap.Modal.getInstance(document.getElementById(id));if(m)m.hide();});
-  setTimeout(function(){new bootstrap.Modal(document.getElementById('modalTolak')).show();},300);
+  setTimeout(function(){bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTolak')).show();},300);
 }
 
 async function konfirmasiTolak(){
@@ -1922,7 +1922,7 @@ function prosesLog(){
         ?'SPK ini sudah pernah dicetak. Sebagai '+roleUser+', reprint langsung disetujui — wajib isi alasan.'
         :'SPK ini sudah pernah dicetak. Ajukan reprint — wajib isi alasan, menunggu approval Manager/Direktur.';
       document.getElementById('btnKonfirmasiCetak').textContent=isMPGlobal?'🖨 Cetak':'Ajukan Reprint';
-      new bootstrap.Modal(document.getElementById('modalAlasan')).show();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlasan')).show();
     }
   }).catch(function(e){alert('Gagal cek status reprint: '+e.message);});
 }
@@ -1964,7 +1964,7 @@ async function eksekusiReprintSiap(siap){
 
 // ── APPROVE REPRINT SPK (Manager/Direktur) ──
 function bukaApproveReprintSpk(){
-  new bootstrap.Modal(document.getElementById('modalApproveReprintSpk')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApproveReprintSpk')).show();
   muatApproveReprintSpk();
 }
 async function muatApproveReprintSpk(){
@@ -2005,7 +2005,7 @@ async function approveReprintSpkAction(idLog,disetujui,btn){
 
 // ── LOG REPRINT SPK (Direktur — audit) ──
 function bukaLogReprintSpk(){
-  new bootstrap.Modal(document.getElementById('modalLogReprintSpk')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalLogReprintSpk')).show();
   muatLogReprintSpk();
 }
 async function muatLogReprintSpk(){

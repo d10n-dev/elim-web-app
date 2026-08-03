@@ -1107,7 +1107,7 @@ function bukaBatchPost() {
   document.getElementById('bpKategori').value = kat;
   document.getElementById('bpKeterangan').value = '';
   document.getElementById('bpErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalBatchPost')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBatchPost')).show();
 }
 
 async function simpanBatchPost() {
@@ -1275,7 +1275,7 @@ function bukaAlokDir(id) {
     document.getElementById('adIdMutasi').innerHTML = '<option value="">— Tidak ada / kosongkan —</option>';
   }
   document.getElementById('adErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalAlokDir')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokDir')).show();
 }
 
 async function muatMutasiAntarDropdown(entitas, nominalBank) {
@@ -1343,7 +1343,7 @@ function bukaAlokDirBulk() {
   adbEligibleIds = eligible.map(function(r){ return r.id; });
   document.getElementById('adbKeterangan').value = '';
   document.getElementById('adbErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalAlokDirBulk')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokDirBulk')).show();
 }
 
 var adbEligibleIds = [];
@@ -1437,7 +1437,7 @@ async function bukaKasKecil(id) {
     '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
   document.getElementById('kkErr').style.display = 'none';
   document.getElementById('kkTopupWrap').innerHTML = '<div class="loading">Memuat TOPUP tersedia…</div>';
-  new bootstrap.Modal(document.getElementById('modalKasKecil')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKasKecil')).show();
 
   var topups = await dbRpc('get_kasmasuk_topup_tersedia', {});
   var err = cekErrorSupabase(topups);
@@ -1541,7 +1541,7 @@ function bukaAlokLegacy(id) {
     '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span>';
   document.getElementById('alKeterangan').value = '';
   document.getElementById('alErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalAlokLegacy')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokLegacy')).show();
 }
 
 async function simpanAlokLegacy() {
@@ -1586,7 +1586,7 @@ function bukaAlokAdmin(id) {
   document.getElementById('aaIdPembayaran').value = '';
   document.getElementById('aaNominal').value = r.sisa_nominal || '';
   document.getElementById('aaErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalAlokAdmin')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokAdmin')).show();
 }
 
 async function simpanAlokAdmin() {
@@ -1640,7 +1640,7 @@ function bukaAlokHutang(id) {
   document.getElementById('ahErr').style.display = 'none';
   ahNotaTerpilih = [];
   renderNotaTerpilihAH();
-  new bootstrap.Modal(document.getElementById('modalAlokHutang')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokHutang')).show();
   muatCacheSupplierBank();
   inisAcSupplierAH();
 }
@@ -1932,7 +1932,7 @@ function bukaEditKet(id) {
   var selKat = document.getElementById('ekKategori');
   selKat.value = r.kategori || 'PIUTANG';
   document.getElementById('ekErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalEditKet')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditKet')).show();
 }
 
 async function simpanKeterangan() {
@@ -1984,7 +1984,7 @@ function bukaImportCsv() {
   document.getElementById('impFileInput').value = '';
   document.getElementById('impParseInfo').textContent = '';
   importSections = [];
-  new bootstrap.Modal(document.getElementById('modalImportCsv')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImportCsv')).show();
 }
 
 function parseCsvLine(line) {

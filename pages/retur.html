@@ -335,7 +335,7 @@ function bukaBuatRetur(){
   document.getElementById('itemPickerWrap').style.display='none';
   document.getElementById('btnSubmitRetur').style.display='none';
   document.getElementById('previewTotal').textContent='Rp 0';
-  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBuat')).show();
 }
 
 // ── SUBMIT RETUR ──
@@ -460,7 +460,7 @@ function bukaDetail(idRetur){
     footer.innerHTML='<button class="btn-outline" data-bs-dismiss="modal">Tutup</button>';
   }
 
-  new bootstrap.Modal(document.getElementById('modalDetail')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetail')).show();
 
   dbGet('in_retur_detail',{id_retur:'eq.'+idRetur,order:'id_rdet.asc'}).then(function(res){
     var items=Array.isArray(res)?res:[];

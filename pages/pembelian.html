@@ -1078,7 +1078,7 @@ function bukaAlokLegacyHutang(idBankStmt){
     'Sisa: '+fmtRupiah(r.sisa_nominal||0);
   document.getElementById('alhKeterangan').value = '';
   document.getElementById('alhErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalAlokLegacyHutang')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokLegacyHutang')).show();
 }
 
 async function simpanAlokLegacyHutang(){
@@ -1120,7 +1120,7 @@ function bukaAlokasiBank(idBankStmt){
   document.getElementById('totalCentangAlokBank').textContent='';
   alokasiBankTerpilih=[];
   renderAlokasiBankTerpilih();
-  new bootstrap.Modal(document.getElementById('modalAlokasiBank')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiBank')).show();
 }
 
 async function submitAlokasiBank(btn){
@@ -1321,7 +1321,7 @@ function bukaInputPembelian(){
   toggleFieldPPN();
   itemBaris=[];
   tambahBarisItem();
-  new bootstrap.Modal(document.getElementById('modalInputPembelian')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalInputPembelian')).show();
 }
 
 function tambahBarisItem(){
@@ -1645,7 +1645,7 @@ async function bukaEditPembelian(idPembelian){
   document.getElementById('frmEditPembelian').reset();
   document.getElementById('alertModalEdit').innerHTML='';
   editIdPembelian=idPembelian;
-  var m=new bootstrap.Modal(document.getElementById('modalEditPembelian'));
+  var m=bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditPembelian'));
   m.show();
   document.getElementById('editItemPembelianWrap').innerHTML='<div class="loading">Memuat…</div>';
 
@@ -1908,7 +1908,7 @@ function bukaVoidPembelian(idPembelian){
   document.getElementById('voidIdPembelian').value=idPembelian;
   document.getElementById('voidNoNota').textContent=r?r.no_nota:idPembelian;
   document.getElementById('voidAlasan').value='';
-  new bootstrap.Modal(document.getElementById('modalVoidPembelian')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVoidPembelian')).show();
 }
 
 async function submitVoidPembelian(btn){
@@ -1947,7 +1947,7 @@ async function bukaAlokasiStokPembelian(idPembelian){
   document.getElementById('alertAlokasiStok').innerHTML='';
   document.getElementById('alokasiStokItemsWrap').innerHTML='<div class="loading">Memuat…</div>';
   document.getElementById('alokasiStokKosong').style.display='none';
-  var m=new bootstrap.Modal(document.getElementById('modalAlokasiStokPembelian'));
+  var m=bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiStokPembelian'));
   m.show();
 
   var res=await dbRpc('get_pembelian_detail',{p_id_pembelian:idPembelian});
@@ -2360,7 +2360,7 @@ function tampilDetailAudit(idLog){
     (r.keterangan?(' — "'+r.keterangan+'"'):'');
   document.getElementById('auditSebelumWrap').innerHTML=renderSnapshotWrap(r.snapshot_sebelum);
   document.getElementById('auditSesudahWrap').innerHTML=renderSnapshotWrap(r.snapshot_sesudah);
-  new bootstrap.Modal(document.getElementById('modalDetailAudit')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailAudit')).show();
 }
 </script>
 
@@ -2464,7 +2464,7 @@ function bukaAlokasiKasKecil(idKas){
   document.getElementById('warnLintasEntitasHutang').style.display='none';
   alokasiHutangTerpilih=[];
   renderAlokasiHutangTerpilih();
-  new bootstrap.Modal(document.getElementById('modalPembayaranHutang')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPembayaranHutang')).show();
 }
 
 document.getElementById('inpEntitasPembayar').addEventListener('change', function(){
@@ -2595,7 +2595,7 @@ function bukaInputFaktur(){
   document.getElementById('inpCariNotaFaktur').value='';
   document.getElementById('infoNotaTerpilihFaktur').style.display='none';
   inisAcNotaFaktur();
-  new bootstrap.Modal(document.getElementById('modalInputFaktur')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalInputFaktur')).show();
 }
 
 async function submitInputFaktur(btn){
@@ -2681,7 +2681,7 @@ function bukaInputSupplier(){
   document.getElementById('judulModalSupplier').textContent='Tambah Supplier';
   document.getElementById('inpIdSupplierEdit').value='';
   document.getElementById('inpStatusSupplier').value='AKTIF';
-  new bootstrap.Modal(document.getElementById('modalSupplier')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSupplier')).show();
 }
 
 function bukaEditSupplier(s){
@@ -2693,7 +2693,7 @@ function bukaEditSupplier(s){
   document.getElementById('inpNPWPSupplier').value=s.npwp||'';
   document.getElementById('inpAlamatSupplier').value=s.alamat||'';
   document.getElementById('inpStatusSupplier').value=s.status;
-  new bootstrap.Modal(document.getElementById('modalSupplier')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSupplier')).show();
 }
 
 async function submitSupplier(btn){

@@ -324,7 +324,7 @@ function renderTabel(){
 function bukaHistory(idItem,subitem,namaItem){
   document.getElementById('historyTitle').textContent='Riwayat — '+namaItem+(subitem?' ('+subitem+')':'');
   document.getElementById('historyBody').innerHTML='<div class="loading">Memuat…</div>';
-  new bootstrap.Modal(document.getElementById('modalHistory')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHistory')).show();
 
   var params={id_item:'eq.'+idItem,order:'tgl.desc'};
   if(subitem) params['subitem']='eq.'+subitem;
@@ -452,7 +452,7 @@ function bukaModalAdj(){
   document.getElementById('adjOpnameInfo').style.display='none';
   document.getElementById('adjQtyLabel').textContent='QTY *';
   _adjItem=null;
-  new bootstrap.Modal(document.getElementById('modalAdj')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAdj')).show();
 }
 
 async function simpanAdj(){
@@ -530,7 +530,7 @@ function muatPendingCount(){
 // ── PENDING MODAL ──
 function bukaModalPending(){
   document.getElementById('pendingBody').innerHTML='<div class="loading">Memuat…</div>';
-  new bootstrap.Modal(document.getElementById('modalPending')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPending')).show();
   muatPending();
 }
 

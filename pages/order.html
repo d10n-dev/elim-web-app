@@ -446,7 +446,7 @@ function toggleSort(){
 // ── MODAL TAMBAH ──
 function bukaModalTambah(){
   resetForm();
-  var m=new bootstrap.Modal(document.getElementById('modalTambah'));
+  var m=bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTambah'));
   m.show();
   document.getElementById('modalTambah').addEventListener('shown.bs.modal',function(){
     var inpP=document.getElementById('inputPelanggan');
@@ -675,7 +675,7 @@ function bukaDetail(idOrder){
   document.getElementById('btnClose').style.display=bisaClose?'':'none';
   document.getElementById('btnEdit').style.display=bisaEdit?'':'none';
   document.getElementById('btnLog').style.display='';
-  new bootstrap.Modal(document.getElementById('modalDetail')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetail')).show();
 
   // Ambil detail dulu, baru cek 4 tabel anak (spk, kirim, retur, produksi) buat status locked
   dbGet('in_order_detail',{id_order:'eq.'+idOrder}).then(function(res){
@@ -877,7 +877,7 @@ function bukaModalEdit(){
   document.getElementById('editNamaItem').value=namaItem;
   document.getElementById('editHarga').value=harga;
   renderEditSubitem(detailCache);
-  new bootstrap.Modal(document.getElementById('modalEdit')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEdit')).show();
 }
 
 function renderEditSubitem(details){
@@ -1079,7 +1079,7 @@ function muatPendingEdit(){
 
 function bukaModalPending(){
   document.getElementById('pendingBody').innerHTML='<div class="loading">Memuat…</div>';
-  new bootstrap.Modal(document.getElementById('modalPending')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPending')).show();
   dbGet('log_edit_order',{status:'eq.PENDING',order:'tgl.desc'}).then(function(res){
     renderPendingList(Array.isArray(res)?res:[]);
   }).catch(function(){
@@ -1169,7 +1169,7 @@ function bukaModalLog(){
   if(!orderAktif)return;
   document.getElementById('logTitle').textContent='Log Perubahan — '+orderAktif.id_order;
   document.getElementById('logBody').innerHTML='<div class="loading">Memuat…</div>';
-  new bootstrap.Modal(document.getElementById('modalLog')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalLog')).show();
   dbGet('log_edit_order',{id_order:'eq.'+orderAktif.id_order,order:'tgl.desc'}).then(function(res){
     var data=Array.isArray(res)?res:[];
     if(!data.length){

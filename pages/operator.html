@@ -117,7 +117,7 @@ var bisaKelola = false;
 document.addEventListener('DOMContentLoaded', function() {
   if (!guardHalaman()) return;
   initNav('operator');
-  modalInst  = new bootstrap.Modal(document.getElementById('modalOperator'));
+  modalInst  = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalOperator'));
   bisaKelola = ['MANAGER','DIREKTUR'].indexOf(getRoleUser()) >= 0;
   if (bisaKelola) document.getElementById('btnTambah').style.display = '';
   muatData();

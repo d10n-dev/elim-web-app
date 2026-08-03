@@ -507,7 +507,7 @@ function bukaEdit(idLog){
     // Qty tidak editable untuk PACKING (qty_pack dikelola otomatis)
     document.getElementById('editQty').disabled=(jenis==='PACKING');
 
-    var modal=new bootstrap.Modal(document.getElementById('modalEdit'));
+    var modal=bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEdit'));
     modal.show();
   });
 }
@@ -628,7 +628,7 @@ function bukaApprove(idLog){
     document.getElementById('approveDiffWrap').innerHTML=diffRows.length?diffRows.join(''):'<span style="color:var(--muted);font-size:.78rem">Tidak ada perubahan terdeteksi</span>';
     document.getElementById('approveAlasanText').textContent=catObj.alasan||'—';
 
-    var modal=new bootstrap.Modal(document.getElementById('modalApprove'));
+    var modal=bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApprove'));
     modal.show();
   });
 }
@@ -685,7 +685,7 @@ function tolakEdit(){
   bootstrap.Modal.getInstance(document.getElementById('modalApprove')).hide();
   document.getElementById('tolakAlasan').value='';
   document.getElementById('alertTolak').innerHTML='';
-  setTimeout(function(){new bootstrap.Modal(document.getElementById('modalTolak')).show();},350);
+  setTimeout(function(){bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTolak')).show();},350);
 }
 
 function konfirmasiTolak(){

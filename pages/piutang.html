@@ -795,7 +795,7 @@ function bukaPilihBankUntukRekap(){
   document.getElementById('infoTotalRkTerpilih').textContent=keys.length+' nota dipilih dari Rekap — Total: '+fmtRupiah(total);
   document.getElementById('inpCariPilihBankRk').value='';
   document.getElementById('pbrTbody').innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
-  new bootstrap.Modal(document.getElementById('modalPilihBankRk')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPilihBankRk')).show();
   dbRpc('get_bank_cr_piutang_belum_dialokasi',{p_id_rekening:null}).then(function(res){
     _pbrDataCache=Array.isArray(res)?res:[];
     renderPbrTabel(_pbrDataCache);
@@ -837,7 +837,7 @@ function pilihBankUntukAlokasiRk(idBank){
   document.getElementById('inpCariNotaATF').value='';
   document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama pelanggan untuk menambah nota lain (opsional).</div>';
   renderNotaTerpilihATF();
-  setTimeout(function(){new bootstrap.Modal(document.getElementById('modalAlokasiTF')).show();},250);
+  setTimeout(function(){bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiTF')).show();},250);
   muatPelangganATFCache();
 }
 
@@ -878,7 +878,7 @@ function bukaBuatPenagihan(){
   document.getElementById('sjPelangganTagihWrap').innerHTML='';
   document.getElementById('sjPelangganTagihWrap').style.display='none';
   sjTerpilihTagih=[]; renderSJTerpilihTagih();
-  new bootstrap.Modal(document.getElementById('modalPenagihan')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPenagihan')).show();
   muatDaftarPelangganUtkTagih();
 }
 var semuaPelangganTagihCache=[];
@@ -978,7 +978,7 @@ function bukaKonfirmasiTT(idPenagihan){
   document.getElementById('lblNoPenagihanTT').textContent=r.no_penagihan;
   document.getElementById('inpTglTerimaTT').value=new Date().toISOString().slice(0,10);
   document.getElementById('inpNoTT').value=''; document.getElementById('alertTT').innerHTML='';
-  new bootstrap.Modal(document.getElementById('modalKonfirmasiTT')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKonfirmasiTT')).show();
 }
 async function submitKonfirmasiTT(btn){
   var idPnt=document.getElementById('hidIdPenagihanTT').value;
@@ -1076,7 +1076,7 @@ function bukaBuatTunaiMasuk(){
   document.getElementById('hidIdPelangganTM').value='';
   document.getElementById('notaTMWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Pilih pembayar dulu.</div>';
   notaTerpilihTM=[]; renderNotaTerpilihTM();
-  new bootstrap.Modal(document.getElementById('modalTunaiMasuk')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTunaiMasuk')).show();
   muatPelangganTMCache();
 }
 function muatPelangganTMCache(){
@@ -1201,7 +1201,7 @@ function bukaTMDetail(idTM){
           '<div class="sj-pick-nom">'+fmtRupiah(d.nominal_alokasi)+'</div></div>';
       }).join('')+'</div>';
     }
-    new bootstrap.Modal(document.getElementById('modalAlokasiTN')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiTN')).show();
   });
 }
 
@@ -1229,7 +1229,7 @@ function bukaLinkTunaiBank(idTM){
     tmLinkDataStore=data; _tmLinkDataCache=data;
     renderTMLink(data);
   });
-  new bootstrap.Modal(document.getElementById('modalLinkTunaiBank')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalLinkTunaiBank')).show();
 }
 function renderBankCR(data){
   if(!data.length){document.getElementById('bankCRWrap').innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada baris bank CR PIUTANG tersedia.</div>';return;}
@@ -1341,7 +1341,7 @@ function bukaAlokLegacyPiutang(idBank){
     'Sisa: '+fmtRupiah(r.sisa_nominal||0);
   document.getElementById('alpKeterangan').value = '';
   document.getElementById('alpErr').style.display = 'none';
-  new bootstrap.Modal(document.getElementById('modalAlokLegacyPiutang')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokLegacyPiutang')).show();
 }
 
 async function simpanAlokLegacyPiutang(){
@@ -1378,7 +1378,7 @@ function bukaAlokasiTF(idBank){
   document.getElementById('daftarNotaATFWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama pelanggan untuk melihat nota.</div>';
   var elTotalC=document.getElementById('totalCentangATF'); if(elTotalC) elTotalC.textContent='';
   notaTerpilihATF=[]; renderNotaTerpilihATF();
-  new bootstrap.Modal(document.getElementById('modalAlokasiTF')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiTF')).show();
   muatPelangganATFCache();
 }
 function muatPelangganATFCache(){
@@ -1610,7 +1610,7 @@ function bukaInputFaktur(idSJ){
   document.getElementById('lblDppFaktur').value=fmtRupiah(r.dpp);
   document.getElementById('lblPpnFaktur').value=fmtRupiah(r.ppn);
   document.getElementById('inpTglFaktur').value=new Date().toISOString().slice(0,10);
-  new bootstrap.Modal(document.getElementById('modalFaktur')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFaktur')).show();
 }
 function bukaEditFaktur(idSJ){
   var r=semuaSJFaktur.find(function(x){return x.id_sj===idSJ;}); if(!r||!r.faktur)return;

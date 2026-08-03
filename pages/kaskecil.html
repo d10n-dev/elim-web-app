@@ -536,7 +536,7 @@ function bukaKasMasuk(){
   document.getElementById('frmKasMasuk').reset();
   document.getElementById('alertKasMasuk').innerHTML='';
   document.getElementById('inpTglKasMasuk').value=new Date().toISOString().slice(0,10);
-  new bootstrap.Modal(document.getElementById('modalKasMasuk')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKasMasuk')).show();
 }
 
 function genIdKasMasuk(){return'KM'+Date.now();}
@@ -575,7 +575,7 @@ function bukaKasKeluarLangsung(){
   document.getElementById('frmKasKeluarLangsung').reset();
   document.getElementById('alertKasKeluarLangsung').innerHTML='';
   document.getElementById('inpTglKeluarLangsung').value=new Date().toISOString().slice(0,10);
-  new bootstrap.Modal(document.getElementById('modalKasKeluarLangsung')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKasKeluarLangsung')).show();
 }
 
 function genIdKasKeluar(){return'KK'+Date.now();}
@@ -623,7 +623,7 @@ function bukaKasbon(){
   document.getElementById('frmKasbon').reset();
   document.getElementById('alertKasbon').innerHTML='';
   document.getElementById('inpTglKasbon').value=new Date().toISOString().slice(0,10);
-  new bootstrap.Modal(document.getElementById('modalKasbon')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKasbon')).show();
 }
 
 async function submitKasbon(btn){
@@ -699,7 +699,7 @@ function bukaRealisasiKasbon(idKK){
   document.getElementById('inpNominalRealisasi').max=r.nominal_diberikan;
   document.getElementById('inpNominalRealisasi').setAttribute('data-max',r.nominal_diberikan);
   hitungSisaKembali();
-  new bootstrap.Modal(document.getElementById('modalRealisasi')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRealisasi')).show();
 }
 
 function hitungSisaKembali(){
@@ -815,7 +815,7 @@ function bukaAjukanBatal(tabel,idTransaksi,noTransaksi){
   document.getElementById('lblNoTransaksiBatal').textContent=noTransaksi;
   document.getElementById('inpAlasanBatal').value='';
   document.getElementById('alertAjukanBatal').innerHTML='';
-  new bootstrap.Modal(document.getElementById('modalAjukanBatal')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjukanBatal')).show();
 }
 
 async function submitAjukanBatal(btn){
@@ -917,7 +917,7 @@ function bukaPenyesuaian(){
   document.getElementById('frmPenyesuaian').reset();
   document.getElementById('alertPenyesuaian').innerHTML='';
   document.getElementById('inpTglPenyesuaian').value=new Date().toISOString().slice(0,10);
-  new bootstrap.Modal(document.getElementById('modalPenyesuaian')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPenyesuaian')).show();
 }
 
 function genIdPenyesuaian(){return'PY'+Date.now();}

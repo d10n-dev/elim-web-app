@@ -291,7 +291,7 @@ function bukaApprove(email,nama,tgl){
   document.getElementById('approveTgl').textContent='Daftar: '+fmtTgl(tgl);
   document.getElementById('approveRole').value='';
   document.getElementById('alertApprove').innerHTML='';
-  new bootstrap.Modal(document.getElementById('modalApprove')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApprove')).show();
 }
 
 function konfirmasiApprove(){
@@ -317,7 +317,7 @@ function bukaNonaktif(email,nama){
   document.getElementById('nonaktifNama').textContent=nama;
   document.getElementById('nonaktifEmail').textContent=email;
   document.getElementById('alertNonaktif').innerHTML='';
-  new bootstrap.Modal(document.getElementById('modalNonaktif')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalNonaktif')).show();
 }
 
 function konfirmasiNonaktif(){
@@ -342,7 +342,7 @@ function bukaAktifkan(email,nama,role){
   document.getElementById('aktifkanEmail').textContent=email;
   document.getElementById('aktifkanRole').value=role||'ADMIN';
   document.getElementById('alertAktifkan').innerHTML='';
-  new bootstrap.Modal(document.getElementById('modalAktifkan')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAktifkan')).show();
 }
 
 function konfirmasiAktifkan(){
@@ -368,7 +368,7 @@ function bukaAksesModul(email,nama){
   document.getElementById('aksesModulEmail').textContent=email;
   document.getElementById('alertAksesModul').innerHTML='';
   document.getElementById('chkAksesKasKecil').checked=false;
-  new bootstrap.Modal(document.getElementById('modalAksesModul')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAksesModul')).show();
 
   dbGet('m_akses_modul',{email_user:'eq.'+email,modul:'eq.kas_kecil'}).then(function(res){
     if(Array.isArray(res)&&res.length){document.getElementById('chkAksesKasKecil').checked=true;}

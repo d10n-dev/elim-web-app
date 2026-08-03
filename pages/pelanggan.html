@@ -206,8 +206,8 @@ let modalPelangganInst, modalAgenInst;
 window.addEventListener('load', function() {
   if (!guardHalaman()) return;
   initNav('pelanggan');
-  modalPelangganInst = new bootstrap.Modal(document.getElementById('modalPelanggan'));
-  modalAgenInst      = new bootstrap.Modal(document.getElementById('modalAgen'));
+  modalPelangganInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPelanggan'));
+  modalAgenInst      = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgen'));
   muatData();
 });
 

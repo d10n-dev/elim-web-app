@@ -133,7 +133,7 @@ const KATEGORI_LIST = ['NOTA / FORM','BUKU','ETIKET','BOX MAKANAN','BOX PRODUK',
 window.addEventListener('load', function() {
   if (!guardHalaman()) return;
   initNav('item');
-  modalInst = new bootstrap.Modal(document.getElementById('modalItem'));
+  modalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalItem'));
   isiFilterKategori();
   muatData();
 });

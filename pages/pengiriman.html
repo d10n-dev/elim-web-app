@@ -512,7 +512,7 @@ function bukaBuatPengiriman(){
   document.getElementById('sisaKirimWrap').style.display='none';
   document.getElementById('sisaKirimList').innerHTML='';
   document.getElementById('inpTgl').value=new Date().toISOString().slice(0,10);
-  new bootstrap.Modal(document.getElementById('modalBuat')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBuat')).show();
 }
 
 // ── GENERATE NOMOR SJ ──
@@ -658,7 +658,7 @@ function bukaDetail(idSJ){
   document.getElementById('detTitle').textContent=sjAktif.no_sj+' / '+sjAktif.no_nota;
   document.getElementById('detBody').innerHTML='<div class="loading">Memuat…</div>';
   document.getElementById('detFooter').innerHTML='';
-  new bootstrap.Modal(document.getElementById('modalDetail')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetail')).show();
 
   dbGet('in_pengiriman_detail',{id_sj:'eq.'+idSJ,order:'id_pgdet.asc'}).then(function(res){
     var items=Array.isArray(res)?res:[];
@@ -770,7 +770,7 @@ function bukaModalPrint(){
   document.getElementById('selJenisPrint').value='SJ';
   document.getElementById('printTitle').textContent='Cetak — '+sjAktif.no_sj;
   cekReprint();
-  new bootstrap.Modal(document.getElementById('modalPrint')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPrint')).show();
 }
 
 function cekReprint(){
@@ -843,7 +843,7 @@ async function submitPrint(btn){
 
 // ── ANTRIAN CETAK PC (siap tapi belum dieksekusi fisik) ──
 function bukaAntrianCetak(){
-  new bootstrap.Modal(document.getElementById('modalAntrianCetak')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAntrianCetak')).show();
   muatAntrianCetak();
 }
 async function muatAntrianCetak(){
@@ -889,7 +889,7 @@ async function cekBadgeAntrianAwal(){
 
 // ── APPROVE REPRINT (Manager/Direktur) ──
 function bukaApproveReprint(){
-  new bootstrap.Modal(document.getElementById('modalApproveReprint')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApproveReprint')).show();
   muatApproveReprint();
 }
 async function muatApproveReprint(){
@@ -939,7 +939,7 @@ async function approveReprintAction(idLog,disetujui,btn){
 
 // ── LOG REPRINT (Direktur — audit) ──
 function bukaLogReprint(){
-  new bootstrap.Modal(document.getElementById('modalLogReprint')).show();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalLogReprint')).show();
   muatLogReprint();
 }
 async function muatLogReprint(){

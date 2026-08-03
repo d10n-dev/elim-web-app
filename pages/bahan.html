@@ -128,7 +128,7 @@ let modalInst;
 window.addEventListener('load', function() {
   if (!guardHalaman()) return;
   initNav('bahan');
-  modalInst = new bootstrap.Modal(document.getElementById('modalBahan'));
+  modalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBahan'));
   muatData();
 });
 
