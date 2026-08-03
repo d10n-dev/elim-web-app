@@ -397,6 +397,32 @@
   </div>
 </div>
 
+<!-- ============== MODAL: ALOKASI STOK SUSULAN ============== -->
+<div class="modal fade" id="modalAlokasiStokPembelian" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">📦 Alokasi Stok Susulan</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertAlokasiStok"></div>
+        <div class="info-bar" style="margin-bottom:.6rem">
+          Hanya menampilkan item yang <b>belum pernah</b> dialokasikan ke stok bahan. Item yang sudah pernah dialokasikan tidak bisa ditambah lagi lewat sini (untuk menghindari stok dobel masuk) — kalau perlu koreksi, itu lewat proses edit/koreksi terpisah.
+        </div>
+        <div id="alokasiStokItemsWrap"></div>
+        <div id="alokasiStokKosong" style="display:none;text-align:center;padding:1.5rem;color:var(--muted);font-family:var(--mono);font-size:.8rem">
+          Semua item di nota ini sudah pernah dialokasikan ke stok. Tidak ada yang perlu diisi.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Tutup</button>
+        <button class="btn-navy" id="btnSimpanAlokasiStok" onclick="submitAlokasiStok(this)">Simpan Alokasi Stok</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============== MODAL: VOID NOTA PEMBELIAN ============== -->
 <div class="modal fade" id="modalVoidPembelian" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog">
@@ -1170,10 +1196,11 @@ function renderRekap(){
   data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
   tbody.innerHTML=data.map(function(r){
       var stCls='s-'+r.status_hutang.toLowerCase();
-      var aksiHtml=r.boleh_edit
+      var aksiHtml=(r.boleh_edit
         ? '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;margin-right:.3rem" onclick="bukaEditPembelian(\''+r.id_pembelian+'\')">Edit</button>'+
-          '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;color:var(--red)" onclick="bukaVoidPembelian(\''+r.id_pembelian+'\')">Void</button>'
-        : '<span style="font-size:.68rem;color:var(--muted)" title="Sudah ada pembayaran/alokasi/faktur — pakai Nota Debit/Kredit">—</span>';
+          '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;color:var(--red);margin-right:.3rem" onclick="bukaVoidPembelian(\''+r.id_pembelian+'\')">Void</button>'
+        : '<span style="font-size:.68rem;color:var(--muted);margin-right:.3rem" title="Sudah ada pembayaran/alokasi/faktur — pakai Nota Debit/Kredit">—</span>')+
+        '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="bukaAlokasiStokPembelian(\''+r.id_pembelian+'\')">📦 Alokasi Stok</button>';
       return '<tr>'+
         '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
         '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
@@ -1862,9 +1889,161 @@ async function submitVoidPembelian(btn){
 }
 
 // ============================================================
-// RIWAYAT VOID/EDIT (log audit)
+// ALOKASI STOK SUSULAN — utk item lama yg blm pernah dialokasikan
+// ke stok, TANPA perlu buka full Edit (jadi tetap aman dipakai
+// meski boleh_edit=false / nota sudah ada pembayaran-alokasi-faktur,
+// krn tidak mengubah jumlah/harga/hutang, cuma menambah stok bahan).
 // ============================================================
-var riwayatStore={};
+var alokasiStokItemBaris = []; // [{id_pbldet, nama_item_nota, jumlah, satuan, konversi_lembar, alokasi:[]}]
+
+async function bukaAlokasiStokPembelian(idPembelian){
+  document.getElementById('alertAlokasiStok').innerHTML='';
+  document.getElementById('alokasiStokItemsWrap').innerHTML='<div class="loading">Memuat…</div>';
+  document.getElementById('alokasiStokKosong').style.display='none';
+  var m=new bootstrap.Modal(document.getElementById('modalAlokasiStokPembelian'));
+  m.show();
+
+  var res=await dbRpc('get_pembelian_detail',{p_id_pembelian:idPembelian});
+  var errMsg=cekErrorSupabase(res);
+  if(errMsg || !res || res.status==='error'){
+    showAlert('alertAlokasiStok','Gagal memuat data: '+(errMsg||(res&&res.message)||'unknown'));
+    return;
+  }
+  var details=res.details||[];
+  var belumAlokasi=details.filter(function(d){ return !(d.alokasi&&d.alokasi.length); });
+
+  alokasiStokItemBaris=belumAlokasi.map(function(d){
+    return {
+      id_pbldet:d.id_pbldet, nama_item_nota:d.nama_item_nota,
+      jumlah:d.jumlah, satuan:d.satuan, konversi_lembar:'1', alokasi:[]
+    };
+  });
+
+  if(!alokasiStokItemBaris.length){
+    document.getElementById('alokasiStokItemsWrap').innerHTML='';
+    document.getElementById('alokasiStokKosong').style.display='block';
+    return;
+  }
+  renderAlokasiStokItems();
+}
+
+function tambahBarisAlokasiStok(idxItem){
+  alokasiStokItemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',keterangan:''});
+  renderAlokasiStokItems();
+}
+function hapusBarisAlokasiStok(idxItem,idxAlokasi){
+  alokasiStokItemBaris[idxItem].alokasi.splice(idxAlokasi,1);
+  renderAlokasiStokItems();
+}
+function updateAlokasiStokKonversi(idx,val){
+  alokasiStokItemBaris[idx].konversi_lembar=val;
+  hitungUlangAlokasiStok(idx);
+}
+function updateAlokasiStokPps(idxItem,idxAlokasi,val){
+  alokasiStokItemBaris[idxItem].alokasi[idxAlokasi].pps_per_lembar=val;
+  hitungUlangAlokasiStok(idxItem);
+}
+function hitungUlangAlokasiStok(idxItem){
+  var it=alokasiStokItemBaris[idxItem];
+  var jumlahItem=parseFloat(it.jumlah)||0;
+  var konversi=parseFloat(it.konversi_lembar)||1;
+  var totalLembar=jumlahItem*konversi;
+  var elTotal=document.getElementById('stokTotalLembarInfo_'+idxItem);
+  if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
+  it.alokasi.forEach(function(a,ai){
+    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var lbl=document.getElementById('stokHasilPcs_'+idxItem+'_'+ai);
+    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+  });
+}
+
+function renderAlokasiStokItems(){
+  var wrap=document.getElementById('alokasiStokItemsWrap');
+  wrap.innerHTML=alokasiStokItemBaris.map(function(it,i){
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    var totalLembar=jumlahItem*konversi;
+    var alokasiHtml=it.alokasi.map(function(a,ai){
+      var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+      var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||'';
+      return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+        '<div style="position:relative">'+
+          '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="stok" data-idxitem="'+i+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
+          '<div id="stokHasilPcs_'+i+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
+        '</div>'+
+        '<div><input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateAlokasiStokPps('+i+','+ai+',this.value)"/></div>'+
+        '<button type="button" onclick="hapusBarisAlokasiStok('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
+      '</div>';
+    }).join('');
+    return '<div class="item-row-form">'+
+      '<div style="font-size:.78rem;font-weight:600;margin-bottom:.2rem">'+esc(it.nama_item_nota)+'</div>'+
+      '<div style="font-size:.7rem;color:var(--muted);font-family:var(--mono);margin-bottom:.4rem">Dibeli: '+fmtAngka(jumlahItem)+' '+esc(it.satuan)+'</div>'+
+      '<div class="row g-2 align-items-end" style="margin-bottom:.5rem;padding:.4rem;background:#fff8ee;border:1px solid #f0dcb8;border-radius:6px">'+
+        '<div class="col-6"><label class="form-label" style="font-size:.68rem">Isi per Satuan Beli (dlm lembar)</label>'+
+          '<input type="number" step="any" class="form-control form-control-sm" value="'+it.konversi_lembar+'" oninput="updateAlokasiStokKonversi('+i+',this.value)"/>'+
+        '</div>'+
+        '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="stokTotalLembarInfo_'+i+'">'+
+          'Total: '+fmtAngka(totalLembar)+' lembar'+
+        '</div>'+
+      '</div>'+
+      alokasiHtml+
+      '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.3rem .6rem" onclick="tambahBarisAlokasiStok('+i+')">+ Tambah Hasil Potong</button>'+
+    '</div>';
+  }).join('');
+  attachBahanAcHandlers();
+}
+
+async function submitAlokasiStok(btn){
+  document.getElementById('alertAlokasiStok').innerHTML='';
+  var itemsIsi=alokasiStokItemBaris.filter(function(it){
+    return (it.alokasi||[]).some(function(a){return a.id_bahan&&a.pps_per_lembar;});
+  });
+  if(!itemsIsi.length){
+    showAlert('alertAlokasiStok','Isi minimal 1 baris alokasi (bahan + pps/lembar) di salah satu item.');
+    return;
+  }
+  for(var i=0;i<itemsIsi.length;i++){
+    var tidakLengkap=(itemsIsi[i].alokasi||[]).some(function(a){
+      return (a.id_bahan && !a.pps_per_lembar) || (!a.id_bahan && a.pps_per_lembar);
+    });
+    if(tidakLengkap){
+      showAlert('alertAlokasiStok','Ada baris yang belum lengkap (bahan jadi & pps/lembar harus diisi keduanya).');
+      return;
+    }
+  }
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  var gagal=[];
+  for(var i=0;i<itemsIsi.length;i++){
+    var it=itemsIsi[i];
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    var totalLembar=jumlahItem*konversi;
+    var alokasiValid=it.alokasi.filter(function(a){return a.id_bahan&&a.pps_per_lembar;}).map(function(a){
+      return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+    });
+    try{
+      var res=await dbRpc('tambah_alokasi_stok_pembelian',{
+        p_id_pbldet:it.id_pbldet,
+        p_jumlah_lembar:totalLembar,
+        p_alokasi:alokasiValid,
+        p_user_input:getNamaUser()
+      });
+      var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+      if(res && res.status==='error') throw new Error(res.message);
+    }catch(e){
+      gagal.push(it.nama_item_nota+': '+e.message);
+    }
+  }
+  btn.disabled=false; btn.innerHTML='Simpan Alokasi Stok';
+
+  if(gagal.length){
+    showAlert('alertAlokasiStok','Sebagian gagal disimpan:<br>'+gagal.map(esc).join('<br>'));
+  } else {
+    bootstrap.Modal.getInstance(document.getElementById('modalAlokasiStokPembelian')).hide();
+  }
+  muatSemuaData();
+}
 
 function resetFilterRiwayat(){
   document.getElementById('rwTglAwal').value='';
