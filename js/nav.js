@@ -44,6 +44,7 @@ const NAV_MENU = [
       { key: 'spk',           label: 'SPK',             icon: '🖨️', href: 'pages/spk.html' },
       { key: 'log_produksi',  label: 'Log Produksi',    icon: '📊', href: 'pages/log_produksi.html' },
       { key: 'stok_bj',       label: 'Stok BJ',         icon: '📦', href: 'pages/stok_bj.html' },
+      { key: 'stok_bahan',    label: 'Stok Bahan',      icon: '🧱', href: 'pages/stok_bahan.html' },
       { key: 'pengiriman',    label: 'Pengiriman',      icon: '🚚', href: 'pages/pengiriman.html' },
       { key: 'retur',         label: 'Retur',           icon: '↩️', href: 'pages/retur.html' },
     ]
