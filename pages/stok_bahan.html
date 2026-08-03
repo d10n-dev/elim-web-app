@@ -1,49 +1,76 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Stok Bahan — SIEO</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link href="../css/sieo.css" rel="stylesheet"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIEO — Stok Bahan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="../css/sieo.css" rel="stylesheet">
   <style>
-    .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);margin-bottom:.85rem;}
-    .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+    .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:1px solid var(--border);background:var(--surface);padding:0 12px;}
+    .tab-btn{font-family:var(--mono);font-size:12px;font-weight:600;padding:10px 14px;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
     .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
     .tab-pane{display:none;}
     .tab-pane.active{display:block;}
-    .td-mono{font-family:var(--mono);font-size:.75rem;}
+
+    .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .filter-bar input,.filter-bar select{font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;background:var(--bg);color:var(--text);font-family:var(--sans);}
+    .filter-bar input[type=text]{flex:1;min-width:160px;}
+    .filter-bar select{min-width:120px;}
+    .filter-bar input[type=date]{min-width:130px;}
+    .chk-wrap{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);white-space:nowrap;font-family:var(--sans);}
+    .chk-wrap input{width:15px;height:15px;}
+    .btn-tampilkan{background:var(--navy);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-family:var(--mono);font-weight:600;cursor:pointer;white-space:nowrap;}
+    .btn-tampilkan:hover{background:#233355;}
+    .btn-tampilkan:disabled{opacity:.5;cursor:not-allowed;}
+
+    .counter-bar{padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--bg);}
+
+    .table-wrap{overflow-x:auto;padding:0 0 60px 0;}
+    table{width:100%;border-collapse:collapse;background:var(--surface);}
+    thead th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-right:1px solid rgba(255,255,255,.1);white-space:nowrap;}
+    tbody tr{border-bottom:1px solid var(--border);}
+    tbody tr:hover{background:#f4f7fc;}
+    tbody tr.row-nol{opacity:.55;}
+    tbody td{padding:8px 10px;font-size:13px;vertical-align:middle;}
     .td-right{text-align:right;}
-    .badge-minus{background:#fdecea;color:var(--red);border:1px solid #f3b3ba;font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;}
-    .badge-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;}
-    .toolbar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:end;margin-bottom:.8rem;}
-    .toolbar .fld label{font-size:.72rem;color:var(--muted);display:block;margin-bottom:.2rem;}
-    .toolbar input, .toolbar select{font-size:.8rem;padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);}
-    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
-    .btn-navy:hover{background:var(--navy-mid);}
-    .btn-navy:disabled{opacity:.5;cursor:not-allowed;}
-    .ac-wrap{position:relative;}
-    .ac-drop{position:fixed;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;z-index:2000;display:none;}
+    .td-mono{font-family:var(--mono);font-size:12px;}
+    .td-mono-sm{font-family:var(--mono);font-size:11px;color:var(--muted);}
+
+    .badge-kat{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap;}
+    .badge-KERTAS{background:#dbeafe;color:#1e40af;}
+    .badge-PLASTIK{background:#fef9c3;color:#854d0e;}
+    .badge-PACKING{background:#f3e8ff;color:#6b21a8;}
+    .badge-LAIN{background:#f3f4f6;color:#374151;}
+
+    .badge-saldo{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap;}
+    .badge-minus{background:#fee2e2;color:#991b1b;}
+    .badge-nol{background:#f3f4f6;color:#6b7280;}
+    .badge-ok{background:#dcfce7;color:#15803d;}
+
+    .loading-state{text-align:center;padding:40px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+
+    .ac-wrap{position:relative;flex:1;min-width:200px;}
+    .ac-drop{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;z-index:2000;display:none;}
     .ac-drop.open{display:block;}
-    .ac-item{padding:.5rem .7rem;font-size:.8rem;cursor:pointer;border-bottom:1px solid #f1f3f7;}
-    .ac-item:hover{background:#f5f7fb;}
-    .ac-item-id{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-right:.4rem;}
-    .ac-item-nama{color:var(--navy);}
-    .ac-empty{padding:.6rem .7rem;font-size:.78rem;color:var(--muted);}
-    .alert-box{font-size:.78rem;padding:.55rem .8rem;border-radius:6px;margin-bottom:.7rem;display:none;}
-    .alert-box.show{display:block;}
-    .alert-danger-sm{background:#fdecea;color:var(--red);border:1px solid #f3b3ba;}
+    .ac-item{padding:8px 11px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border);}
+    .ac-item:last-child{border-bottom:none;}
+    .ac-item:hover{background:#e8edf7;}
+    .ac-empty{padding:8px 11px;font-size:12px;color:var(--muted);}
+
+    .alert-box{font-family:var(--mono);font-size:.75rem;padding:.5rem .75rem;border-radius:6px;margin:10px 12px 0;}
+    .alert-err{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;}
+
     .akses-blocked{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
     .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
     .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
     .akses-blocked p{font-size:.82rem;color:var(--muted);max-width:320px;}
-    .search-box{margin-bottom:.6rem;}
-    .search-box input{width:100%;max-width:320px;font-size:.8rem;padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);}
   </style>
 </head>
 <body>
-
 <div id="navRoot"></div>
 
 <div id="kontenStokBahan" style="display:none">
@@ -53,47 +80,61 @@
     <button class="tab-btn" data-tab="kartu" onclick="gantiTab('kartu')">📋 Kartu Stok</button>
   </div>
 
-  <!-- TAB: SALDO SAAT INI -->
+  <!-- ============ TAB: SALDO SAAT INI ============ -->
   <div class="tab-pane active" id="tabSaldo">
-    <div id="alertSaldo" class="alert-box alert-danger-sm"></div>
-    <div class="search-box">
-      <input type="text" id="cariSaldo" placeholder="Cari nama bahan…" oninput="renderSaldo()"/>
+    <div id="alertSaldo" class="alert-box alert-err" style="display:none"></div>
+
+    <div class="filter-bar">
+      <input type="text" id="cariSaldo" placeholder="Cari nama bahan..." oninput="renderSaldo()">
+      <select id="filterKategori" onchange="renderSaldo()">
+        <option value="">Semua Kategori</option>
+        <option value="KERTAS">Kertas</option>
+        <option value="PLASTIK">Plastik</option>
+        <option value="PACKING">Packing</option>
+      </select>
+      <label class="chk-wrap">
+        <input type="checkbox" id="chkSembunyikanNol" checked onchange="renderSaldo()">
+        Sembunyikan stok 0
+      </label>
     </div>
-    <table>
-      <thead><tr>
-        <th>Bahan</th><th class="td-right">Masuk (Beli)</th><th class="td-right">Keluar (Produksi)</th><th class="td-right">Saldo</th><th>Satuan</th>
-      </tr></thead>
-      <tbody id="saldoTbody"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
-    </table>
+
+    <div class="counter-bar" id="counterSaldo">Memuat data...</div>
+
+    <div class="table-wrap">
+      <div class="loading-state" id="loadingSaldo"><span class="spinner"></span> Mengambil data saldo stok...</div>
+      <table id="tabelSaldo" style="display:none">
+        <thead><tr>
+          <th>Bahan</th><th>Kategori</th><th class="td-right">Masuk (Beli)</th><th class="td-right">Keluar (Produksi)</th><th class="td-right">Saldo</th><th>Satuan</th><th>Status</th>
+        </tr></thead>
+        <tbody id="saldoTbody"></tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- TAB: KARTU STOK -->
+  <!-- ============ TAB: KARTU STOK ============ -->
   <div class="tab-pane" id="tabKartu">
-    <div id="alertKartu" class="alert-box alert-danger-sm"></div>
-    <div class="toolbar">
-      <div class="fld ac-wrap" style="min-width:220px">
-        <label>Pilih Bahan</label>
-        <input type="text" id="kartuBahanInput" class="form-control" placeholder="Ketik nama bahan…" autocomplete="off"/>
+    <div id="alertKartu" class="alert-box alert-err" style="display:none"></div>
+
+    <div class="filter-bar">
+      <div class="ac-wrap">
+        <input type="text" id="kartuBahanInput" placeholder="Ketik nama bahan..." autocomplete="off" style="width:100%">
         <div class="ac-drop" id="kartuBahanDrop"></div>
       </div>
-      <div class="fld">
-        <label>Dari Tanggal</label>
-        <input type="date" id="kartuTglMulai"/>
-      </div>
-      <div class="fld">
-        <label>Sampai Tanggal</label>
-        <input type="date" id="kartuTglAkhir"/>
-      </div>
-      <div class="fld">
-        <button class="btn-navy" id="btnMuatKartu" onclick="muatKartuStok()">Tampilkan</button>
-      </div>
+      <input type="date" id="kartuTglMulai">
+      <input type="date" id="kartuTglAkhir">
+      <button class="btn-tampilkan" id="btnMuatKartu" onclick="muatKartuStok()">Tampilkan</button>
     </div>
-    <table>
-      <thead><tr>
-        <th>Tanggal</th><th>Jenis</th><th class="td-right">Qty</th><th class="td-right">Saldo Berjalan</th><th>Referensi</th><th>Keterangan</th>
-      </tr></thead>
-      <tbody id="kartuTbody"><tr><td colspan="6" class="loading">Pilih bahan dan rentang tanggal, lalu tekan Tampilkan.</td></tr></tbody>
-    </table>
+
+    <div class="counter-bar" id="counterKartu">Pilih bahan dan rentang tanggal, lalu tekan Tampilkan.</div>
+
+    <div class="table-wrap">
+      <table id="tabelKartu" style="display:none">
+        <thead><tr>
+          <th>Tanggal</th><th>Jenis</th><th class="td-right">Qty</th><th class="td-right">Saldo Berjalan</th><th>Referensi</th><th>Keterangan</th>
+        </tr></thead>
+        <tbody id="kartuTbody"></tbody>
+      </table>
+    </div>
   </div>
 
 </div>
@@ -120,8 +161,14 @@ function cekErrorSupabase(res){
   if(res.status==='error') return res.message||'Terjadi kesalahan.';
   return null;
 }
+function badgeKategori(k){
+  var kk = (k||'').toUpperCase();
+  var cls = (kk==='KERTAS'||kk==='PLASTIK'||kk==='PACKING') ? kk : 'LAIN';
+  return '<span class="badge-kat badge-'+cls+'">'+esc(kk||'—')+'</span>';
+}
 
 var dataSaldo = [];
+var mapBahanKategori = {};
 var daftarBahan = [];
 var bahanTerpilih = null;
 
@@ -141,8 +188,10 @@ window.addEventListener('load', async function () {
   document.getElementById('kartuTglMulai').value = awalBulan.toISOString().slice(0,10);
   document.getElementById('kartuTglAkhir').value = d.toISOString().slice(0,10);
 
-  muatSaldo();
-  muatDaftarBahan();
+  muatMasterBahan().then(function(){
+    muatSaldo();
+    initBahanAC();
+  });
 });
 
 function gantiTab(tab){
@@ -152,44 +201,81 @@ function gantiTab(tab){
 }
 
 // ============================================================
+// MASTER BAHAN (utk kategori + autocomplete kartu stok)
+// ============================================================
+function muatMasterBahan(){
+  return dbGet('m_bahan',{select:'id_bahan,nama_bahan,kategori,satuan'}).then(function(res){
+    daftarBahan = Array.isArray(res)?res:[];
+    mapBahanKategori = {};
+    daftarBahan.forEach(function(b){ mapBahanKategori[b.id_bahan]=b.kategori; });
+  });
+}
+
+// ============================================================
 // TAB: SALDO SAAT INI
 // ============================================================
 function muatSaldo(){
+  document.getElementById('loadingSaldo').style.display='block';
+  document.getElementById('tabelSaldo').style.display='none';
   dbRpc('get_saldo_stok_bahan',{}).then(function(res){
     var errMsg=cekErrorSupabase(res);
+    document.getElementById('loadingSaldo').style.display='none';
     if(errMsg){
       document.getElementById('alertSaldo').textContent='Gagal memuat saldo: '+errMsg;
-      document.getElementById('alertSaldo').classList.add('show');
-      document.getElementById('saldoTbody').innerHTML='<tr><td colspan="5" class="loading">Gagal memuat data.</td></tr>';
+      document.getElementById('alertSaldo').style.display='block';
+      document.getElementById('counterSaldo').textContent='Gagal memuat data.';
       return;
     }
     dataSaldo = Array.isArray(res)?res:[];
+    document.getElementById('tabelSaldo').style.display='table';
     renderSaldo();
   });
 }
 
 function renderSaldo(){
   var q = (document.getElementById('cariSaldo').value||'').toLowerCase().trim();
+  var kategoriFilter = document.getElementById('filterKategori').value;
+  var sembunyikanNol = document.getElementById('chkSembunyikanNol').checked;
   var tbody = document.getElementById('saldoTbody');
-  var rows = dataSaldo.filter(function(r){
-    return !q || (r.nama_bahan||'').toLowerCase().includes(q);
+
+  var rows = dataSaldo.map(function(r){
+    var masuk = r.total_masuk!=null ? Number(r.total_masuk) : 0;
+    var keluar = r.total_keluar!=null ? Number(r.total_keluar) : 0;
+    var saldo = r.saldo!=null ? Number(r.saldo) : (masuk - keluar);
+    var kategori = r.kategori || mapBahanKategori[r.id_bahan] || '';
+    return {row:r, masuk:masuk, keluar:keluar, saldo:saldo, kategori:kategori};
   });
+
+  rows = rows.filter(function(x){
+    if(q && !(x.row.nama_bahan||'').toLowerCase().includes(q)) return false;
+    if(kategoriFilter && x.kategori.toUpperCase()!==kategoriFilter) return false;
+    if(sembunyikanNol && x.saldo===0) return false;
+    return true;
+  });
+
+  rows.sort(function(a,b){ return (a.row.nama_bahan||'').localeCompare(b.row.nama_bahan||''); });
+
+  document.getElementById('counterSaldo').textContent =
+    'Menampilkan '+rows.length+' dari '+dataSaldo.length+' bahan'+(sembunyikanNol?' (stok 0 disembunyikan)':'');
+
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="5" class="loading">Tidak ada data.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:12px;">Tidak ada data yang cocok.</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map(function(r){
-    // Nama kolom RPC bisa bervariasi tergantung versi — ambil yang tersedia.
-    var masuk = r.total_masuk!=null ? r.total_masuk : 0;
-    var keluar = r.total_keluar!=null ? r.total_keluar : 0;
-    var saldo = r.saldo!=null ? r.saldo : (masuk - keluar);
-    var badge = saldo < 0 ? '<span class="badge-minus">MINUS</span>' : '<span class="badge-ok">OK</span>';
-    return '<tr>'+
+
+  tbody.innerHTML = rows.map(function(x){
+    var r=x.row;
+    var badgeStatus = x.saldo<0 ? '<span class="badge-saldo badge-minus">MINUS</span>'
+                    : x.saldo===0 ? '<span class="badge-saldo badge-nol">HABIS</span>'
+                    : '<span class="badge-saldo badge-ok">TERSEDIA</span>';
+    return '<tr class="'+(x.saldo===0?'row-nol':'')+'">'+
       '<td>'+esc(r.nama_bahan||'—')+'</td>'+
-      '<td class="td-right td-mono">'+fmtAngka(masuk)+'</td>'+
-      '<td class="td-right td-mono">'+fmtAngka(keluar)+'</td>'+
-      '<td class="td-right td-mono">'+fmtAngka(saldo)+' '+badge+'</td>'+
-      '<td class="td-mono" style="font-size:.7rem">'+esc(r.satuan||'—')+'</td>'+
+      '<td>'+badgeKategori(x.kategori)+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(x.masuk)+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(x.keluar)+'</td>'+
+      '<td class="td-right td-mono" style="font-weight:600">'+fmtAngka(x.saldo)+'</td>'+
+      '<td class="td-mono-sm">'+esc(r.satuan||'—')+'</td>'+
+      '<td>'+badgeStatus+'</td>'+
     '</tr>';
   }).join('');
 }
@@ -197,13 +283,6 @@ function renderSaldo(){
 // ============================================================
 // TAB: KARTU STOK
 // ============================================================
-function muatDaftarBahan(){
-  dbGet('m_bahan',{select:'id_bahan,nama_bahan'}).then(function(res){
-    daftarBahan = Array.isArray(res)?res:[];
-    initBahanAC();
-  });
-}
-
 function initBahanAC(){
   var inputEl = document.getElementById('kartuBahanInput');
   var dropEl = document.getElementById('kartuBahanDrop');
@@ -234,7 +313,7 @@ function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect) {
       items.forEach(function(d){
         var div = document.createElement('div');
         div.className = 'ac-item';
-        div.innerHTML = '<span class="ac-item-nama">'+escHtml(d[namaKey])+'</span>';
+        div.textContent = d[namaKey];
         div.addEventListener('mousedown', function(e){ e.preventDefault(); pilih(d); });
         div.addEventListener('touchstart', function(e){ this._ty = e.touches[0].clientY; this._moved = false; dropEl._touching = true; }, {passive:true});
         div.addEventListener('touchmove', function(e){ if (Math.abs(e.touches[0].clientY - this._ty) > 10) this._moved = true; }, {passive:true});
@@ -256,17 +335,18 @@ function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect) {
 }
 
 function muatKartuStok(){
+  document.getElementById('alertKartu').style.display='none';
   if(!bahanTerpilih){
     document.getElementById('alertKartu').textContent='Pilih bahan dari daftar terlebih dahulu.';
-    document.getElementById('alertKartu').classList.add('show');
+    document.getElementById('alertKartu').style.display='block';
     return;
   }
-  document.getElementById('alertKartu').classList.remove('show');
   var tglMulai = document.getElementById('kartuTglMulai').value;
   var tglAkhir = document.getElementById('kartuTglAkhir').value;
   var btn = document.getElementById('btnMuatKartu');
   btn.disabled = true; btn.textContent = 'Memuat…';
-  document.getElementById('kartuTbody').innerHTML = '<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+  document.getElementById('counterKartu').textContent = 'Memuat…';
+  document.getElementById('tabelKartu').style.display='none';
 
   dbRpc('get_kartu_stok_bahan',{
     p_id_bahan: bahanTerpilih.id_bahan,
@@ -277,19 +357,21 @@ function muatKartuStok(){
     var errMsg = cekErrorSupabase(res);
     if(errMsg){
       document.getElementById('alertKartu').textContent='Gagal memuat kartu stok: '+errMsg+' (kemungkinan nama parameter RPC berbeda — laporkan pesan ini)';
-      document.getElementById('alertKartu').classList.add('show');
-      document.getElementById('kartuTbody').innerHTML='<tr><td colspan="6" class="loading">Gagal memuat data.</td></tr>';
+      document.getElementById('alertKartu').style.display='block';
+      document.getElementById('counterKartu').textContent='Gagal memuat data.';
       return;
     }
     var rows = Array.isArray(res)?res:[];
+    document.getElementById('tabelKartu').style.display='table';
     renderKartu(rows);
   });
 }
 
 function renderKartu(rows){
   var tbody = document.getElementById('kartuTbody');
+  document.getElementById('counterKartu').textContent = rows.length+' mutasi untuk '+esc(bahanTerpilih.nama_bahan);
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada mutasi pada rentang ini.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:12px;">Tidak ada mutasi pada rentang ini.</td></tr>';
     return;
   }
   var saldoJalan = 0;
@@ -299,12 +381,12 @@ function renderKartu(rows){
     saldoJalan += masukJenis ? qty : -qty;
     var displaySaldo = r.saldo_berjalan!=null ? r.saldo_berjalan : saldoJalan;
     return '<tr>'+
-      '<td class="td-mono" style="font-size:.7rem">'+fmtTgl(r.tgl)+'</td>'+
-      '<td class="td-mono" style="font-size:.68rem">'+esc(r.jenis||'—')+'</td>'+
+      '<td class="td-mono-sm">'+fmtTgl(r.tgl)+'</td>'+
+      '<td class="td-mono-sm">'+esc(r.jenis||'—')+'</td>'+
       '<td class="td-right td-mono">'+(masukJenis?'+':'-')+fmtAngka(qty)+'</td>'+
       '<td class="td-right td-mono">'+fmtAngka(displaySaldo)+'</td>'+
-      '<td class="td-mono" style="font-size:.68rem">'+esc(r.id_ref||'—')+'</td>'+
-      '<td style="font-size:.75rem">'+esc(r.keterangan||'—')+'</td>'+
+      '<td class="td-mono-sm">'+esc(r.id_ref||'—')+'</td>'+
+      '<td style="font-size:12px">'+esc(r.keterangan||'—')+'</td>'+
     '</tr>';
   }).join('');
 }
