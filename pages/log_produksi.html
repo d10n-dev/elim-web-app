@@ -233,17 +233,44 @@
   </div>
 </div>
 
-<!-- MODAL APPROVE -->
+<!-- MODAL VOID AJUAN -->
+<div class="modal fade" id="modalVoidAjuan" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--red)">
+        <span class="modal-title">Ajukan Void Log</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertVoidAjuan"></div>
+        <div class="kv-grid" id="voidAjuanInfoGrid" style="margin-bottom:.6rem"></div>
+        <div class="alert-box alert-warn" style="margin-bottom:.6rem" id="voidAjuanWarning"></div>
+        <div class="form-row">
+          <div>
+            <label class="form-label">Alasan Void <span style="color:var(--red)">*</span></label>
+            <textarea id="voidAjuanAlasan" class="form-control" rows="3" placeholder="Wajib isi alasan pembatalan log ini…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-tolak" id="btnSimpanVoidAjuan" onclick="simpanVoidAjuan()">Ajukan Void → Manager</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APPROVE (dipakai utk EDIT maupun VOID, kontennya di-toggle via JS) -->
 <div class="modal fade" id="modalApprove" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header" style="background:var(--green)">
-        <span class="modal-title">Approve Edit Log</span>
+      <div class="modal-header" id="approveModalHeader" style="background:var(--green)">
+        <span class="modal-title" id="approveModalTitle">Approve Edit Log</span>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div id="alertApprove"></div>
-        <div class="alert-box alert-warn" style="margin-bottom:.75rem">⚠ Periksa perubahan sebelum menyetujui.</div>
+        <div class="alert-box alert-warn" style="margin-bottom:.75rem" id="approveWarnText">⚠ Periksa perubahan sebelum menyetujui.</div>
         <div class="kv-grid" id="approveInfoGrid"></div>
         <div id="approveDiffWrap" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.75rem;margin-bottom:.75rem;font-size:.8rem;"></div>
         <div>
@@ -451,21 +478,28 @@ function muatRiwayat(){
       var logs=Array.isArray(res)?res:[];
       if (!logs.length){tbody.innerHTML='<tr><td colspan="11" class="loading">Tidak ada data</td></tr>';return;}
       tbody.innerHTML=logs.map(function(l){
-        var isPending=l.status==='PENDING_EDIT';
+        var isPending=(l.status==='PENDING_EDIT'||l.status==='PENDING_VOID');
+        var isDibatalkan=l.status==='DIBATALKAN';
         var catObj=null;
         if (isPending){try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}}
-        return '<tr>'+
+        var labelPending=l.status==='PENDING_VOID'?'PENDING VOID':'PENDING EDIT';
+        return '<tr'+(isDibatalkan?' style="opacity:.5;text-decoration:line-through"':'')+'>'+
           '<td class="td-mono">'+fmtTgl(l.tgl_produksi)+'</td>'+
           '<td class="td-mono" style="font-size:.7rem">'+esc(l.id_spk)+'</td>'+
-          '<td>'+badgeJenis(l.jenis)+(isPending?'<br><span class="badge-jenis bj-pending" style="margin-top:.2rem">PENDING</span>':'')+'</td>'+
+          '<td>'+badgeJenis(l.jenis)+(isPending?'<br><span class="badge-jenis bj-pending" style="margin-top:.2rem">'+labelPending+'</span>':'')+'</td>'+
           '<td class="td-mono">'+fmtAngka(l.qty)+' '+(l.satuan||'')+'</td>'+
           '<td class="td-mono">'+(l.insheet||'—')+'</td>'+
           '<td class="td-muted">'+esc(l.mesin_vendor||'—')+'</td>'+
           '<td class="td-muted">'+esc(l.operator||'—')+'</td>'+
           '<td class="td-muted" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(l.keterangan||'—')+'</td>'+
           '<td class="td-mono" style="font-size:.65rem">'+esc(l.user_input||'')+'<br><span style="color:var(--muted)">'+fmtWaktu(l.tgl_input)+'</span></td>'+
-          '<td class="td-mono" style="font-size:.65rem">'+(isPending?'<span style="color:#713f12">PENDING</span>':'<span style="color:var(--green)">AKTIF</span>')+'</td>'+
-          '<td><button class="btn-edit" '+(isPending?'disabled title="Sedang menunggu approval"':'')+' onclick="bukaEdit(\''+esc(l.id_log)+'\')">Edit</button></td>'+
+          '<td class="td-mono" style="font-size:.65rem">'+(isDibatalkan?'<span style="color:var(--red)">DIBATALKAN</span>':isPending?'<span style="color:#713f12">'+labelPending+'</span>':'<span style="color:var(--green)">AKTIF</span>')+'</td>'+
+          '<td style="display:flex;gap:.3rem;flex-wrap:wrap">'+
+            (isDibatalkan?'<span style="font-size:.68rem;color:var(--muted)">—</span>':
+              '<button class="btn-edit" '+(isPending?'disabled title="Sedang menunggu approval"':'')+' onclick="bukaEdit(\''+esc(l.id_log)+'\')">Edit</button>'+
+              '<button class="btn-tolak" style="font-size:.68rem;padding:.2rem .55rem" '+(isPending?'disabled title="Sedang menunggu approval"':'')+' onclick="bukaVoidAjuan(\''+esc(l.id_log)+'\')">Void</button>'
+            )+
+          '</td>'+
         '</tr>';
       }).join('');
     })
@@ -550,10 +584,60 @@ function simpanEdit(){
     });
 }
 
+// ── VOID LOG (ajuan → approval Manager, sama pola dgn Edit) ──
+var _logVoidAjuan=null;
+function bukaVoidAjuan(idLog){
+  dbGet('log_produksi',{id_log:'eq.'+idLog}).then(function(res){
+    var logs=Array.isArray(res)?res:[];
+    if (!logs.length){alert('Log tidak ditemukan');return;}
+    _logVoidAjuan=logs[0];
+    var l=_logVoidAjuan;
+    document.getElementById('alertVoidAjuan').innerHTML='';
+    document.getElementById('voidAjuanInfoGrid').innerHTML=
+      '<div class="kv-item"><label>ID Log</label><span class="td-mono" style="font-size:.72rem">'+esc(l.id_log)+'</span></div>'+
+      '<div class="kv-item"><label>ID SPK</label><span class="td-mono" style="font-size:.72rem">'+esc(l.id_spk)+'</span></div>'+
+      '<div class="kv-item"><label>Jenis</label><span>'+badgeJenis(l.jenis)+'</span></div>'+
+      '<div class="kv-item"><label>Qty</label><span style="font-size:.78rem">'+fmtAngka(l.qty)+' '+(l.satuan||'')+(l.insheet?' + '+l.insheet+' insheet':'')+'</span></div>';
+    document.getElementById('voidAjuanWarning').textContent = l.jenis==='CETAK'
+      ? '⚠ Log ini jenis CETAK — kalau void disetujui, mutasi stok bahan yang terkait log ini akan DIHAPUS (reverse), tidak digantikan.'
+      : '⚠ Log ini akan dibatalkan setelah disetujui Manager. Data tetap tersimpan di riwayat (dicoret) demi audit.';
+    document.getElementById('voidAjuanAlasan').value='';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVoidAjuan')).show();
+  });
+}
+
+function simpanVoidAjuan(){
+  if (!_logVoidAjuan) return;
+  var alasan=document.getElementById('voidAjuanAlasan').value.trim();
+  if (!alasan){document.getElementById('alertVoidAjuan').innerHTML='<div class="alert-box alert-err">Alasan void wajib diisi.</div>';return;}
+
+  var l=_logVoidAjuan;
+  var catObj={
+    aksi:'VOID',
+    alasan:alasan,
+    user_ajukan:getNamaUser(),
+    tgl_ajukan:new Date().toISOString()
+  };
+  var btn=document.getElementById('btnSimpanVoidAjuan');
+  btn.disabled=true; btn.textContent='Menyimpan…';
+  dbUpdate('log_produksi',{id_log:'eq.'+l.id_log},{status:'PENDING_VOID',catatan:JSON.stringify(catObj)})
+    .then(function(res){
+      if (res&&res.code) throw new Error(res.message||'Gagal');
+      document.getElementById('alertVoidAjuan').innerHTML='<div class="alert-box alert-ok">Berhasil diajukan. Menunggu approval Manager.</div>';
+      btn.textContent='✓ Diajukan';
+      muatPendingCount();
+      setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalVoidAjuan')).hide();muatRiwayat();},1200);
+    })
+    .catch(function(e){
+      document.getElementById('alertVoidAjuan').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='Ajukan Void → Manager';
+    });
+}
+
 // ── PENDING APPROVAL ──
 var _logApprove=null;
 function muatPendingCount(){
-  dbGet('log_produksi',{status:'eq.PENDING_EDIT',select:'id_log'}).then(function(res){
+  dbGet('log_produksi',{status:'in.(PENDING_EDIT,PENDING_VOID)',select:'id_log'}).then(function(res){
     var n=Array.isArray(res)?res.length:0;
     var el=document.getElementById('pendingCount');
     if (n>0){el.textContent=n;el.style.display='';}
@@ -565,24 +649,31 @@ function muatPending(){
   var tbody=document.getElementById('tblPending');
   tbody.innerHTML='<tr><td colspan="7" class="loading">Memuat…</td></tr>';
   document.getElementById('alertPending').innerHTML='';
-  dbGet('log_produksi',{status:'eq.PENDING_EDIT',order:'tgl_input.desc'}).then(function(res){
+  dbGet('log_produksi',{status:'in.(PENDING_EDIT,PENDING_VOID)',order:'tgl_input.desc'}).then(function(res){
     var logs=Array.isArray(res)?res:[];
     if (!logs.length){tbody.innerHTML='<tr><td colspan="7" class="loading">Tidak ada yang menunggu approval</td></tr>';return;}
     tbody.innerHTML=logs.map(function(l){
       var catObj={}; try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}
-      var baru=catObj.baru||{};
-      var lama=catObj.lama||{};
-      var diffHtml=[];
-      if (baru.tgl_produksi!==lama.tgl_produksi) diffHtml.push('Tgl: <span class="diff-old">'+fmtTgl(lama.tgl_produksi)+'</span> → <span class="diff-new">'+fmtTgl(baru.tgl_produksi)+'</span>');
-      if (baru.qty!==lama.qty) diffHtml.push('Qty: <span class="diff-old">'+fmtAngka(lama.qty)+'</span> → <span class="diff-new">'+fmtAngka(baru.qty)+'</span>');
-      if (baru.operator!==lama.operator) diffHtml.push('Operator: <span class="diff-old">'+esc(lama.operator)+'</span> → <span class="diff-new">'+esc(baru.operator)+'</span>');
-      if (baru.mesin_vendor!==lama.mesin_vendor) diffHtml.push('Mesin: <span class="diff-old">'+esc(lama.mesin_vendor)+'</span> → <span class="diff-new">'+esc(baru.mesin_vendor)+'</span>');
-      if (baru.keterangan!==lama.keterangan) diffHtml.push('Ket: <span class="diff-old">'+esc(lama.keterangan)+'</span> → <span class="diff-new">'+esc(baru.keterangan)+'</span>');
+      var aksi=catObj.aksi||'EDIT';
+      var kolomAksi;
+      if (aksi==='VOID'){
+        kolomAksi='<span style="font-size:.75rem;color:var(--red);font-weight:600">🗑 VOID</span> — <span style="font-size:.75rem">'+esc(catObj.alasan||'—')+'</span>';
+      } else {
+        var baru=catObj.baru||{};
+        var lama=catObj.lama||{};
+        var diffHtml=[];
+        if (baru.tgl_produksi!==lama.tgl_produksi) diffHtml.push('Tgl: <span class="diff-old">'+fmtTgl(lama.tgl_produksi)+'</span> → <span class="diff-new">'+fmtTgl(baru.tgl_produksi)+'</span>');
+        if (baru.qty!==lama.qty) diffHtml.push('Qty: <span class="diff-old">'+fmtAngka(lama.qty)+'</span> → <span class="diff-new">'+fmtAngka(baru.qty)+'</span>');
+        if (baru.operator!==lama.operator) diffHtml.push('Operator: <span class="diff-old">'+esc(lama.operator)+'</span> → <span class="diff-new">'+esc(baru.operator)+'</span>');
+        if (baru.mesin_vendor!==lama.mesin_vendor) diffHtml.push('Mesin: <span class="diff-old">'+esc(lama.mesin_vendor)+'</span> → <span class="diff-new">'+esc(baru.mesin_vendor)+'</span>');
+        if (baru.keterangan!==lama.keterangan) diffHtml.push('Ket: <span class="diff-old">'+esc(lama.keterangan)+'</span> → <span class="diff-new">'+esc(baru.keterangan)+'</span>');
+        kolomAksi=diffHtml.join('<br>');
+      }
       return '<tr>'+
         '<td class="td-mono">'+fmtTgl(l.tgl_produksi)+'</td>'+
         '<td class="td-mono" style="font-size:.7rem">'+esc(l.id_spk)+'</td>'+
         '<td>'+badgeJenis(l.jenis)+'</td>'+
-        '<td style="font-size:.75rem;line-height:1.6">'+diffHtml.join('<br>')+'</td>'+
+        '<td style="font-size:.75rem;line-height:1.6">'+kolomAksi+'</td>'+
         '<td class="td-muted">'+esc(catObj.user_ajukan||l.user_input||'—')+'</td>'+
         '<td class="td-mono" style="font-size:.65rem">'+fmtWaktu(catObj.tgl_ajukan||l.tgl_input)+'</td>'+
         '<td>'+(isMP?'<button class="btn-approve" style="font-size:.68rem;padding:.2rem .5rem" onclick="bukaApprove(\''+esc(l.id_log)+'\')">Periksa</button>':'<span style="font-size:.72rem;color:var(--muted)">—</span>')+'</td>'+
@@ -593,6 +684,7 @@ function muatPending(){
   });
 }
 
+var _logApproveAksi='EDIT';
 function bukaApprove(idLog){
   dbGet('log_produksi',{id_log:'eq.'+idLog}).then(function(res){
     var logs=Array.isArray(res)?res:[];
@@ -600,8 +692,7 @@ function bukaApprove(idLog){
     _logApprove=logs[0];
     var l=_logApprove;
     var catObj={}; try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}
-    var lama=catObj.lama||{};
-    var baru=catObj.baru||{};
+    _logApproveAksi=catObj.aksi||'EDIT';
 
     document.getElementById('alertApprove').innerHTML='';
     document.getElementById('approveInfoGrid').innerHTML=
@@ -610,67 +701,175 @@ function bukaApprove(idLog){
       '<div class="kv-item"><label>Jenis</label><span>'+badgeJenis(l.jenis)+'</span></div>'+
       '<div class="kv-item"><label>Diajukan</label><span style="font-size:.78rem">'+esc(catObj.user_ajukan||'—')+'</span></div>';
 
-    var diffRows=[];
-    function cekDiff(label,k){
-      if (JSON.stringify(baru[k])!==JSON.stringify(lama[k])){
-        diffRows.push('<div style="margin-bottom:.4rem"><span style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+label+'</span><br>'+
-          '<span class="diff-old">'+(k.includes('tgl')?fmtTgl(lama[k]):esc(String(lama[k]||'—')))+'</span> '+
-          '<span style="font-size:.78rem">→</span> '+
-          '<span class="diff-new">'+(k.includes('tgl')?fmtTgl(baru[k]):esc(String(baru[k]||'—')))+'</span></div>');
+    if (_logApproveAksi==='VOID'){
+      document.getElementById('approveModalTitle').textContent='Approve Void Log';
+      document.getElementById('approveModalHeader').style.background='var(--red)';
+      document.getElementById('approveWarnText').textContent = l.jenis==='CETAK'
+        ? '⚠ VOID — log ini akan dibatalkan. Jenis CETAK: mutasi stok bahan terkait (qty='+fmtAngka(l.qty)+' '+(l.satuan||'')+(l.insheet?'+'+l.insheet+' insheet':'')+') akan DIHAPUS (reverse), tidak digantikan.'
+        : '⚠ VOID — log ini akan dibatalkan setelah disetujui. Tidak bisa dibatalkan lagi setelah approve.';
+      document.getElementById('approveDiffWrap').innerHTML='<span style="color:var(--muted);font-size:.78rem">Qty: '+fmtAngka(l.qty)+' '+(l.satuan||'')+(l.insheet?' + '+l.insheet+' insheet':'')+' — akan DIBATALKAN sepenuhnya.</span>';
+      document.getElementById('btnKonfirmasiApprove').textContent='✓ Setujui Void';
+      document.getElementById('approveAlasanText').textContent=catObj.alasan||'—';
+    } else {
+      document.getElementById('approveModalTitle').textContent='Approve Edit Log';
+      document.getElementById('approveModalHeader').style.background='var(--green)';
+      document.getElementById('approveWarnText').textContent='⚠ Periksa perubahan sebelum menyetujui.';
+      document.getElementById('btnKonfirmasiApprove').textContent='✓ Approve';
+      var lama=catObj.lama||{};
+      var baru=catObj.baru||{};
+      var diffRows=[];
+      function cekDiff(label,k){
+        if (JSON.stringify(baru[k])!==JSON.stringify(lama[k])){
+          diffRows.push('<div style="margin-bottom:.4rem"><span style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+label+'</span><br>'+
+            '<span class="diff-old">'+(k.includes('tgl')?fmtTgl(lama[k]):esc(String(lama[k]||'—')))+'</span> '+
+            '<span style="font-size:.78rem">→</span> '+
+            '<span class="diff-new">'+(k.includes('tgl')?fmtTgl(baru[k]):esc(String(baru[k]||'—')))+'</span></div>');
+        }
       }
+      cekDiff('Tgl Produksi','tgl_produksi');
+      cekDiff('Qty','qty');
+      cekDiff('Insheet','insheet');
+      cekDiff('Mesin/Vendor','mesin_vendor');
+      cekDiff('Operator','operator');
+      cekDiff('Keterangan','keterangan');
+      if (l.jenis==='CETAK' && (JSON.stringify(baru.qty)!==JSON.stringify(lama.qty) || JSON.stringify(baru.insheet)!==JSON.stringify(lama.insheet))){
+        diffRows.push('<div style="margin-top:.5rem;padding:.5rem;background:#fff8ee;border:1px solid #f0dcb8;border-radius:6px;font-size:.72rem">⚠ Qty/insheet berubah pada log CETAK — mutasi stok bahan lama akan di-reverse otomatis & dihitung ulang saat approve.</div>');
+      }
+      document.getElementById('approveDiffWrap').innerHTML=diffRows.length?diffRows.join(''):'<span style="color:var(--muted);font-size:.78rem">Tidak ada perubahan terdeteksi</span>';
+      document.getElementById('approveAlasanText').textContent=catObj.alasan||'—';
     }
-    cekDiff('Tgl Produksi','tgl_produksi');
-    cekDiff('Qty','qty');
-    cekDiff('Insheet','insheet');
-    cekDiff('Mesin/Vendor','mesin_vendor');
-    cekDiff('Operator','operator');
-    cekDiff('Keterangan','keterangan');
-    document.getElementById('approveDiffWrap').innerHTML=diffRows.length?diffRows.join(''):'<span style="color:var(--muted);font-size:.78rem">Tidak ada perubahan terdeteksi</span>';
-    document.getElementById('approveAlasanText').textContent=catObj.alasan||'—';
 
     var modal=bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApprove'));
     modal.show();
   });
 }
 
-function konfirmasiApprove(){
+// Reverse mutasi log_stok_bahan lama (by id_ref=idLog), lalu opsional insert
+// ulang dgn angka baru (utk EDIT) atau tidak insert sama sekali (utk VOID).
+async function sesuaikanStokBahanCetak(idLog, idSpk, opts){
+  opts = opts||{};
+  var resHapus = await dbDelete('log_stok_bahan',{id_ref:'eq.'+idLog});
+  if (resHapus && resHapus.code) return {ok:false, catatan:'Gagal hapus mutasi lama: '+resHapus.message};
+
+  if (opts.hapusSaja) return {ok:true, catatan:'Mutasi stok bahan lama dihapus (void).'};
+
+  var totalLembar=(parseInt(opts.qty,10)||0)+(parseInt(opts.insheet,10)||0);
+  if (totalLembar<=0) return {ok:true, catatan:'Qty+insheet 0, tidak ada potongan stok baru.'};
+
+  var sdet=await dbGet('in_spk_detail',{id_spk:'eq.'+idSpk,order:'id_sdet.asc'});
+  sdet=Array.isArray(sdet)?sdet:[];
+  if (!sdet.length) return {ok:false, catatan:'Item SPK tidak ditemukan, stok tidak diproses ulang.'};
+  var idItem=sdet[0].id_item;
+  if (!idItem) return {ok:false, catatan:'Item pertama SPK tidak punya id_item.'};
+
+  var bomBahan=await dbGet('m_bom_bahan',{id_item:'eq.'+idItem});
+  bomBahan=Array.isArray(bomBahan)?bomBahan.filter(function(b){return !!b.id_bahan;}):[];
+  if (!bomBahan.length) return {ok:false, catatan:'BOM bahan kosong utk item ini, stok tidak diproses ulang — lengkapi BOM lalu proses manual di Stok Bahan.'};
+
+  var idBahanList=bomBahan.map(function(b){return b.id_bahan;});
+  var bahanMaster=await dbGet('m_bahan',{id_bahan:'in.('+idBahanList.join(',')+')'});
+  bahanMaster=Array.isArray(bahanMaster)?bahanMaster:[];
+  var bahanMap={};
+  bahanMaster.forEach(function(b){bahanMap[b.id_bahan]=b;});
+
+  var tglLog=opts.tglProduksi?(String(opts.tglProduksi).slice(0,10)+'T00:00:00+07:00'):new Date().toISOString();
+  var rows=bomBahan.map(function(b,i){
+    var qtyKeluar=totalLembar*(parseFloat(b.jumlah_per_lembar)||1);
+    var master=bahanMap[b.id_bahan]||{};
+    return {
+      id_log_bahan:idLog+'-LSB'+(i+1),
+      tgl:tglLog,
+      jenis:'KELUAR_PRODUKSI',
+      id_bahan:b.id_bahan,
+      nama_bahan:master.nama_bahan||'',
+      qty:qtyKeluar,
+      satuan:master.satuan||'',
+      id_ref:idLog,
+      keterangan:'Auto dari EDIT log produksi CETAK SPK '+idSpk+' ('+fmtAngka(totalLembar)+' lembar, dikoreksi)',
+      user_input:opts.userInput
+    };
+  });
+  var resStok=await dbInsert('log_stok_bahan',rows);
+  if (resStok && resStok.code) return {ok:false, catatan:'Gagal insert log_stok_bahan baru: '+resStok.message};
+  return {ok:true, catatan:'Stok bahan disesuaikan ('+rows.length+' baris).'};
+}
+
+async function konfirmasiApprove(){
   if (!_logApprove) return;
   var l=_logApprove;
   var catObj={}; try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}
-  var baru=catObj.baru||{};
   var btn=document.getElementById('btnKonfirmasiApprove');
   btn.disabled=true; btn.textContent='Memproses…';
   document.getElementById('alertApprove').innerHTML='';
 
-  // Update field aktual + kembalikan status AKTIF
-  var updateData={
-    status:'AKTIF',
-    catatan:'APPROVED by '+getNamaUser()+' '+new Date().toISOString()
-  };
-  if (baru.tgl_produksi) updateData.tgl_produksi=baru.tgl_produksi;
-  if (baru.qty!==undefined&&l.jenis!=='PACKING') updateData.qty=baru.qty;
-  if (baru.insheet!==undefined) updateData.insheet=baru.insheet;
-  if (baru.mesin_vendor!==undefined) updateData.mesin_vendor=baru.mesin_vendor;
-  if (baru.operator!==undefined) updateData.operator=baru.operator;
-  if (baru.keterangan!==undefined) updateData.keterangan=baru.keterangan;
+  try{
+    var warning='';
 
-  dbUpdate('log_produksi',{id_log:'eq.'+l.id_log},updateData)
-    .then(function(res){
-      if (res&&res.code) throw new Error(res.message);
-      // Jika PACKING dan qty berubah → recalculate qty_pack di in_spk_detail
-      if (l.jenis==='PACKING'&&l.id_spk_detail&&baru.qty!==undefined&&baru.qty!==l.qty){
-        return recalcQtyPack(l.id_spk_detail,l.id_spk);
+    if (_logApproveAksi==='VOID'){
+      var updateVoid={
+        status:'DIBATALKAN',
+        catatan:'DIBATALKAN by '+getNamaUser()+' '+new Date().toISOString()+'. Alasan: '+(catObj.alasan||'—')
+      };
+      var res1=await dbUpdate('log_produksi',{id_log:'eq.'+l.id_log},updateVoid);
+      if (res1 && res1.code) throw new Error(res1.message);
+
+      if (l.jenis==='CETAK'){
+        var hasilStok=await sesuaikanStokBahanCetak(l.id_log, l.id_spk, {hapusSaja:true});
+        if (!hasilStok.ok) warning='⚠ Log berhasil dibatalkan, TAPI reverse stok bahan GAGAL: '+hasilStok.catatan+' — cek manual di Stok Bahan.';
       }
-    })
-    .then(function(){
-      document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-ok">Approved. Data log diperbarui.</div>';
-      muatPendingCount();
-      setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalApprove')).hide();muatPending();},1000);
-    })
-    .catch(function(e){
-      document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
-      btn.disabled=false; btn.textContent='✓ Approve';
-    });
+      if (l.jenis==='PACKING' && l.id_spk_detail){
+        await recalcQtyPack(l.id_spk_detail, l.id_spk);
+      }
+
+      document.getElementById('alertApprove').innerHTML = warning
+        ? '<div class="alert-box alert-err">'+esc(warning)+'</div>'
+        : '<div class="alert-box alert-ok">Void disetujui. Log dibatalkan.</div>';
+
+    } else {
+      var baru=catObj.baru||{};
+      var updateData={
+        status:'AKTIF',
+        catatan:'APPROVED by '+getNamaUser()+' '+new Date().toISOString()
+      };
+      if (baru.tgl_produksi) updateData.tgl_produksi=baru.tgl_produksi;
+      if (baru.qty!==undefined&&l.jenis!=='PACKING') updateData.qty=baru.qty;
+      if (baru.insheet!==undefined) updateData.insheet=baru.insheet;
+      if (baru.mesin_vendor!==undefined) updateData.mesin_vendor=baru.mesin_vendor;
+      if (baru.operator!==undefined) updateData.operator=baru.operator;
+      if (baru.keterangan!==undefined) updateData.keterangan=baru.keterangan;
+
+      var res2=await dbUpdate('log_produksi',{id_log:'eq.'+l.id_log},updateData);
+      if (res2 && res2.code) throw new Error(res2.message);
+
+      if (l.jenis==='PACKING'&&l.id_spk_detail&&baru.qty!==undefined&&baru.qty!==l.qty){
+        await recalcQtyPack(l.id_spk_detail,l.id_spk);
+      }
+
+      if (l.jenis==='CETAK'){
+        var qtyBerubah=(baru.qty!==undefined && baru.qty!==l.qty);
+        var insheetBerubah=(baru.insheet!==undefined && baru.insheet!==l.insheet);
+        if (qtyBerubah || insheetBerubah){
+          var qtyEfektif = baru.qty!==undefined ? baru.qty : l.qty;
+          var insheetEfektif = baru.insheet!==undefined ? baru.insheet : l.insheet;
+          var tglEfektif = baru.tgl_produksi || l.tgl_produksi;
+          var hasilStok2=await sesuaikanStokBahanCetak(l.id_log, l.id_spk, {
+            qty:qtyEfektif, insheet:insheetEfektif, tglProduksi:tglEfektif, userInput:getNamaUser()
+          });
+          if (!hasilStok2.ok) warning='⚠ Log berhasil diupdate, TAPI stok bahan GAGAL disesuaikan otomatis: '+hasilStok2.catatan;
+        }
+      }
+
+      document.getElementById('alertApprove').innerHTML = warning
+        ? '<div class="alert-box alert-err">'+esc(warning)+'</div>'
+        : '<div class="alert-box alert-ok">Approved. Data log diperbarui.</div>';
+    }
+
+    muatPendingCount();
+    setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalApprove')).hide();muatPending();muatRiwayat();}, warning?2500:1000);
+  }catch(e){
+    document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+    btn.disabled=false; btn.textContent=(_logApproveAksi==='VOID'?'✓ Setujui Void':'✓ Approve');
+  }
 }
 
 async function recalcQtyPack(idSdet, idSpk){
