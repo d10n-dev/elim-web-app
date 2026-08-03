@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Gajian — SIEO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="../css/sieo.css" rel="stylesheet"/>
+<style>
+  .periode-bar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:.85rem 1.1rem;background:var(--surface);border-bottom:1px solid var(--border);}
+  .periode-bar select{font-family:var(--mono);font-size:.78rem;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;min-width:220px;}
+  .periode-info{font-family:var(--mono);font-size:.68rem;color:var(--muted);}
+  .periode-info b{color:var(--navy);}
+  .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);padding:0 1.1rem;margin-bottom:.85rem;}
+  .tab-btn{font-family:var(--mono);font-size:.72rem;font-weight:600;padding:.5rem .85rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+  .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
+  .tab-pane{display:none;padding:0 1.1rem 1.5rem;}
+  .tab-pane.active{display:block;}
+  .card-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem;margin-bottom:1rem;}
+  .card-box h6{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.7rem;}
+  table.sieo-tbl{width:100%;border-collapse:collapse;font-size:.78rem;}
+  table.sieo-tbl th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:.65rem;text-transform:uppercase;letter-spacing:.03em;padding:.5rem .6rem;text-align:left;white-space:nowrap;}
+  table.sieo-tbl td{padding:.45rem .6rem;border-bottom:1px solid var(--border);vertical-align:middle;}
+  table.sieo-tbl tbody tr:hover{background:#f4f7fc;}
+  .td-mono{font-family:var(--mono);font-size:.75rem;}
+  .td-right{text-align:right;}
+  .badge-aktif{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;}
+  .badge-resign{background:#f0f2f6;color:var(--muted);border:1px solid var(--border);font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;}
+  .badge-draft{background:#fff3cd;color:#856404;border:1px solid #ffe083;font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;}
+  .badge-final{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;}
+  .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+  .btn-navy:hover{background:var(--navy-mid);color:#fff;}
+  .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:var(--mono);padding:.4rem .85rem;cursor:pointer;}
+  .btn-outline:hover{border-color:var(--navy);}
+  .btn-sm-action{font-family:var(--mono);font-size:.66rem;padding:.22rem .5rem;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;white-space:nowrap;margin-right:.25rem;}
+  .btn-edit{color:var(--navy);border-color:#a4c0f9;}
+  .btn-hapus{color:var(--red);border-color:#f5b5bb;}
+  .btn-slip{color:var(--orange);border-color:#f5c98a;}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;}
+  .form-grid label{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:.2rem;}
+  .form-grid input,.form-grid select,.form-grid textarea{width:100%;font-size:.8rem;padding:.4rem .55rem;border:1px solid var(--border);border-radius:6px;}
+  .warn-box{background:#fff3cd;border:1px solid #ffe083;border-radius:6px;padding:.6rem .8rem;font-size:.75rem;color:#856404;margin-top:.6rem;}
+  .slip-pre{font-family:var(--mono);font-size:.8rem;white-space:pre-wrap;background:var(--bg);border-radius:6px;padding:.8rem;border:1px solid var(--border);}
+  .cuti-sisa{font-weight:600;}
+  .cuti-sisa.low{color:var(--red);}
+</style>
+</head>
+<body>
+<div id="navRoot"></div>
+
+<div id="kontenGajian" style="display:none">
+
+  <div class="periode-bar">
+    <select id="selPeriode" onchange="gantiPeriode()"></select>
+    <button class="btn-outline" onclick="bukaModalPeriodeBaru()">+ Periode Baru</button>
+    <span class="periode-info" id="infoPeriode">—</span>
+  </div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="tPeriode" onclick="gantiTab('tPeriode')">📅 Periode & Libur</button>
+    <button class="tab-btn" data-tab="tMaster" onclick="gantiTab('tMaster')">👤 Master Karyawan</button>
+    <button class="tab-btn" data-tab="tImport" onclick="gantiTab('tImport')">📥 Import Absensi</button>
+    <button class="tab-btn" data-tab="tCuti" onclick="gantiTab('tCuti')">🏖️ Cuti & Izin</button>
+    <button class="tab-btn" data-tab="tKinerja" onclick="gantiTab('tKinerja')">📊 Kinerja</button>
+    <button class="tab-btn" data-tab="tBon" onclick="gantiTab('tBon')">💰 Bon</button>
+    <button class="tab-btn" data-tab="tHasil" onclick="gantiTab('tHasil')">🧾 Hasil & Slip</button>
+  </div>
+
+  <!-- =========== TAB: PERIODE & LIBUR =========== -->
+  <div class="tab-pane active" id="tPeriode">
+    <div class="card-box">
+      <h6>Hari Libur / Cuti Bersama Periode Ini</h6>
+      <div class="form-grid" style="grid-template-columns:150px 1fr 160px 100px;align-items:end;">
+        <div><label>Tanggal</label><input type="date" id="libTanggal"></div>
+        <div><label>Keterangan</label><input type="text" id="libKeterangan" placeholder="mis. Libur Nasional / Cuti Bersama"></div>
+        <div><label>Cuti Bersama?</label><select id="libCutiBersama"><option value="false">Bukan</option><option value="true">Ya, potong kuota cuti</option></select></div>
+        <div><button class="btn-navy" style="width:100%" onclick="tambahLibur()">Tambah</button></div>
+      </div>
+      <div id="alertLibur"></div>
+      <table class="sieo-tbl" style="margin-top:.7rem">
+        <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Cuti Bersama</th><th></th></tr></thead>
+        <tbody id="tblLibur"><tr><td colspan="4" class="text-center text-muted">Pilih periode dulu</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========== TAB: MASTER KARYAWAN =========== -->
+  <div class="tab-pane" id="tMaster">
+    <div class="card-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+        <h6 style="margin:0">Daftar Karyawan</h6>
+        <button class="btn-navy" onclick="bukaModalKaryawan()">+ Karyawan Baru</button>
+      </div>
+      <table class="sieo-tbl">
+        <thead><tr><th>NIP</th><th>Nama</th><th>Nama Lengkap</th><th>No Rek</th><th class="td-right">Gaji Pokok</th><th class="td-right">Bonus Dasar</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tblKaryawan"><tr><td colspan="8" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========== TAB: IMPORT ABSENSI =========== -->
+  <div class="tab-pane" id="tImport">
+    <div class="card-box">
+      <h6>Import CSV Scan Absensi</h6>
+      <p class="text-muted" style="font-size:.75rem">Format kolom: PIN, NIP, Nama, Jabatan, Departemen, Kantor, Tanggal, Scan 1, Scan 2, Scan 3. Scan pertama = jam masuk, scan terakhir yang terisi = jam pulang.</p>
+      <input type="file" id="fileImportCsv" accept=".csv" class="form-control form-control-sm" style="max-width:320px" onchange="prosesFileCsv(event)">
+      <div id="alertImport" style="margin-top:.6rem"></div>
+      <div id="previewImportWrap" style="display:none;margin-top:.8rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="periode-info" id="ringkasanImport"></span>
+          <button class="btn-navy" onclick="konfirmasiImport()">Import ke Periode Terpilih</button>
+        </div>
+        <div style="max-height:400px;overflow-y:auto;margin-top:.6rem">
+          <table class="sieo-tbl">
+            <thead><tr><th>NIP</th><th>Nama</th><th>Tanggal</th><th>Masuk</th><th>Pulang</th><th>Ket</th></tr></thead>
+            <tbody id="tblPreviewImport"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========== TAB: CUTI & IZIN =========== -->
+  <div class="tab-pane" id="tCuti">
+    <div class="card-box">
+      <h6>Input Cuti</h6>
+      <div class="form-grid" style="grid-template-columns:1fr 140px 100px 1fr 100px;align-items:end;">
+        <div><label>Karyawan</label><select id="cutiNip"></select></div>
+        <div><label>Tanggal</label><input type="date" id="cutiTanggal"></div>
+        <div><label>Jumlah Hari</label><input type="number" id="cutiJumlah" value="1" step="0.5" min="0.5"></div>
+        <div><label>Keterangan</label><input type="text" id="cutiKet"></div>
+        <div><button class="btn-navy" style="width:100%" onclick="simpanCuti()">Simpan</button></div>
+      </div>
+    </div>
+    <div class="card-box">
+      <h6>Input Izin (jam)</h6>
+      <div class="form-grid" style="grid-template-columns:1fr 140px 100px 1fr 100px;align-items:end;">
+        <div><label>Karyawan</label><select id="izinNip"></select></div>
+        <div><label>Tanggal</label><input type="date" id="izinTanggal"></div>
+        <div><label>Jumlah Jam</label><input type="number" id="izinJumlah" value="1" step="0.5" min="0.5"></div>
+        <div><label>Keterangan</label><input type="text" id="izinKet"></div>
+        <div><button class="btn-navy" style="width:100%" onclick="simpanIzin()">Simpan</button></div>
+      </div>
+    </div>
+    <div class="card-box">
+      <h6>Saldo Kuota Cuti Tahun <span id="tahunSaldoCuti"></span> (14 hari/tahun, hangus 31 Des)</h6>
+      <table class="sieo-tbl">
+        <thead><tr><th>NIP</th><th>Nama</th><th class="td-right">Terpakai Individual</th><th class="td-right">Terpakai Cuti Bersama</th><th class="td-right">Sisa</th></tr></thead>
+        <tbody id="tblSaldoCuti"><tr><td colspan="5" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========== TAB: KINERJA =========== -->
+  <div class="tab-pane" id="tKinerja">
+    <div class="card-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
+        <h6 style="margin:0">Input Kinerja % — Periode Terpilih</h6>
+        <button class="btn-navy" onclick="simpanSemuaKinerja()">Simpan Semua</button>
+      </div>
+      <table class="sieo-tbl">
+        <thead><tr><th>NIP</th><th>Nama</th><th style="width:140px">Persen Kinerja</th><th>Keterangan</th></tr></thead>
+        <tbody id="tblKinerja"><tr><td colspan="4" class="text-center text-muted">Pilih periode dulu</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========== TAB: BON =========== -->
+  <div class="tab-pane" id="tBon">
+    <div class="card-box">
+      <h6>Catat Transaksi Bon</h6>
+      <div class="form-grid" style="grid-template-columns:1fr 160px 140px 1fr 100px;align-items:end;">
+        <div><label>Karyawan</label><select id="bonNip"></select></div>
+        <div><label>Jenis</label>
+          <select id="bonJenis">
+            <option value="PINJAM">Pinjam Baru (+)</option>
+            <option value="POTONG_BONUS">Potong dari Bonus Periode Ini (-)</option>
+            <option value="SALDO_AWAL">Saldo Awal (+)</option>
+          </select>
+        </div>
+        <div><label>Nominal</label><input type="number" id="bonNominal" placeholder="Rp"></div>
+        <div><label>Keterangan</label><input type="text" id="bonKet"></div>
+        <div><button class="btn-navy" style="width:100%" onclick="simpanBon()">Simpan</button></div>
+      </div>
+      <div class="warn-box">Jenis "Potong dari Bonus" otomatis terhubung ke periode yang sedang dipilih di atas, dan akan mengurangi bonus_final saat "Hitung Gaji" dijalankan di tab Hasil & Slip.</div>
+    </div>
+    <div class="card-box">
+      <h6>Saldo Bon Berjalan per Karyawan</h6>
+      <table class="sieo-tbl">
+        <thead><tr><th>NIP</th><th>Nama</th><th class="td-right">Saldo Utang</th></tr></thead>
+        <tbody id="tblSaldoBon"><tr><td colspan="3" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card-box">
+      <h6>Riwayat Ledger Bon</h6>
+      <table class="sieo-tbl">
+        <thead><tr><th>Tanggal</th><th>NIP</th><th>Jenis</th><th class="td-right">Nominal</th><th>Keterangan</th></tr></thead>
+        <tbody id="tblRiwayatBon"><tr><td colspan="5" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- =========== TAB: HASIL & SLIP =========== -->
+  <div class="tab-pane" id="tHasil">
+    <div class="card-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+        <h6 style="margin:0">Rekap Gaji Periode Terpilih</h6>
+        <div>
+          <button class="btn-outline" onclick="hitungGajiPeriode()">🔄 Hitung / Hitung Ulang</button>
+          <button class="btn-navy" id="btnFinalisasi" onclick="finalisasiPeriode()">🔒 Finalisasi Periode</button>
+        </div>
+      </div>
+      <div id="alertHasil" style="margin-top:.5rem"></div>
+      <div style="overflow-x:auto;margin-top:.6rem">
+        <table class="sieo-tbl">
+          <thead><tr>
+            <th>NIP</th><th>Nama</th><th class="td-right">Gaji Pokok</th><th class="td-right">Bonus Final</th>
+            <th class="td-right">Total Cair</th><th class="td-right">Alpa</th><th class="td-right">Pot. Jam</th>
+            <th class="td-right">Denda Alpa</th><th class="td-right">Lembur</th><th class="td-right">Bon</th><th class="td-right">Kinerja%</th><th></th>
+          </tr></thead>
+          <tbody id="tblHasil"><tr><td colspan="12" class="text-center text-muted">Pilih periode dan tekan Hitung</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: Periode Baru -->
+<div class="modal fade" id="modalPeriodeBaru" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Buat Periode Gajian Baru</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p style="font-size:.78rem;color:var(--muted)">Periode selalu 26 bulan sebelumnya s/d 25 bulan yang dipilih. Contoh: pilih "Juli 2026" → periode 26 Juni 2026 s/d 25 Juli 2026.</p>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Bulan Penutupan Periode</label>
+      <input type="month" id="periodeBulanTutup" class="form-control">
+      <div id="alertPeriodeBaru" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" onclick="simpanPeriodeBaru()">Buat Periode</button></div>
+  </div></div>
+</div>
+
+<!-- MODAL: Karyawan -->
+<div class="modal fade" id="modalKaryawan" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulModalKaryawan">Karyawan Baru</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+        <div><label>NIP</label><input type="text" id="fkNip"></div>
+        <div><label>Nama (panggilan/absensi)</label><input type="text" id="fkNama"></div>
+        <div><label>Nama Lengkap</label><input type="text" id="fkNamaLengkap"></div>
+        <div><label>No Rekening</label><input type="text" id="fkNoRek"></div>
+        <div><label>Gaji Pokok Bulanan</label><input type="number" id="fkGajiPokok"></div>
+        <div><label>Bonus Dasar</label><input type="number" id="fkBonusDasar"></div>
+      </div>
+      <hr>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+        <div><label>Status</label>
+          <select id="fkStatus"><option value="AKTIF">AKTIF</option><option value="RESIGN">RESIGN</option></select>
+        </div>
+        <div><label>Tanggal Resign (kalau ada)</label><input type="date" id="fkTglResign"></div>
+      </div>
+      <div id="alertKaryawan" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" onclick="simpanKaryawanForm()">Simpan</button></div>
+  </div></div>
+</div>
+
+<!-- MODAL: Slip -->
+<div class="modal fade" id="modalSlip" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Slip Gaji</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <pre class="slip-pre" id="isiSlip">…</pre>
+    </div>
+    <div class="modal-footer"><button class="btn-outline" onclick="copySlip()">📋 Copy Teks</button></div>
+  </div></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let daftarPeriode = [];
+let periodeAktif = null;      // objek periode terpilih
+let daftarKaryawan = [];      // cache m_karyawan_gaji
+let hasilRowsCsv = [];        // preview import
+let editNipKaryawan = null;
+
+function cekErrorSupabase(res) {
+  if (res && (res.code || res.status === 'error')) {
+    const pesan = res.message || res.msg || 'Terjadi kesalahan.';
+    alert('❌ ' + pesan);
+    return false;
+  }
+  return true;
+}
+
+// ============================================================
+// TAB SWITCH
+// ============================================================
+function gantiTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === id));
+  if (id === 'tCuti') muatSaldoCuti();
+  if (id === 'tKinerja') muatKinerja();
+  if (id === 'tBon') { muatSaldoBon(); muatRiwayatBon(); }
+  if (id === 'tHasil') muatHasil();
+}
+
+// ============================================================
+// PERIODE
+// ============================================================
+async function muatDaftarPeriode() {
+  const res = await dbGet('in_gaji_periode', { order: 'tgl_mulai.desc' });
+  if (!cekErrorSupabase(res)) return;
+  daftarPeriode = res || [];
+  const sel = document.getElementById('selPeriode');
+  sel.innerHTML = daftarPeriode.map(p =>
+    `<option value="${p.id_periode}">${p.id_periode} (${formatTanggal(p.tgl_mulai)} – ${formatTanggal(p.tgl_selesai)}) [${p.status}]</option>`
+  ).join('') || '<option value="">Belum ada periode</option>';
+  if (daftarPeriode.length > 0) {
+    sel.value = daftarPeriode[0].id_periode;
+    await gantiPeriode();
+  }
+}
+
+async function gantiPeriode() {
+  const id = document.getElementById('selPeriode').value;
+  periodeAktif = daftarPeriode.find(p => p.id_periode === id) || null;
+  if (!periodeAktif) { document.getElementById('infoPeriode').textContent = '—'; return; }
+  document.getElementById('infoPeriode').innerHTML =
+    `Target: <b>${periodeAktif.target_hari} hari / ${periodeAktif.target_jam} jam</b> · Status: <b>${periodeAktif.status}</b>`;
+  document.getElementById('btnFinalisasi').style.display = periodeAktif.status === 'FINAL' ? 'none' : '';
+  await muatLibur();
+  const tabAktif = document.querySelector('.tab-pane.active');
+  if (tabAktif) gantiTab(tabAktif.id);
+}
+
+function bukaModalPeriodeBaru() {
+  document.getElementById('alertPeriodeBaru').innerHTML = '';
+  document.getElementById('periodeBulanTutup').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPeriodeBaru')).show();
+}
+
+async function simpanPeriodeBaru() {
+  const bulanTutup = document.getElementById('periodeBulanTutup').value; // format YYYY-MM
+  if (!bulanTutup) { showAlert('alertPeriodeBaru', 'Pilih bulan penutupan periode.'); return; }
+  const [y, m] = bulanTutup.split('-').map(Number);
+  const tglSelesai = new Date(y, m - 1, 25);
+  const tglMulai = new Date(y, m - 2, 26);
+  const fmt = d => d.toISOString().slice(0, 10);
+  const res = await dbRpc('buat_periode_gaji', { p_tgl_mulai: fmt(tglMulai), p_tgl_selesai: fmt(tglSelesai) });
+  if (res.status === 'error') { showAlert('alertPeriodeBaru', res.message); return; }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPeriodeBaru')).hide();
+  await muatDaftarPeriode();
+  document.getElementById('selPeriode').value = res.id_periode;
+  await gantiPeriode();
+}
+
+// ============================================================
+// LIBUR
+// ============================================================
+async function muatLibur() {
+  if (!periodeAktif) return;
+  const res = await dbGet('in_gaji_libur', { id_periode: 'eq.' + periodeAktif.id_periode, order: 'tanggal.asc' });
+  if (!cekErrorSupabase(res)) return;
+  const tbody = document.getElementById('tblLibur');
+  if (!res.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Belum ada hari libur diinput</td></tr>'; return; }
+  tbody.innerHTML = res.map(r => `
+    <tr>
+      <td class="td-mono">${formatTanggal(r.tanggal)}</td>
+      <td>${escHtml(r.keterangan || '')}</td>
+      <td>${r.is_cuti_bersama ? '<span class="badge-aktif">Ya</span>' : '<span class="badge-resign">Tidak</span>'}</td>
+      <td><button class="btn-sm-action btn-hapus" onclick="hapusLibur(${r.id_libur})">Hapus</button></td>
+    </tr>`).join('');
+}
+
+async function tambahLibur() {
+  if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
+  const tgl = document.getElementById('libTanggal').value;
+  const ket = document.getElementById('libKeterangan').value;
+  const bersama = document.getElementById('libCutiBersama').value === 'true';
+  if (!tgl) { showAlert('alertLibur', 'Isi tanggal dulu.'); return; }
+  const res = await dbRpc('tambah_libur_periode', {
+    p_id_periode: periodeAktif.id_periode, p_tanggal: tgl, p_keterangan: ket, p_is_cuti_bersama: bersama
+  });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('libTanggal').value = '';
+  document.getElementById('libKeterangan').value = '';
+  document.getElementById('libCutiBersama').value = 'false';
+  document.getElementById('alertLibur').innerHTML = '';
+  await muatDaftarPeriode();
+  document.getElementById('selPeriode').value = periodeAktif.id_periode;
+  await gantiPeriode();
+}
+
+async function hapusLibur(idLibur) {
+  if (!confirm('Hapus hari libur ini?')) return;
+  const res = await dbRpc('hapus_libur_periode', { p_id_libur: idLibur });
+  if (!cekErrorSupabase(res)) return;
+  await muatDaftarPeriode();
+  document.getElementById('selPeriode').value = periodeAktif.id_periode;
+  await gantiPeriode();
+}
+
+// ============================================================
+// MASTER KARYAWAN
+// ============================================================
+async function muatKaryawan() {
+  const res = await dbGet('m_karyawan_gaji', { order: 'nama.asc' });
+  if (!cekErrorSupabase(res)) return;
+  daftarKaryawan = res || [];
+  const tbody = document.getElementById('tblKaryawan');
+  tbody.innerHTML = daftarKaryawan.map(k => `
+    <tr>
+      <td class="td-mono">${k.nip}</td>
+      <td>${escHtml(k.nama)}</td>
+      <td>${escHtml(k.nama_lengkap || '')}</td>
+      <td class="td-mono">${k.no_rek || ''}</td>
+      <td class="td-right td-mono">${formatRupiah(k.gaji_pokok_bulanan)}</td>
+      <td class="td-right td-mono">${formatRupiah(k.bonus_dasar)}</td>
+      <td>${k.status === 'AKTIF' ? '<span class="badge-aktif">AKTIF</span>' : '<span class="badge-resign">RESIGN</span>'}</td>
+      <td><button class="btn-sm-action btn-edit" onclick="bukaModalKaryawan('${k.nip}')">Edit</button></td>
+    </tr>`).join('') || '<tr><td colspan="8" class="text-center text-muted">Belum ada karyawan</td></tr>';
+
+  // isi dropdown NIP di tab lain
+  const opsi = daftarKaryawan.filter(k => k.status === 'AKTIF')
+    .map(k => `<option value="${k.nip}">${k.nip} — ${escHtml(k.nama)}</option>`).join('');
+  ['cutiNip', 'izinNip', 'bonNip'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opsi; });
+}
+
+function bukaModalKaryawan(nip) {
+  editNipKaryawan = nip || null;
+  document.getElementById('alertKaryawan').innerHTML = '';
+  if (nip) {
+    const k = daftarKaryawan.find(x => x.nip === nip);
+    document.getElementById('judulModalKaryawan').textContent = 'Edit Karyawan — ' + nip;
+    document.getElementById('fkNip').value = k.nip;
+    document.getElementById('fkNip').disabled = true;
+    document.getElementById('fkNama').value = k.nama;
+    document.getElementById('fkNamaLengkap').value = k.nama_lengkap || '';
+    document.getElementById('fkNoRek').value = k.no_rek || '';
+    document.getElementById('fkGajiPokok').value = k.gaji_pokok_bulanan;
+    document.getElementById('fkBonusDasar').value = k.bonus_dasar;
+    document.getElementById('fkStatus').value = k.status;
+    document.getElementById('fkTglResign').value = k.tgl_resign || '';
+  } else {
+    document.getElementById('judulModalKaryawan').textContent = 'Karyawan Baru';
+    ['fkNip','fkNama','fkNamaLengkap','fkNoRek','fkGajiPokok','fkBonusDasar','fkTglResign'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('fkNip').disabled = false;
+    document.getElementById('fkStatus').value = 'AKTIF';
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKaryawan')).show();
+}
+
+async function simpanKaryawanForm() {
+  const nip = document.getElementById('fkNip').value.trim();
+  if (!nip) { showAlert('alertKaryawan', 'NIP wajib diisi.'); return; }
+  const res = await dbRpc('simpan_karyawan_gaji', {
+    p_nip: nip,
+    p_nama: document.getElementById('fkNama').value.trim(),
+    p_nama_lengkap: document.getElementById('fkNamaLengkap').value.trim(),
+    p_no_rek: document.getElementById('fkNoRek').value.trim(),
+    p_gaji_pokok: Number(document.getElementById('fkGajiPokok').value || 0),
+    p_bonus_dasar: Number(document.getElementById('fkBonusDasar').value || 0)
+  });
+  if (res.status === 'error') { showAlert('alertKaryawan', res.message); return; }
+
+  const status = document.getElementById('fkStatus').value;
+  const tglResign = document.getElementById('fkTglResign').value || null;
+  await dbRpc('ubah_status_karyawan_gaji', { p_nip: nip, p_status: status, p_tgl_resign: tglResign });
+
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKaryawan')).hide();
+  await muatKaryawan();
+}
+
+// ============================================================
+// IMPORT ABSENSI
+// ============================================================
+function parseJamCsv(s) {
+  s = (s || '').trim();
+  return s ? s : null;
+}
+
+function parseTanggalCsv(s) {
+  // format dd-mm-yyyy -> yyyy-mm-dd
+  const m = (s || '').trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function prosesFileCsv(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const lines = e.target.result.split(/\r?\n/).filter(l => l.trim() !== '');
+    // baris 0 = judul, baris 1 = header kolom
+    const rows = lines.slice(2);
+    hasilRowsCsv = [];
+    let tanpaPulang = 0;
+    rows.forEach(line => {
+      const cols = line.split(',');
+      if (cols.length < 10) return;
+      const nip = cols[1].trim();
+      const nama = cols[2].trim();
+      const tanggal = parseTanggalCsv(cols[6]);
+      const scans = [parseJamCsv(cols[7]), parseJamCsv(cols[8]), parseJamCsv(cols[9])].filter(Boolean);
+      if (!tanggal || scans.length === 0) return;
+      const masuk = scans[0];
+      const pulang = scans.length > 1 ? scans[scans.length - 1] : null;
+      if (!pulang) tanpaPulang++;
+      hasilRowsCsv.push({ nip, nama, tanggal, jam_masuk: masuk, jam_pulang: pulang });
+    });
+    document.getElementById('ringkasanImport').textContent =
+      `${hasilRowsCsv.length} baris terbaca` + (tanpaPulang ? ` · ⚠ ${tanpaPulang} hari cuma 1 scan (jam pulang kosong, perlu dicek manual)` : '');
+    document.getElementById('tblPreviewImport').innerHTML = hasilRowsCsv.map(r => `
+      <tr>
+        <td class="td-mono">${r.nip}</td><td>${escHtml(r.nama)}</td><td class="td-mono">${r.tanggal}</td>
+        <td class="td-mono">${r.jam_masuk || '-'}</td><td class="td-mono">${r.jam_pulang || '-'}</td>
+        <td>${!r.jam_pulang ? '<span style="color:var(--red)">⚠ cek manual</span>' : ''}</td>
+      </tr>`).join('');
+    document.getElementById('previewImportWrap').style.display = '';
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+async function konfirmasiImport() {
+  if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
+  if (!hasilRowsCsv.length) { alert('Belum ada data untuk diimport.'); return; }
+  const res = await dbRpc('import_scanlog_periode', { p_id_periode: periodeAktif.id_periode, p_rows: hasilRowsCsv });
+  if (!cekErrorSupabase(res)) return;
+  let pesan = `✓ ${res.jumlah_masuk} baris berhasil diimport.`;
+  if (res.nip_belum_terdaftar && res.nip_belum_terdaftar.length) {
+    const uniq = [...new Set(res.nip_belum_terdaftar)];
+    pesan += `<br>⚠ NIP belum terdaftar (dilewati, lengkapi dulu di tab Master Karyawan): ${uniq.join(', ')}`;
+  }
+  showAlert('alertImport', pesan, res.nip_belum_terdaftar && res.nip_belum_terdaftar.length ? 'warning' : 'success');
+}
+
+// ============================================================
+// CUTI & IZIN
+// ============================================================
+async function simpanCuti() {
+  const nip = document.getElementById('cutiNip').value;
+  const tgl = document.getElementById('cutiTanggal').value;
+  const jml = Number(document.getElementById('cutiJumlah').value || 0);
+  const ket = document.getElementById('cutiKet').value;
+  if (!nip || !tgl || !jml) { alert('Lengkapi form cuti dulu.'); return; }
+  const res = await dbRpc('catat_cuti_gaji', { p_nip: nip, p_tanggal: tgl, p_jumlah_hari: jml, p_keterangan: ket, p_id_periode: periodeAktif ? periodeAktif.id_periode : null });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('cutiTanggal').value = '';
+  document.getElementById('cutiKet').value = '';
+  await muatSaldoCuti();
+}
+
+async function simpanIzin() {
+  const nip = document.getElementById('izinNip').value;
+  const tgl = document.getElementById('izinTanggal').value;
+  const jml = Number(document.getElementById('izinJumlah').value || 0);
+  const ket = document.getElementById('izinKet').value;
+  if (!nip || !tgl || !jml) { alert('Lengkapi form izin dulu.'); return; }
+  const res = await dbRpc('catat_izin_gaji', { p_nip: nip, p_tanggal: tgl, p_jumlah_jam: jml, p_keterangan: ket, p_id_periode: periodeAktif ? periodeAktif.id_periode : null });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('izinTanggal').value = '';
+  document.getElementById('izinKet').value = '';
+}
+
+async function muatSaldoCuti() {
+  const tahun = new Date().getFullYear();
+  document.getElementById('tahunSaldoCuti').textContent = tahun;
+  const aktif = daftarKaryawan.filter(k => k.status === 'AKTIF');
+  const rows = [];
+  for (const k of aktif) {
+    const s = await dbRpc('get_saldo_cuti_gaji', { p_nip: k.nip, p_tahun: tahun });
+    rows.push({ k, s });
+  }
+  document.getElementById('tblSaldoCuti').innerHTML = rows.map(({ k, s }) => `
+    <tr>
+      <td class="td-mono">${k.nip}</td><td>${escHtml(k.nama)}</td>
+      <td class="td-right td-mono">${s.terpakai_individual}</td>
+      <td class="td-right td-mono">${s.terpakai_cuti_bersama}</td>
+      <td class="td-right td-mono cuti-sisa ${s.sisa <= 2 ? 'low' : ''}">${s.sisa}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada karyawan aktif</td></tr>';
+}
+
+// ============================================================
+// KINERJA
+// ============================================================
+async function muatKinerja() {
+  if (!periodeAktif) { document.getElementById('tblKinerja').innerHTML = '<tr><td colspan="4" class="text-center text-muted">Pilih periode dulu</td></tr>'; return; }
+  const existing = await dbGet('in_gaji_kinerja', { id_periode: 'eq.' + periodeAktif.id_periode });
+  const aktif = daftarKaryawan.filter(k => k.status === 'AKTIF');
+  document.getElementById('tblKinerja').innerHTML = aktif.map(k => {
+    const e = (existing || []).find(x => x.nip === k.nip);
+    return `<tr data-nip="${k.nip}">
+      <td class="td-mono">${k.nip}</td><td>${escHtml(k.nama)}</td>
+      <td><input type="number" class="form-control form-control-sm inpKinerja" value="${e ? e.persen_kinerja : 100}" min="0" max="100"></td>
+      <td><input type="text" class="form-control form-control-sm inpKetKinerja" value="${e ? escHtml(e.keterangan || '') : ''}"></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada karyawan aktif</td></tr>';
+}
+
+async function simpanSemuaKinerja() {
+  if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
+  const baris = document.querySelectorAll('#tblKinerja tr[data-nip]');
+  for (const tr of baris) {
+    const nip = tr.dataset.nip;
+    const persen = Number(tr.querySelector('.inpKinerja').value || 100);
+    const ket = tr.querySelector('.inpKetKinerja').value;
+    await dbRpc('simpan_kinerja_gaji', { p_id_periode: periodeAktif.id_periode, p_nip: nip, p_persen: persen, p_keterangan: ket });
+  }
+  alert('✓ Kinerja tersimpan untuk ' + baris.length + ' karyawan.');
+}
+
+// ============================================================
+// BON
+// ============================================================
+async function simpanBon() {
+  const nip = document.getElementById('bonNip').value;
+  const jenis = document.getElementById('bonJenis').value;
+  let nominal = Number(document.getElementById('bonNominal').value || 0);
+  const ket = document.getElementById('bonKet').value;
+  if (!nip || !nominal) { alert('Lengkapi form bon dulu.'); return; }
+  // PINJAM & SALDO_AWAL nambah utang (+), POTONG_BONUS mengurangi utang (-)
+  if (jenis === 'POTONG_BONUS') nominal = -Math.abs(nominal); else nominal = Math.abs(nominal);
+  const res = await dbRpc('catat_bon_gaji', {
+    p_nip: nip, p_jenis: jenis, p_nominal: nominal, p_keterangan: ket,
+    p_id_periode: jenis === 'POTONG_BONUS' ? (periodeAktif ? periodeAktif.id_periode : null) : null,
+    p_user: getNamaUser()
+  });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('bonNominal').value = '';
+  document.getElementById('bonKet').value = '';
+  await muatSaldoBon(); await muatRiwayatBon();
+}
+
+async function muatSaldoBon() {
+  const aktif = daftarKaryawan.filter(k => k.status === 'AKTIF');
+  const rows = [];
+  for (const k of aktif) {
+    const saldo = await dbRpc('get_saldo_bon_gaji', { p_nip: k.nip });
+    rows.push({ k, saldo });
+  }
+  document.getElementById('tblSaldoBon').innerHTML = rows.map(({ k, saldo }) => `
+    <tr><td class="td-mono">${k.nip}</td><td>${escHtml(k.nama)}</td>
+    <td class="td-right td-mono" style="${saldo > 0 ? 'color:var(--red)' : ''}">${formatRupiah(saldo)}</td></tr>`
+  ).join('') || '<tr><td colspan="3" class="text-center text-muted">Belum ada karyawan aktif</td></tr>';
+}
+
+async function muatRiwayatBon() {
+  const res = await dbGet('log_gaji_bon', { order: 'created_at.desc', limit: '50' });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('tblRiwayatBon').innerHTML = (res || []).map(r => `
+    <tr>
+      <td class="td-mono">${formatTanggal(r.tanggal)}</td><td class="td-mono">${r.nip}</td>
+      <td>${r.jenis}</td>
+      <td class="td-right td-mono" style="${r.nominal > 0 ? 'color:var(--red)' : 'color:var(--green)'}">${formatRupiah(r.nominal)}</td>
+      <td>${escHtml(r.keterangan || '')}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada transaksi</td></tr>';
+}
+
+// ============================================================
+// HASIL & SLIP
+// ============================================================
+async function hitungGajiPeriode() {
+  if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
+  if (periodeAktif.status === 'FINAL') { alert('Periode sudah FINAL, tidak bisa dihitung ulang.'); return; }
+  const res = await dbRpc('hitung_gaji_periode', { p_id_periode: periodeAktif.id_periode });
+  if (res.status === 'error') { showAlert('alertHasil', res.message); return; }
+  showAlert('alertHasil', `✓ Berhasil hitung ${res.jumlah_karyawan} karyawan.`, 'success');
+  await muatHasil();
+}
+
+async function muatHasil() {
+  if (!periodeAktif) { document.getElementById('tblHasil').innerHTML = '<tr><td colspan="12" class="text-center text-muted">Pilih periode dulu</td></tr>'; return; }
+  const res = await dbRpc('get_rekap_gaji_periode', { p_id_periode: periodeAktif.id_periode });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('tblHasil').innerHTML = (res || []).map(r => `
+    <tr>
+      <td class="td-mono">${r.nip}</td><td>${escHtml(r.nama)}</td>
+      <td class="td-right td-mono">${formatRupiah(r.gaji_pokok_rp)}</td>
+      <td class="td-right td-mono">${formatRupiah(r.bonus_final_rp)}</td>
+      <td class="td-right td-mono" style="font-weight:600">${formatRupiah(r.total_cair)}</td>
+      <td class="td-right td-mono">${r.hari_alpa}</td>
+      <td class="td-right td-mono">${Number(r.jam_potongan_biasa).toFixed(1)}</td>
+      <td class="td-right td-mono">${formatRupiah(r.denda_alpa_rp)}</td>
+      <td class="td-right td-mono">${formatRupiah(r.lembur_bonus_rp)}</td>
+      <td class="td-right td-mono">${formatRupiah(r.bon_dipotong_rp)}</td>
+      <td class="td-right td-mono">${r.persen_kinerja}%</td>
+      <td><button class="btn-sm-action btn-slip" onclick="lihatSlip('${r.nip}')">Slip</button></td>
+    </tr>`).join('') || '<tr><td colspan="12" class="text-center text-muted">Belum ada hasil, tekan Hitung dulu</td></tr>';
+}
+
+async function lihatSlip(nip) {
+  const h = await dbRpc('get_slip_gaji_karyawan', { p_id_periode: periodeAktif.id_periode, p_nip: nip });
+  if (!h) { alert('Data tidak ditemukan.'); return; }
+  const teks =
+`${h.nama_lengkap || h.nama}
+Periode: ${formatTanggal(h.tgl_mulai)} – ${formatTanggal(h.tgl_selesai)}
+-----------------------------
+Gaji Pokok      : ${formatRupiah(h.gaji_pokok_rp)}
+Bonus Dasar     : ${formatRupiah(h.bonus_dasar_rp)}
+Kinerja         : ${h.persen_kinerja}%
+Potongan Jam    : ${Number(h.jam_potongan_biasa + h.jam_izin_shortfall).toFixed(1)} jam
+Alpa            : ${h.hari_alpa} hari (denda ${formatRupiah(h.denda_alpa_rp)})
+Lembur          : ${formatRupiah(h.lembur_bonus_rp)}
+Potongan Bon    : ${formatRupiah(h.bon_dipotong_rp)}
+-----------------------------
+Bonus Final     : ${formatRupiah(h.bonus_final_rp)}
+TOTAL CAIR      : ${formatRupiah(Number(h.gaji_pokok_rp) + Number(h.bonus_final_rp))}
+${h.sisa_minus_rp > 0 ? '\n⚠ Sisa kurang ' + formatRupiah(h.sisa_minus_rp) + ' masuk saldo BON bulan depan.' : ''}`;
+  document.getElementById('isiSlip').textContent = teks;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSlip')).show();
+}
+
+function copySlip() {
+  const teks = document.getElementById('isiSlip').textContent;
+  navigator.clipboard.writeText(teks).then(() => alert('Teks slip disalin.'));
+}
+
+async function finalisasiPeriode() {
+  if (!periodeAktif) return;
+  if (!confirm('Finalisasi periode ini? Setelah final, perhitungan tidak bisa diubah lagi.')) return;
+  const res = await dbRpc('finalisasi_periode_gaji', { p_id_periode: periodeAktif.id_periode, p_user: getNamaUser() });
+  if (!cekErrorSupabase(res)) return;
+  alert('✓ Periode difinalisasi.');
+  await muatDaftarPeriode();
+  document.getElementById('selPeriode').value = periodeAktif.id_periode;
+  await gantiPeriode();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', async function () {
+  if (!guardHalaman()) return;
+  if (getRoleUser() !== 'DIREKTUR') { window.location.replace('../index.html'); return; }
+  initNav('gajian');
+  document.getElementById('kontenGajian').style.display = '';
+  await muatKaryawan();
+  await muatDaftarPeriode();
+});
+</script>
+</body>
+</html>
