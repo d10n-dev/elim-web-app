@@ -102,6 +102,11 @@
         <option value="MENUNGGU_KONFIRMASI">Menunggu Konfirmasi</option>
         <option value="LUNAS">Lunas</option>
       </select>
+      <select id="rkAlokasi" onchange="renderRekap()" style="max-width:200px">
+        <option value="">Semua (alokasi stok)</option>
+        <option value="BELUM">Ada item belum dialokasikan</option>
+        <option value="SUDAH">Semua item sudah dialokasikan</option>
+      </select>
       <input type="text" class="form-control" id="rkCari" placeholder="🔍 Cari no. nota / supplier…" autocomplete="off" oninput="renderRekap()" style="flex:1;min-width:180px"/>
       <button class="btn-outline" onclick="resetFilterRekap()">Reset</button>
     </div>
@@ -109,9 +114,9 @@
     <table>
       <thead><tr>
         <th>No. Nota</th><th>Tanggal</th><th>Supplier</th><th>Entitas</th>
-        <th class="td-right">Tagihan</th><th class="td-right">Dibayar</th><th class="td-right">Sisa</th><th>Status</th><th>Aksi</th>
+        <th class="td-right">Tagihan</th><th class="td-right">Dibayar</th><th class="td-right">Sisa</th><th>Status</th><th>Alokasi Stok</th><th>Aksi</th>
       </tr></thead>
-      <tbody id="rekapTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
+      <tbody id="rekapTbody"><tr><td colspan="10" class="loading">Memuat…</td></tr></tbody>
     </table>
     </div>
   </div>
@@ -1179,6 +1184,7 @@ function muatRekapCards(){
 function resetFilterRekap(){
   document.getElementById('rkSupplier').value='';
   document.getElementById('rkStatus').value='';
+  document.getElementById('rkAlokasi').value='';
   document.getElementById('rkCari').value='';
   muatRekap();
 }
@@ -1188,24 +1194,45 @@ function muatRekap(){
   var idSup=document.getElementById('rkSupplier').value||null;
   var status=document.getElementById('rkStatus').value||null;
   var tbody=document.getElementById('rekapTbody');
-  tbody.innerHTML='<tr><td colspan="8" class="loading">Memuat…</td></tr>';
-  dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:status}).then(function(res){
-    semuaRekap=Array.isArray(res)?res:[];
+  tbody.innerHTML='<tr><td colspan="10" class="loading">Memuat…</td></tr>';
+  Promise.all([
+    dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:status}),
+    dbRpc('get_status_alokasi_pembelian',{})
+  ]).then(function(hasil){
+    var rekap=Array.isArray(hasil[0])?hasil[0]:[];
+    var statusAlokasi=Array.isArray(hasil[1])?hasil[1]:[];
+    var mapAlokasi={};
+    statusAlokasi.forEach(function(s){ mapAlokasi[s.id_pembelian]=s; });
+    semuaRekap=rekap.map(function(r){
+      var sa=mapAlokasi[r.id_pembelian];
+      return Object.assign({}, r, {
+        _total_item: sa?sa.total_item:0,
+        _item_belum_alokasi: sa?sa.item_belum_alokasi:0,
+        _ada_belum_alokasi: sa?sa.ada_belum_alokasi:false
+      });
+    });
     renderRekap();
   });
 }
 function renderRekap(){
   var tbody=document.getElementById('rekapTbody');
   var q=(document.getElementById('rkCari')||{value:''}).value.trim().toLowerCase();
-  var data=q?semuaRekap.filter(function(r){
-    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
-           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
-  }):semuaRekap;
-  if(!data.length){ tbody.innerHTML='<tr><td colspan="9" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada data.')+'</td></tr>'; return; }
+  var filterAlokasi=(document.getElementById('rkAlokasi')||{value:''}).value;
+  var data=semuaRekap.filter(function(r){
+    var cocokCari=!q || (r.no_nota||'').toLowerCase().indexOf(q)>=0 || (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
+    var cocokAlokasi=true;
+    if(filterAlokasi==='BELUM') cocokAlokasi=!!r._ada_belum_alokasi;
+    if(filterAlokasi==='SUDAH') cocokAlokasi=!r._ada_belum_alokasi;
+    return cocokCari && cocokAlokasi;
+  });
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="10" class="loading">'+(q||filterAlokasi?'Tidak ada hasil dgn filter ini.':'Tidak ada data.')+'</td></tr>'; return; }
   rekapStore={};
   data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
   tbody.innerHTML=data.map(function(r){
       var stCls='s-'+r.status_hutang.toLowerCase();
+      var badgeAlokasi=r._ada_belum_alokasi
+        ? '<span class="badge-status" style="background:#fff3cd;color:#856404" title="'+r._item_belum_alokasi+' dari '+r._total_item+' item belum dialokasikan ke stok">⚠ Belum Lengkap</span>'
+        : '<span class="badge-status" style="background:#d4edda;color:#155724">✓ Lengkap</span>';
       var aksiHtml=(r.boleh_edit
         ? '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;margin-right:.3rem" onclick="bukaEditPembelian(\''+r.id_pembelian+'\')">Edit</button>'+
           '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;color:var(--red);margin-right:.3rem" onclick="bukaVoidPembelian(\''+r.id_pembelian+'\')">Void</button>'
@@ -1220,6 +1247,7 @@ function renderRekap(){
         '<td class="td-right td-mono">'+fmtRupiah(r.total_dibayar)+'</td>'+
         '<td class="td-right td-mono">'+fmtRupiah(r.sisa_hutang)+'</td>'+
         '<td><span class="badge-status '+stCls+'">'+esc(r.status_hutang)+'</span></td>'+
+        '<td>'+badgeAlokasi+'</td>'+
         '<td>'+aksiHtml+'</td>'+
       '</tr>';
   }).join('');
