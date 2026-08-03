@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stok Bahan — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);margin-bottom:.85rem;}
+    .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
+    .tab-pane{display:none;}
+    .tab-pane.active{display:block;}
+    .td-mono{font-family:var(--mono);font-size:.75rem;}
+    .td-right{text-align:right;}
+    .badge-minus{background:#fdecea;color:var(--red);border:1px solid #f3b3ba;font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;}
+    .badge-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;}
+    .toolbar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:end;margin-bottom:.8rem;}
+    .toolbar .fld label{font-size:.72rem;color:var(--muted);display:block;margin-bottom:.2rem;}
+    .toolbar input, .toolbar select{font-size:.8rem;padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);}
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-navy:disabled{opacity:.5;cursor:not-allowed;}
+    .ac-wrap{position:relative;}
+    .ac-drop{position:fixed;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:240px;overflow-y:auto;z-index:2000;display:none;}
+    .ac-drop.open{display:block;}
+    .ac-item{padding:.5rem .7rem;font-size:.8rem;cursor:pointer;border-bottom:1px solid #f1f3f7;}
+    .ac-item:hover{background:#f5f7fb;}
+    .ac-item-id{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-right:.4rem;}
+    .ac-item-nama{color:var(--navy);}
+    .ac-empty{padding:.6rem .7rem;font-size:.78rem;color:var(--muted);}
+    .alert-box{font-size:.78rem;padding:.55rem .8rem;border-radius:6px;margin-bottom:.7rem;display:none;}
+    .alert-box.show{display:block;}
+    .alert-danger-sm{background:#fdecea;color:var(--red);border:1px solid #f3b3ba;}
+    .akses-blocked{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
+    .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
+    .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
+    .akses-blocked p{font-size:.82rem;color:var(--muted);max-width:320px;}
+    .search-box{margin-bottom:.6rem;}
+    .search-box input{width:100%;max-width:320px;font-size:.8rem;padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+
+<div id="kontenStokBahan" style="display:none">
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="saldo" onclick="gantiTab('saldo')">📦 Saldo Saat Ini</button>
+    <button class="tab-btn" data-tab="kartu" onclick="gantiTab('kartu')">📋 Kartu Stok</button>
+  </div>
+
+  <!-- TAB: SALDO SAAT INI -->
+  <div class="tab-pane active" id="tabSaldo">
+    <div id="alertSaldo" class="alert-box alert-danger-sm"></div>
+    <div class="search-box">
+      <input type="text" id="cariSaldo" placeholder="Cari nama bahan…" oninput="renderSaldo()"/>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Bahan</th><th class="td-right">Masuk (Beli)</th><th class="td-right">Keluar (Produksi)</th><th class="td-right">Saldo</th><th>Satuan</th>
+      </tr></thead>
+      <tbody id="saldoTbody"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- TAB: KARTU STOK -->
+  <div class="tab-pane" id="tabKartu">
+    <div id="alertKartu" class="alert-box alert-danger-sm"></div>
+    <div class="toolbar">
+      <div class="fld ac-wrap" style="min-width:220px">
+        <label>Pilih Bahan</label>
+        <input type="text" id="kartuBahanInput" class="form-control" placeholder="Ketik nama bahan…" autocomplete="off"/>
+        <div class="ac-drop" id="kartuBahanDrop"></div>
+      </div>
+      <div class="fld">
+        <label>Dari Tanggal</label>
+        <input type="date" id="kartuTglMulai"/>
+      </div>
+      <div class="fld">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="kartuTglAkhir"/>
+      </div>
+      <div class="fld">
+        <button class="btn-navy" id="btnMuatKartu" onclick="muatKartuStok()">Tampilkan</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Tanggal</th><th>Jenis</th><th class="td-right">Qty</th><th class="td-right">Saldo Berjalan</th><th>Referensi</th><th>Keterangan</th>
+      </tr></thead>
+      <tbody id="kartuTbody"><tr><td colspan="6" class="loading">Pilih bahan dan rentang tanggal, lalu tekan Tampilkan.</td></tr></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div id="kontenAksesDitolak" style="display:none">
+  <div class="akses-blocked">
+    <div class="ic">🔒</div>
+    <h3>Akses Dibatasi</h3>
+    <p>Modul Stok Bahan hanya bisa diakses oleh user yang diberi izin modul Pembelian. Hubungi Direktur kalau Anda memerlukan akses ini.</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+function esc(s){return escHtml(s);}
+function fmtTgl(s){return s?formatTanggal(s):'—';}
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
+function cekErrorSupabase(res){
+  if(!res) return 'Tidak ada respons dari server.';
+  if(res.code) return res.message||('Error: '+res.code);
+  if(res.status==='error') return res.message||'Terjadi kesalahan.';
+  return null;
+}
+
+var dataSaldo = [];
+var daftarBahan = [];
+var bahanTerpilih = null;
+
+window.addEventListener('load', async function () {
+  if (!guardHalaman()) return;
+  initNav('stok_bahan');
+
+  var boleh = await punyaAksesModul('pembelian');
+  if (!boleh) {
+    document.getElementById('kontenAksesDitolak').style.display='block';
+    return;
+  }
+  document.getElementById('kontenStokBahan').style.display='block';
+
+  var d = new Date();
+  var awalBulan = new Date(d.getFullYear(), d.getMonth(), 1);
+  document.getElementById('kartuTglMulai').value = awalBulan.toISOString().slice(0,10);
+  document.getElementById('kartuTglAkhir').value = d.toISOString().slice(0,10);
+
+  muatSaldo();
+  muatDaftarBahan();
+});
+
+function gantiTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+}
+
+// ============================================================
+// TAB: SALDO SAAT INI
+// ============================================================
+function muatSaldo(){
+  dbRpc('get_saldo_stok_bahan',{}).then(function(res){
+    var errMsg=cekErrorSupabase(res);
+    if(errMsg){
+      document.getElementById('alertSaldo').textContent='Gagal memuat saldo: '+errMsg;
+      document.getElementById('alertSaldo').classList.add('show');
+      document.getElementById('saldoTbody').innerHTML='<tr><td colspan="5" class="loading">Gagal memuat data.</td></tr>';
+      return;
+    }
+    dataSaldo = Array.isArray(res)?res:[];
+    renderSaldo();
+  });
+}
+
+function renderSaldo(){
+  var q = (document.getElementById('cariSaldo').value||'').toLowerCase().trim();
+  var tbody = document.getElementById('saldoTbody');
+  var rows = dataSaldo.filter(function(r){
+    return !q || (r.nama_bahan||'').toLowerCase().includes(q);
+  });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="5" class="loading">Tidak ada data.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(r){
+    // Nama kolom RPC bisa bervariasi tergantung versi — ambil yang tersedia.
+    var masuk = r.total_masuk!=null ? r.total_masuk : 0;
+    var keluar = r.total_keluar!=null ? r.total_keluar : 0;
+    var saldo = r.saldo!=null ? r.saldo : (masuk - keluar);
+    var badge = saldo < 0 ? '<span class="badge-minus">MINUS</span>' : '<span class="badge-ok">OK</span>';
+    return '<tr>'+
+      '<td>'+esc(r.nama_bahan||'—')+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(masuk)+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(keluar)+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(saldo)+' '+badge+'</td>'+
+      '<td class="td-mono" style="font-size:.7rem">'+esc(r.satuan||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ============================================================
+// TAB: KARTU STOK
+// ============================================================
+function muatDaftarBahan(){
+  dbGet('m_bahan',{select:'id_bahan,nama_bahan'}).then(function(res){
+    daftarBahan = Array.isArray(res)?res:[];
+    initBahanAC();
+  });
+}
+
+function initBahanAC(){
+  var inputEl = document.getElementById('kartuBahanInput');
+  var dropEl = document.getElementById('kartuBahanDrop');
+  buatAC(inputEl, dropEl, daftarBahan, 'id_bahan', 'nama_bahan', function(d){
+    bahanTerpilih = d;
+    inputEl.value = d.nama_bahan;
+  });
+}
+
+function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect) {
+  function positionDrop() {
+    var r = inputEl.getBoundingClientRect();
+    dropEl.style.top   = r.bottom + 'px';
+    dropEl.style.left  = r.left + 'px';
+    dropEl.style.width = r.width + 'px';
+  }
+  function filter(q) {
+    q = q.toLowerCase();
+    return dataArr.filter(function(d){
+      return (d[idKey]||'').toLowerCase().includes(q) || (d[namaKey]||'').toLowerCase().includes(q);
+    }).slice(0, 30);
+  }
+  function render(items) {
+    dropEl.innerHTML = '';
+    if (items.length === 0) {
+      dropEl.innerHTML = '<div class="ac-empty">Tidak ditemukan</div>';
+    } else {
+      items.forEach(function(d){
+        var div = document.createElement('div');
+        div.className = 'ac-item';
+        div.innerHTML = '<span class="ac-item-nama">'+escHtml(d[namaKey])+'</span>';
+        div.addEventListener('mousedown', function(e){ e.preventDefault(); pilih(d); });
+        div.addEventListener('touchstart', function(e){ this._ty = e.touches[0].clientY; this._moved = false; dropEl._touching = true; }, {passive:true});
+        div.addEventListener('touchmove', function(e){ if (Math.abs(e.touches[0].clientY - this._ty) > 10) this._moved = true; }, {passive:true});
+        div.addEventListener('touchend', function(e){ e.preventDefault(); dropEl._touching = false; if (this._moved) return; pilih(d); });
+        dropEl.appendChild(div);
+      });
+    }
+    positionDrop();
+    dropEl.classList.add('open');
+  }
+  function pilih(d) {
+    onSelect(d);
+    dropEl.classList.remove('open');
+  }
+  inputEl.addEventListener('focus', function(){ render(filter(inputEl.value)); });
+  inputEl.addEventListener('input', function(){ bahanTerpilih=null; render(filter(inputEl.value)); });
+  inputEl.addEventListener('blur', function(){ setTimeout(function(){ if(!dropEl._touching) dropEl.classList.remove('open'); }, 200); });
+  window.addEventListener('scroll', function(){ if(dropEl.classList.contains('open')) positionDrop(); }, true);
+}
+
+function muatKartuStok(){
+  if(!bahanTerpilih){
+    document.getElementById('alertKartu').textContent='Pilih bahan dari daftar terlebih dahulu.';
+    document.getElementById('alertKartu').classList.add('show');
+    return;
+  }
+  document.getElementById('alertKartu').classList.remove('show');
+  var tglMulai = document.getElementById('kartuTglMulai').value;
+  var tglAkhir = document.getElementById('kartuTglAkhir').value;
+  var btn = document.getElementById('btnMuatKartu');
+  btn.disabled = true; btn.textContent = 'Memuat…';
+  document.getElementById('kartuTbody').innerHTML = '<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+
+  dbRpc('get_kartu_stok_bahan',{
+    p_id_bahan: bahanTerpilih.id_bahan,
+    p_tgl_mulai: tglMulai || null,
+    p_tgl_akhir: tglAkhir || null
+  }).then(function(res){
+    btn.disabled = false; btn.textContent = 'Tampilkan';
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){
+      document.getElementById('alertKartu').textContent='Gagal memuat kartu stok: '+errMsg+' (kemungkinan nama parameter RPC berbeda — laporkan pesan ini)';
+      document.getElementById('alertKartu').classList.add('show');
+      document.getElementById('kartuTbody').innerHTML='<tr><td colspan="6" class="loading">Gagal memuat data.</td></tr>';
+      return;
+    }
+    var rows = Array.isArray(res)?res:[];
+    renderKartu(rows);
+  });
+}
+
+function renderKartu(rows){
+  var tbody = document.getElementById('kartuTbody');
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada mutasi pada rentang ini.</td></tr>';
+    return;
+  }
+  var saldoJalan = 0;
+  tbody.innerHTML = rows.map(function(r){
+    var qty = Number(r.qty||0);
+    var masukJenis = (r.jenis||'').indexOf('MASUK') === 0;
+    saldoJalan += masukJenis ? qty : -qty;
+    var displaySaldo = r.saldo_berjalan!=null ? r.saldo_berjalan : saldoJalan;
+    return '<tr>'+
+      '<td class="td-mono" style="font-size:.7rem">'+fmtTgl(r.tgl)+'</td>'+
+      '<td class="td-mono" style="font-size:.68rem">'+esc(r.jenis||'—')+'</td>'+
+      '<td class="td-right td-mono">'+(masukJenis?'+':'-')+fmtAngka(qty)+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(displaySaldo)+'</td>'+
+      '<td class="td-mono" style="font-size:.68rem">'+esc(r.id_ref||'—')+'</td>'+
+      '<td style="font-size:.75rem">'+esc(r.keterangan||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+</script>
+</body>
+</html>
