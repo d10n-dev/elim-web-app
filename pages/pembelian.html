@@ -787,13 +787,14 @@ function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect, subFn) {
 }
 
 // ============================================================
-// AUTOCOMPLETE BAHAN (baris alokasi, dinamis add+edit)
+// AUTOCOMPLETE BAHAN (baris alokasi, dinamis add+edit+stok)
 // Pakai SATU dropdown terapung yg dipindah posisinya ke input yg
-// sedang aktif — lebih ringan drpd bikin dropdown per baris, dan
-// otomatis aman dari isu clipping modal Bootstrap (position:fixed
-// + append ke body, sesuai pola AC lain di app ini).
+// sedang aktif. Penutupan dropdown TIDAK pakai blur+timeout (itu
+// race condition dgn tap di HP — dropdown keburu tertutup sblm tap
+// terbaca). Sebagai gantinya: tutup hanya kalau tap benar2 di luar
+// input & dropdown (document-level listener, dipasang sekali).
 // ============================================================
-var acBahanTarget = null; // {mode:'add'|'edit', idxItem, idxAlokasi}
+var acBahanTarget = null; // {mode:'add'|'edit'|'stok', idxItem, idxAlokasi}
 
 function bahanAcFilter(q){
   q=(q||'').toLowerCase();
@@ -812,10 +813,10 @@ function bahanAcRender(inputEl, items){
       var div=document.createElement('div');
       div.className='ac-item';
       div.innerHTML='<span class="ac-item-nama">'+esc(d.nama_bahan)+'</span>';
-      div.addEventListener('mousedown', function(e){ e.preventDefault(); bahanAcPilih(d); });
-      div.addEventListener('touchstart', function(e){ this._ty=e.touches[0].clientY; this._moved=false; dropEl._touching=true; }, {passive:true});
-      div.addEventListener('touchmove', function(e){ if(Math.abs(e.touches[0].clientY-this._ty)>10) this._moved=true; }, {passive:true});
-      div.addEventListener('touchend', function(e){ e.preventDefault(); dropEl._touching=false; if(this._moved) return; bahanAcPilih(d); });
+      // 'click' jauh lebih andal drpd kombinasi touchstart/touchmove/touchend
+      // utk elemen non-input di HP — browser mobile modern konsisten
+      // memicu click stlh tap-lepas tanpa geser, tanpa perlu preventDefault manual.
+      div.addEventListener('click', function(e){ e.preventDefault(); bahanAcPilih(d); });
       dropEl.appendChild(div);
     });
   }
@@ -832,13 +833,28 @@ function bahanAcPilih(d){
   document.getElementById('bahanAcDrop').classList.remove('open');
   if(t.mode==='add'){
     updateAlokasiBarisStruktural(t.idxItem, t.idxAlokasi, 'id_bahan', d.id_bahan);
-  } else {
+  } else if(t.mode==='edit'){
     updateAlokasiBarisStrukturalEdit(t.idxItem, t.idxAlokasi, 'id_bahan', d.id_bahan);
+  } else if(t.mode==='stok'){
+    alokasiStokItemBaris[t.idxItem].alokasi[t.idxAlokasi].id_bahan=d.id_bahan;
+    renderAlokasiStokItems();
   }
 }
 
-// Dipanggil ulang setiap kali renderItemBaris()/renderItemBarisEdit() selesai,
-// krn innerHTML di-rebuild dan listener lama otomatis hilang bersama DOM lama.
+// Tutup dropdown HANYA kalau tap/klik di luar input bahan & di luar
+// dropdown itu sendiri. Dipasang sekali saat halaman load (bukan per
+// render), jadi tidak ada race dgn blur.
+document.addEventListener('pointerdown', function(e){
+  var dropEl=document.getElementById('bahanAcDrop');
+  if(!dropEl || !dropEl.classList.contains('open')) return;
+  if(e.target.closest('.ac-bahan-input')) return;
+  if(dropEl.contains(e.target)) return;
+  dropEl.classList.remove('open');
+});
+
+// Dipanggil ulang setiap kali renderItemBaris()/renderItemBarisEdit()/
+// renderAlokasiStokItems() selesai, krn innerHTML di-rebuild dan
+// listener lama otomatis hilang bersama DOM lama.
 function attachBahanAcHandlers(){
   document.querySelectorAll('.ac-bahan-input').forEach(function(inputEl){
     var mode=inputEl.dataset.mode;
@@ -851,12 +867,6 @@ function attachBahanAcHandlers(){
     inputEl.addEventListener('input', function(){
       acBahanTarget={mode:mode, idxItem:idxItem, idxAlokasi:idxAlokasi};
       bahanAcRender(inputEl, bahanAcFilter(inputEl.value));
-    });
-    inputEl.addEventListener('blur', function(){
-      setTimeout(function(){
-        var dropEl=document.getElementById('bahanAcDrop');
-        if(!dropEl._touching) dropEl.classList.remove('open');
-      }, 200);
     });
   });
 }
