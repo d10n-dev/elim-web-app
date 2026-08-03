@@ -416,6 +416,7 @@
           Hanya menampilkan item yang <b>belum pernah</b> dialokasikan ke stok bahan. Item yang sudah pernah dialokasikan tidak bisa ditambah lagi lewat sini (untuk menghindari stok dobel masuk) — kalau perlu koreksi, itu lewat proses edit/koreksi terpisah.
         </div>
         <div id="alokasiStokItemsWrap"></div>
+        <div id="alokasiStokSudahWrap" style="margin-top:1rem"></div>
         <div id="alokasiStokKosong" style="display:none;text-align:center;padding:1.5rem;color:var(--muted);font-family:var(--mono);font-size:.8rem">
           Semua item di nota ini sudah pernah dialokasikan ke stok. Tidak ada yang perlu diisi.
         </div>
@@ -843,6 +844,10 @@ function bahanAcPilih(d){
   } else if(t.mode==='stok'){
     alokasiStokItemBaris[t.idxItem].alokasi[t.idxAlokasi].id_bahan=d.id_bahan;
     renderAlokasiStokItems();
+  } else if(t.mode==='koreksi'){
+    koreksiState[t.idxItem].alokasi[t.idxAlokasi].id_bahan=d.id_bahan;
+    koreksiState[t.idxItem].alokasi[t.idxAlokasi].nama_bahan=d.nama_bahan;
+    renderItemSudahAlokasi();
   }
 }
 
@@ -863,8 +868,8 @@ document.addEventListener('pointerdown', function(e){
 function attachBahanAcHandlers(){
   document.querySelectorAll('.ac-bahan-input').forEach(function(inputEl){
     var mode=inputEl.dataset.mode;
-    var idxItem=parseInt(inputEl.dataset.idxitem,10);
     var idxAlokasi=parseInt(inputEl.dataset.idxalokasi,10);
+    var idxItem = mode==='koreksi' ? inputEl.dataset.idkoreksi : parseInt(inputEl.dataset.idxitem,10);
     inputEl.addEventListener('focus', function(){
       acBahanTarget={mode:mode, idxItem:idxItem, idxAlokasi:idxAlokasi};
       bahanAcRender(inputEl, bahanAcFilter(inputEl.value));
@@ -1933,8 +1938,12 @@ async function submitVoidPembelian(btn){
 // krn tidak mengubah jumlah/harga/hutang, cuma menambah stok bahan).
 // ============================================================
 var alokasiStokItemBaris = []; // [{id_pbldet, nama_item_nota, jumlah, satuan, konversi_lembar, alokasi:[]}]
+var alokasiStokIdPembelianAktif = null;
+var itemSudahAlokasi = []; // [{id_pbldet, nama_item_nota, jumlah, satuan, alokasi:[{id_bahan,nama_bahan,pps_per_lembar,qty_hasil,keterangan}]}]
+var koreksiState = {}; // {id_pbldet: {konversi_lembar, alokasi:[...], alasan}} — cuma ada entry kalau lagi dikoreksi
 
 async function bukaAlokasiStokPembelian(idPembelian){
+  alokasiStokIdPembelianAktif=idPembelian;
   document.getElementById('alertAlokasiStok').innerHTML='';
   document.getElementById('alokasiStokItemsWrap').innerHTML='<div class="loading">Memuat…</div>';
   document.getElementById('alokasiStokKosong').style.display='none';
@@ -1949,6 +1958,7 @@ async function bukaAlokasiStokPembelian(idPembelian){
   }
   var details=res.details||[];
   var belumAlokasi=details.filter(function(d){ return !(d.alokasi&&d.alokasi.length); });
+  var sudahAlokasi=details.filter(function(d){ return d.alokasi&&d.alokasi.length; });
 
   alokasiStokItemBaris=belumAlokasi.map(function(d){
     return {
@@ -1956,13 +1966,23 @@ async function bukaAlokasiStokPembelian(idPembelian){
       jumlah:d.jumlah, satuan:d.satuan, konversi_lembar:'1', alokasi:[]
     };
   });
+  itemSudahAlokasi=sudahAlokasi.map(function(d){
+    return {
+      id_pbldet:d.id_pbldet, nama_item_nota:d.nama_item_nota,
+      jumlah:d.jumlah, satuan:d.satuan, alokasi:d.alokasi
+    };
+  });
+  koreksiState={};
 
-  if(!alokasiStokItemBaris.length){
+  if(!alokasiStokItemBaris.length && !itemSudahAlokasi.length){
     document.getElementById('alokasiStokItemsWrap').innerHTML='';
+    document.getElementById('alokasiStokSudahWrap').innerHTML='';
     document.getElementById('alokasiStokKosong').style.display='block';
     return;
   }
+  document.getElementById('alokasiStokKosong').style.display='none';
   renderAlokasiStokItems();
+  renderItemSudahAlokasi();
 }
 
 function tambahBarisAlokasiStok(idxItem){
@@ -2029,6 +2049,178 @@ function renderAlokasiStokItems(){
     '</div>';
   }).join('');
   attachBahanAcHandlers();
+}
+
+// ============================================================
+// KOREKSI ITEM YANG SUDAH DIALOKASIKAN
+// Admin boleh koreksi langsung (tanpa approval), wajib isi alasan.
+// Tersimpan ke log_audit_pembelian (aksi=KOREKSI_ALOKASI) utk dicek
+// Direktur di tab "🗑️ Riwayat Void/Edit".
+// ============================================================
+function renderItemSudahAlokasi(){
+  var wrap=document.getElementById('alokasiStokSudahWrap');
+  if(!itemSudahAlokasi.length){ wrap.innerHTML=''; return; }
+
+  wrap.innerHTML='<div style="font-size:.7rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin:.6rem 0 .4rem">Item Sudah Dialokasikan</div>'+
+    itemSudahAlokasi.map(function(it,i){
+    var sedangKoreksi=koreksiState[it.id_pbldet];
+    if(sedangKoreksi){
+      return renderFormKoreksi(it, i);
+    }
+    var ringkasan=it.alokasi.map(function(a){
+      return esc(a.nama_bahan||a.id_bahan)+' ('+a.pps_per_lembar+' pps/lbr → '+fmtAngka(a.qty_hasil)+' pcs)';
+    }).join(', ');
+    return '<div class="item-row-form" style="background:var(--bg)">'+
+      '<div style="display:flex;justify-content:space-between;align-items:start;gap:.5rem">'+
+        '<div>'+
+          '<div style="font-size:.78rem;font-weight:600">'+esc(it.nama_item_nota)+'</div>'+
+          '<div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">'+ringkasan+'</div>'+
+        '</div>'+
+        '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.25rem .55rem;white-space:nowrap" onclick="bukaKoreksiAlokasi(\''+it.id_pbldet+'\')">✏️ Koreksi</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  attachBahanAcHandlers();
+}
+
+function bukaKoreksiAlokasi(idPbldet){
+  var it=itemSudahAlokasi.find(function(x){return x.id_pbldet===idPbldet;});
+  if(!it) return;
+  koreksiState[idPbldet]={
+    konversi_lembar:'1',
+    alokasi:it.alokasi.map(function(a){return {id_bahan:a.id_bahan, nama_bahan:a.nama_bahan, pps_per_lembar:a.pps_per_lembar, keterangan:a.keterangan||''};}),
+    alasan:''
+  };
+  renderItemSudahAlokasi();
+}
+function batalKoreksiAlokasi(idPbldet){
+  delete koreksiState[idPbldet];
+  renderItemSudahAlokasi();
+}
+function tambahBarisKoreksi(idPbldet){
+  koreksiState[idPbldet].alokasi.push({id_bahan:'',nama_bahan:'',pps_per_lembar:'',keterangan:''});
+  renderItemSudahAlokasi();
+}
+function hapusBarisKoreksi(idPbldet,idxAlokasi){
+  koreksiState[idPbldet].alokasi.splice(idxAlokasi,1);
+  renderItemSudahAlokasi();
+}
+function updateKoreksiKonversi(idPbldet,val){
+  koreksiState[idPbldet].konversi_lembar=val;
+  hitungUlangKoreksi(idPbldet);
+}
+function updateKoreksiPps(idPbldet,idxAlokasi,val){
+  koreksiState[idPbldet].alokasi[idxAlokasi].pps_per_lembar=val;
+  hitungUlangKoreksi(idPbldet);
+}
+function updateKoreksiAlasan(idPbldet,val){
+  koreksiState[idPbldet].alasan=val;
+}
+function hitungUlangKoreksi(idPbldet){
+  var it=itemSudahAlokasi.find(function(x){return x.id_pbldet===idPbldet;});
+  var st=koreksiState[idPbldet];
+  var jumlahItem=parseFloat(it.jumlah)||0;
+  var konversi=parseFloat(st.konversi_lembar)||1;
+  var totalLembar=jumlahItem*konversi;
+  var elTotal=document.getElementById('korTotalLembarInfo_'+idPbldet);
+  if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
+  st.alokasi.forEach(function(a,ai){
+    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var lbl=document.getElementById('korHasilPcs_'+idPbldet+'_'+ai);
+    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+  });
+}
+
+function renderFormKoreksi(it, idxParent){
+  var st=koreksiState[it.id_pbldet];
+  var jumlahItem=parseFloat(it.jumlah)||0;
+  var konversi=parseFloat(st.konversi_lembar)||1;
+  var totalLembar=jumlahItem*konversi;
+  var alokasiHtml=st.alokasi.map(function(a,ai){
+    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||a.nama_bahan||'';
+    return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:#fff;border-radius:6px">'+
+      '<div style="position:relative">'+
+        '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="koreksi" data-idkoreksi="'+esc(it.id_pbldet)+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
+        '<div id="korHasilPcs_'+it.id_pbldet+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
+      '</div>'+
+      '<div><input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateKoreksiPps(\''+esc(it.id_pbldet)+'\','+ai+',this.value)"/></div>'+
+      '<button type="button" onclick="hapusBarisKoreksi(\''+esc(it.id_pbldet)+'\','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
+    '</div>';
+  }).join('');
+
+  return '<div class="item-row-form" style="background:#fff8ee;border:1px solid #f0dcb8">'+
+    '<div style="font-size:.78rem;font-weight:600;margin-bottom:.2rem">✏️ Koreksi: '+esc(it.nama_item_nota)+'</div>'+
+    '<div style="font-size:.7rem;color:var(--muted);font-family:var(--mono);margin-bottom:.4rem">Dibeli: '+fmtAngka(jumlahItem)+' '+esc(it.satuan)+'</div>'+
+    '<div class="row g-2 align-items-end" style="margin-bottom:.5rem;padding:.4rem;background:#fff;border:1px solid #f0dcb8;border-radius:6px">'+
+      '<div class="col-6"><label class="form-label" style="font-size:.68rem">Isi per Satuan Beli (dlm lembar)</label>'+
+        '<input type="number" step="any" class="form-control form-control-sm" value="'+st.konversi_lembar+'" oninput="updateKoreksiKonversi(\''+esc(it.id_pbldet)+'\',this.value)"/>'+
+      '</div>'+
+      '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="korTotalLembarInfo_'+it.id_pbldet+'">'+
+        'Total: '+fmtAngka(totalLembar)+' lembar'+
+      '</div>'+
+    '</div>'+
+    alokasiHtml+
+    '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.3rem .6rem;margin-bottom:.5rem" onclick="tambahBarisKoreksi(\''+esc(it.id_pbldet)+'\')">+ Tambah Baris</button>'+
+    '<div class="mb-2">'+
+      '<label class="form-label" style="font-size:.7rem">Alasan Koreksi * (wajib, utk audit Direktur)</label>'+
+      '<input type="text" class="form-control form-control-sm" value="'+esc(st.alasan)+'" oninput="updateKoreksiAlasan(\''+esc(it.id_pbldet)+'\',this.value)" placeholder="mis. salah isi rim, seharusnya 500 bkn 10"/>'+
+    '</div>'+
+    '<div style="display:flex;gap:.4rem;justify-content:end">'+
+      '<button type="button" class="btn-outline" style="font-size:.7rem" onclick="batalKoreksiAlokasi(\''+esc(it.id_pbldet)+'\')">Batal</button>'+
+      '<button type="button" class="btn-navy" style="font-size:.7rem" onclick="submitKoreksiAlokasi(\''+esc(it.id_pbldet)+'\',this)">Simpan Koreksi</button>'+
+    '</div>'+
+  '</div>';
+}
+
+async function submitKoreksiAlokasi(idPbldet, btn){
+  var it=itemSudahAlokasi.find(function(x){return x.id_pbldet===idPbldet;});
+  var st=koreksiState[idPbldet];
+  document.getElementById('alertAlokasiStok').innerHTML='';
+
+  if(!st.alasan||!st.alasan.trim()){
+    showAlert('alertAlokasiStok','Alasan koreksi wajib diisi.');
+    return;
+  }
+  var alokasiValid=st.alokasi.filter(function(a){return a.id_bahan&&a.pps_per_lembar;});
+  if(!alokasiValid.length){
+    showAlert('alertAlokasiStok','Minimal 1 baris alokasi lengkap (bahan + pps/lembar).');
+    return;
+  }
+  var tidakLengkap=st.alokasi.some(function(a){
+    return (a.id_bahan && !a.pps_per_lembar) || (!a.id_bahan && a.pps_per_lembar);
+  });
+  if(tidakLengkap){
+    showAlert('alertAlokasiStok','Ada baris yang belum lengkap (bahan jadi & pps/lembar harus diisi keduanya).');
+    return;
+  }
+
+  var jumlahItem=parseFloat(it.jumlah)||0;
+  var konversi=parseFloat(st.konversi_lembar)||1;
+  var totalLembar=jumlahItem*konversi;
+
+  btn.disabled=true; btn.textContent='Menyimpan…';
+  try{
+    var res=await dbRpc('koreksi_alokasi_stok_pembelian',{
+      p_id_pbldet:idPbldet,
+      p_jumlah_lembar:totalLembar,
+      p_alokasi_baru:alokasiValid.map(function(a){
+        return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+      }),
+      p_alasan:st.alasan.trim(),
+      p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    if(res && res.status==='error') throw new Error(res.message);
+
+    delete koreksiState[idPbldet];
+    // muat ulang detail nota ini supaya ringkasan ter-update
+    await bukaAlokasiStokPembelian(alokasiStokIdPembelianAktif);
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertAlokasiStok','Gagal koreksi: '+e.message);
+    btn.disabled=false; btn.textContent='Simpan Koreksi';
+  }
 }
 
 async function submitAlokasiStok(btn){
