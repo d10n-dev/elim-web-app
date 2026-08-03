@@ -12,7 +12,1992 @@
     .rekap-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;}
     .rekap-card .lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
     .rekap-card .val{font-family:var(--mono);font-size:1.05rem;font-weight:600;color:var(--navy);margin-top:.2rem;}
+    .rekap-card.wa<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pembelian — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .rekap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:.85rem;}
+    .rekap-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.7rem .85rem;}
+    .rekap-card .lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+    .rekap-card .val{font-family:var(--mono);font-size:1.05rem;font-weight:600;color:var(--navy);margin-top:.2rem;}
     .rekap-card.warn .val{color:var(--red);}
+    .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);margin-bottom:.85rem;}
+    .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
+    .tab-pane{display:none;}
+    .tab-pane.active{display:block;}
+    .badge-status{font-family:var(--mono);font-size:.6rem;font-weight:600;letter-spacing:.05em;padding:.18rem .5rem;border-radius:3px;white-space:nowrap;}
+    .s-belum_lunas{background:#f0f2f6;color:var(--muted);border:1px solid var(--border);}
+    .s-menunggu_konfirmasi{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .s-sebagian_bayar{background:#fde9d2;color:#c45a00;border:1px solid #f5c98a;}
+    .s-lunas{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-pending{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .s-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .s-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    .badge-akun{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;background:#eef1f7;color:var(--navy);border:1px solid var(--border);}
+    .badge-akun.cogs{background:#e8f0fe;color:#1a56db;border-color:#b8cdfb;}
+    .badge-akun.opex{background:#f0f2f6;color:var(--muted);}
+    .td-mono{font-family:var(--mono);font-size:.75rem;}
+    .td-right{text-align:right;}
+    .pbl-pick-wrap{border:1px solid var(--border);border-radius:8px;max-height:340px;overflow-y:auto;}
+    .pbl-pick-row{display:grid;grid-template-columns:24px 1fr 110px;gap:.5rem;align-items:center;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
+    .pbl-pick-row:last-child{border-bottom:none;}
+    .pbl-pick-row:hover{background:#f4f7fc;}
+    .pbl-pick-nama{font-size:.78rem;}
+    .pbl-pick-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);}
+    .pbl-pick-nom{font-family:var(--mono);font-size:.72rem;text-align:right;}
+    .alokasi-input{width:100%;font-family:var(--mono);font-size:.75rem;border:1px solid var(--border);border-radius:4px;padding:.3rem .45rem;text-align:right;}
+    .sec-label{font-family:var(--mono);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--navy);background:var(--bg);border-radius:5px;padding:.35rem .7rem;margin-bottom:.65rem;margin-top:.75rem;}
+    .ac-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);}
+    .det-row{display:flex;justify-content:space-between;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+    .det-row:last-child{border-bottom:none;}
+    .det-label{color:var(--muted);}
+    .det-val{font-weight:500;text-align:right;}
+    .item-row-form{border:1px solid var(--border);border-radius:8px;padding:.6rem;margin-bottom:.5rem;position:relative;}
+    .item-row-remove{position:absolute;top:.4rem;right:.4rem;background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;line-height:1;padding:.2rem .4rem;}
+    .toolbar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem;}
+    .btn-tambah{background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.45rem 1rem;cursor:pointer;}
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:var(--mono);padding:.4rem .85rem;cursor:pointer;}
+    .btn-outline:hover{border-color:var(--navy);}
+    .btn-sm-action{font-family:var(--mono);font-size:.68rem;padding:.25rem .55rem;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+    .btn-approve{color:var(--green);border-color:var(--green-bd);}
+    .btn-tolak{color:var(--red);border-color:#f5a9a0;}
+    .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .loading{text-align:center;color:var(--muted);font-size:.8rem;padding:1rem;}
+    .akses-blocked{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
+    .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
+    .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
+    .akses-blocked p{font-size:.82rem;color:var(--muted);max-width:320px;}
+    .info-c1{font-size:.72rem;color:var(--muted);background:#fff3cd;border:1px solid #ffe083;border-radius:6px;padding:.5rem .7rem;margin-bottom:.7rem;}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+<div class="ac-dropdown" id="bahanAcDrop"></div>
+
+<div id="kontenPembelian" style="display:none">
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="rekap" onclick="gantiTab('rekap')">📊 Rekap</button>
+    <button class="tab-btn" data-tab="input" onclick="gantiTab('input')">🧾 Input Pembelian</button>
+    <button class="tab-btn" data-tab="bayar" onclick="gantiTab('bayar')">💳 Alokasi Kas Kecil</button>
+    <button class="tab-btn" data-tab="alokasibank" onclick="gantiTab('alokasibank')">🏦 Alokasi Transfer Bank</button>
+    <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">📑 Faktur Pajak Masukan</button>
+    <button class="tab-btn" data-tab="supplier" onclick="gantiTab('supplier')">🏭 Supplier</button>
+    <button class="tab-btn" data-tab="riwayat" onclick="gantiTab('riwayat')">🗑️ Riwayat Void/Edit</button>
+  </div>
+
+  <!-- ============== TAB: REKAP ============== -->
+  <div class="tab-pane active" id="tabRekap">
+    <div class="rekap-grid" id="rekapCards">
+      <div class="rekap-card"><div class="lbl">Total Hutang Outstanding</div><div class="val">…</div></div>
+      <div class="rekap-card"><div class="lbl">Belum Lunas</div><div class="val">…</div></div>
+      <div class="rekap-card"><div class="lbl">Sebagian Bayar</div><div class="val">…</div></div>
+      <div class="rekap-card warn"><div class="lbl">Menunggu Konfirmasi</div><div class="val">…</div></div>
+    </div>
+    <div class="toolbar">
+      <select id="rkSupplier" onchange="muatRekap()" style="max-width:220px">
+        <option value="">Semua Supplier</option>
+      </select>
+      <select id="rkStatus" onchange="muatRekap()" style="max-width:180px">
+        <option value="">Semua Status</option>
+        <option value="BELUM_LUNAS">Belum Lunas</option>
+        <option value="SEBAGIAN_BAYAR">Sebagian Bayar</option>
+        <option value="MENUNGGU_KONFIRMASI">Menunggu Konfirmasi</option>
+        <option value="LUNAS">Lunas</option>
+      </select>
+      <input type="text" class="form-control" id="rkCari" placeholder="🔍 Cari no. nota / supplier…" autocomplete="off" oninput="renderRekap()" style="flex:1;min-width:180px"/>
+      <button class="btn-outline" onclick="resetFilterRekap()">Reset</button>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. Nota</th><th>Tanggal</th><th>Supplier</th><th>Entitas</th>
+        <th class="td-right">Tagihan</th><th class="td-right">Dibayar</th><th class="td-right">Sisa</th><th>Status</th><th>Aksi</th>
+      </tr></thead>
+      <tbody id="rekapTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: INPUT PEMBELIAN ============== -->
+  <div class="tab-pane" id="tabInput">
+    <div id="alertInput" class="alert alert-danger py-2" style="font-size:.78rem;display:none"></div>
+    <div class="toolbar">
+      <button class="btn-tambah" onclick="bukaInputPembelian()">+ Input Nota Pembelian</button>
+      <input type="text" class="form-control" id="inputCari" placeholder="🔍 Cari no. nota / supplier…" autocomplete="off" oninput="renderInputList()" style="flex:1;min-width:180px"/>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. Nota</th><th>Tanggal</th><th>Supplier</th><th>Entitas</th>
+        <th class="td-right">Subtotal</th><th class="td-right">PPN</th><th class="td-right">Total</th>
+      </tr></thead>
+      <tbody id="inputTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: ALOKASI KAS KECIL ============== -->
+  <div class="tab-pane" id="tabBayar">
+    <div class="info-bar" id="akkInfoBar">Kas keluar LANGSUNG yang belum dialokasikan ke hutang pembelian.</div>
+    <input type="text" class="form-control" id="bayarCari" placeholder="🔍 Cari no. kas keluar / penerima…" autocomplete="off" oninput="renderPembayaranList()" style="margin-bottom:.6rem"/>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. Kas Keluar</th><th>Tanggal</th><th>Penerima</th>
+        <th class="td-right">Nominal</th><th>Keterangan</th><th></th>
+      </tr></thead>
+      <tbody id="bayarTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: ALOKASI TRANSFER BANK ============== -->
+  <div class="tab-pane" id="tabAlokasibank">
+    <div class="info-bar" id="abInfoBar">Transfer bank keluar (kategori HUTANG_BAHAN / HUTANG_MAKLOON) yang belum dialokasikan ke hutang pembelian.</div>
+    <input type="text" class="form-control" id="alokBankCari" placeholder="🔍 Cari keterangan bank / rekening…" autocomplete="off" oninput="renderAlokasiBankList()" style="margin-bottom:.6rem"/>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Tanggal</th><th>Rekening</th><th>Keterangan Bank</th><th>Kategori</th>
+        <th class="td-right">Nominal</th><th class="td-right">Sisa</th><th></th>
+      </tr></thead>
+      <tbody id="alokBankTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: FAKTUR PAJAK MASUKAN ============== -->
+  <div class="tab-pane" id="tabFaktur">
+    <div id="alertFaktur" class="alert alert-danger py-2" style="font-size:.78rem;display:none"></div>
+    <div class="toolbar">
+      <button class="btn-tambah" onclick="bukaInputFaktur()">+ Catat Faktur Pajak Masukan</button>
+      <input type="text" class="form-control" id="fakturCari" placeholder="🔍 Cari NSFP / no. nota / supplier…" autocomplete="off" oninput="renderFakturList()" style="flex:1;min-width:180px"/>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>No. NSFP</th><th>Tanggal Faktur</th><th>No. Nota Terkait</th><th>Supplier</th>
+        <th class="td-right">DPP</th><th class="td-right">PPN</th>
+      </tr></thead>
+      <tbody id="fakturTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: SUPPLIER ============== -->
+  <div class="tab-pane" id="tabSupplier">
+    <div class="toolbar">
+      <button class="btn-tambah" onclick="bukaInputSupplier()">+ Tambah Supplier</button>
+      <input type="text" class="form-control" id="supplierCari" placeholder="🔍 Cari nama / telepon / NPWP…" autocomplete="off" oninput="renderSupplierTable()" style="flex:1;min-width:180px"/>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Nama</th><th>Telepon</th><th>NPWP</th><th>Status</th><th></th></tr></thead>
+      <tbody id="supplierTbody"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: RIWAYAT VOID/EDIT ============== -->
+  <div class="tab-pane" id="tabRiwayat">
+    <div class="info-bar">Log audit nota pembelian yang pernah di-Edit atau di-Void. Klik "Detail" untuk lihat isi nota sebelum vs sesudah.</div>
+    <div class="toolbar">
+      <input type="date" id="rwTglAwal" class="form-control" style="max-width:160px" onchange="muatRiwayat()"/>
+      <input type="date" id="rwTglAkhir" class="form-control" style="max-width:160px" onchange="muatRiwayat()"/>
+      <select id="rwAksi" style="max-width:160px" onchange="renderRiwayat()">
+        <option value="">Semua Aksi</option>
+        <option value="EDIT">Edit</option>
+        <option value="VOID">Void</option>
+      </select>
+      <input type="text" class="form-control" id="rwCari" placeholder="🔍 Cari no. nota / user / keterangan…" autocomplete="off" oninput="renderRiwayat()" style="flex:1;min-width:180px"/>
+      <button class="btn-outline" onclick="resetFilterRiwayat()">Reset</button>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>Waktu</th><th>No. Nota</th><th>Aksi</th><th>User</th><th>Keterangan</th><th></th>
+      </tr></thead>
+      <tbody id="riwayatTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+    </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="kontenAksesDitolak" style="display:none">
+  <div class="akses-blocked">
+    <div class="ic">🔒</div>
+    <h3>Akses Dibatasi</h3>
+    <p>Modul Pembelian hanya bisa diakses oleh user yang diberi izin khusus oleh Direktur. Hubungi Direktur kalau Anda memerlukan akses ini.</p>
+  </div>
+</div>
+
+<!-- ============== MODAL: INPUT PEMBELIAN ============== -->
+<div class="modal fade" id="modalInputPembelian" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Input Nota Pembelian</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalInput"></div>
+        <div class="info-c1">
+          Item dicatat persis sesuai satuan nota (mis. plano 90x120). Jika dipotong jadi ukuran bahan
+          baku yang sudah ada di Master Bahan, isi "Hasil Potong" — input jumlah pieces per lembar (pps)
+          secara manual, sistem akan kalikan otomatis dengan jumlah beli. Bisa lebih dari 1 ukuran hasil
+          per item. Stok di sini HANYA mencatat sisi MASUK; pengurangan saat produksi menyusul tahap berikutnya.
+        </div>
+        <form id="frmInputPembelian" onsubmit="return false;">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">No. Nota Supplier *</label>
+              <input type="text" class="form-control" id="inpNoNota"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Tanggal Pembelian *</label>
+              <input type="date" class="form-control" id="inpTglPembelian"/>
+            </div>
+            <div class="col-12" style="position:relative">
+              <label class="form-label">Supplier *</label>
+              <input type="text" class="form-control" id="inpCariSupplier" placeholder="Ketik nama supplier…" autocomplete="off"/>
+              <input type="hidden" id="inpIdSupplier"/>
+              <div id="acSupplierDrop" class="ac-dropdown"></div>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Entitas Pembeli *</label>
+              <select class="form-select" id="inpEntitasPembelian">
+                <option value="DK">DK Offset</option>
+                <option value="PT">PT Elim Citra Offset</option>
+              </select>
+            </div>
+            <div class="col-6 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="inpAdaPPN" onchange="toggleFieldPPN()"/>
+                <label class="form-check-label" for="inpAdaPPN" style="font-size:.82rem">Ada PPN (supplier PKP)</label>
+              </div>
+            </div>
+            <div class="col-6" id="wrapModePPN" style="display:none">
+              <label class="form-label">Harga per item di nota ini adalah</label>
+              <select class="form-select" id="inpModePPN" onchange="updateKalkulasiPPN()">
+                <option value="DPP">DPP (PPN ditambahkan di atasnya)</option>
+                <option value="TERMASUK_PPN">Sudah termasuk PPN</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Potongan / Diskon Nota</label>
+              <input type="number" class="form-control" id="inpDiskonNota" value="0" oninput="updateKalkulasiPPN()"/>
+            </div>
+            <div class="col-12" id="infoKalkulasiPPN" style="display:none">
+              <div class="alert alert-info py-2" style="font-size:.75rem;font-family:var(--mono);margin-top:.2rem">
+                <div>Subtotal item: <b id="kalkSubtotal">Rp 0</b></div>
+                <div>Setelah diskon: <b id="kalkSetelahDiskon">Rp 0</b></div>
+                <div>DPP: <b id="kalkDPP">Rp 0</b> &nbsp;|&nbsp; PPN (11%): <b id="kalkPPN">Rp 0</b></div>
+                <div>Total Tagihan: <b id="kalkTotal">Rp 0</b></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec-label">Item Pembelian (sesuai nota)</div>
+          <div id="itemPembelianWrap"></div>
+          <button type="button" class="btn-outline" style="margin-top:.4rem" onclick="tambahBarisItem()">+ Tambah Item</button>
+
+          <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.7rem" id="totalItemInfo">
+            Subtotal: Rp 0
+          </div>
+
+          <div class="mb-2" style="margin-top:.6rem">
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="inpKetPembelian"/>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitInputPembelian(this)">Simpan Pembelian</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: EDIT NOTA PEMBELIAN ============== -->
+<div class="modal fade" id="modalEditPembelian" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Edit Nota Pembelian</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalEdit"></div>
+        <div class="info-c1">
+          Hanya bisa dipakai selama nota belum ada pembayaran/alokasi transfer bank/faktur pajak.
+          Baris yang dihapus/diubah akan otomatis mengoreksi stok bahan (log koreksi), tidak menghapus histori lama.
+        </div>
+        <form id="frmEditPembelian" onsubmit="return false;">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">No. Nota Supplier *</label>
+              <input type="text" class="form-control" id="editNoNota"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Tanggal Pembelian *</label>
+              <input type="date" class="form-control" id="editTglPembelian"/>
+            </div>
+            <div class="col-12" style="position:relative">
+              <label class="form-label">Supplier *</label>
+              <input type="text" class="form-control" id="editCariSupplier" placeholder="Ketik nama supplier…" autocomplete="off"/>
+              <input type="hidden" id="editIdSupplier"/>
+              <div id="acSupplierEditDrop" class="ac-dropdown"></div>
+            </div>
+            <div class="col-6 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="editAdaPPN" onchange="toggleFieldPPNEdit()"/>
+                <label class="form-check-label" for="editAdaPPN" style="font-size:.82rem">Ada PPN (supplier PKP)</label>
+              </div>
+            </div>
+            <div class="col-6" id="editWrapModePPN" style="display:none">
+              <label class="form-label">Harga per item di nota ini adalah</label>
+              <select class="form-select" id="editModePPN" onchange="updateKalkulasiPPNEdit()">
+                <option value="DPP">DPP (PPN ditambahkan di atasnya)</option>
+                <option value="TERMASUK_PPN">Sudah termasuk PPN</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Potongan / Diskon Nota</label>
+              <input type="number" class="form-control" id="editDiskonNota" value="0" oninput="updateKalkulasiPPNEdit()"/>
+            </div>
+            <div class="col-12" id="editInfoKalkulasiPPN" style="display:none">
+              <div class="alert alert-info py-2" style="font-size:.75rem;font-family:var(--mono);margin-top:.2rem">
+                <div>Subtotal item: <b id="editKalkSubtotal">Rp 0</b></div>
+                <div>Setelah diskon: <b id="editKalkSetelahDiskon">Rp 0</b></div>
+                <div>DPP: <b id="editKalkDPP">Rp 0</b> &nbsp;|&nbsp; PPN (11%): <b id="editKalkPPN">Rp 0</b></div>
+                <div>Total Tagihan: <b id="editKalkTotal">Rp 0</b></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec-label">Item Pembelian (sesuai nota)</div>
+          <div id="editItemPembelianWrap"></div>
+          <button type="button" class="btn-outline" style="margin-top:.4rem" onclick="tambahBarisItemEdit()">+ Tambah Item</button>
+
+          <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.7rem" id="editTotalItemInfo">
+            Subtotal: Rp 0
+          </div>
+
+          <div class="mb-2" style="margin-top:.6rem">
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="editKetPembelian"/>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitEditPembelian(this)">Simpan Perubahan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: VOID NOTA PEMBELIAN ============== -->
+<div class="modal fade" id="modalVoidPembelian" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Void Nota Pembelian</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalVoid"></div>
+        <div class="info-c1">
+          Nota <b id="voidNoNota"></b> akan ditandai VOID. Stok bahan yang sudah masuk dari nota ini akan
+          dikoreksi balik otomatis. Data tidak dihapus fisik — tetap tercatat untuk histori/audit.
+        </div>
+        <input type="hidden" id="voidIdPembelian"/>
+        <div class="mb-2">
+          <label class="form-label">Alasan Void *</label>
+          <input type="text" class="form-control" id="voidAlasan" placeholder="mis. double input, salah nota"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" style="background:var(--red)" onclick="submitVoidPembelian(this)">Ya, Void Nota Ini</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: DETAIL SNAPSHOT AUDIT ============== -->
+<div class="modal fade" id="modalDetailAudit" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Detail Perubahan Nota</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="auditInfoBar" class="info-c1" style="margin-bottom:.6rem"></div>
+        <div class="row g-3">
+          <div class="col-6">
+            <div style="font-weight:600;color:var(--red);margin-bottom:.3rem">Sebelum</div>
+            <div id="auditSebelumWrap"></div>
+          </div>
+          <div class="col-6">
+            <div style="font-weight:600;color:var(--navy);margin-bottom:.3rem">Sesudah</div>
+            <div id="auditSesudahWrap"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: PEMBAYARAN HUTANG ============== -->
+<div class="modal fade" id="modalPembayaranHutang" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Alokasi Kas Kecil ke Hutang</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertPembayaranHutang"></div>
+        <div id="infoBarAKK" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
+        <form id="frmPembayaranHutang" onsubmit="return false;">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Nama Penerima (pihak supplier)</label>
+              <input type="text" class="form-control" id="inpNamaPenerimaBayar"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Entitas Pembayar</label>
+              <select class="form-select" id="inpEntitasPembayar">
+                <option value="">Sama dengan entitas nota (default)</option>
+                <option value="DK">DK Offset</option>
+                <option value="PT">PT Elim Citra Offset</option>
+              </select>
+            </div>
+            <div class="col-12" id="warnLintasEntitasHutang" style="display:none">
+              <div class="alert alert-info py-2" style="font-size:.72rem;margin-top:.3rem">
+                Dana keluar dari entitas berbeda dari pemilik nota — akan otomatis dicatat sebagai
+                mutasi Antar-Entitas (cek halaman Antar-Entitas setelah disimpan).
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Keterangan</label>
+              <input type="text" class="form-control" id="inpKetBayarHutang"/>
+            </div>
+          </div>
+
+          <div class="sec-label">Cari Supplier untuk Tambah Nota</div>
+          <div style="position:relative">
+            <input type="text" class="form-control" id="inpCariSupplierBayar" placeholder="Ketik nama supplier…" autocomplete="off"/>
+            <div id="acSupplierBayarDrop" class="ac-dropdown"></div>
+          </div>
+          <div id="notaSupplierBayarWrap" style="margin-top:.5rem;display:none"></div>
+
+          <div class="sec-label">Nota Terpilih (bisa dari banyak supplier)</div>
+          <div id="alokasiHutangTerpilihWrap"></div>
+          <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalAlokasiHutangInfo">Total alokasi: Rp 0</div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitPembayaranHutang(this)">Simpan Alokasi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: FAKTUR PAJAK MASUKAN ============== -->
+<!-- ============== MODAL: ALOKASI TRANSFER BANK KE HUTANG ============== -->
+<div class="modal fade" id="modalAlokasiBank" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Alokasi Transfer Bank ke Hutang</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertAlokasiBank"></div>
+        <div id="infoBarAlokBank" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
+
+        <div class="sec-label">Cari Nota Supplier</div>
+        <div style="position:relative">
+          <div style="display:flex;gap:.4rem">
+            <input type="text" class="form-control" id="inpCariNotaAlokBank" placeholder="Ketik nama supplier…" autocomplete="off" oninput="onInputCariNotaAlokBank()"/>
+            <button type="button" class="btn-outline" onclick="cariNotaAlokBankManual()" style="white-space:nowrap">🔍 Cari</button>
+          </div>
+        </div>
+
+        <div id="totalCentangAlokBank" style="text-align:right;font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.3rem .1rem;background:#fff;position:sticky;top:0;z-index:5;min-height:1.1rem"></div>
+
+        <div id="daftarNotaAlokBankWrap" style="margin-top:.3rem">
+          <div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama supplier untuk melihat nota.</div>
+        </div>
+
+        <div class="sec-label">Nota Terpilih</div>
+        <div id="alokasiBankTerpilihWrap"></div>
+        <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalAlokasiBankInfo">Total alokasi: Rp 0</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="btnSimpanAlokBank" onclick="submitAlokasiBank(this)">Simpan Alokasi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ALOKASI LEGACY (TANPA NOTA) — Direktur only -->
+<div class="modal fade" id="modalAlokLegacyHutang" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Alokasi Legacy (Tanpa Nota)</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alhModalInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.6rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.7rem">
+          Gunakan HANYA untuk transfer terkait saldo hutang lama yang sudah LUNAS di data hasil migrasi
+          (tidak ada nota aktif yang bisa dicocokkan). Nominal penuh langsung ditutup; tidak ada nota/saldo
+          hutang manapun yang berubah statusnya.
+        </div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Keterangan *</label>
+        <textarea id="alhKeterangan" class="form-control form-control-sm mt-1 mb-2" rows="3" style="font-family:var(--mono);font-size:.78rem" placeholder="Contoh: Pelunasan saldo hutang lama a.n. ... (nota lama sudah LUNAS saat migrasi)"></textarea>
+        <div id="alhErr" style="display:none;margin-top:.4rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="alhSimpanBtn" onclick="simpanAlokLegacyHutang()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalInputFaktur" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Catat Faktur Pajak Masukan</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalFaktur"></div>
+        <form id="frmInputFaktur" onsubmit="return false;">
+          <div class="mb-2" style="position:relative">
+            <label class="form-label">Nota Pembelian Terkait *</label>
+            <input type="text" class="form-control" id="inpCariNotaFaktur" placeholder="Cari no. nota / supplier…" autocomplete="off"/>
+            <input type="hidden" id="inpIdPembelianFaktur"/>
+            <div id="acNotaFakturDrop" class="ac-dropdown"></div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">No. NSFP *</label>
+            <input type="text" class="form-control" id="inpNoNSFP"/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Tanggal Faktur *</label>
+            <input type="date" class="form-control" id="inpTglFaktur"/>
+          </div>
+          <div id="infoNotaTerpilihFaktur" style="display:none">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">DPP (otomatis dari nota)</label>
+                <input type="text" class="form-control" id="inpDPPFaktur" readonly style="background:var(--bg)"/>
+              </div>
+              <div class="col-6">
+                <label class="form-label">PPN (otomatis dari nota)</label>
+                <input type="text" class="form-control" id="inpPPNFaktur" readonly style="background:var(--bg)"/>
+              </div>
+            </div>
+            <div style="font-size:.7rem;color:var(--muted);margin-top:.3rem">
+              Nilai diambil otomatis dari nota yang dipilih (sesuai mode PPN saat input pembelian), tidak bisa diedit di sini.
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitInputFaktur(this)">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: SUPPLIER ============== -->
+<div class="modal fade" id="modalSupplier" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="judulModalSupplier">Tambah Supplier</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalSupplier"></div>
+        <form id="frmSupplier" onsubmit="return false;">
+          <input type="hidden" id="inpIdSupplierEdit"/>
+          <div class="mb-2">
+            <label class="form-label">Nama *</label>
+            <input type="text" class="form-control" id="inpNamaSupplier"/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Telepon</label>
+            <input type="text" class="form-control" id="inpTeleponSupplier"/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">NPWP</label>
+            <input type="text" class="form-control" id="inpNPWPSupplier"/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Alamat</label>
+            <input type="text" class="form-control" id="inpAlamatSupplier"/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="inpStatusSupplier">
+              <option value="AKTIF">AKTIF</option>
+              <option value="NONAKTIF">NONAKTIF</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" onclick="submitSupplier(this)">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============== MODAL: DETAIL (generic, dipakai utk lihat detail nota/pembayaran) ============== -->
+<div class="modal fade" id="modalDetail" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="judulModalDetail">Detail</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="isiModalDetail"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+function fmtRupiah(n){return formatRupiah(n);}
+function fmtTgl(s){return formatTanggal(s);}
+function esc(s){return escHtml(s);}
+function cekErrorSupabase(res){
+  if(!res) return 'Tidak ada respons dari server.';
+  if(res.code) return res.message||('Error: '+res.code);
+  if(res.status==='error') return res.message||'Terjadi kesalahan.';
+  return null;
+}
+function showAlert(elId,msg){
+  var el=document.getElementById(elId);
+  el.innerHTML='<div class="alert alert-danger py-2" style="font-size:.78rem">'+esc(msg)+'</div>';
+}
+
+// ============================================================
+// AC reusable (sama persis pola di piutang.html)
+// ============================================================
+function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect, subFn) {
+  let selectedId = null;
+  function positionDrop() {
+    const r = inputEl.getBoundingClientRect();
+    dropEl.style.top   = r.bottom + 'px';
+    dropEl.style.left  = r.left + 'px';
+    dropEl.style.width = r.width + 'px';
+  }
+  function filter(q) {
+    q = q.toLowerCase();
+    return dataArr.filter(d =>
+      (d[idKey]   || '').toLowerCase().includes(q) ||
+      (d[namaKey] || '').toLowerCase().includes(q)
+    ).slice(0, 30);
+  }
+  function render(items) {
+    dropEl.innerHTML = '';
+    if (items.length === 0) {
+      dropEl.innerHTML = '<div class="ac-empty" style="padding:.5rem .75rem;font-size:.78rem;color:var(--muted)">Tidak ditemukan</div>';
+    } else {
+      items.forEach(d => {
+        const div = document.createElement('div');
+        div.className = 'ac-item';
+        var sub = subFn ? subFn(d) : '';
+        div.innerHTML = `<span class="ac-item-nama">${escHtml(d[namaKey])}</span>` + (sub?`<span class="ac-sub">${escHtml(sub)}</span>`:'');
+        div.addEventListener('mousedown', e => { e.preventDefault(); pilih(d); });
+        div.addEventListener('touchstart', function(e){ this._ty = e.touches[0].clientY; this._moved = false; dropEl._touching = true; }, {passive:true});
+        div.addEventListener('touchmove', function(e){ if (Math.abs(e.touches[0].clientY - this._ty) > 10) this._moved = true; }, {passive:true});
+        div.addEventListener('touchend', function(e){ e.preventDefault(); dropEl._touching = false; if (this._moved) return; pilih(d); });
+        dropEl.appendChild(div);
+      });
+    }
+    positionDrop();
+    dropEl.classList.add('open');
+  }
+  function pilih(d) {
+    selectedId = d[idKey];
+    inputEl.value = d[namaKey];
+    dropEl.classList.remove('open');
+    if (onSelect) onSelect(d);
+  }
+  function tutup() { dropEl.classList.remove('open'); }
+  inputEl.addEventListener('input', () => {
+    selectedId = null;
+    const q = inputEl.value.trim();
+    if (q.length === 0) { tutup(); return; }
+    render(filter(q));
+  });
+  inputEl.addEventListener('focus', () => {
+    const q = inputEl.value.trim();
+    if (q.length > 0 && !selectedId) render(filter(q));
+  });
+  inputEl.addEventListener('blur', () => { setTimeout(() => { if (!dropEl._touching) tutup(); }, 250); });
+}
+
+// ============================================================
+// AUTOCOMPLETE BAHAN (baris alokasi, dinamis add+edit)
+// Pakai SATU dropdown terapung yg dipindah posisinya ke input yg
+// sedang aktif — lebih ringan drpd bikin dropdown per baris, dan
+// otomatis aman dari isu clipping modal Bootstrap (position:fixed
+// + append ke body, sesuai pola AC lain di app ini).
+// ============================================================
+var acBahanTarget = null; // {mode:'add'|'edit', idxItem, idxAlokasi}
+
+function bahanAcFilter(q){
+  q=(q||'').toLowerCase();
+  return cacheBahan.filter(function(d){
+    return (d.nama_bahan||'').toLowerCase().includes(q) || (d.id_bahan||'').toLowerCase().includes(q);
+  }).slice(0,30);
+}
+
+function bahanAcRender(inputEl, items){
+  var dropEl=document.getElementById('bahanAcDrop');
+  dropEl.innerHTML='';
+  if(!items.length){
+    dropEl.innerHTML='<div class="ac-empty">Tidak ditemukan</div>';
+  } else {
+    items.forEach(function(d){
+      var div=document.createElement('div');
+      div.className='ac-item';
+      div.innerHTML='<span class="ac-item-nama">'+esc(d.nama_bahan)+'</span>';
+      div.addEventListener('mousedown', function(e){ e.preventDefault(); bahanAcPilih(d); });
+      div.addEventListener('touchstart', function(e){ this._ty=e.touches[0].clientY; this._moved=false; dropEl._touching=true; }, {passive:true});
+      div.addEventListener('touchmove', function(e){ if(Math.abs(e.touches[0].clientY-this._ty)>10) this._moved=true; }, {passive:true});
+      div.addEventListener('touchend', function(e){ e.preventDefault(); dropEl._touching=false; if(this._moved) return; bahanAcPilih(d); });
+      dropEl.appendChild(div);
+    });
+  }
+  var r=inputEl.getBoundingClientRect();
+  dropEl.style.top=r.bottom+'px';
+  dropEl.style.left=r.left+'px';
+  dropEl.style.width=r.width+'px';
+  dropEl.classList.add('open');
+}
+
+function bahanAcPilih(d){
+  if(!acBahanTarget) return;
+  var t=acBahanTarget;
+  document.getElementById('bahanAcDrop').classList.remove('open');
+  if(t.mode==='add'){
+    updateAlokasiBarisStruktural(t.idxItem, t.idxAlokasi, 'id_bahan', d.id_bahan);
+  } else {
+    updateAlokasiBarisStrukturalEdit(t.idxItem, t.idxAlokasi, 'id_bahan', d.id_bahan);
+  }
+}
+
+// Dipanggil ulang setiap kali renderItemBaris()/renderItemBarisEdit() selesai,
+// krn innerHTML di-rebuild dan listener lama otomatis hilang bersama DOM lama.
+function attachBahanAcHandlers(){
+  document.querySelectorAll('.ac-bahan-input').forEach(function(inputEl){
+    var mode=inputEl.dataset.mode;
+    var idxItem=parseInt(inputEl.dataset.idxitem,10);
+    var idxAlokasi=parseInt(inputEl.dataset.idxalokasi,10);
+    inputEl.addEventListener('focus', function(){
+      acBahanTarget={mode:mode, idxItem:idxItem, idxAlokasi:idxAlokasi};
+      bahanAcRender(inputEl, bahanAcFilter(inputEl.value));
+    });
+    inputEl.addEventListener('input', function(){
+      acBahanTarget={mode:mode, idxItem:idxItem, idxAlokasi:idxAlokasi};
+      bahanAcRender(inputEl, bahanAcFilter(inputEl.value));
+    });
+    inputEl.addEventListener('blur', function(){
+      setTimeout(function(){
+        var dropEl=document.getElementById('bahanAcDrop');
+        if(!dropEl._touching) dropEl.classList.remove('open');
+      }, 200);
+    });
+  });
+}
+
+// ============================================================
+// SETUP / GUARD
+// ============================================================
+var cacheSupplier = [];
+var cacheAkun = [];
+var cacheBahan = [];
+
+window.addEventListener('load', async function () {
+  if (!guardHalaman()) return;
+  initNav('pembelian');
+
+  var boleh = await punyaAksesModul('pembelian');
+  if (!boleh) {
+    document.getElementById('kontenAksesDitolak').style.display='block';
+    return;
+  }
+  document.getElementById('kontenPembelian').style.display='block';
+  document.getElementById('inpTglPembelian').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpTglFaktur').value=new Date().toISOString().slice(0,10);
+  muatMasterAwal();
+});
+
+function muatMasterAwal(){
+  dbGet('m_supplier',{select:'id_supplier,nama',order:'nama.asc'}).then(function(res){
+    cacheSupplier=Array.isArray(res)?res:[];
+    var sel=document.getElementById('rkSupplier');
+    cacheSupplier.forEach(function(s){
+      var opt=document.createElement('option'); opt.value=s.id_supplier; opt.textContent=s.nama;
+      sel.appendChild(opt);
+    });
+    inisAcSupplier();
+    inisAcSupplierBayar();
+  });
+  dbGet('m_akun_pembelian',{select:'*',status:'eq.AKTIF',order:'urut.asc'}).then(function(res){
+    cacheAkun=Array.isArray(res)?res:[];
+  });
+  dbGet('m_bahan',{select:'id_bahan,nama_bahan,satuan',status:'eq.AKTIF',order:'nama_bahan.asc'}).then(function(res){
+    cacheBahan=Array.isArray(res)?res:[];
+  });
+  muatSemuaData();
+  muatDaftarSupplierTable();
+}
+
+function muatSemuaData(){
+  muatRekap();
+  muatRekapCards();
+  muatInputList();
+  muatPembayaranList();
+  muatAlokasiBankList();
+  muatFakturList();
+  muatRiwayat();
+}
+
+// ============================================================
+// ALOKASI TRANSFER BANK KE HUTANG
+// ============================================================
+var bankStmtStore={};
+var alokasiBankTerpilih=[]; // [{id_pembelian, no_nota, nama_supplier, sisa, nominal}]
+var bankStmtAktif=null;
+
+var semuaAlokBank=[];
+function muatAlokasiBankList(){
+  var tbody=document.getElementById('alokBankTbody');
+  dbRpc('get_bank_belum_dialokasi',{p_id_rekening:null,p_mode:'ADMIN'}).then(function(res){
+    var errMsg=cekErrorSupabase(res);
+    if(errMsg){ tbody.innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">'+esc(errMsg)+'</td></tr>'; return; }
+    semuaAlokBank=(Array.isArray(res)?res:[]).filter(function(r){
+      return r.kategori==='HUTANG_BAHAN' || r.kategori==='HUTANG_MAKLOON';
+    });
+    renderAlokasiBankList();
+  });
+}
+function renderAlokasiBankList(){
+  var tbody=document.getElementById('alokBankTbody');
+  var q=(document.getElementById('alokBankCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaAlokBank.filter(function(r){
+    return (r.keterangan_bank||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_rekening||'').toLowerCase().indexOf(q)>=0;
+  }):semuaAlokBank;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada transfer bank menunggu alokasi.')+'</td></tr>'; return; }
+  data.forEach(function(r){bankStmtStore[r.id]=r;});
+  tbody.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
+      '<td>'+esc(r.nama_rekening||'')+'</td>'+
+      '<td>'+esc(r.keterangan_bank||'')+'</td>'+
+      '<td><span class="badge-status">'+esc(r.kategori)+'</span></td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.sisa_nominal)+'</td>'+
+      '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiBank(\''+esc(r.id)+'\')">Alokasi</button>'+
+      (isDirektur()?' <button class="btn-sm-action" style="color:#c45a00;border-color:#f5c98a" onclick="bukaAlokLegacyHutang(\''+esc(r.id)+'\')">Legacy</button>':'')+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+var _alokBankTimer=null;
+function onInputCariNotaAlokBank(){
+  var nama=document.getElementById('inpCariNotaAlokBank').value.trim();
+  if(nama.length<2){
+    document.getElementById('daftarNotaAlokBankWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik minimal 2 huruf.</div>';
+    document.getElementById('totalCentangAlokBank').textContent='';
+    return;
+  }
+  clearTimeout(_alokBankTimer);
+  _alokBankTimer=setTimeout(function(){ muatNotaAlokBank(nama); },300);
+}
+function cariNotaAlokBankManual(){
+  var nama=document.getElementById('inpCariNotaAlokBank').value.trim();
+  if(!nama){alert('Isi nama supplier dulu.');return;}
+  clearTimeout(_alokBankTimer);
+  muatNotaAlokBank(nama);
+}
+function muatNotaAlokBank(namaSup){
+  var wrap=document.getElementById('daftarNotaAlokBankWrap');
+  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota outstanding…</div>';
+  dbRpc('get_rekap_hutang',{p_id_supplier:null,p_status:null,p_nama_supplier:namaSup}).then(function(res){
+    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>0;});
+    if(!data.length){
+      wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada nota outstanding untuk "'+esc(namaSup)+'".</div>';
+      document.getElementById('totalCentangAlokBank').textContent='';
+      return;
+    }
+    wrap.innerHTML='<div class="sj-pick-wrap">'+data.map(function(r){
+      var sudahAda=alokasiBankTerpilih.some(function(a){return a.id_pembelian===r.id_pembelian;});
+      return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
+        '<input type="checkbox" class="chk-alokbank-cari" value="'+esc(r.id_pembelian)+'" '+(sudahAda?'disabled':'')+' '+
+          'data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_supplier)+'" data-sisa="'+r.sisa_hutang+'" onchange="updateTotalCentangAlokBank()"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">'+esc(r.nama_supplier)+' · '+fmtTgl(r.tgl_pembelian)+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
+        '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_hutang)+'</div>'+
+      '</label>';
+    }).join('')+'</div>'+
+    '<button type="button" class="btn-outline" style="margin-top:.5rem;width:100%" onclick="tambahNotaAlokBank()">+ Tambahkan yang Dicentang</button>';
+    updateTotalCentangAlokBank();
+  });
+}
+function updateTotalCentangAlokBank(){
+  var el=document.getElementById('totalCentangAlokBank'); if(!el) return;
+  var checked=document.querySelectorAll('.chk-alokbank-cari:checked');
+  var total=0; checked.forEach(function(c){total+=parseFloat(c.dataset.sisa)||0;});
+  el.textContent=checked.length?('Dipilih: '+checked.length+' nota — Total: '+fmtRupiah(total)):'';
+}
+
+function tambahNotaAlokBank(){
+  var checked=document.querySelectorAll('.chk-alokbank-cari:checked');
+  if(!checked.length){alert('Pilih minimal 1 nota dulu.');return;}
+  checked.forEach(function(chk){
+    alokasiBankTerpilih.push({
+      id_pembelian:chk.value, no_nota:chk.dataset.noNota,
+      nama_supplier:chk.dataset.nama, sisa:parseFloat(chk.dataset.sisa),
+      nominal:parseFloat(chk.dataset.sisa)
+    });
+  });
+  document.getElementById('inpCariNotaAlokBank').value='';
+  document.getElementById('daftarNotaAlokBankWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Cari lagi untuk tambah nota lain.</div>';
+  document.getElementById('totalCentangAlokBank').textContent='';
+  renderAlokasiBankTerpilih();
+}
+
+function renderAlokasiBankTerpilih(){
+  var wrap=document.getElementById('alokasiBankTerpilihWrap');
+  if(!alokasiBankTerpilih.length){
+    wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Belum ada nota dipilih. Cari supplier di atas untuk menambahkan.</div>';
+  }else{
+    wrap.innerHTML='<div class="sj-pick-wrap">'+alokasiBankTerpilih.map(function(a,i){
+      return '<div class="sj-pick-row">'+
+        '<button type="button" onclick="hapusAlokasiBankTerpilih('+i+')" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>'+
+        '<div><div class="sj-pick-nama">'+esc(a.nama_supplier)+'</div><div class="sj-pick-sub">'+esc(a.no_nota)+' · Sisa: '+fmtRupiah(a.sisa)+'</div></div>'+
+        '<input type="number" class="alokasi-input" value="'+a.nominal+'" oninput="updateNominalAlokBank('+i+',this.value)"/>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
+  var total=alokasiBankTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('totalAlokasiBankInfo').textContent='Total alokasi: '+fmtRupiah(total);
+}
+
+function updateNominalAlokBank(idx,val){
+  alokasiBankTerpilih[idx].nominal=parseFloat(val)||0;
+  var total=alokasiBankTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
+  document.getElementById('totalAlokasiBankInfo').textContent='Total alokasi: '+fmtRupiah(total);
+}
+
+function hapusAlokasiBankTerpilih(idx){
+  alokasiBankTerpilih.splice(idx,1);
+  renderAlokasiBankTerpilih();
+}
+
+var alhSelectedId = null;
+function bukaAlokLegacyHutang(idBankStmt){
+  alhSelectedId = idBankStmt;
+  var r = bankStmtStore[idBankStmt] || {};
+  document.getElementById('alhModalInfo').innerHTML =
+    fmtTgl(r.tgl_transaksi)+' | '+esc(r.nama_rekening||'')+'<br>'+
+    '<span style="font-size:.7rem">'+esc(r.keterangan_bank||'')+'</span><br>'+
+    'Sisa: '+fmtRupiah(r.sisa_nominal||0);
+  document.getElementById('alhKeterangan').value = '';
+  document.getElementById('alhErr').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('modalAlokLegacyHutang')).show();
+}
+
+async function simpanAlokLegacyHutang(){
+  var ket = document.getElementById('alhKeterangan').value.trim();
+  var elErr = document.getElementById('alhErr');
+  var btn = document.getElementById('alhSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!ket) { elErr.textContent = 'Keterangan wajib diisi.'; elErr.style.display = ''; return; }
+  if (!confirm('Tutup baris bank ini tanpa nota? Pastikan ini memang transfer terkait saldo hutang lama yang sudah LUNAS di data migrasi.')) return;
+
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var res = await dbRpc('alokasi_direktur_legacy', {
+    p_id_bank_stmt: alhSelectedId,
+    p_keterangan: ket,
+    p_user: getNamaUser()
+  });
+  btn.disabled = false; btn.textContent = 'Simpan';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalAlokLegacyHutang')).hide();
+  muatAlokasiBankList();
+}
+
+function bukaAlokasiBank(idBankStmt){
+  bankStmtAktif=bankStmtStore[idBankStmt]||null;
+  if(!bankStmtAktif){alert('Data transfer bank tidak ditemukan, muat ulang halaman.');return;}
+  document.getElementById('alertAlokasiBank').innerHTML='';
+  document.getElementById('infoBarAlokBank').textContent=
+    fmtTgl(bankStmtAktif.tgl_transaksi)+' | '+esc(bankStmtAktif.nama_rekening||'')+
+    ' | '+esc(bankStmtAktif.kategori)+' | Nominal: '+fmtRupiah(bankStmtAktif.nominal)+
+    ' | Sisa: '+fmtRupiah(bankStmtAktif.sisa_nominal)+
+    ' | '+esc(bankStmtAktif.keterangan_bank||'');
+  document.getElementById('inpCariNotaAlokBank').value='';
+  document.getElementById('daftarNotaAlokBankWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama supplier untuk melihat nota.</div>';
+  document.getElementById('totalCentangAlokBank').textContent='';
+  alokasiBankTerpilih=[];
+  renderAlokasiBankTerpilih();
+  new bootstrap.Modal(document.getElementById('modalAlokasiBank')).show();
+}
+
+async function submitAlokasiBank(btn){
+  var elErr=document.getElementById('alertAlokasiBank');
+  elErr.innerHTML='';
+  if(!bankStmtAktif||!bankStmtAktif.id){
+    showAlert('alertAlokasiBank','Data transfer bank tidak valid — tutup modal dan coba lagi.');return;
+  }
+  var detail=[];
+  alokasiBankTerpilih.forEach(function(a){
+    var nominal=parseFloat(a.nominal)||0;
+    if(nominal>0) detail.push({id_pembelian:a.id_pembelian,nominal_alokasi:nominal});
+  });
+  if(!detail.length){showAlert('alertAlokasiBank','Pilih minimal 1 nota dan isi nominal.');return;}
+  var total=detail.reduce(function(s,a){return s+a.nominal_alokasi;},0);
+  if(total>Number(bankStmtAktif.sisa_nominal||0)){
+    showAlert('alertAlokasiBank','Total alokasi ('+fmtRupiah(total)+') melebihi sisa nominal bank ('+fmtRupiah(bankStmtAktif.sisa_nominal)+').');
+    return;
+  }
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var res=await dbRpc('alokasi_transfer_ke_hutang',{
+      p_id_bank_stmt:bankStmtAktif.id,
+      p_detail:detail,
+      p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    if(res && res.status==='error') throw new Error(res.message);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalAlokasiBank')).hide();
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertAlokasiBank','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Alokasi';
+  }
+}
+
+function gantiTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+}
+
+// ============================================================
+// REKAP
+// ============================================================
+function muatRekapCards(){
+  dbRpc('get_rekap_hutang',{p_id_supplier:null,p_status:null}).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    var totalOutstanding=0, belumLunas=0, sebagianBayar=0, menungguKonf=0;
+    data.forEach(function(r){
+      if(r.status_hutang!=='LUNAS') totalOutstanding+=Number(r.sisa_hutang);
+      if(r.status_hutang==='BELUM_LUNAS') belumLunas++;
+      if(r.status_hutang==='SEBAGIAN_BAYAR') sebagianBayar++;
+      if(r.status_hutang==='MENUNGGU_KONFIRMASI') menungguKonf++;
+    });
+    var cards=document.getElementById('rekapCards').querySelectorAll('.val');
+    cards[0].textContent=fmtRupiah(totalOutstanding);
+    cards[1].textContent=belumLunas+' nota';
+    cards[2].textContent=sebagianBayar+' nota';
+    cards[3].textContent=menungguKonf+' nota';
+  });
+}
+
+function resetFilterRekap(){
+  document.getElementById('rkSupplier').value='';
+  document.getElementById('rkStatus').value='';
+  document.getElementById('rkCari').value='';
+  muatRekap();
+}
+
+var semuaRekap=[];
+function muatRekap(){
+  var idSup=document.getElementById('rkSupplier').value||null;
+  var status=document.getElementById('rkStatus').value||null;
+  var tbody=document.getElementById('rekapTbody');
+  tbody.innerHTML='<tr><td colspan="8" class="loading">Memuat…</td></tr>';
+  dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:status}).then(function(res){
+    semuaRekap=Array.isArray(res)?res:[];
+    renderRekap();
+  });
+}
+function renderRekap(){
+  var tbody=document.getElementById('rekapTbody');
+  var q=(document.getElementById('rkCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaRekap.filter(function(r){
+    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
+  }):semuaRekap;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="9" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada data.')+'</td></tr>'; return; }
+  rekapStore={};
+  data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
+  tbody.innerHTML=data.map(function(r){
+      var stCls='s-'+r.status_hutang.toLowerCase();
+      var aksiHtml=r.boleh_edit
+        ? '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;margin-right:.3rem" onclick="bukaEditPembelian(\''+r.id_pembelian+'\')">Edit</button>'+
+          '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;color:var(--red)" onclick="bukaVoidPembelian(\''+r.id_pembelian+'\')">Void</button>'
+        : '<span style="font-size:.68rem;color:var(--muted)" title="Sudah ada pembayaran/alokasi/faktur — pakai Nota Debit/Kredit">—</span>';
+      return '<tr>'+
+        '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+        '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
+        '<td>'+esc(r.nama_supplier)+'</td>'+
+        '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(r.total_tagihan)+'</td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(r.total_dibayar)+'</td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(r.sisa_hutang)+'</td>'+
+        '<td><span class="badge-status '+stCls+'">'+esc(r.status_hutang)+'</span></td>'+
+        '<td>'+aksiHtml+'</td>'+
+      '</tr>';
+  }).join('');
+}
+
+// ============================================================
+// INPUT PEMBELIAN
+// ============================================================
+var itemBaris=[];
+
+function inisAcSupplier(){
+  var inp=document.getElementById('inpCariSupplier');
+  var drop=document.getElementById('acSupplierDrop');
+  if(inp._acInited)return;
+  inp._acInited=true;
+  buatAC(inp,drop,cacheSupplier,'id_supplier','nama',function(s){
+    document.getElementById('inpIdSupplier').value=s.id_supplier;
+  });
+}
+
+function toggleFieldPPN(){
+  var ada=document.getElementById('inpAdaPPN').checked;
+  document.getElementById('wrapModePPN').style.display=ada?'block':'none';
+  document.getElementById('infoKalkulasiPPN').style.display=ada?'block':'none';
+  updateKalkulasiPPN();
+}
+
+// Dipanggil tiap kali jumlah/harga item, diskon, atau mode PPN berubah.
+// Murni hitung & tampilkan — tidak menyimpan apa pun ke server di sini.
+function updateKalkulasiPPN(){
+  var adaPPN=document.getElementById('inpAdaPPN').checked;
+  if(!adaPPN) return;
+
+  var subtotal=itemBaris.reduce(function(s,it){
+    return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));
+  },0);
+  var diskon=parseFloat(document.getElementById('inpDiskonNota').value)||0;
+  var setelahDiskon=Math.max(0, subtotal-diskon);
+  var mode=document.getElementById('inpModePPN').value;
+
+  var dpp,ppn,total;
+  if(mode==='DPP'){
+    dpp=setelahDiskon;
+    ppn=Math.round(dpp*0.11);
+    total=dpp+ppn;
+  }else{
+    dpp=Math.round(setelahDiskon/1.11);
+    ppn=setelahDiskon-dpp;
+    total=setelahDiskon;
+  }
+
+  document.getElementById('kalkSubtotal').textContent=fmtRupiah(subtotal);
+  document.getElementById('kalkSetelahDiskon').textContent=fmtRupiah(setelahDiskon);
+  document.getElementById('kalkDPP').textContent=fmtRupiah(dpp);
+  document.getElementById('kalkPPN').textContent=fmtRupiah(ppn);
+  document.getElementById('kalkTotal').textContent=fmtRupiah(total);
+}
+
+function bukaInputPembelian(){
+  document.getElementById('frmInputPembelian').reset();
+  document.getElementById('alertModalInput').innerHTML='';
+  document.getElementById('inpTglPembelian').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpIdSupplier').value='';
+  document.getElementById('inpDiskonNota').value='0';
+  document.getElementById('inpModePPN').value='DPP';
+  toggleFieldPPN();
+  itemBaris=[];
+  tambahBarisItem();
+  new bootstrap.Modal(document.getElementById('modalInputPembelian')).show();
+}
+
+function tambahBarisItem(){
+  itemBaris.push({id_akun:'',nama_item_nota:'',jumlah:'',satuan:'',harga_satuan:'',konversi_lembar:'1',alokasi:[]});
+  renderItemBaris();
+}
+
+function hapusBarisItem(idx){
+  itemBaris.splice(idx,1);
+  renderItemBaris();
+}
+
+function tambahBarisAlokasi(idxItem){
+  itemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',keterangan:''});
+  renderItemBaris();
+}
+
+function hapusBarisAlokasi(idxItem,idxAlokasi){
+  itemBaris[idxItem].alokasi.splice(idxAlokasi,1);
+  renderItemBaris();
+}
+
+// Update angka TANPA render ulang DOM — supaya fokus input tidak hilang
+// saat mengetik. Hanya update data model + label hasil via textContent.
+function updateAlokasiBaris(idxItem,idxAlokasi,field,val){
+  itemBaris[idxItem].alokasi[idxAlokasi][field]=val;
+  if(field==='pps_per_lembar'){
+    var it=itemBaris[idxItem];
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    var totalLembar=jumlahItem*konversi;
+    var qtyHasil=totalLembar*(parseFloat(val)||0);
+    var lbl=document.getElementById('hasilPcs_'+idxItem+'_'+idxAlokasi);
+    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+  }
+}
+
+function renderItemBaris(){
+  var wrap=document.getElementById('itemPembelianWrap');
+  function buatOpsi(arr, idKey, namaKey, selectedVal, placeholder){
+    var html='<option value="">'+placeholder+'</option>';
+    arr.forEach(function(d){
+      var sel = (selectedVal && d[idKey]===selectedVal) ? ' selected' : '';
+      html += '<option value="'+d[idKey]+'"'+sel+'>'+esc(d[namaKey])+'</option>';
+    });
+    return html;
+  }
+
+  wrap.innerHTML=itemBaris.map(function(it,i){
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    var totalLembar=jumlahItem*konversi;
+
+    var alokasiHtml=it.alokasi.map(function(a,ai){
+      var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+      var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||'';
+      return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+        '<div style="position:relative">'+
+          '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="add" data-idxitem="'+i+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
+          '<div id="hasilPcs_'+i+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
+        '</div>'+
+        '<div>'+
+          '<input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateAlokasiBaris('+i+','+ai+',\'pps_per_lembar\',this.value)"/>'+
+        '</div>'+
+        '<button type="button" onclick="hapusBarisAlokasi('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
+      '</div>';
+    }).join('');
+
+    return '<div class="item-row-form">'+
+      (itemBaris.length>1?'<button type="button" class="item-row-remove" onclick="hapusBarisItem('+i+')">✕</button>':'')+
+      '<div class="row g-2">'+
+        '<div class="col-6"><label class="form-label" style="font-size:.7rem">Kategori (AKUN) *</label>'+
+          '<select class="form-select form-select-sm" onchange="updateItemBarisStruktural('+i+',\'id_akun\',this.value)">'+
+            buatOpsi(cacheAkun,'id_akun','nama_akun',it.id_akun,'— pilih —')+
+          '</select></div>'+
+        '<div class="col-6"><label class="form-label" style="font-size:.7rem">Nama Item (sesuai nota) *</label>'+
+          '<input type="text" class="form-control form-control-sm" placeholder="mis. DC350 90X120" value="'+esc(it.nama_item_nota)+'" oninput="updateItemBaris('+i+',\'nama_item_nota\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Jumlah Beli *</label>'+
+          '<input type="number" class="form-control form-control-sm" value="'+it.jumlah+'" oninput="updateItemBaris('+i+',\'jumlah\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Satuan Beli *</label>'+
+          '<input type="text" class="form-control form-control-sm" placeholder="LBR/RIM/KG" value="'+esc(it.satuan)+'" oninput="updateItemBaris('+i+',\'satuan\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Harga Satuan *</label>'+
+          '<input type="number" class="form-control form-control-sm" value="'+it.harga_satuan+'" oninput="updateItemBaris('+i+',\'harga_satuan\',this.value)"/></div>'+
+      '</div>'+
+      '<div id="subtotalItem_'+i+'" style="text-align:right;font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.3rem;margin-bottom:.5rem">'+
+        'Subtotal: '+fmtRupiah(jumlahItem*(parseFloat(it.harga_satuan)||0))+
+      '</div>'+
+      '<div class="row g-2 align-items-end" style="margin-bottom:.5rem;padding:.4rem;background:#fff8ee;border:1px solid #f0dcb8;border-radius:6px">'+
+        '<div class="col-6"><label class="form-label" style="font-size:.68rem">Isi per Satuan Beli (dlm lembar)</label>'+
+          '<input type="number" step="any" class="form-control form-control-sm" value="'+it.konversi_lembar+'" oninput="updateKonversiLembar('+i+',this.value)"/>'+
+        '</div>'+
+        '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="totalLembarInfo_'+i+'">'+
+          'Total: '+fmtAngka(totalLembar)+' lembar'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:.68rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">'+
+        '↳ Hasil Potong / Alokasi Stok (opsional — kosongkan jika item ini non-stok, mis. ATK/jasa)'+
+      '</div>'+
+      alokasiHtml+
+      '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.3rem .6rem" onclick="tambahBarisAlokasi('+i+')">+ Tambah Hasil Potong</button>'+
+    '</div>';
+  }).join('');
+  updateTotalItem();
+  updateKalkulasiPPN();
+  attachBahanAcHandlers();
+}
+
+// Isi per satuan beli (mis. 1 RIM = 500 lembar) — dipakai utk hitung Total Lembar
+// yg jadi dasar perhitungan hasil potong (qty_hasil = total_lembar x pps_per_lembar).
+// Default 1 = tidak ada konversi (jumlah dianggap sudah dlm satuan lembar, perilaku lama).
+function updateKonversiLembar(idx,val){
+  itemBaris[idx].konversi_lembar=val;
+  var it=itemBaris[idx];
+  var jumlahItem=parseFloat(it.jumlah)||0;
+  var konversi=parseFloat(it.konversi_lembar)||1;
+  var totalLembar=jumlahItem*konversi;
+  var elTotal=document.getElementById('totalLembarInfo_'+idx);
+  if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
+  it.alokasi.forEach(function(a,ai){
+    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var lbl=document.getElementById('hasilPcs_'+idx+'_'+ai);
+    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+  });
+}
+
+// Dipanggil dari dropdown (onchange) — boleh render ulang penuh, krn
+// dropdown sendiri tidak kehilangan fokus saat re-render (beda dgn ketik).
+function updateItemBarisStruktural(idx,field,val){
+  itemBaris[idx][field]=val;
+  renderItemBaris();
+}
+function updateAlokasiBarisStruktural(idxItem,idxAlokasi,field,val){
+  itemBaris[idxItem].alokasi[idxAlokasi][field]=val;
+  renderItemBaris();
+}
+
+// Dipanggil dari text/number input (oninput) — TIDAK render ulang DOM,
+// supaya fokus & posisi kursor tidak hilang saat mengetik. Update angka
+// turunan (subtotal/hasil pcs) langsung lewat textContent.
+function updateItemBaris(idx,field,val){
+  itemBaris[idx][field]=val;
+  if(field==='jumlah'||field==='harga_satuan'){
+    var it=itemBaris[idx];
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var subtotal=jumlahItem*(parseFloat(it.harga_satuan)||0);
+    var elSub=document.getElementById('subtotalItem_'+idx);
+    if(elSub) elSub.textContent='Subtotal: '+fmtRupiah(subtotal);
+
+    // jumlah berubah -> total lembar & semua "hasil pcs" di alokasi item ini ikut berubah
+    if(field==='jumlah'){
+      var konversi=parseFloat(it.konversi_lembar)||1;
+      var totalLembar=jumlahItem*konversi;
+      var elTotal=document.getElementById('totalLembarInfo_'+idx);
+      if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
+      it.alokasi.forEach(function(a,ai){
+        var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+        var lbl=document.getElementById('hasilPcs_'+idx+'_'+ai);
+        if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+      });
+    }
+    updateTotalItem();
+    updateKalkulasiPPN();
+  }
+}
+
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
+
+function updateTotalItem(){
+  var total=itemBaris.reduce(function(s,it){return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));},0);
+  document.getElementById('totalItemInfo').textContent='Subtotal: '+fmtRupiah(total);
+}
+
+async function submitInputPembelian(btn){
+  var noNota=document.getElementById('inpNoNota').value.trim();
+  var tgl=document.getElementById('inpTglPembelian').value;
+  var idSupplier=document.getElementById('inpIdSupplier').value;
+  var entitas=document.getElementById('inpEntitasPembelian').value;
+  var adaPPN=document.getElementById('inpAdaPPN').checked;
+  var modePPN=document.getElementById('inpModePPN').value;
+  var diskonNota=parseFloat(document.getElementById('inpDiskonNota').value)||0;
+  var ket=document.getElementById('inpKetPembelian').value.trim();
+
+  if(!noNota){showAlert('alertModalInput','No. nota wajib diisi.');return;}
+  if(!idSupplier){showAlert('alertModalInput','Pilih supplier dari daftar (ketik nama, lalu klik hasil pencarian).');return;}
+  if(!tgl){showAlert('alertModalInput','Tanggal wajib diisi.');return;}
+  if(diskonNota<0){showAlert('alertModalInput','Diskon tidak boleh negatif.');return;}
+
+  var itemsValid=itemBaris.filter(function(it){return it.id_akun&&it.nama_item_nota&&it.jumlah&&it.satuan&&it.harga_satuan;});
+  if(!itemsValid.length){showAlert('alertModalInput','Minimal 1 item lengkap (kategori, nama, jumlah, satuan, harga).');return;}
+
+  var subtotalCek=itemsValid.reduce(function(s,it){return s+(parseFloat(it.jumlah)*parseFloat(it.harga_satuan));},0);
+  if(diskonNota>subtotalCek){showAlert('alertModalInput','Diskon melebihi subtotal item.');return;}
+
+  // Validasi alokasi: kalau ada baris alokasi diisi sebagian (mis. pilih bahan tapi pps kosong), tolak
+  for(var i=0;i<itemsValid.length;i++){
+    var alokasiTidakLengkap=(itemsValid[i].alokasi||[]).some(function(a){
+      return (a.id_bahan && !a.pps_per_lembar) || (!a.id_bahan && a.pps_per_lembar);
+    });
+    if(alokasiTidakLengkap){
+      showAlert('alertModalInput','Ada baris hasil potong yang belum lengkap (bahan jadi & pps/lembar harus diisi keduanya).');
+      return;
+    }
+  }
+
+  var supplierObj=cacheSupplier.find(function(s){return s.id_supplier===idSupplier;});
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var idPbl='PBL'+Date.now();
+    var res=await dbRpc('buat_pembelian',{
+      p_id_pembelian:idPbl,
+      p_no_nota:noNota,
+      p_no_faktur:null,
+      p_tgl_pembelian:tgl+'T00:00:00+07:00',
+      p_id_supplier:idSupplier,
+      p_nama_supplier:supplierObj?supplierObj.nama:'',
+      p_entitas:entitas,
+      p_ada_ppn:adaPPN,
+      p_mode_ppn:adaPPN?modePPN:null,
+      p_diskon_nota:diskonNota,
+      p_keterangan:ket||null,
+      p_user_input:getNamaUser(),
+      p_items:itemsValid.map(function(it){
+        var jumlahNum=parseFloat(it.jumlah);
+        var konversi=parseFloat(it.konversi_lembar)||1;
+        return {
+          id_akun:it.id_akun, nama_item_nota:it.nama_item_nota,
+          jumlah:jumlahNum, satuan:it.satuan, harga_satuan:parseFloat(it.harga_satuan),
+          jumlah_lembar: jumlahNum*konversi,
+          alokasi:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;}).map(function(a){
+            return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+          })
+        };
+      })
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+
+    bootstrap.Modal.getInstance(document.getElementById('modalInputPembelian')).hide();
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertModalInput','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Pembelian';
+  }
+}
+
+var semuaInput=[];
+function muatInputList(){
+  dbGet('in_pembelian',{select:'*',order:'tgl_pembelian.desc',limit:100}).then(function(res){
+    semuaInput=Array.isArray(res)?res:[];
+    renderInputList();
+  });
+}
+function renderInputList(){
+  var tbody=document.getElementById('inputTbody');
+  var q=(document.getElementById('inputCari')||{value:''}).value.trim().toLowerCase();
+  var data=q?semuaInput.filter(function(r){
+    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
+  }):semuaInput;
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">'+(q?'Tidak ada hasil pencarian.':'Belum ada data.')+'</td></tr>'; return; }
+  tbody.innerHTML=data.map(function(r){
+    return '<tr>'+
+      '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
+      '<td>'+esc(r.nama_supplier)+'</td>'+
+      '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.subtotal)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.ppn)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.total_tagihan)+'</td>'+
+    '</tr>';
+  }).join('');
+}
+</script>
+
+<script>
+// ============================================================
+// EDIT & VOID NOTA PEMBELIAN
+// ============================================================
+var rekapStore={};       // id_pembelian -> row rekap (utk isi nama nota di modal void)
+var editItemBaris=[];    // sama struktur itemBaris + id_pbldet (null=baris baru)
+var editIdPembelian=null;
+
+function inisAcSupplierEdit(){
+  var inp=document.getElementById('editCariSupplier');
+  var drop=document.getElementById('acSupplierEditDrop');
+  if(inp._acInited)return;
+  inp._acInited=true;
+  buatAC(inp,drop,cacheSupplier,'id_supplier','nama',function(s){
+    document.getElementById('editIdSupplier').value=s.id_supplier;
+  });
+}
+
+function toggleFieldPPNEdit(){
+  var ada=document.getElementById('editAdaPPN').checked;
+  document.getElementById('editWrapModePPN').style.display=ada?'block':'none';
+  document.getElementById('editInfoKalkulasiPPN').style.display=ada?'block':'none';
+  updateKalkulasiPPNEdit();
+}
+
+function updateKalkulasiPPNEdit(){
+  var adaPPN=document.getElementById('editAdaPPN').checked;
+  if(!adaPPN) return;
+  var subtotal=editItemBaris.reduce(function(s,it){
+    return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));
+  },0);
+  var diskon=parseFloat(document.getElementById('editDiskonNota').value)||0;
+  var setelahDiskon=Math.max(0, subtotal-diskon);
+  var mode=document.getElementById('editModePPN').value;
+  var dpp,ppn,total;
+  if(mode==='DPP'){ dpp=setelahDiskon; ppn=Math.round(dpp*0.11); total=dpp+ppn; }
+  else{ dpp=Math.round(setelahDiskon/1.11); ppn=setelahDiskon-dpp; total=setelahDiskon; }
+  document.getElementById('editKalkSubtotal').textContent=fmtRupiah(subtotal);
+  document.getElementById('editKalkSetelahDiskon').textContent=fmtRupiah(setelahDiskon);
+  document.getElementById('editKalkDPP').textContent=fmtRupiah(dpp);
+  document.getElementById('editKalkPPN').textContent=fmtRupiah(ppn);
+  document.getElementById('editKalkTotal').textContent=fmtRupiah(total);
+}
+
+async function bukaEditPembelian(idPembelian){
+  document.getElementById('frmEditPembelian').reset();
+  document.getElementById('alertModalEdit').innerHTML='';
+  editIdPembelian=idPembelian;
+  var m=new bootstrap.Modal(document.getElementById('modalEditPembelian'));
+  m.show();
+  document.getElementById('editItemPembelianWrap').innerHTML='<div class="loading">Memuat…</div>';
+
+  var res=await dbRpc('get_pembelian_detail',{p_id_pembelian:idPembelian});
+  var errMsg=cekErrorSupabase(res);
+  if(errMsg || !res || res.status==='error'){
+    showAlert('alertModalEdit','Gagal memuat data: '+(errMsg||(res&&res.message)||'unknown'));
+    return;
+  }
+  var h=res.header, details=res.details||[];
+
+  document.getElementById('editNoNota').value=h.no_nota||'';
+  document.getElementById('editTglPembelian').value=(h.tgl_pembelian||'').slice(0,10);
+  document.getElementById('editIdSupplier').value=h.id_supplier||'';
+  document.getElementById('editCariSupplier').value=h.nama_supplier||'';
+  document.getElementById('editAdaPPN').checked=!!h.ada_ppn;
+  document.getElementById('editModePPN').value=h.mode_ppn||'DPP';
+  document.getElementById('editDiskonNota').value=h.diskon_nota||0;
+  document.getElementById('editKetPembelian').value=h.keterangan||'';
+  toggleFieldPPNEdit();
+
+  editItemBaris=details.map(function(d){
+    return {
+      id_pbldet:d.id_pbldet, id_akun:d.id_akun, nama_item_nota:d.nama_item_nota,
+      jumlah:d.jumlah, satuan:d.satuan, harga_satuan:d.harga_satuan,
+      // Data lama tidak menyimpan konversi terpisah — default 1 (anggap jumlah = lembar,
+      // perilaku lama). Admin bisa koreksi manual di sini kalau nota itu sebenarnya RIM dll.
+      konversi_lembar:'1',
+      alokasi:(d.alokasi||[]).map(function(a){return {id_bahan:a.id_bahan, pps_per_lembar:a.pps_per_lembar, keterangan:a.keterangan||''};})
+    };
+  });
+  window._editIdAwal=details.map(function(d){return d.id_pbldet;});
+  renderItemBarisEdit();
+  inisAcSupplierEdit();
+}
+
+function tambahBarisItemEdit(){
+  editItemBaris.push({id_pbldet:null,id_akun:'',nama_item_nota:'',jumlah:'',satuan:'',harga_satuan:'',konversi_lembar:'1',alokasi:[]});
+  renderItemBarisEdit();
+}
+function hapusBarisItemEdit(idx){
+  editItemBaris.splice(idx,1);
+  renderItemBarisEdit();
+}
+function tambahBarisAlokasiEdit(idxItem){
+  editItemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',keterangan:''});
+  renderItemBarisEdit();
+}
+function hapusBarisAlokasiEdit(idxItem,idxAlokasi){
+  editItemBaris[idxItem].alokasi.splice(idxAlokasi,1);
+  renderItemBarisEdit();
+}
+function updateAlokasiBarisEdit(idxItem,idxAlokasi,field,val){
+  editItemBaris[idxItem].alokasi[idxAlokasi][field]=val;
+  if(field==='pps_per_lembar'){
+    var it=editItemBaris[idxItem];
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    var totalLembar=jumlahItem*konversi;
+    var qtyHasil=totalLembar*(parseFloat(val)||0);
+    var lbl=document.getElementById('editHasilPcs_'+idxItem+'_'+idxAlokasi);
+    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+  }
+}
+function updateAlokasiBarisStrukturalEdit(idxItem,idxAlokasi,field,val){
+  editItemBaris[idxItem].alokasi[idxAlokasi][field]=val;
+  renderItemBarisEdit();
+}
+function updateItemBarisStrukturalEdit(idx,field,val){
+  editItemBaris[idx][field]=val;
+  renderItemBarisEdit();
+}
+function updateItemBarisEdit(idx,field,val){
+  editItemBaris[idx][field]=val;
+  if(field==='jumlah'||field==='harga_satuan'){
+    var it=editItemBaris[idx];
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var subtotal=jumlahItem*(parseFloat(it.harga_satuan)||0);
+    var elSub=document.getElementById('editSubtotalItem_'+idx);
+    if(elSub) elSub.textContent='Subtotal: '+fmtRupiah(subtotal);
+    if(field==='jumlah'){
+      var konversi=parseFloat(it.konversi_lembar)||1;
+      var totalLembar=jumlahItem*konversi;
+      var elTotal=document.getElementById('editTotalLembarInfo_'+idx);
+      if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
+      it.alokasi.forEach(function(a,ai){
+        var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+        var lbl=document.getElementById('editHasilPcs_'+idx+'_'+ai);
+        if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+      });
+    }
+    updateTotalItemEdit();
+    updateKalkulasiPPNEdit();
+  }
+}
+
+function updateKonversiLembarEdit(idx,val){
+  editItemBaris[idx].konversi_lembar=val;
+  var it=editItemBaris[idx];
+  var jumlahItem=parseFloat(it.jumlah)||0;
+  var konversi=parseFloat(it.konversi_lembar)||1;
+  var totalLembar=jumlahItem*konversi;
+  var elTotal=document.getElementById('editTotalLembarInfo_'+idx);
+  if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
+  it.alokasi.forEach(function(a,ai){
+    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var lbl=document.getElementById('editHasilPcs_'+idx+'_'+ai);
+    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+  });
+}
+function updateTotalItemEdit(){
+  var total=editItemBaris.reduce(function(s,it){return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));},0);
+  document.getElementById('editTotalItemInfo').textContent='Subtotal: '+fmtRupiah(total);
+}
+
+function renderItemBarisEdit(){
+  var wrap=document.getElementById('editItemPembelianWrap');
+  function buatOpsi(arr, idKey, namaKey, selectedVal, placeholder){
+    var html='<option value="">'+placeholder+'</option>';
+    arr.forEach(function(d){
+      var sel = (selectedVal && d[idKey]===selectedVal) ? ' selected' : '';
+      html += '<option value="'+d[idKey]+'"'+sel+'>'+esc(d[namaKey])+'</option>';
+    });
+    return html;
+  }
+  wrap.innerHTML=editItemBaris.map(function(it,i){
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    var totalLembar=jumlahItem*konversi;
+    var alokasiHtml=it.alokasi.map(function(a,ai){
+      var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+      var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||'';
+      return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+        '<div style="position:relative">'+
+          '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="edit" data-idxitem="'+i+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
+          '<div id="editHasilPcs_'+i+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
+        '</div>'+
+        '<div><input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateAlokasiBarisEdit('+i+','+ai+',\'pps_per_lembar\',this.value)"/></div>'+
+        '<button type="button" onclick="hapusBarisAlokasiEdit('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
+      '</div>';
+    }).join('');
+    return '<div class="item-row-form">'+
+      (editItemBaris.length>1?'<button type="button" class="item-row-remove" onclick="hapusBarisItemEdit('+i+')">✕</button>':'')+
+      (it.id_pbldet?'<div style="font-size:.62rem;color:var(--muted);font-family:var(--mono);margin-bottom:.2rem">baris existing: '+esc(it.id_pbldet)+'</div>':'<div style="font-size:.62rem;color:var(--navy);font-family:var(--mono);margin-bottom:.2rem">baris baru</div>')+
+      '<div class="row g-2">'+
+        '<div class="col-6"><label class="form-label" style="font-size:.7rem">Kategori (AKUN) *</label>'+
+          '<select class="form-select form-select-sm" onchange="updateItemBarisStrukturalEdit('+i+',\'id_akun\',this.value)">'+
+            buatOpsi(cacheAkun,'id_akun','nama_akun',it.id_akun,'— pilih —')+
+          '</select></div>'+
+        '<div class="col-6"><label class="form-label" style="font-size:.7rem">Nama Item (sesuai nota) *</label>'+
+          '<input type="text" class="form-control form-control-sm" value="'+esc(it.nama_item_nota)+'" oninput="updateItemBarisEdit('+i+',\'nama_item_nota\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Jumlah Beli *</label>'+
+          '<input type="number" class="form-control form-control-sm" value="'+it.jumlah+'" oninput="updateItemBarisEdit('+i+',\'jumlah\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Satuan Beli *</label>'+
+          '<input type="text" class="form-control form-control-sm" value="'+esc(it.satuan)+'" oninput="updateItemBarisEdit('+i+',\'satuan\',this.value)"/></div>'+
+        '<div class="col-4"><label class="form-label" style="font-size:.7rem">Harga Satuan *</label>'+
+          '<input type="number" class="form-control form-control-sm" value="'+it.harga_satuan+'" oninput="updateItemBarisEdit('+i+',\'harga_satuan\',this.value)"/></div>'+
+      '</div>'+
+      '<div id="editSubtotalItem_'+i+'" style="text-align:right;font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.3rem;margin-bottom:.5rem">'+
+        'Subtotal: '+fmtRupiah(jumlahItem*(parseFloat(it.harga_satuan)||0))+
+      '</div>'+
+      '<div class="row g-2 align-items-end" style="margin-bottom:.5rem;padding:.4rem;background:#fff8ee;border:1px solid #f0dcb8;border-radius:6px">'+
+        '<div class="col-6"><label class="form-label" style="font-size:.68rem">Isi per Satuan Beli (dlm lembar)</label>'+
+          '<input type="number" step="any" class="form-control form-control-sm" value="'+it.konversi_lembar+'" oninput="updateKonversiLembarEdit('+i+',this.value)"/>'+
+        '</div>'+
+        '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="editTotalLembarInfo_'+i+'">'+
+          'Total: '+fmtAngka(totalLembar)+' lembar'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:.68rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">'+
+        '↳ Hasil Potong / Alokasi Stok'+
+      '</div>'+
+      alokasiHtml+
+      '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.3rem .6rem" onclick="tambahBarisAlokasiEdit('+i+')">+ Tambah Hasil Potong</button>'+
+    '</div>';
+  }).join('');
+  updateTotalItemEdit();
+  updateKalkulasiPPNEdit();
+  attachBahanAcHandlers();
+}
+
+async function submitEditPembelian(btn){
+  var noNota=document.getElementById('editNoNota').value.trim();
+  var tgl=document.getElementById('editTglPembelian').value;
+  var idSupplier=document.getElementById('editIdSupplier').value;
+  var adaPPN=document.getElementById('editAdaPPN').checked;
+  var modePPN=document.getElementById('editModePPN').value;
+  var diskonNota=parseFloat(document.getElementById('editDiskonNota').value)||0;
+  var ket=document.getElementById('editKetPembelian').value.trim();
+
+  if(!noNota){showAlert('alertModalEdit','No. nota wajib diisi.');return;}
+  if(!idSupplier){showAlert('alertModalEdit','Pilih supplier dari daftar (ketik nama, lalu klik hasil pencarian).');return;}
+  if(!tgl){showAlert('alertModalEdit','Tanggal wajib diisi.');return;}
+  if(diskonNota<0){showAlert('alertModalEdit','Diskon tidak boleh negatif.');return;}
+
+  var itemsValid=editItemBaris.filter(function(it){return it.id_akun&&it.nama_item_nota&&it.jumlah&&it.satuan&&it.harga_satuan;});
+  if(!itemsValid.length){showAlert('alertModalEdit','Minimal 1 item lengkap (kategori, nama, jumlah, satuan, harga).');return;}
+
+  for(var i=0;i<itemsValid.length;i++){
+    var alokasiTidakLengkap=(itemsValid[i].alokasi||[]).some(function(a){
+      return (a.id_bahan && !a.pps_per_lembar) || (!a.id_bahan && a.pps_per_lembar);
+    });
+    if(alokasiTidakLengkap){
+      showAlert('alertModalEdit','Ada baris hasil potong yang belum lengkap (bahan jadi & pps/lembar harus diisi keduanya).');
+      return;
+    }
+  }
+
+  var supplierObj=cacheSupplier.find(function(s){return s.id_supplier===idSupplier;});
+
+  // baris yg ada di data awal tapi sudah tidak ada lagi di editItemBaris -> DELETE
+  var idAwal=[]; // ambil ulang dari server terakhir load via editItemBaris awal disimpan di dataset? simpan saat bukaEditPembelian
+  var idMasihAda=itemsValid.filter(function(it){return it.id_pbldet;}).map(function(it){return it.id_pbldet;});
+  var idDihapus=(window._editIdAwal||[]).filter(function(id){return idMasihAda.indexOf(id)===-1;});
+
+  var payloadDetails=itemsValid.map(function(it){
+    var jumlahNum=parseFloat(it.jumlah);
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    return {
+      aksi: it.id_pbldet?'UPDATE':'ADD',
+      id_pbldet: it.id_pbldet||null,
+      id_akun:it.id_akun, nama_item_nota:it.nama_item_nota,
+      jumlah:jumlahNum, satuan:it.satuan, harga_satuan:parseFloat(it.harga_satuan),
+      jumlah_lembar: jumlahNum*konversi,
+      alokasi:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;}).map(function(a){
+        return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+      })
+    };
+  }).concat(idDihapus.map(function(id){return {aksi:'DELETE', id_pbldet:id};}));
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    var res=await dbRpc('edit_pembelian',{
+      p_id_pembelian:editIdPembelian,
+      p_no_nota:noNota,
+      p_no_faktur:null,
+      p_tgl_pembelian:tgl+'T00:00:00+07:00',
+      p_id_supplier:idSupplier,
+      p_nama_supplier:supplierObj?supplierObj.nama:'',
+      p_diskon_nota:diskonNota,
+      p_ada_ppn:adaPPN,
+      p_mode_ppn:adaPPN?modePPN:null,
+      p_keterangan:ket||null,
+      p_details:payloadDetails,
+      p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalEditPembelian')).hide();
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertModalEdit','Gagal menyimpan: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Simpan Perubahan';
+  }
+}
+
+function bukaVoidPembelian(idPembelian){
+  var r=rekapStore[idPembelian];
+  document.getElementById('alertModalVoid').innerHTML='';
+  document.getElementById('voidIdPembelian').value=idPembelian;
+  document.getElementById('voidNoNota').textContent=r?r.no_nota:idPembelian;
+  document.getElementById('voidAlasan').value='';
+  new bootstrap.Modal(document.getElementById('modalVoidPembelian')).show();
+}
+
+async function submitVoidPembelian(btn){
+  var idPembelian=document.getElementById('voidIdPembelian').value;
+  var alasan=document.getElementById('voidAlasan').value.trim();
+  if(!alasan){showAlert('alertModalVoid','Alasan void wajib diisi.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Memproses…';
+  try{
+    var res=await dbRpc('void_pembelian',{
+      p_id_pembelian:idPembelian, p_alasan:alasan, p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    bootstrap.Modal.getInstance(document.getElementById('modalVoidPembelian')).hide();
+    muatSemuaData();
+  }catch(e){
+    showAlert('alertModalVoid','Gagal void: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Ya, Void Nota Ini';
+  }
+}
+
+// ============================================================
+// RIWAYAT VOID/EDIT (log audit)
+// ============================================================
+var riwayatStore={};
+
+function resetFilterRiwayat(){
+  document.getElementById('rwTglAwal').value='';
+  document.getElementById('rwTglAkhir').value='';
+  document.getElementById('rwAksi').value='';
+  document.getElementById('rwCari').value='';
+  muatRiwayat();
+}
+
+var semuaRiwayat=[];
+function muatRiwayat(){
+  var tglAwal=document.getElementById('rwTglAwal')?document.getElementById('rwTglAwal').value||null:null;
+  var tglAkhir=document.getElementById('rwTglAkhir')?document.getElementById('rwTglAkhir').value||null:null;
+  var tbody=document.getElementById('riwayatTbody');
+  if(!tbody) return;
+  tbody.innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+  dbRpc('get_log_audit_pembelian',{p_id_pembelian:null,p_tgl_awal:tglAwal,p_tgl_akhir:tglAkhir}).then(function(res){
+    semuaRiwayat=Array.isArray(res)?res:[];
+    renderRiwayat();
+  }).catch(function(){
+    tbody.innerHTML='<tr><td colspan="6" class="loading">Gagal memuat riwayat.</td></tr>';
+  });
+}
+function renderRiwayat(){
+  var tbody=document.getElementById('riwayatTbody');
+  if(!tbody) return;
+  var aksi=document.getElementById('rwAksi')?document.getElementById('rwAksi').value||null:null;
+  var q=(document.getElementById('rwCari')||{value:''}).value.trim().toLowerCase();
+  var data=semuaRiwayat;
+  if(aksi){ data=data.filter(function(r){return r.aksi===aksi;}); }
+  if(q){ data=data.filter(function(r){
+    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.user_input||'').toLowerCase().indexOf(q)>=0 ||
+           (r.keterangan||'').toLowerCase().indexOf(q)>=0;
+  }); }
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">Tidak ada data.</td></tr>'; return; }
+  riwayatStore={};
+  data.forEach(function(r){riwayatStore[r.id_log]=r;});
+  tbody.innerHTML=data.map(function(r){
+    var aksiCls=r.aksi==='VOID'?'color:var(--red)':'color:var(--navy)';
+    return '<tr>'+
+      '<td class="td-mono">'+fmtTgl(r.waktu)+'</td>'+
+      '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+      '<td style="'+aksiCls+';font-weight:600">'+esc(r.aksi)+'</td>'+
+      '<td>'+esc(r.user_input)+'</td>'+
+      '<td>'+esc(r.keterangan||'-')+'</td>'+
+      '<td><button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="tampilDetailAudit(\''+r.id_log+'\')">Detail</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function renderSnapshotWrap(snap){
+  if(!snap || !snap.header){ return '<div style="color:var(--muted);font-size:.78rem">- tidak ada data -</div>'; }
+  var h=snap.header, details=snap.details||[];
+  var html='<div style="font-family:var(--mono);font-size:.75rem;background:var(--bg);padding:.5rem;border-radius:6px;margin-bottom:.5rem">'+
+    '<div>No. Nota: <b>'+esc(h.no_nota||'-')+'</b></div>'+
+    '<div>Tanggal: '+fmtTgl(h.tgl_pembelian)+'</div>'+
+    '<div>Supplier: '+esc(h.nama_supplier||'-')+'</div>'+
+    '<div>Diskon: '+fmtRupiah(h.diskon_nota||0)+'</div>'+
+    '<div>DPP: '+fmtRupiah(h.dpp||0)+' | PPN: '+fmtRupiah(h.ppn||0)+'</div>'+
+    '<div>Total Tagihan: <b>'+fmtRupiah(h.total_tagihan||0)+'</b></div>'+
+    (h.is_void?'<div style="color:var(--red)">STATUS: VOID</div>':'')+
+  '</div>';
+  html+='<table style="width:100%;font-size:.72rem"><thead><tr>'+
+    '<th style="text-align:left">Item</th><th class="td-right">Jml</th><th class="td-right">Harga</th><th class="td-right">Subtotal</th>'+
+  '</tr></thead><tbody>'+
+  details.map(function(d){
+    return '<tr>'+
+      '<td>'+esc(d.nama_item_nota)+'</td>'+
+      '<td class="td-right">'+fmtAngka(d.jumlah)+' '+esc(d.satuan)+'</td>'+
+      '<td class="td-right">'+fmtRupiah(d.harga_satuan)+'</td>'+
+      '<td class="td-right">'+fmtRupiah(d.subtotal_item)+'</td>'+
+    '</tr>';
+  }).join('')+
+  '</tbody></table>';
+  return html;
+}
+
+function tampilDetailAudit(idLog){
+  var r=riwayatStore[idLog];
+  if(!r) return;
+  document.getElementById('auditInfoBar').textContent=
+    'Nota '+r.no_nota+' — aksi '+r.aksi+' oleh '+r.user_input+' pada '+fmtTgl(r.waktu)+
+    (r.keterangan?(' — "'+r.keterangan+'"'):'');
+  document.getElementById('auditSebelumWrap').innerHTML=renderSnapshotWrap(r.snapshot_sebelum);
+  document.getElementById('auditSesudahWrap').innerHTML=renderSnapshotWrap(r.snapshot_sesudah);
+  new bootstrap.Modal(document.getElementById('modalDetailAudit')).show();
+}
+</script>
+
+<script>
+// ============================================================
+// PEMBAYARAN HUTANG
+// ============================================================
+var alokasiHutangTerpilih=[]; // [{id_pembelian, no_nota, nama_supplier, sisa, nominal}]
+var kasKeluarStore={};
+var kasKeluarAktif=null;
+
+function inisAcSupplierBayar(){
+  var inp=document.getElementById('inpCariSupplierBayar');
+  var drop=document.getElementById('acSupplierBayarDrop');
+  if(inp._acInited)return;
+  inp._acInited=true;
+  buatAC(inp,drop,cacheSupplier,'id_supplier','nama',function(s){
+    muatNotaSupplierUtkBayar(s.id_supplier,s.nama);
+  });
+}
+
+function muatNotaSupplierUtkBayar(idSup,namaSup){
+  var wrap=document.getElementById('notaSupplierBayarWrap');
+  wrap.style.display='block';
+  wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota belum lunas milik '+esc(namaSup)+'…</div>';
+  dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:null}).then(function(res){
+    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>0;});
+    if(!data.length){
+      wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaSup)+' tidak punya nota outstanding.</div>';
+      return;
+    }
+    wrap.innerHTML='rn .val{color:var(--red);}
     .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);margin-bottom:.85rem;}
     .tab-btn{font-family:var(--mono);font-size:.75rem;font-weight:600;padding:.55rem 1rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
     .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
