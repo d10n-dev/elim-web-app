@@ -315,6 +315,19 @@
   </div></div>
 </div>
 
+<!-- MODAL: Detail Harian -->
+<div class="modal fade" id="modalDetailHarian" tabindex="-1">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulDetailHarian">Detail Harian</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+      <table class="sieo-tbl">
+        <thead><tr><th>Tanggal</th><th>Hari</th><th>Status</th><th>Masuk</th><th>Pulang</th><th>Keterangan</th><th></th></tr></thead>
+        <tbody id="tblDetailHarian"></tbody>
+      </table>
+    </div>
+  </div></div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/nav.js"></script>
@@ -852,7 +865,7 @@ async function muatHasil() {
       <td class="td-right td-mono">${formatRupiah(r.lembur_bonus_rp)}</td>
       <td class="td-right td-mono">${formatRupiah(r.bon_dipotong_rp)}</td>
       <td class="td-right td-mono">${r.persen_kinerja}%</td>
-      <td><button class="btn-sm-action btn-slip" onclick="lihatSlip('${r.nip}')">Slip</button></td>
+      <td><button class="btn-sm-action btn-slip" onclick="lihatSlip('${r.nip}')">Slip</button><button class="btn-sm-action btn-edit" onclick="lihatDetailHarian('${r.nip}','${escHtml(r.nama)}')">Detail</button></td>
     </tr>`).join('') || '<tr><td colspan="12" class="text-center text-muted">Belum ada hasil, tekan Hitung dulu</td></tr>';
 }
 
@@ -881,6 +894,48 @@ ${h.sisa_minus_rp > 0 ? '\n⚠ Sisa kurang ' + formatRupiah(h.sisa_minus_rp) + '
 function copySlip() {
   const teks = document.getElementById('isiSlip').textContent;
   navigator.clipboard.writeText(teks).then(() => alert('Teks slip disalin.'));
+}
+
+const NAMA_HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const BADGE_STATUS = {
+  HADIR: 'background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)',
+  LIBUR: 'background:#f0f2f6;color:var(--muted);border:1px solid var(--border)',
+  LIBUR_MASUK: 'background:#fff3cd;color:#856404;border:1px solid #ffe083',
+  CUTI: 'background:#e7f0ff;color:#1a56b0;border:1px solid #b6d0ff',
+  IZIN: 'background:#eef1f7;color:var(--navy);border:1px solid var(--border)',
+  ALPA: 'background:#fde9e9;color:var(--red);border:1px solid #f5b5bb'
+};
+
+async function lihatDetailHarian(nip, nama) {
+  if (!periodeAktif) return;
+  document.getElementById('judulDetailHarian').textContent = `Detail Harian — ${nama} (${nip})`;
+  const res = await dbRpc('get_detail_harian_gaji', { p_id_periode: periodeAktif.id_periode, p_nip: nip });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('tblDetailHarian').innerHTML = (res || []).map(r => {
+    const d = new Date(r.tanggal + 'T00:00:00');
+    const style = BADGE_STATUS[r.status] || '';
+    const tombolIzin = r.status === 'ALPA'
+      ? `<button class="btn-sm-action" onclick="alokasiIzinDariAlpa('${nip}','${r.tanggal}')">+ Izin</button>`
+      : '';
+    return `<tr>
+      <td class="td-mono">${formatTanggal(r.tanggal)}</td>
+      <td>${NAMA_HARI[d.getDay()]}</td>
+      <td><span style="${style};font-family:var(--mono);font-size:.65rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;">${r.status}</span></td>
+      <td class="td-mono">${r.jam_masuk || '-'}</td>
+      <td class="td-mono">${r.jam_pulang || '-'}</td>
+      <td style="font-size:.72rem">${escHtml(r.keterangan || '')}</td>
+      <td>${tombolIzin}</td>
+    </tr>`;
+  }).join('');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailHarian')).show();
+}
+
+function alokasiIzinDariAlpa(nip, tanggal) {
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailHarian')).hide();
+  gantiTab('tCuti');
+  document.getElementById('izinNip').value = nip;
+  document.getElementById('izinTanggal').value = tanggal;
+  document.getElementById('izinJumlah').focus();
 }
 
 async function finalisasiPeriode() {
