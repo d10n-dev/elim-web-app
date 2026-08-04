@@ -59,6 +59,7 @@ const NAV_MENU = [
       { key: 'pembelian', label: 'Pembelian',         icon: '🛒', href: 'pages/pembelian.html' },
       { key: 'laporan',   label: 'Laporan',           icon: '📈', href: 'pages/laporan.html' },
       { key: 'gajian', label: 'Gajian', icon: '💵', href: 'pages/gajian.html', role: ['DIREKTUR'] },
+      { key: 'slip_karyawan', label: 'Slip Gaji Saya', icon: '🧾', href: 'pages/slip_karyawan.html' },
     ]
   },
   {

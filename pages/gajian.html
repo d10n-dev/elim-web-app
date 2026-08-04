@@ -109,8 +109,8 @@
         <button class="btn-navy" onclick="bukaModalKaryawan()">+ Karyawan Baru</button>
       </div>
       <table class="sieo-tbl">
-        <thead><tr><th>NIP</th><th>Nama</th><th>Nama Lengkap</th><th>No Rek</th><th class="td-right">Gaji Pokok</th><th class="td-right">Bonus Dasar</th><th>Status</th><th></th></tr></thead>
-        <tbody id="tblKaryawan"><tr><td colspan="8" class="text-center text-muted">Memuat…</td></tr></tbody>
+        <thead><tr><th>NIP</th><th>Nama</th><th>Nama Lengkap</th><th>No Rek</th><th class="td-right">Gaji Pokok</th><th class="td-right">Bonus Dasar</th><th>Email Login</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tblKaryawan"><tr><td colspan="9" class="text-center text-muted">Memuat…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -304,6 +304,7 @@
         <div><label>No Rekening</label><input type="text" id="fkNoRek"></div>
         <div><label>Gaji Pokok Bulanan</label><input type="number" id="fkGajiPokok"></div>
         <div><label>Bonus Dasar</label><input type="number" id="fkBonusDasar"></div>
+        <div><label>Email Login (buat akses Slip Gaji Saya)</label><input type="email" id="fkEmailLogin" placeholder="opsional"></div>
       </div>
       <hr>
       <div class="form-grid" style="grid-template-columns:1fr 1fr;">
@@ -492,9 +493,10 @@ async function muatKaryawan() {
       <td class="td-mono">${k.no_rek || ''}</td>
       <td class="td-right td-mono">${formatRupiah(k.gaji_pokok_bulanan)}</td>
       <td class="td-right td-mono">${formatRupiah(k.bonus_dasar)}</td>
+      <td style="font-size:.7rem">${k.email_login ? escHtml(k.email_login) : '<span class="text-muted">—</span>'}</td>
       <td>${k.status === 'AKTIF' ? '<span class="badge-aktif">AKTIF</span>' : '<span class="badge-resign">RESIGN</span>'}</td>
       <td><button class="btn-sm-action btn-edit" onclick="bukaModalKaryawan('${k.nip}')">Edit</button></td>
-    </tr>`).join('') || '<tr><td colspan="8" class="text-center text-muted">Belum ada karyawan</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="9" class="text-center text-muted">Belum ada karyawan</td></tr>';
 
   // isi dropdown NIP di tab lain
   const opsi = daftarKaryawan.filter(k => k.status === 'AKTIF')
@@ -515,11 +517,12 @@ function bukaModalKaryawan(nip) {
     document.getElementById('fkNoRek').value = k.no_rek || '';
     document.getElementById('fkGajiPokok').value = k.gaji_pokok_bulanan;
     document.getElementById('fkBonusDasar').value = k.bonus_dasar;
+    document.getElementById('fkEmailLogin').value = k.email_login || '';
     document.getElementById('fkStatus').value = k.status;
     document.getElementById('fkTglResign').value = k.tgl_resign || '';
   } else {
     document.getElementById('judulModalKaryawan').textContent = 'Karyawan Baru';
-    ['fkNip','fkNama','fkNamaLengkap','fkNoRek','fkGajiPokok','fkBonusDasar','fkTglResign'].forEach(id => document.getElementById(id).value = '');
+    ['fkNip','fkNama','fkNamaLengkap','fkNoRek','fkGajiPokok','fkBonusDasar','fkEmailLogin','fkTglResign'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fkNip').disabled = false;
     document.getElementById('fkStatus').value = 'AKTIF';
   }
@@ -535,7 +538,8 @@ async function simpanKaryawanForm() {
     p_nama_lengkap: document.getElementById('fkNamaLengkap').value.trim(),
     p_no_rek: document.getElementById('fkNoRek').value.trim(),
     p_gaji_pokok: Number(document.getElementById('fkGajiPokok').value || 0),
-    p_bonus_dasar: Number(document.getElementById('fkBonusDasar').value || 0)
+    p_bonus_dasar: Number(document.getElementById('fkBonusDasar').value || 0),
+    p_email_login: document.getElementById('fkEmailLogin').value.trim()
   });
   if (res.status === 'error') { showAlert('alertKaryawan', res.message); return; }
 

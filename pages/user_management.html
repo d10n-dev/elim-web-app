@@ -22,6 +22,7 @@
     .role-admin{background:#e0f2f1;color:#00695c;}
     .role-sales{background:#fff3e0;color:#c45a00;}
     .role-operator{background:#f3e5f5;color:#6a1b9a;}
+    .role-karyawan{background:#fff8e1;color:#8a6d00;}
     .badge-status{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:4px;}
     .st-aktif{background:var(--green-bg);color:var(--green);}
     .st-pending{background:#fff9c4;color:#827717;}
@@ -83,13 +84,18 @@
         </div>
         <div>
           <label class="form-label">Role *</label>
-          <select class="form-select" id="approveRole">
+          <select class="form-select" id="approveRole" onchange="toggleApproveNip()">
             <option value="">— Pilih Role —</option>
             <option value="MANAGER">MANAGER</option>
             <option value="ADMIN">ADMIN</option>
             <option value="SALES">SALES</option>
             <option value="OPERATOR">OPERATOR</option>
+            <option value="KARYAWAN">KARYAWAN (akses Slip Gaji saja)</option>
           </select>
+        </div>
+        <div id="wrapApproveNip" style="display:none;margin-top:.75rem">
+          <label class="form-label">Hubungkan ke Data Karyawan (NIP) *</label>
+          <select class="form-select" id="approveNip"></select>
         </div>
       </div>
       <div class="modal-footer" style="justify-content:space-between">
@@ -140,12 +146,17 @@
         </div>
         <div>
           <label class="form-label">Role *</label>
-          <select class="form-select" id="aktifkanRole">
+          <select class="form-select" id="aktifkanRole" onchange="toggleAktifkanNip()">
             <option value="MANAGER">MANAGER</option>
             <option value="ADMIN">ADMIN</option>
             <option value="SALES">SALES</option>
             <option value="OPERATOR">OPERATOR</option>
+            <option value="KARYAWAN">KARYAWAN (akses Slip Gaji saja)</option>
           </select>
+        </div>
+        <div id="wrapAktifkanNip" style="display:none;margin-top:.75rem">
+          <label class="form-label">Hubungkan ke Data Karyawan (NIP) *</label>
+          <select class="form-select" id="aktifkanNip"></select>
         </div>
       </div>
       <div class="modal-footer" style="justify-content:space-between">
@@ -209,6 +220,35 @@ document.addEventListener('DOMContentLoaded',function(){
 function esc(s){return escHtml(s);}
 function fmtTgl(v){if(!v)return'—';var d=new Date(v);return isNaN(d)?String(v):d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});}
 
+var cacheKaryawanGaji=null;
+function muatKaryawanGajiUntukPilihan(){
+  if(cacheKaryawanGaji) return Promise.resolve(cacheKaryawanGaji);
+  return dbGet('m_karyawan_gaji',{order:'nama.asc'}).then(function(res){
+    cacheKaryawanGaji = (res && !res.code) ? res : [];
+    return cacheKaryawanGaji;
+  });
+}
+function opsiKaryawanHtml(list){
+  return '<option value="">— Pilih Karyawan —</option>' +
+    list.map(function(k){return '<option value="'+esc(k.nip)+'">'+esc(k.nip)+' — '+esc(k.nama_lengkap||k.nama)+(k.email_login?' (sudah terhubung: '+esc(k.email_login)+')':'')+'</option>';}).join('');
+}
+function toggleApproveNip(){
+  var role=document.getElementById('approveRole').value;
+  var wrap=document.getElementById('wrapApproveNip');
+  if(role==='KARYAWAN'){
+    wrap.style.display='';
+    muatKaryawanGajiUntukPilihan().then(function(list){document.getElementById('approveNip').innerHTML=opsiKaryawanHtml(list);});
+  } else { wrap.style.display='none'; }
+}
+function toggleAktifkanNip(){
+  var role=document.getElementById('aktifkanRole').value;
+  var wrap=document.getElementById('wrapAktifkanNip');
+  if(role==='KARYAWAN'){
+    wrap.style.display='';
+    muatKaryawanGajiUntukPilihan().then(function(list){document.getElementById('aktifkanNip').innerHTML=opsiKaryawanHtml(list);});
+  } else { wrap.style.display='none'; }
+}
+
 function muatUser(){
   ['listPending','listAktif','listNonaktif'].forEach(function(id){
     document.getElementById(id).innerHTML='<div class="loading">Memuat…</div>';
@@ -240,7 +280,7 @@ function renderUser(){
 }
 
 function badgeRole(role){
-  var cls={DIREKTUR:'role-direktur',MANAGER:'role-manager',ADMIN:'role-admin',SALES:'role-sales',OPERATOR:'role-operator'}[role]||'role-admin';
+  var cls={DIREKTUR:'role-direktur',MANAGER:'role-manager',ADMIN:'role-admin',SALES:'role-sales',OPERATOR:'role-operator',KARYAWAN:'role-karyawan'}[role]||'role-admin';
   return '<span class="badge-role '+cls+'">'+esc(role||'—')+'</span>';
 }
 
@@ -290,6 +330,7 @@ function bukaApprove(email,nama,tgl){
   document.getElementById('approveEmail').textContent=email;
   document.getElementById('approveTgl').textContent='Daftar: '+fmtTgl(tgl);
   document.getElementById('approveRole').value='';
+  document.getElementById('wrapApproveNip').style.display='none';
   document.getElementById('alertApprove').innerHTML='';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApprove')).show();
 }
@@ -297,11 +338,20 @@ function bukaApprove(email,nama,tgl){
 function konfirmasiApprove(){
   var role=document.getElementById('approveRole').value;
   if(!role){document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-err">Role wajib dipilih.</div>';return;}
+  var nipDipilih = role==='KARYAWAN' ? document.getElementById('approveNip').value : null;
+  if(role==='KARYAWAN' && !nipDipilih){document.getElementById('alertApprove').innerHTML='<div class="alert-box alert-err">Pilih data karyawan (NIP) dulu.</div>';return;}
   var btn=document.getElementById('btnKonfirmasiApprove');
   btn.disabled=true; btn.textContent='Memproses…';
   dbUpdate('m_user',{email:'eq.'+emailTarget},{role:role,status:'AKTIF',last_login:null})
     .then(function(res){
       if(res&&res.code) throw new Error(res.message);
+      if(role==='KARYAWAN'){
+        return dbRpc('hubungkan_email_karyawan',{p_email:emailTarget,p_nip:nipDipilih}).then(function(r2){
+          if(r2&&r2.status==='error') throw new Error(r2.message);
+        });
+      }
+    })
+    .then(function(){
       bootstrap.Modal.getInstance(document.getElementById('modalApprove')).hide();
       muatUser();
     })
@@ -342,16 +392,26 @@ function bukaAktifkan(email,nama,role){
   document.getElementById('aktifkanEmail').textContent=email;
   document.getElementById('aktifkanRole').value=role||'ADMIN';
   document.getElementById('alertAktifkan').innerHTML='';
+  toggleAktifkanNip();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAktifkan')).show();
 }
 
 function konfirmasiAktifkan(){
   var role=document.getElementById('aktifkanRole').value;
+  var nipDipilih = role==='KARYAWAN' ? document.getElementById('aktifkanNip').value : null;
+  if(role==='KARYAWAN' && !nipDipilih){document.getElementById('alertAktifkan').innerHTML='<div class="alert-box alert-err">Pilih data karyawan (NIP) dulu.</div>';return;}
   var btn=document.getElementById('btnKonfirmasiAktifkan');
   btn.disabled=true; btn.textContent='Memproses…';
   dbUpdate('m_user',{email:'eq.'+emailTarget},{role:role,status:'AKTIF'})
     .then(function(res){
       if(res&&res.code) throw new Error(res.message);
+      if(role==='KARYAWAN'){
+        return dbRpc('hubungkan_email_karyawan',{p_email:emailTarget,p_nip:nipDipilih}).then(function(r2){
+          if(r2&&r2.status==='error') throw new Error(r2.message);
+        });
+      }
+    })
+    .then(function(){
       bootstrap.Modal.getInstance(document.getElementById('modalAktifkan')).hide();
       muatUser();
     })

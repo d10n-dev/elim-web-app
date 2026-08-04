@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Slip Gaji Saya — SIEO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="../css/sieo.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<style>
+  .topbar-slip{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:.85rem 1.1rem;background:var(--surface);border-bottom:1px solid var(--border);}
+  .topbar-slip select{font-family:var(--mono);font-size:.78rem;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;min-width:200px;}
+  .wrap-slip{padding:1.1rem;max-width:640px;margin:0 auto;}
+  .card-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem 1.1rem;margin-bottom:1rem;}
+  .slip-pre{font-family:var(--mono);font-size:.82rem;white-space:pre-wrap;background:var(--bg);border-radius:6px;padding:1rem;border:1px solid var(--border);}
+  .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted);}
+  .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.5rem 1rem;cursor:pointer;}
+  .btn-navy:hover{background:var(--navy-mid);color:#fff;}
+</style>
+</head>
+<body>
+<div id="debugBox" style="display:none;background:#fde9e9;color:#b00020;font-family:monospace;font-size:.78rem;padding:.8rem 1rem;white-space:pre-wrap;border-bottom:3px solid #b00020;"></div>
+<script>
+  function tampilkanErrorHalaman(msg) {
+    const box = document.getElementById('debugBox');
+    box.style.display = 'block';
+    box.textContent += (box.textContent ? '\n---\n' : '') + msg;
+  }
+  window.onerror = function (msg, url, line, col) {
+    tampilkanErrorHalaman('JS ERROR: ' + msg + '\nFile: ' + url + '\nBaris: ' + line + ':' + col);
+  };
+  window.addEventListener('unhandledrejection', function (ev) {
+    tampilkanErrorHalaman('PROMISE ERROR: ' + (ev.reason && ev.reason.message ? ev.reason.message : JSON.stringify(ev.reason)));
+  });
+</script>
+<div id="navRoot"></div>
+
+<div id="konten" style="display:none">
+  <div class="topbar-slip">
+    <strong id="judulHalaman">Slip Gaji Saya</strong>
+    <select id="selKaryawanTest" style="display:none" onchange="gantiKaryawanTest()"></select>
+    <select id="selPeriodeSlip" onchange="muatSlip()"></select>
+  </div>
+  <div class="wrap-slip">
+    <div id="areaSlip"></div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+const NAMA_HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+let modeDirektur = false;
+let nipTerpilih = null;
+let daftarPeriodeSlip = [];
+
+async function gantiKaryawanTest() {
+  nipTerpilih = document.getElementById('selKaryawanTest').value;
+  await muatDaftarPeriode();
+}
+
+async function muatDaftarPeriode() {
+  const res = await dbRpc('get_periode_slip_view', { p_nip: modeDirektur ? nipTerpilih : null });
+  daftarPeriodeSlip = res || [];
+  const sel = document.getElementById('selPeriodeSlip');
+  sel.innerHTML = daftarPeriodeSlip.map(p =>
+    `<option value="${p.id_periode}">${formatTanggal(p.tgl_mulai)} – ${formatTanggal(p.tgl_selesai)}${p.status !== 'FINAL' ? ' [' + p.status + ']' : ''}</option>`
+  ).join('');
+  if (!daftarPeriodeSlip.length) {
+    sel.innerHTML = '<option value="">Belum ada slip</option>';
+    document.getElementById('areaSlip').innerHTML = '<div class="empty-state">Belum ada slip gaji yang bisa ditampilkan untuk periode manapun.</div>';
+    return;
+  }
+  await muatSlip();
+}
+
+async function muatSlip() {
+  const idPeriode = document.getElementById('selPeriodeSlip').value;
+  if (!idPeriode) return;
+  const h = await dbRpc('get_slip_gaji_view', { p_id_periode: idPeriode, p_nip: modeDirektur ? nipTerpilih : null });
+  if (!h) {
+    document.getElementById('areaSlip').innerHTML = '<div class="empty-state">Slip tidak ditemukan untuk periode ini.</div>';
+    return;
+  }
+  const detail = await dbRpc('get_detail_harian_view', { p_id_periode: idPeriode, p_nip: modeDirektur ? nipTerpilih : null });
+  const baris = (detail || []).filter(r => r.status !== 'HADIR' && r.status !== 'LIBUR');
+  const rincianTeks = baris.length
+    ? baris.map(r => {
+        const d = new Date(r.tanggal + 'T00:00:00');
+        return `  ${formatTanggal(r.tanggal)} (${NAMA_HARI[d.getDay()]}) — ${r.status}${r.keterangan ? ': ' + r.keterangan : ''}`;
+      }).join('\n')
+    : '  (semua hari kerja hadir normal)';
+
+  const teks =
+`${h.nama_lengkap || h.nama}
+Periode: ${formatTanggal(h.tgl_mulai)} – ${formatTanggal(h.tgl_selesai)}
+-----------------------------
+Gaji Pokok      : ${formatRupiah(h.gaji_pokok_rp)}
+Bonus Dasar     : ${formatRupiah(h.bonus_dasar_rp)}
+Kinerja         : ${h.persen_kinerja}%
+Potongan Jam    : ${Number(h.jam_potongan_biasa + h.jam_izin_shortfall).toFixed(1)} jam
+Alpa            : ${h.hari_alpa} hari (denda ${formatRupiah(h.denda_alpa_rp)})
+Lembur          : ${formatRupiah(h.lembur_bonus_rp)}
+Potongan Bon    : ${formatRupiah(h.bon_dipotong_rp)}
+Penyesuaian     : ${formatRupiah(h.penyesuaian_rp || 0)}
+-----------------------------
+Bonus Final     : ${formatRupiah(h.bonus_final_rp)}
+TOTAL CAIR      : ${formatRupiah(Number(h.gaji_pokok_rp) + Number(h.bonus_final_rp))}
+${h.sisa_minus_rp > 0 ? '\n⚠ Sisa kurang ' + formatRupiah(h.sisa_minus_rp) + ' masuk saldo BON bulan depan.\n' : ''}
+-----------------------------
+Rincian Non-Hadir:
+${rincianTeks}`;
+
+  document.getElementById('areaSlip').innerHTML = `<div class="card-box"><pre class="slip-pre">${escHtml(teks)}</pre></div>`;
+}
+
+window.addEventListener('load', async function () {
+  try {
+    if (!guardHalaman()) return;
+    initNav('slip_karyawan');
+    document.getElementById('konten').style.display = '';
+
+    const role = getRoleUser();
+    modeDirektur = (role === 'DIREKTUR');
+
+    if (modeDirektur) {
+      document.getElementById('judulHalaman').textContent = 'Slip Gaji (Mode Test — Direktur)';
+      const daftar = await dbRpc('get_daftar_karyawan_test', {});
+      const sel = document.getElementById('selKaryawanTest');
+      sel.style.display = '';
+      sel.innerHTML = (daftar || []).map(k => `<option value="${k.nip}">${k.nip} — ${k.nama_lengkap || k.nama}</option>`).join('');
+      if (daftar && daftar.length) {
+        nipTerpilih = daftar[0].nip;
+        await muatDaftarPeriode();
+      } else {
+        document.getElementById('areaSlip').innerHTML = '<div class="empty-state">Belum ada data karyawan di menu Gajian.</div>';
+      }
+    } else {
+      const profil = await dbRpc('get_profil_login_saya', {});
+      if (!profil) {
+        document.getElementById('areaSlip').innerHTML =
+          '<div class="empty-state">Akun kamu belum terhubung ke data karyawan.<br>Hubungi Direktur untuk menghubungkan email login ini ke data gajimu.</div>';
+        document.getElementById('selPeriodeSlip').style.display = 'none';
+        return;
+      }
+      document.getElementById('judulHalaman').textContent = 'Slip Gaji — ' + (profil.nama_lengkap || profil.nama);
+      await muatDaftarPeriode();
+    }
+  } catch (err) {
+    tampilkanErrorHalaman('INIT ERROR: ' + (err && err.message ? err.message : err) + (err && err.stack ? ('\n' + err.stack) : ''));
+  }
+});
+</script>
+</body>
+</html>
