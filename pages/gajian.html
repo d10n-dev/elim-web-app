@@ -198,6 +198,20 @@
         <tbody id="tblKinerja"><tr><td colspan="4" class="text-center text-muted">Pilih periode dulu</td></tr></tbody>
       </table>
     </div>
+    <div class="card-box">
+      <h6>Bonus Khusus / Koreksi Manual (Periode Ini)</h6>
+      <p class="text-muted" style="font-size:.75rem">Nominal positif = tambahan bonus/kontribusi/pengembalian dana. Nominal negatif = koreksi pengurangan (misal salah hitung bulan lalu). Ini di luar rumus standar, langsung menambah/mengurangi bonus_final.</p>
+      <div class="form-grid" style="grid-template-columns:1fr 160px 1fr 100px;align-items:end;">
+        <div><label>Karyawan</label><select id="penyesuaianNip"></select></div>
+        <div><label>Nominal (+/-)</label><input type="number" id="penyesuaianNominal" placeholder="mis. 200000 atau -200000"></div>
+        <div><label>Keterangan</label><input type="text" id="penyesuaianKet" placeholder="mis. pengembalian potongan bulan lalu"></div>
+        <div><button class="btn-navy" style="width:100%" onclick="simpanPenyesuaian()">Simpan</button></div>
+      </div>
+      <table class="sieo-tbl" style="margin-top:.7rem">
+        <thead><tr><th>NIP</th><th>Nama</th><th class="td-right">Nominal</th><th>Keterangan</th><th></th></tr></thead>
+        <tbody id="tblPenyesuaian"><tr><td colspan="5" class="text-center text-muted">Pilih periode dulu</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- =========== TAB: BON =========== -->
@@ -357,7 +371,7 @@ function gantiTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === id));
   if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); }
-  if (id === 'tKinerja') muatKinerja();
+  if (id === 'tKinerja') { muatKinerja(); muatPenyesuaian(); }
   if (id === 'tBon') { muatSaldoBon(); muatRiwayatBon(); }
   if (id === 'tHasil') muatHasil();
 }
@@ -485,7 +499,7 @@ async function muatKaryawan() {
   // isi dropdown NIP di tab lain
   const opsi = daftarKaryawan.filter(k => k.status === 'AKTIF')
     .map(k => `<option value="${k.nip}">${k.nip} — ${escHtml(k.nama)}</option>`).join('');
-  ['cutiNip', 'izinNip', 'bonNip'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opsi; });
+  ['cutiNip', 'izinNip', 'bonNip', 'penyesuaianNip'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opsi; });
 }
 
 function bukaModalKaryawan(nip) {
@@ -842,6 +856,43 @@ async function muatRiwayatBon() {
 }
 
 // ============================================================
+// PENYESUAIAN / BONUS KHUSUS
+// ============================================================
+async function simpanPenyesuaian() {
+  if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
+  const nip = document.getElementById('penyesuaianNip').value;
+  const nominal = Number(document.getElementById('penyesuaianNominal').value || 0);
+  const ket = document.getElementById('penyesuaianKet').value;
+  if (!nip || !nominal) { alert('Lengkapi form penyesuaian dulu.'); return; }
+  const res = await dbRpc('catat_penyesuaian_gaji', {
+    p_nip: nip, p_id_periode: periodeAktif.id_periode, p_nominal: nominal, p_keterangan: ket, p_user: getNamaUser()
+  });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('penyesuaianNominal').value = '';
+  document.getElementById('penyesuaianKet').value = '';
+  await muatPenyesuaian();
+}
+
+async function muatPenyesuaian() {
+  if (!periodeAktif) { document.getElementById('tblPenyesuaian').innerHTML = '<tr><td colspan="5" class="text-center text-muted">Pilih periode dulu</td></tr>'; return; }
+  const res = await dbGet('in_gaji_penyesuaian', { id_periode: 'eq.' + periodeAktif.id_periode, order: 'created_at.desc' });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('tblPenyesuaian').innerHTML = (res || []).map(r => `
+    <tr><td class="td-mono">${r.nip}</td><td>${escHtml(namaDariNip(r.nip))}</td>
+    <td class="td-right td-mono" style="${r.nominal < 0 ? 'color:var(--red)' : 'color:var(--green)'}">${formatRupiah(r.nominal)}</td>
+    <td>${escHtml(r.keterangan || '')}</td>
+    <td><button class="btn-sm-action btn-hapus" onclick="hapusPenyesuaian(${r.id_penyesuaian})">Hapus</button></td></tr>`
+  ).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada penyesuaian periode ini</td></tr>';
+}
+
+async function hapusPenyesuaian(id) {
+  if (!confirm('Hapus penyesuaian ini?')) return;
+  const res = await dbRpc('hapus_penyesuaian_gaji', { p_id_penyesuaian: id });
+  if (!cekErrorSupabase(res)) return;
+  await muatPenyesuaian();
+}
+
+// ============================================================
 // HASIL & SLIP
 // ============================================================
 async function hitungGajiPeriode() {
@@ -876,6 +927,15 @@ async function muatHasil() {
 async function lihatSlip(nip) {
   const h = await dbRpc('get_slip_gaji_karyawan', { p_id_periode: periodeAktif.id_periode, p_nip: nip });
   if (!h) { alert('Data tidak ditemukan.'); return; }
+  const detail = await dbRpc('get_detail_harian_gaji', { p_id_periode: periodeAktif.id_periode, p_nip: nip });
+  const baris = (detail || []).filter(r => r.status !== 'HADIR' && r.status !== 'LIBUR');
+  const rincianTeks = baris.length
+    ? baris.map(r => {
+        const d = new Date(r.tanggal + 'T00:00:00');
+        return `  ${formatTanggal(r.tanggal)} (${NAMA_HARI[d.getDay()]}) — ${r.status}${r.keterangan ? ': ' + r.keterangan : ''}`;
+      }).join('\n')
+    : '  (semua hari kerja hadir normal)';
+
   const teks =
 `${h.nama_lengkap || h.nama}
 Periode: ${formatTanggal(h.tgl_mulai)} – ${formatTanggal(h.tgl_selesai)}
@@ -887,10 +947,14 @@ Potongan Jam    : ${Number(h.jam_potongan_biasa + h.jam_izin_shortfall).toFixed(
 Alpa            : ${h.hari_alpa} hari (denda ${formatRupiah(h.denda_alpa_rp)})
 Lembur          : ${formatRupiah(h.lembur_bonus_rp)}
 Potongan Bon    : ${formatRupiah(h.bon_dipotong_rp)}
+Penyesuaian     : ${formatRupiah(h.penyesuaian_rp || 0)}
 -----------------------------
 Bonus Final     : ${formatRupiah(h.bonus_final_rp)}
 TOTAL CAIR      : ${formatRupiah(Number(h.gaji_pokok_rp) + Number(h.bonus_final_rp))}
-${h.sisa_minus_rp > 0 ? '\n⚠ Sisa kurang ' + formatRupiah(h.sisa_minus_rp) + ' masuk saldo BON bulan depan.' : ''}`;
+${h.sisa_minus_rp > 0 ? '\n⚠ Sisa kurang ' + formatRupiah(h.sisa_minus_rp) + ' masuk saldo BON bulan depan.\n' : ''}
+-----------------------------
+Rincian Non-Hadir:
+${rincianTeks}`;
   document.getElementById('isiSlip').textContent = teks;
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSlip')).show();
 }
