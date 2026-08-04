@@ -190,6 +190,7 @@
         <div><label>Jenis</label>
           <select id="bonJenis">
             <option value="PINJAM">Pinjam Baru (+)</option>
+            <option value="BAYAR">Bayar / Cicilan Langsung (-)</option>
             <option value="POTONG_BONUS">Potong dari Bonus Periode Ini (-)</option>
             <option value="SALDO_AWAL">Saldo Awal (+)</option>
           </select>
@@ -514,26 +515,45 @@ function prosesFileCsv(ev) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function (e) {
-    const lines = e.target.result.split(/\r?\n/).filter(l => l.trim() !== '');
-    // baris 0 = judul, baris 1 = header kolom
-    const rows = lines.slice(2);
+    let raw = e.target.result;
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); // strip BOM
+    const lines = raw.split(/\r?\n/).filter(l => l.trim() !== '');
+    const headerIdx = lines.findIndex(l => /nip/i.test(l) && /tanggal/i.test(l));
+    if (headerIdx === -1) {
+      document.getElementById('previewImportWrap').style.display = '';
+      document.getElementById('ringkasanImport').textContent =
+        '⚠ Kolom NIP/Tanggal tidak ditemukan. Baris pertama file: "' + (lines[0] || '(kosong)') + '"';
+      document.getElementById('tblPreviewImport').innerHTML = '';
+      return;
+    }
+    const headerCols = lines[headerIdx].split(',').map(s => s.trim().toLowerCase());
+    const idxNip = headerCols.findIndex(c => c === 'nip');
+    const idxNama = headerCols.findIndex(c => c === 'nama');
+    const idxTanggal = headerCols.findIndex(c => c === 'tanggal');
+    const idxScan = headerCols.map((c, i) => c.indexOf('scan') === 0 ? i : -1).filter(i => i >= 0);
+    const dataLines = lines.slice(headerIdx + 1);
+
     hasilRowsCsv = [];
-    let tanpaPulang = 0;
-    rows.forEach(line => {
+    let tanpaPulang = 0, dilewati = 0;
+    dataLines.forEach(line => {
       const cols = line.split(',');
-      if (cols.length < 10) return;
-      const nip = cols[1].trim();
-      const nama = cols[2].trim();
-      const tanggal = parseTanggalCsv(cols[6]);
-      const scans = [parseJamCsv(cols[7]), parseJamCsv(cols[8]), parseJamCsv(cols[9])].filter(Boolean);
-      if (!tanggal || scans.length === 0) return;
+      const maxIdx = Math.max(idxNip, idxNama, idxTanggal, ...idxScan);
+      if (cols.length <= maxIdx) { dilewati++; return; }
+      const nip = (cols[idxNip] || '').trim();
+      const nama = (cols[idxNama] || '').trim();
+      const tanggal = parseTanggalCsv(cols[idxTanggal]);
+      const scans = idxScan.map(i => parseJamCsv(cols[i])).filter(Boolean);
+      if (!nip || !tanggal || scans.length === 0) { dilewati++; return; }
       const masuk = scans[0];
       const pulang = scans.length > 1 ? scans[scans.length - 1] : null;
       if (!pulang) tanpaPulang++;
       hasilRowsCsv.push({ nip, nama, tanggal, jam_masuk: masuk, jam_pulang: pulang });
     });
+
     document.getElementById('ringkasanImport').textContent =
-      `${hasilRowsCsv.length} baris terbaca` + (tanpaPulang ? ` · ⚠ ${tanpaPulang} hari cuma 1 scan (jam pulang kosong, perlu dicek manual)` : '');
+      `${hasilRowsCsv.length} baris terbaca` +
+      (dilewati ? ` · ${dilewati} baris dilewati (data tidak lengkap)` : '') +
+      (tanpaPulang ? ` · ⚠ ${tanpaPulang} hari cuma 1 scan (jam pulang kosong, cek manual)` : '');
     document.getElementById('tblPreviewImport').innerHTML = hasilRowsCsv.map(r => `
       <tr>
         <td class="td-mono">${r.nip}</td><td>${escHtml(r.nama)}</td><td class="td-mono">${r.tanggal}</td>
@@ -642,8 +662,8 @@ async function simpanBon() {
   let nominal = Number(document.getElementById('bonNominal').value || 0);
   const ket = document.getElementById('bonKet').value;
   if (!nip || !nominal) { alert('Lengkapi form bon dulu.'); return; }
-  // PINJAM & SALDO_AWAL nambah utang (+), POTONG_BONUS mengurangi utang (-)
-  if (jenis === 'POTONG_BONUS') nominal = -Math.abs(nominal); else nominal = Math.abs(nominal);
+  // PINJAM & SALDO_AWAL nambah utang (+), BAYAR & POTONG_BONUS mengurangi utang (-)
+  if (jenis === 'POTONG_BONUS' || jenis === 'BAYAR') nominal = -Math.abs(nominal); else nominal = Math.abs(nominal);
   const res = await dbRpc('catat_bon_gaji', {
     p_nip: nip, p_jenis: jenis, p_nominal: nominal, p_keterangan: ket,
     p_id_periode: jenis === 'POTONG_BONUS' ? (periodeAktif ? periodeAktif.id_periode : null) : null,
