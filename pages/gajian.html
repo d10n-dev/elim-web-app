@@ -165,6 +165,20 @@
         <tbody id="tblSaldoCuti"><tr><td colspan="5" class="text-center text-muted">Memuat…</td></tr></tbody>
       </table>
     </div>
+    <div class="card-box">
+      <h6>Riwayat Cuti (50 terakhir)</h6>
+      <table class="sieo-tbl">
+        <thead><tr><th>Tanggal</th><th>NIP</th><th>Nama</th><th class="td-right">Jumlah Hari</th><th>Keterangan</th></tr></thead>
+        <tbody id="tblRiwayatCuti"><tr><td colspan="5" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card-box">
+      <h6>Riwayat Izin (50 terakhir)</h6>
+      <table class="sieo-tbl">
+        <thead><tr><th>Tanggal</th><th>NIP</th><th>Nama</th><th class="td-right">Jumlah Jam</th><th>Keterangan</th></tr></thead>
+        <tbody id="tblRiwayatIzin"><tr><td colspan="5" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- =========== TAB: KINERJA =========== -->
@@ -322,7 +336,7 @@ function cekErrorSupabase(res) {
 function gantiTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === id));
-  if (id === 'tCuti') muatSaldoCuti();
+  if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); }
   if (id === 'tKinerja') muatKinerja();
   if (id === 'tBon') { muatSaldoBon(); muatRiwayatBon(); }
   if (id === 'tHasil') muatHasil();
@@ -526,7 +540,9 @@ function prosesFileCsv(ev) {
       document.getElementById('tblPreviewImport').innerHTML = '';
       return;
     }
-    const headerCols = lines[headerIdx].split(',').map(s => s.trim().toLowerCase());
+    const headerLine = lines[headerIdx];
+    const delim = (headerLine.split(';').length >= headerLine.split(',').length) ? ';' : ',';
+    const headerCols = headerLine.split(delim).map(s => s.trim().toLowerCase());
     const idxNip = headerCols.findIndex(c => c === 'nip');
     const idxNama = headerCols.findIndex(c => c === 'nama');
     const idxTanggal = headerCols.findIndex(c => c === 'tanggal');
@@ -536,7 +552,7 @@ function prosesFileCsv(ev) {
     hasilRowsCsv = [];
     let tanpaPulang = 0, dilewati = 0;
     dataLines.forEach(line => {
-      const cols = line.split(',');
+      const cols = line.split(delim);
       const maxIdx = Math.max(idxNip, idxNama, idxTanggal, ...idxScan);
       if (cols.length <= maxIdx) { dilewati++; return; }
       const nip = (cols[idxNip] || '').trim();
@@ -592,6 +608,7 @@ async function simpanCuti() {
   document.getElementById('cutiTanggal').value = '';
   document.getElementById('cutiKet').value = '';
   await muatSaldoCuti();
+  await muatRiwayatCuti();
 }
 
 async function simpanIzin() {
@@ -604,6 +621,32 @@ async function simpanIzin() {
   if (!cekErrorSupabase(res)) return;
   document.getElementById('izinTanggal').value = '';
   document.getElementById('izinKet').value = '';
+  await muatRiwayatIzin();
+}
+
+function namaDariNip(nip) {
+  const k = daftarKaryawan.find(x => x.nip === nip);
+  return k ? k.nama : nip;
+}
+
+async function muatRiwayatCuti() {
+  const res = await dbGet('in_gaji_cuti', { order: 'tanggal.desc', limit: '50' });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('tblRiwayatCuti').innerHTML = (res || []).map(r => `
+    <tr><td class="td-mono">${formatTanggal(r.tanggal)}</td><td class="td-mono">${r.nip}</td>
+    <td>${escHtml(namaDariNip(r.nip))}</td><td class="td-right td-mono">${r.jumlah_hari}</td>
+    <td>${escHtml(r.keterangan || '')}</td></tr>`
+  ).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada data cuti</td></tr>';
+}
+
+async function muatRiwayatIzin() {
+  const res = await dbGet('in_gaji_izin', { order: 'tanggal.desc', limit: '50' });
+  if (!cekErrorSupabase(res)) return;
+  document.getElementById('tblRiwayatIzin').innerHTML = (res || []).map(r => `
+    <tr><td class="td-mono">${formatTanggal(r.tanggal)}</td><td class="td-mono">${r.nip}</td>
+    <td>${escHtml(namaDariNip(r.nip))}</td><td class="td-right td-mono">${r.jumlah_jam}</td>
+    <td>${escHtml(r.keterangan || '')}</td></tr>`
+  ).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada data izin</td></tr>';
 }
 
 async function muatSaldoCuti() {
