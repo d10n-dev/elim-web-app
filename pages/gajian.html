@@ -401,10 +401,14 @@ async function simpanPeriodeBaru() {
   const bulanTutup = document.getElementById('periodeBulanTutup').value; // format YYYY-MM
   if (!bulanTutup) { showAlert('alertPeriodeBaru', 'Pilih bulan penutupan periode.'); return; }
   const [y, m] = bulanTutup.split('-').map(Number);
-  const tglSelesai = new Date(y, m - 1, 25);
-  const tglMulai = new Date(y, m - 2, 26);
-  const fmt = d => d.toISOString().slice(0, 10);
-  const res = await dbRpc('buat_periode_gaji', { p_tgl_mulai: fmt(tglMulai), p_tgl_selesai: fmt(tglSelesai) });
+  // Hitung manual (tanpa objek Date/toISOString) supaya tidak kena geser
+  // timezone WIB seperti bug sebelumnya (tengah malam lokal jadi "kemarin" di UTC).
+  let mulaiY = y, mulaiM = m - 1;
+  if (mulaiM < 1) { mulaiM = 12; mulaiY = y - 1; }
+  const pad2 = n => String(n).padStart(2, '0');
+  const tglMulaiStr = `${mulaiY}-${pad2(mulaiM)}-26`;
+  const tglSelesaiStr = `${y}-${pad2(m)}-25`;
+  const res = await dbRpc('buat_periode_gaji', { p_tgl_mulai: tglMulaiStr, p_tgl_selesai: tglSelesaiStr });
   if (res.status === 'error') { showAlert('alertPeriodeBaru', res.message); return; }
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPeriodeBaru')).hide();
   await muatDaftarPeriode();
