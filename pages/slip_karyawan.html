@@ -17,6 +17,30 @@
   .empty-state{text-align:center;padding:3rem 1rem;color:var(--muted);}
   .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.5rem 1rem;cursor:pointer;}
   .btn-navy:hover{background:var(--navy-mid);color:#fff;}
+
+  .slip-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:1.5rem;}
+  .slip-header{text-align:center;border-bottom:2px solid var(--navy);padding-bottom:.8rem;margin-bottom:1rem;}
+  .slip-company{font-family:var(--mono);font-weight:600;color:var(--navy);font-size:.85rem;letter-spacing:.03em;}
+  .slip-title{font-family:var(--sans);font-weight:600;font-size:1.1rem;color:var(--navy);margin-top:.2rem;}
+  .slip-info td{font-size:.8rem;padding:.15rem 0;}
+  .slip-info td:first-child{color:var(--muted);width:110px;}
+  .slip-table{width:100%;margin-top:.9rem;border-top:1px solid var(--border);}
+  .slip-table td{padding:.35rem 0;font-size:.82rem;border-bottom:1px dashed var(--border);}
+  .slip-table td.r{text-align:right;font-family:var(--mono);}
+  .slip-table tr.total td{font-weight:700;border-top:2px solid var(--navy);border-bottom:none;padding-top:.5rem;}
+  .slip-section-title{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--navy);font-weight:600;margin:1.1rem 0 .4rem;border-bottom:1px solid var(--border);padding-bottom:.3rem;}
+  .slip-mini-tbl{width:100%;font-size:.75rem;}
+  .slip-mini-tbl td{padding:.25rem 0;border-bottom:1px solid #f0f2f6;}
+  .slip-mini-tbl td.r{text-align:right;font-family:var(--mono);}
+  .saldo-bon-box{background:var(--bg);border-radius:6px;padding:.6rem .8rem;font-size:.8rem;margin-top:.3rem;}
+  .saldo-bon-box b{font-family:var(--mono);}
+  .btn-print{background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.55rem 1.1rem;cursor:pointer;width:100%;margin-top:1rem;}
+
+  @media print {
+    .topbar-slip, #navRoot, .btn-print, #debugBox { display:none !important; }
+    body, .wrap-slip { padding:0; margin:0; max-width:none; }
+    .slip-card { border:none; }
+  }
 </style>
 </head>
 <body>
@@ -79,41 +103,66 @@ async function muatDaftarPeriode() {
 async function muatSlip() {
   const idPeriode = document.getElementById('selPeriodeSlip').value;
   if (!idPeriode) return;
-  const h = await dbRpc('get_slip_gaji_view', { p_id_periode: idPeriode, p_nip: modeDirektur ? nipTerpilih : null });
+  const targetNip = modeDirektur ? nipTerpilih : null;
+  const h = await dbRpc('get_slip_gaji_view', { p_id_periode: idPeriode, p_nip: targetNip });
   if (!h) {
     document.getElementById('areaSlip').innerHTML = '<div class="empty-state">Slip tidak ditemukan untuk periode ini.</div>';
     return;
   }
-  const detail = await dbRpc('get_detail_harian_view', { p_id_periode: idPeriode, p_nip: modeDirektur ? nipTerpilih : null });
+  const [detail, saldoBon, riwayatBon] = await Promise.all([
+    dbRpc('get_detail_harian_view', { p_id_periode: idPeriode, p_nip: targetNip }),
+    dbRpc('get_saldo_bon_view', { p_nip: targetNip }),
+    dbRpc('get_riwayat_bon_view', { p_nip: targetNip, p_limit: 15 })
+  ]);
+
   const baris = (detail || []).filter(r => r.status !== 'HADIR' && r.status !== 'LIBUR');
-  const rincianTeks = baris.length
+  const rincianHtml = baris.length
     ? baris.map(r => {
         const d = new Date(r.tanggal + 'T00:00:00');
-        return `  ${formatTanggal(r.tanggal)} (${NAMA_HARI[d.getDay()]}) — ${r.status}${r.keterangan ? ': ' + r.keterangan : ''}`;
-      }).join('\n')
-    : '  (semua hari kerja hadir normal)';
+        return `<tr><td>${formatTanggal(r.tanggal)} (${NAMA_HARI[d.getDay()]})</td><td>${r.status}</td><td>${escHtml(r.keterangan || '')}</td></tr>`;
+      }).join('')
+    : '<tr><td colspan="3" class="text-muted">Semua hari kerja hadir normal</td></tr>';
 
-  const teks =
-`${h.nama_lengkap || h.nama}
-Periode: ${formatTanggal(h.tgl_mulai)} – ${formatTanggal(h.tgl_selesai)}
------------------------------
-Gaji Pokok      : ${formatRupiah(h.gaji_pokok_rp)}
-Bonus Dasar     : ${formatRupiah(h.bonus_dasar_rp)}
-Kinerja         : ${h.persen_kinerja}%
-Potongan Jam    : ${Number(h.jam_potongan_biasa + h.jam_izin_shortfall).toFixed(1)} jam
-Alpa            : ${h.hari_alpa} hari (denda ${formatRupiah(h.denda_alpa_rp)})
-Lembur          : ${formatRupiah(h.lembur_bonus_rp)}
-Potongan Bon    : ${formatRupiah(h.bon_dipotong_rp)}
-Penyesuaian     : ${formatRupiah(h.penyesuaian_rp || 0)}
------------------------------
-Bonus Final     : ${formatRupiah(h.bonus_final_rp)}
-TOTAL CAIR      : ${formatRupiah(Number(h.gaji_pokok_rp) + Number(h.bonus_final_rp))}
-${h.sisa_minus_rp > 0 ? '\n⚠ Sisa kurang ' + formatRupiah(h.sisa_minus_rp) + ' masuk saldo BON bulan depan.\n' : ''}
------------------------------
-Rincian Non-Hadir:
-${rincianTeks}`;
+  const riwayatBonHtml = (riwayatBon || []).length
+    ? riwayatBon.map(r => `<tr><td>${formatTanggal(r.tanggal)}</td><td>${r.jenis}</td>
+        <td class="r" style="${r.nominal < 0 ? 'color:var(--green)' : 'color:var(--red)'}">${formatRupiah(r.nominal)}</td>
+        <td>${escHtml(r.keterangan || '')}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="text-muted">Belum ada transaksi bon</td></tr>';
 
-  document.getElementById('areaSlip').innerHTML = `<div class="card-box"><pre class="slip-pre">${escHtml(teks)}</pre></div>`;
+  document.getElementById('areaSlip').innerHTML = `
+    <div class="slip-card" id="slipPrintArea">
+      <div class="slip-header">
+        <div class="slip-company">PT. ELIM CITRA OFFSET / DK OFFSET</div>
+        <div class="slip-title">SLIP GAJI</div>
+      </div>
+      <table class="slip-info">
+        <tr><td>Nama</td><td>: ${escHtml(h.nama_lengkap || h.nama)}</td></tr>
+        <tr><td>NIP</td><td>: ${h.nip}</td></tr>
+        <tr><td>Periode</td><td>: ${formatTanggal(h.tgl_mulai)} – ${formatTanggal(h.tgl_selesai)}</td></tr>
+      </table>
+      <table class="slip-table">
+        <tr><td>Gaji Pokok</td><td class="r">${formatRupiah(h.gaji_pokok_rp)}</td></tr>
+        <tr><td>Bonus Dasar</td><td class="r">${formatRupiah(h.bonus_dasar_rp)}</td></tr>
+        <tr><td>Kinerja</td><td class="r">${h.persen_kinerja}%</td></tr>
+        <tr><td>Potongan Jam (${Number(h.jam_potongan_biasa + h.jam_izin_shortfall).toFixed(1)} jam)</td><td class="r">- ${formatRupiah((h.jam_potongan_biasa + h.jam_izin_shortfall) * h.pokok_perjam)}</td></tr>
+        <tr><td>Alpa (${h.hari_alpa} hari) + Denda 40%</td><td class="r">- ${formatRupiah(h.jam_alpa * h.pokok_perjam + Number(h.denda_alpa_rp))}</td></tr>
+        <tr><td>Lembur</td><td class="r">+ ${formatRupiah(h.lembur_bonus_rp)}</td></tr>
+        <tr><td>Potongan Bon Periode Ini</td><td class="r">- ${formatRupiah(h.bon_dipotong_rp)}</td></tr>
+        <tr><td>Penyesuaian Manual</td><td class="r">${Number(h.penyesuaian_rp || 0) < 0 ? '- ' + formatRupiah(Math.abs(h.penyesuaian_rp)) : '+ ' + formatRupiah(h.penyesuaian_rp || 0)}</td></tr>
+        <tr class="total"><td>Bonus Final</td><td class="r">${formatRupiah(h.bonus_final_rp)}</td></tr>
+        <tr class="total"><td>TOTAL CAIR (Pokok + Bonus)</td><td class="r">${formatRupiah(Number(h.gaji_pokok_rp) + Number(h.bonus_final_rp))}</td></tr>
+      </table>
+      ${h.sisa_minus_rp > 0 ? `<div class="saldo-bon-box" style="color:var(--red)">⚠ Sisa kurang <b>${formatRupiah(h.sisa_minus_rp)}</b> masuk saldo BON bulan depan.</div>` : ''}
+
+      <div class="slip-section-title">Rincian Non-Hadir</div>
+      <table class="slip-mini-tbl"><tbody>${rincianHtml}</tbody></table>
+
+      <div class="slip-section-title">Saldo & Riwayat Bon</div>
+      <div class="saldo-bon-box">Sisa saldo bon saat ini: <b style="${saldoBon > 0 ? 'color:var(--red)' : 'color:var(--green)'}">${formatRupiah(saldoBon || 0)}</b></div>
+      <table class="slip-mini-tbl" style="margin-top:.5rem"><tbody>${riwayatBonHtml}</tbody></table>
+    </div>
+    <button class="btn-print" onclick="window.print()">🖨️ Print / Simpan sebagai PDF</button>
+  `;
 }
 
 window.addEventListener('load', async function () {
