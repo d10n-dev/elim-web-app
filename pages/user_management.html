@@ -230,7 +230,7 @@ function muatKaryawanGajiUntukPilihan(){
 }
 function opsiKaryawanHtml(list){
   return '<option value="">— Pilih Karyawan —</option>' +
-    list.map(function(k){return '<option value="'+esc(k.nip)+'">'+esc(k.nip)+' — '+esc(k.nama_lengkap||k.nama)+(k.email_login?' (sudah terhubung: '+esc(k.email_login)+')':'')+'</option>';}).join('');
+    list.map(function(k){return '<option value="'+esc(k.nip)+'">'+esc(k.nip)+' — '+esc(k.nama)+(k.email_login?' (sudah terhubung: '+esc(k.email_login)+')':'')+'</option>';}).join('');
 }
 function toggleApproveNip(){
   var role=document.getElementById('approveRole').value;

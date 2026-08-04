@@ -136,7 +136,7 @@ async function muatSlip() {
         <div class="slip-title">SLIP GAJI</div>
       </div>
       <table class="slip-info">
-        <tr><td>Nama</td><td>: ${escHtml(h.nama_lengkap || h.nama)}</td></tr>
+        <tr><td>Nama</td><td>: ${escHtml(h.nama)}</td></tr>
         <tr><td>NIP</td><td>: ${h.nip}</td></tr>
         <tr><td>Periode</td><td>: ${formatTanggal(h.tgl_mulai)} – ${formatTanggal(h.tgl_selesai)}</td></tr>
       </table>
@@ -179,7 +179,7 @@ window.addEventListener('load', async function () {
       const daftar = await dbRpc('get_daftar_karyawan_test', {});
       const sel = document.getElementById('selKaryawanTest');
       sel.style.display = '';
-      sel.innerHTML = (daftar || []).map(k => `<option value="${k.nip}">${k.nip} — ${k.nama_lengkap || k.nama}</option>`).join('');
+      sel.innerHTML = (daftar || []).map(k => `<option value="${k.nip}">${k.nip} — ${k.nama}</option>`).join('');
       if (daftar && daftar.length) {
         nipTerpilih = daftar[0].nip;
         await muatDaftarPeriode();
@@ -194,7 +194,7 @@ window.addEventListener('load', async function () {
         document.getElementById('selPeriodeSlip').style.display = 'none';
         return;
       }
-      document.getElementById('judulHalaman').textContent = 'Slip Gaji — ' + (profil.nama_lengkap || profil.nama);
+      document.getElementById('judulHalaman').textContent = 'Slip Gaji — ' + profil.nama;
       await muatDaftarPeriode();
     }
   } catch (err) {

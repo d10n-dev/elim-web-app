@@ -941,7 +941,7 @@ async function lihatSlip(nip) {
     : '  (semua hari kerja hadir normal)';
 
   const teks =
-`${h.nama_lengkap || h.nama}
+`${h.nama}
 Periode: ${formatTanggal(h.tgl_mulai)} – ${formatTanggal(h.tgl_selesai)}
 -----------------------------
 Gaji Pokok      : ${formatRupiah(h.gaji_pokok_rp)}
