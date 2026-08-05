@@ -80,6 +80,18 @@ function guardHalaman() {
     window.location.href = '/pages/login.html';
     return false;
   }
+  // Role KARYAWAN cuma boleh akses halaman Slip Gaji Saya — dicek di
+  // satu titik pusat ini (dipanggil semua halaman) supaya tidak perlu
+  // ditambah manual di tiap file satu-satu.
+  const role = getRoleUser();
+  if (role === 'KARYAWAN') {
+    const halamanIzin = 'slip_karyawan.html';
+    const pathSekarang = window.location.pathname.split('/').pop();
+    if (pathSekarang !== halamanIzin) {
+      window.location.replace('/pages/' + halamanIzin);
+      return false;
+    }
+  }
   renderUserInfo();
   return true;
 }

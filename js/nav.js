@@ -118,6 +118,7 @@ function renderDrawer(activeKey) {
   let groupsHtml = '';
   NAV_MENU.forEach(function (grp) {
     const visibleItems = grp.items.filter(function (it) {
+      if (role === 'KARYAWAN') return it.key === 'slip_karyawan';
       if (!it.role) return true;
       return it.role.indexOf(role) !== -1;
     });
