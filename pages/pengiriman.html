@@ -135,6 +135,11 @@
             <label class="form-label">Entitas</label>
             <div id="inpEntitasInfo" style="font-family:var(--mono);font-size:.8rem;padding:.45rem .75rem;background:#f4f7fc;border:1px solid var(--border);border-radius:6px;color:var(--muted)">— dipilih dari order</div>
             <input type="hidden" id="hidEntitas"/>
+            <select id="selEntitasManual" class="form-select form-select-sm" style="margin-top:.3rem;font-size:.72rem" onchange="pilihEntitasManual(this.value)">
+              <option value="">— atau pilih manual (utk kirim dari stok) —</option>
+              <option value="PT">PT Elim Citra Offset</option>
+              <option value="DK">DK Offset</option>
+            </select>
           </div>
           <div class="col-6">
             <label class="form-label">Tanggal *</label>
@@ -148,6 +153,12 @@
         <div class="sec-label">Tambah Item dari Order</div>
         <div id="sisaKirimWrap" style="display:none;margin-bottom:.75rem;">
           <div id="sisaKirimList"></div>
+        </div>
+        <div class="sec-label">Tambah Item Langsung dari Stok BJ (tanpa order)</div>
+        <div style="margin-bottom:.75rem;position:relative">
+          <input type="text" class="form-control" id="inpCariStok" placeholder="Ketik nama item…" autocomplete="off" oninput="acStokBJ(this)"/>
+          <div id="acStokDrop" class="ac-dropdown"></div>
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.25rem">Harga diisi manual (tidak ada acuan harga order). Pilih Entitas dulu di atas kalau belum ada item dari order.</div>
         </div>
         <div class="sec-label">Daftar Item Pengiriman <span id="jumlahItemBadge" style="font-size:.65rem;color:var(--muted);font-weight:400"></span></div>
         <div class="item-wrap">
@@ -440,6 +451,73 @@ function tambahDariSisa(idDet,idOrd,idItm,nmItm,sub,sat,sisa,harga,entitas,qtyPa
   renderSisaKirim();
 }
 
+// ── ENTITAS MANUAL (utk kirim dari stok tanpa order) ──
+function pilihEntitasManual(val){
+  var entLama=document.getElementById('hidEntitas').value;
+  if(!val){ return; }
+  if(entLama&&entLama!==val){
+    alert('Sudah ada item dgn entitas '+entLama+' di daftar. Tidak bisa campur entitas dalam 1 pengiriman.');
+    document.getElementById('selEntitasManual').value='';
+    return;
+  }
+  document.getElementById('hidEntitas').value=val;
+  var infoEl=document.getElementById('inpEntitasInfo');
+  infoEl.textContent=val==='PT'?'PT Elim Citra Offset':'DK Offset';
+  infoEl.style.color='var(--navy)';
+}
+
+// ── CARI & TAMBAH DARI STOK BJ (tanpa order) ──
+var stokBJCache=null;
+function muatStokBJCacheKalauBelum(){
+  if(stokBJCache) return Promise.resolve(stokBJCache);
+  return dbRpc('get_rekap_stok_bj',{}).then(function(res){
+    stokBJCache=(Array.isArray(res)?res:[]).filter(function(r){return r.saldo>0;});
+    return stokBJCache;
+  });
+}
+
+function acStokBJ(inp){
+  var q=inp.value.toLowerCase().trim();
+  var drop=document.getElementById('acStokDrop');
+  if(!q){drop.style.display='none';return;}
+  muatStokBJCacheKalauBelum().then(function(list){
+    var hasil=list.filter(function(r){
+      var hay=((r.nama_item||'')+' '+(r.subitem||'')).toLowerCase();
+      return hay.indexOf(q)>=0;
+    }).slice(0,20);
+    if(!hasil.length){drop.innerHTML='<div class="ac-item" style="color:var(--muted)">Tidak ditemukan / stok habis</div>';drop.style.display='block';var r0=inp.getBoundingClientRect();drop.style.top=r0.bottom+'px';drop.style.left=r0.left+'px';drop.style.width=r0.width+'px';return;}
+    drop.innerHTML=hasil.map(function(r,idx){
+      var payload="'"+esc(r.id_item)+"','"+esc(r.nama_item||'')+"','"+esc(r.subitem||'')+"','"+esc(r.satuan||'')+"',"+r.saldo;
+      return '<div class="ac-item" onmousedown="event.preventDefault();tambahDariStok('+payload+')" ontouchstart="_acTouchStart(event)" ontouchmove="_acTouchMove(event)" ontouchend="_acTouchEnd(event,function(){tambahDariStok('+payload+')})">'+
+        esc(r.nama_item)+(r.subitem?' <span style="color:var(--muted)">('+esc(r.subitem)+')</span>':'')+
+        '<div class="ac-sub">Stok tersedia: '+fmtAngka(r.saldo)+' '+esc(r.satuan||'')+'</div></div>';
+    }).join('');
+    var r=inp.getBoundingClientRect();
+    drop.style.top=r.bottom+'px'; drop.style.left=r.left+'px'; drop.style.width=r.width+'px';
+    drop.style.display='block';
+    inp.addEventListener('blur',function(){setTimeout(function(){if(!drop._touching)drop.style.display='none';},250);},{once:true});
+  });
+}
+
+function tambahDariStok(idItm,nmItm,sub,sat,saldo){
+  var entitas=document.getElementById('hidEntitas').value;
+  if(!entitas){
+    alert('Pilih Entitas dulu (manual, di atas) sebelum menambah item dari stok.');
+    return;
+  }
+  var sudahAda=itemBaris.some(function(b){return b.jenis==='KIRIM_STOK'&&b.idItem===idItm&&b.subitem===sub;});
+  if(sudahAda){alert('Item ini sudah ada di daftar.');return;}
+  itemBaris.push({idOrderDetail:null,idOrder:null,idItem:idItm,namaItem:nmItm,subitem:sub,satuan:sat,sisa:saldo,qtyKirim:0,harga:0,jenis:'KIRIM_STOK',dariStok:true,qtyPack:0});
+  document.getElementById('inpCariStok').value='';
+  document.getElementById('acStokDrop').style.display='none';
+  renderItemRows();
+}
+
+function updateHargaManual(idx,val){
+  itemBaris[idx].harga=parseFloat(val)||0;
+  hitungTotal();
+}
+
 function hapusItemBaris(idx){
   itemBaris.splice(idx,1);
   renderItemRows();
@@ -447,6 +525,7 @@ function hapusItemBaris(idx){
     document.getElementById('hidEntitas').value='';
     document.getElementById('inpEntitasInfo').textContent='— dipilih dari order';
     document.getElementById('inpEntitasInfo').style.color='var(--muted)';
+    document.getElementById('selEntitasManual').value='';
   }
   renderSisaKirim();
 }
@@ -460,23 +539,30 @@ function renderItemRows(){
     return;
   }
   wrap.innerHTML=itemBaris.map(function(b,i){
-    var maxInput=b.qtyPack>0?b.qtyPack:b.sisa;
+    var isStok=b.jenis==='KIRIM_STOK';
+    var maxInput=isStok?b.sisa:(b.qtyPack>0?b.qtyPack:b.sisa);
     var hint='';
-    if(b.qtyPack>0&&b.qtyKirim>b.qtyPack){
+    if(isStok){
+      hint='<div class="sisa-hint sisa-ok">Stok tersedia: '+fmtAngka(b.sisa)+'</div>';
+      if(b.qtyKirim>b.sisa){hint='<div class="sisa-hint sisa-warn">Melebihi stok tersedia ('+fmtAngka(b.sisa)+')</div>';}
+    } else if(b.qtyPack>0&&b.qtyKirim>b.qtyPack){
       hint='<div class="sisa-hint sisa-warn">Maks oplah: '+fmtAngka(b.qtyPack)+'</div>';
     } else if(b.qtyKirim>b.sisa&&b.qtyKirim<=maxInput){
       hint='<div class="sisa-hint sisa-warn">Melebihi sisa order ('+fmtAngka(b.sisa)+')</div>';
     } else if(b.sisa>0){
       hint='<div class="sisa-hint sisa-ok">Sisa: '+fmtAngka(b.sisa)+(b.qtyPack>0?' | Oplah: '+fmtAngka(b.qtyPack):'')+'</div>';
     }
+    var kolomHarga=isStok
+      ? '<input type="number" min="0" value="'+(b.harga||'')+'" placeholder="0" oninput="updateHargaManual('+i+',this.value)" style="font-family:var(--mono);font-size:.72rem;width:100%"/>'
+      : '<div style="font-family:var(--mono);font-size:.72rem">'+fmtRupiah(b.harga)+'</div>';
     return '<div class="item-row">'+
       '<div><div style="font-family:var(--mono);font-size:.72rem;font-weight:600">'+esc(b.namaItem)+'</div>'+
            '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+esc(b.subitem||'')+'</div></div>'+
-      '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+esc(b.idOrderDetail||'STOK')+'</div>'+
+      '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">'+(isStok?'<span style="color:var(--orange);font-weight:600">STOK</span>':esc(b.idOrderDetail||'STOK'))+'</div>'+
       '<div style="font-family:var(--mono);font-size:.72rem">'+esc(b.satuan)+'</div>'+
       '<div style="font-family:var(--mono);font-size:.72rem">'+fmtAngka(b.sisa)+'</div>'+
       '<div><input type="number" min="1" max="'+maxInput+'" value="'+(b.qtyKirim||'')+'" placeholder="0" oninput="updateQty('+i+',this.value)"/>'+hint+'</div>'+
-      '<div style="font-family:var(--mono);font-size:.72rem">'+fmtRupiah(b.harga)+'</div>'+
+      kolomHarga+
       '<div><button class="btn-del-row" onclick="hapusItemBaris('+i+')">✕</button></div>'+
     '</div>';
   }).join('');
@@ -497,13 +583,15 @@ function hitungTotal(){
 
 // ── BUKA MODAL BUAT ──
 function bukaBuatPengiriman(){
-  itemBaris=[];sisaKirimCache=[];
+  itemBaris=[];sisaKirimCache=[];stokBJCache=null;
   document.getElementById('inpPelanggan').value='';
   document.getElementById('hidPelId').value='';
   document.getElementById('hidPelNama').value='';
   document.getElementById('hidEntitas').value='';
   document.getElementById('inpEntitasInfo').textContent='— dipilih dari order';
   document.getElementById('inpEntitasInfo').style.color='var(--muted)';
+  document.getElementById('selEntitasManual').value='';
+  document.getElementById('inpCariStok').value='';
   document.getElementById('inpKet').value='';
   document.getElementById('alertBuat').innerHTML='';
   document.getElementById('itemRows').innerHTML='<div style="padding:.75rem;font-family:var(--mono);font-size:.75rem;color:var(--muted);text-align:center">Belum ada item.</div>';
@@ -546,12 +634,24 @@ async function submitPengiriman(btn){
   var user=getNamaUser();
 
   if(!idPel){showAlert('alertBuat','Pelanggan wajib dipilih.');return;}
-  if(!entitas){showAlert('alertBuat','Pilih minimal 1 order untuk menentukan entitas.');return;}
+  if(!entitas){showAlert('alertBuat','Pilih order atau pilih Entitas manual utk menentukan entitas.');return;}
   if(!tgl){showAlert('alertBuat','Tanggal wajib diisi.');return;}
   if(!itemBaris.length){showAlert('alertBuat','Minimal 1 item harus ditambahkan.');return;}
   for(var i=0;i<itemBaris.length;i++){
     var b=itemBaris[i];
     if(!(b.qtyKirim>0)){showAlert('alertBuat','Qty kirim item ke-'+(i+1)+' harus > 0.');return;}
+    if(b.jenis==='KIRIM_STOK'){
+      // Hard block: kirim langsung dari stok tidak boleh melebihi saldo fisik.
+      if(b.qtyKirim>b.sisa){
+        showAlert('alertBuat','Qty kirim "'+b.namaItem+(b.subitem?' ('+b.subitem+')':'')+'" melebihi stok tersedia ('+fmtAngka(b.sisa)+').');
+        return;
+      }
+      if(!(b.harga>0)){
+        showAlert('alertBuat','Harga "'+b.namaItem+(b.subitem?' ('+b.subitem+')':'')+'" wajib diisi (item dari stok, tidak ada acuan harga order).');
+        return;
+      }
+      continue;
+    }
     // Hard block: tidak boleh melebihi oplah tercetak (qty_pack)
     if(b.qtyPack>0&&b.qtyKirim>b.qtyPack){
       showAlert('alertBuat','Qty kirim "'+b.namaItem+(b.subitem?' ('+b.subitem+')':'')+'" melebihi oplah tercetak ('+fmtAngka(b.qtyPack)+').');
@@ -585,11 +685,16 @@ async function submitPengiriman(btn){
       var ppn=(entitas==='PT')?Math.round(Math.round(dpp*11/12)*12/100):0;
       var totalTagih=dpp+ppn;
 
+      // jenis_kirim SJ: kalau chunk ini ada minimal 1 item terikat order,
+      // tetap 'KIRIM_ORDER' (perilaku lama). Kalau seluruh chunk murni
+      // item dari stok tanpa order, jadi 'KIRIM_STOK'.
+      var jenisChunk=chunk.some(function(b){return !!b.idOrderDetail;})?'KIRIM_ORDER':'KIRIM_STOK';
+
       // Insert in_pengiriman
       var resSJ=await dbInsert('in_pengiriman',{
         id_sj:idSJ,no_sj:nomor.sj,no_nota:nomor.nota,
         tgl:tglIso,id_pelanggan:idPel,nama_pelanggan:nmPel,
-        entitas:entitas,jenis_kirim:'KIRIM_ORDER',status:'TERKIRIM',
+        entitas:entitas,jenis_kirim:jenisChunk,status:'TERKIRIM',
         total:total,dpp:dpp,ppn:ppn,total_tagih:totalTagih,
         user_input:user,keterangan:ket||null
       });
