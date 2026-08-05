@@ -35,9 +35,15 @@
   .saldo-bon-box{background:var(--bg);border-radius:6px;padding:.6rem .8rem;font-size:.8rem;margin-top:.3rem;}
   .saldo-bon-box b{font-family:var(--mono);}
   .btn-print{background:var(--orange);color:#fff;border:none;border-radius:6px;font-size:.8rem;font-family:var(--mono);font-weight:600;padding:.55rem 1.1rem;cursor:pointer;width:100%;margin-top:1rem;}
+  .btn-absensi{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.5rem 1rem;cursor:pointer;width:100%;margin-top:.6rem;}
+  .btn-absensi:hover{background:var(--navy-mid);color:#fff;}
+  .absen-tbl{width:100%;font-size:.75rem;border-collapse:collapse;}
+  .absen-tbl th{background:var(--navy);color:#fff;font-family:var(--mono);font-size:.65rem;text-transform:uppercase;padding:.5rem .4rem;text-align:left;position:sticky;top:0;}
+  .absen-tbl td{padding:.4rem;border-bottom:1px solid var(--border);}
+  .absen-badge{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;white-space:nowrap;}
 
   @media print {
-    .topbar-slip, #navRoot, .btn-print, #debugBox { display:none !important; }
+    .topbar-slip, #navRoot, .btn-print, .btn-absensi, #debugBox { display:none !important; }
     body, .wrap-slip { padding:0; margin:0; max-width:none; }
     .slip-card { border:none; }
   }
@@ -71,14 +77,44 @@
   </div>
 </div>
 
+<!-- MODAL: Detail Absensi Harian -->
+<div class="modal fade" id="modalDetailAbsensi" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="judulDetailAbsensi">Detail Absensi Harian</h6>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:0">
+        <table class="absen-tbl">
+          <thead><tr>
+            <th>Tanggal</th><th>Hari</th><th>Status</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Keterangan</th>
+          </tr></thead>
+          <tbody id="tblDetailAbsensi"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/nav.js"></script>
 <script>
 const NAMA_HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const BADGE_STATUS = {
+  HADIR: 'background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)',
+  LIBUR: 'background:#f0f2f6;color:var(--muted);border:1px solid var(--border)',
+  LIBUR_MASUK: 'background:#fff3cd;color:#856404;border:1px solid #ffe083',
+  CUTI: 'background:#e7f0ff;color:#1a56b0;border:1px solid #b6d0ff',
+  IZIN: 'background:#eef1f7;color:var(--navy);border:1px solid var(--border)',
+  ALPA: 'background:#fde9e9;color:var(--red);border:1px solid #f5b5bb'
+};
 let modeDirektur = false;
 let nipTerpilih = null;
 let daftarPeriodeSlip = [];
+let detailHarianAktif = [];
+let namaKaryawanAktif = '';
 
 async function gantiKaryawanTest() {
   nipTerpilih = document.getElementById('selKaryawanTest').value;
@@ -123,6 +159,9 @@ async function muatSlip() {
       }).join('')
     : '<tr><td colspan="3" class="text-muted">Semua hari kerja hadir normal</td></tr>';
 
+  detailHarianAktif = detail || [];
+  namaKaryawanAktif = h.nama;
+
   const riwayatBonHtml = (riwayatBon || []).length
     ? riwayatBon.map(r => `<tr><td>${formatTanggal(r.tanggal)}</td><td>${r.jenis}</td>
         <td class="r" style="${r.nominal < 0 ? 'color:var(--green)' : 'color:var(--red)'}">${formatRupiah(r.nominal)}</td>
@@ -161,8 +200,29 @@ async function muatSlip() {
       <div class="saldo-bon-box">Sisa saldo bon saat ini: <b style="${saldoBon > 0 ? 'color:var(--red)' : 'color:var(--green)'}">${formatRupiah(saldoBon || 0)}</b></div>
       <table class="slip-mini-tbl" style="margin-top:.5rem"><tbody>${riwayatBonHtml}</tbody></table>
     </div>
+    <button class="btn-absensi" onclick="bukaDetailAbsensi()">📋 Detail Absensi Harian</button>
     <button class="btn-print" onclick="window.print()">🖨️ Print / Simpan sebagai PDF</button>
   `;
+}
+
+function bukaDetailAbsensi() {
+  document.getElementById('judulDetailAbsensi').textContent = 'Detail Absensi Harian — ' + namaKaryawanAktif;
+  const rows = [...detailHarianAktif].sort((a, b) => a.tanggal.localeCompare(b.tanggal));
+  document.getElementById('tblDetailAbsensi').innerHTML = rows.length
+    ? rows.map(r => {
+        const d = new Date(r.tanggal + 'T00:00:00');
+        const style = BADGE_STATUS[r.status] || '';
+        return `<tr>
+          <td class="td-mono" style="font-size:.7rem">${formatTanggal(r.tanggal)}</td>
+          <td style="font-size:.72rem">${NAMA_HARI[d.getDay()]}</td>
+          <td><span class="absen-badge" style="${style}">${r.status}</span></td>
+          <td class="td-mono" style="font-size:.7rem">${r.jam_masuk || '-'}</td>
+          <td class="td-mono" style="font-size:.7rem">${r.jam_pulang || '-'}</td>
+          <td style="font-size:.72rem">${escHtml(r.keterangan || '')}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" class="text-center text-muted" style="padding:1.5rem">Belum ada data absensi utk periode ini.</td></tr>';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailAbsensi')).show();
 }
 
 window.addEventListener('load', async function () {
