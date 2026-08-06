@@ -48,6 +48,19 @@
     .bb-meta{color:var(--muted);font-size:11px;font-family:var(--mono);}
     .btn-lengkapi{background:none;border:1px solid var(--navy);color:var(--navy);border-radius:6px;padding:4px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;white-space:nowrap;}
     .btn-lengkapi:hover{background:var(--navy);color:#fff;}
+
+    .komp-row{border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px;background:var(--bg);}
+    .komp-row.nonaktif{opacity:.5;}
+    .komp-row-grid{display:grid;grid-template-columns:1fr 110px;gap:6px;margin-bottom:6px;}
+    .komp-row-grid2{display:grid;grid-template-columns:1fr 1fr 70px;gap:6px;margin-bottom:6px;}
+    .komp-input,.komp-select{font-size:12px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;background:#fff;font-family:var(--sans);width:100%;}
+    .komp-actions{display:flex;gap:6px;justify-content:flex-end;}
+    .btn-komp-simpan{background:var(--navy);color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:11px;font-family:var(--mono);cursor:pointer;}
+    .btn-komp-nonaktif{background:none;border:1px solid #fca5a5;color:#dc2626;border-radius:5px;padding:5px 10px;font-size:11px;font-family:var(--mono);cursor:pointer;}
+    .komp-badge{display:inline-block;font-size:10px;font-family:var(--mono);font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;}
+    .komp-badge.final{background:#dcfce7;color:#166534;}
+    .komp-badge.proses{background:#dbeafe;color:#1e40af;}
+    .komponen-select{font-size:11px;border:1px solid var(--border);border-radius:6px;padding:6px 6px;background:#fff;font-family:var(--mono);width:118px;flex-shrink:0;}
   </style>
 </head>
 <body>
@@ -79,6 +92,12 @@
 <div class="loading-state" id="loadingBom" style="display:none"><span class="spinner"></span> Memuat BOM...</div>
 
 <div class="bom-wrap" id="bomWrap" style="display:none">
+
+  <div class="section-title">Komponen Item <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0">(kosongkan kalau item tidak butuh pemecahan cover/isi/dst)</span></div>
+  <div class="bom-card" id="cardKomponen">
+    <div id="listKomponen"></div>
+    <button class="btn-add-row" onclick="tambahRowKomponenBaru()">+ Tambah Komponen</button>
+  </div>
 
   <div class="section-title">
     Tinta <span class="warna-count" id="warnaCount"></span>
@@ -121,7 +140,151 @@
 <script>
   let dataItem = [], dataTinta = [], dataBahan = [];
   let idItemAktif = null; // id_item dari BOM yang sedang diedit
+  let dataKomponen = []; // komponen AKTIF milik item yg sedang dibuka (utk dropdown di baris BOM)
   const FINISHING_LIST = ['POTONG','LAMINASI DOFF','LAMINASI GLOSSY','PON','FOIL','LEM','NOMERATOR','PERFORASI ATAS','PERFORASI SAMPING','BLOK LEM','SPIRAL','JILID','PACKING'];
+
+  function cekErrorSupabase(res) {
+    if (res && (res.code || res.status === 'error')) return res.message || res.code || 'Error tidak diketahui.';
+    return null;
+  }
+
+  // ===================== KOMPONEN ITEM =====================
+  let komponenRowCounter = 0;
+
+  async function muatKomponen(idItem) {
+    const res = await dbRpc('get_komponen_item', { p_id_item: idItem });
+    const err = cekErrorSupabase(res);
+    const semua = (!err && Array.isArray(res)) ? res : [];
+    dataKomponen = semua.filter(k => k.status === 'AKTIF');
+    renderKomponenList(semua);
+    if (err) tampilAlert('Gagal memuat komponen: ' + err, 'danger');
+  }
+
+  function renderKomponenList(semuaKomponen) {
+    const wrap = document.getElementById('listKomponen');
+    wrap.innerHTML = '';
+    semuaKomponen.sort((a, b) => (a.urut || 0) - (b.urut || 0));
+    semuaKomponen.forEach(k => wrap.appendChild(buatElKomponenRow(k)));
+  }
+
+  function buatElKomponenRow(k) {
+    // k = null -> baris baru kosong; k = object -> baris existing (editable)
+    const id = 'komprow' + (++komponenRowCounter);
+    const div = document.createElement('div');
+    div.className = 'komp-row' + (k && k.status === 'NONAKTIF' ? ' nonaktif' : '');
+    div.id = id;
+    const idKomponen = k ? k.id_komponen : null;
+    const isFinal = k ? k.tipe === 'FINAL' : false;
+    div.innerHTML = `
+      <div class="komp-row-grid">
+        <input type="text" class="komp-input" placeholder="Kode komponen (mis. COVER, ISI, JILID)" value="${escHtml(k ? k.kode_komponen : '')}" ${k && k.status === 'NONAKTIF' ? 'disabled' : ''}>
+        <select class="komp-select" data-role="tipe" ${k && k.status === 'NONAKTIF' ? 'disabled' : ''}>
+          <option value="PROSES" ${!isFinal ? 'selected' : ''}>PROSES</option>
+          <option value="FINAL" ${isFinal ? 'selected' : ''}>FINAL</option>
+        </select>
+      </div>
+      <div class="komp-row-grid2" data-role="oplahFields" style="${isFinal ? 'display:none' : ''}">
+        <input type="number" step="0.01" class="komp-input" data-role="lembarPerPcs" placeholder="Lembar per pcs" value="${k && k.lembar_per_pcs != null ? k.lembar_per_pcs : ''}" ${k && k.status === 'NONAKTIF' ? 'disabled' : ''}>
+        <input type="number" step="0.01" class="komp-input" data-role="mataPerLembar" placeholder="Mata per lembar" value="${k && k.mata_per_lembar != null ? k.mata_per_lembar : ''}" ${k && k.status === 'NONAKTIF' ? 'disabled' : ''}>
+        <input type="number" class="komp-input" data-role="urut" placeholder="Urut" value="${k ? (k.urut || 1) : ''}" ${k && k.status === 'NONAKTIF' ? 'disabled' : ''}>
+      </div>
+      <div class="komp-actions">
+        ${k && k.status === 'NONAKTIF'
+          ? '<span style="font-size:11px;font-family:var(--mono);color:var(--muted)">nonaktif</span>'
+          : `<button class="btn-komp-nonaktif" onclick="nonaktifkanKomponenRow('${id}', ${idKomponen})">${k ? 'Nonaktifkan' : 'Batal'}</button>
+             <button class="btn-komp-simpan" onclick="simpanKomponenRow('${id}', ${idKomponen})">Simpan</button>`}
+      </div>
+    `;
+    const selTipe = div.querySelector('[data-role="tipe"]');
+    const oplahFields = div.querySelector('[data-role="oplahFields"]');
+    if (selTipe) selTipe.addEventListener('change', () => {
+      oplahFields.style.display = selTipe.value === 'FINAL' ? 'none' : 'grid';
+    });
+    return div;
+  }
+
+  function tambahRowKomponenBaru() {
+    document.getElementById('listKomponen').appendChild(buatElKomponenRow(null));
+  }
+
+  async function simpanKomponenRow(rowId, idKomponenExisting) {
+    const idItem = idItemAktif || (document.getElementById('inputItem')._getSelectedId ? document.getElementById('inputItem')._getSelectedId() : null);
+    if (!idItem) return tampilAlert('Pilih & muat item terlebih dahulu.', 'warning');
+    const row = document.getElementById(rowId);
+    const kode = row.querySelector('.komp-input').value.trim().toUpperCase();
+    const tipe = row.querySelector('[data-role="tipe"]').value;
+    const lembarStr = row.querySelector('[data-role="lembarPerPcs"]').value;
+    const mataStr = row.querySelector('[data-role="mataPerLembar"]').value;
+    const urutStr = row.querySelector('[data-role="urut"]').value;
+    if (!kode) return tampilAlert('Kode komponen wajib diisi.', 'danger');
+    const lembar = lembarStr ? parseFloat(lembarStr) : null;
+    const mata = mataStr ? parseFloat(mataStr) : null;
+    const urut = urutStr ? parseInt(urutStr, 10) : 1;
+
+    const btn = row.querySelector('.btn-komp-simpan');
+    btn.disabled = true; btn.textContent = 'Menyimpan…';
+    try {
+      let res;
+      if (idKomponenExisting) {
+        res = await dbRpc('edit_komponen_item', {
+          p_id_komponen: idKomponenExisting, p_kode: kode, p_tipe: tipe,
+          p_lembar_per_pcs: lembar, p_mata_per_lembar: mata, p_urut: urut
+        });
+      } else {
+        res = await dbRpc('tambah_komponen_item', {
+          p_id_item: idItem, p_kode: kode, p_tipe: tipe,
+          p_lembar_per_pcs: lembar, p_mata_per_lembar: mata, p_urut: urut, p_user: getNamaUser()
+        });
+      }
+      if (res && res.status === 'error') throw new Error(res.message);
+      const err = cekErrorSupabase(res);
+      if (err) throw new Error(err);
+      await muatKomponen(idItem);
+      refreshKomponenSelects();
+      tampilAlert('Komponen tersimpan.', 'success');
+    } catch (e) {
+      tampilAlert('Gagal simpan komponen: ' + (e.message || 'Error tidak diketahui.'), 'danger');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Simpan';
+    }
+  }
+
+  async function nonaktifkanKomponenRow(rowId, idKomponenExisting) {
+    if (!idKomponenExisting) { document.getElementById(rowId).remove(); return; }
+    if (!confirm('Nonaktifkan komponen ini? Baris BOM/SPK yang sudah memakainya tetap aman (histori).')) return;
+    try {
+      const res = await dbRpc('hapus_komponen_item', { p_id_komponen: idKomponenExisting });
+      if (res && res.status === 'error') throw new Error(res.message);
+      const idItem = idItemAktif || document.getElementById('inputItem')._getSelectedId();
+      await muatKomponen(idItem);
+      refreshKomponenSelects();
+      tampilAlert('Komponen dinonaktifkan.', 'success');
+    } catch (e) {
+      tampilAlert('Gagal nonaktifkan: ' + (e.message || 'Error tidak diketahui.'), 'danger');
+    }
+  }
+
+  function buildKomponenSelectHtml(selectedId) {
+    if (!dataKomponen.length) return '';
+    let opts = '<option value="">— (umum) —</option>';
+    dataKomponen.forEach(k => {
+      const sel = (selectedId != null && String(selectedId) === String(k.id_komponen)) ? 'selected' : '';
+      opts += `<option value="${k.id_komponen}" ${sel}>${escHtml(k.kode_komponen)} (${k.tipe})</option>`;
+    });
+    return `<select class="komponen-select">${opts}</select>`;
+  }
+
+  // Refresh opsi dropdown komponen di semua baris Tinta/Bahan/Finishing yang sudah ada,
+  // sambil pertahankan pilihan yang masih valid.
+  function refreshKomponenSelects() {
+    document.querySelectorAll('.tinta-row, .bahan-row, .fin-row').forEach(row => {
+      const oldSel = row.querySelector('.komponen-select');
+      const oldVal = oldSel ? oldSel.value : '';
+      const wrapKomp = row.querySelector('.komponen-select-wrap');
+      if (!wrapKomp) return;
+      wrapKomp.innerHTML = buildKomponenSelectHtml(oldVal || null);
+    });
+  }
 
   // ===================== AUTOCOMPLETE ENGINE (fixed position, Android safe) =====================
   function buatAC(inputEl, dropEl, dataArr, idKey, namaKey, onSelect) {
@@ -277,7 +440,7 @@
   }
 
   // ===================== MUAT BOM =====================
-  function muatBom() {
+  async function muatBom() {
     const inputItem = document.getElementById('inputItem');
     const idItem = inputItem._getSelectedId ? inputItem._getSelectedId() : null;
     if (!idItem) { tampilAlert('Pilih item dari daftar terlebih dahulu.', 'warning'); return; }
@@ -287,11 +450,13 @@
     document.getElementById('alertBar').innerHTML = '';
     idItemAktif = null;
 
-    // Ambil header BOM
-    dbGet('m_bom', { id_item: 'eq.' + idItem }).then(resBom => {
+    try {
+      // Muat komponen dulu, supaya dropdown komponen di baris BOM sudah siap
+      await muatKomponen(idItem);
+
+      const resBom = await dbGet('m_bom', { id_item: 'eq.' + idItem });
       const bom = Array.isArray(resBom) && resBom.length > 0 ? resBom[0] : null;
       idItemAktif = bom ? idItem : null;
-
       document.getElementById('inputKeterangan').value = bom ? (bom.keterangan || '') : '';
 
       if (!bom) {
@@ -306,18 +471,12 @@
         tambahRowFinishing();
         tambahRowFinishing('PACKING');
         updateWarnaCount();
-        document.getElementById('loadingBom').style.display = 'none';
-        document.getElementById('bomWrap').style.display = 'block';
-        document.getElementById('saveBar').style.display = 'flex';
-        return;
-      }
-
-      // Ambil semua detail BOM sekaligus
-      return Promise.all([
-        dbGet('m_bom_tinta',     { id_item: 'eq.' + idItem, order: 'urut.asc' }),
-        dbGet('m_bom_bahan',     { id_item: 'eq.' + idItem, order: 'urut.asc' }),
-        dbGet('m_bom_finishing', { id_item: 'eq.' + idItem, order: 'urut.asc' })
-      ]).then(([tinta, bahan, finishing]) => {
+      } else {
+        const [tinta, bahan, finishing] = await Promise.all([
+          dbGet('m_bom_tinta',     { id_item: 'eq.' + idItem, order: 'urut.asc' }),
+          dbGet('m_bom_bahan',     { id_item: 'eq.' + idItem, order: 'urut.asc' }),
+          dbGet('m_bom_finishing', { id_item: 'eq.' + idItem, order: 'urut.asc' })
+        ]);
         const chkTC = document.getElementById('chkTanpaCetak');
         chkTC.checked = !!bom.tanpa_cetak;
         document.getElementById('cardTinta').style.display = bom.tanpa_cetak ? 'none' : 'block';
@@ -327,7 +486,7 @@
         if (tArr.length > 0) {
           tArr.forEach(t => {
             const obj = dataTinta.find(x => x.id_tinta === t.id_tinta);
-            tambahRowTinta(obj || null);
+            tambahRowTinta(obj || null, t.id_komponen);
           });
         } else if (!bom.tanpa_cetak) { tambahRowTinta(); }
 
@@ -336,34 +495,34 @@
         if (bArr.length > 0) {
           bArr.forEach(b => {
             const obj = dataBahan.find(x => x.id_bahan === b.id_bahan);
-            tambahRowBahan(obj || null, b.keterangan);
+            tambahRowBahan(obj || null, b.keterangan, b.id_komponen);
           });
         } else { tambahRowBahan(); }
 
         document.getElementById('listFinishing').innerHTML = '';
         const fArr = Array.isArray(finishing) ? finishing : [];
         if (fArr.length > 0) {
-          fArr.forEach(f => tambahRowFinishing(f.jenis_finishing));
+          fArr.forEach(f => tambahRowFinishing(f.jenis_finishing, f.id_komponen));
         } else {
           tambahRowFinishing();
           tambahRowFinishing('PACKING');
         }
-
         updateWarnaCount();
-        document.getElementById('loadingBom').style.display = 'none';
-        document.getElementById('bomWrap').style.display = 'block';
-        document.getElementById('saveBar').style.display = 'flex';
-      });
-    }).catch(() => {
+      }
+
+      document.getElementById('loadingBom').style.display = 'none';
+      document.getElementById('bomWrap').style.display = 'block';
+      document.getElementById('saveBar').style.display = 'flex';
+    } catch (e) {
       document.getElementById('loadingBom').style.display = 'none';
       tampilAlert('Gagal memuat BOM.', 'danger');
-    });
+    }
   }
 
   // ===================== ROW BUILDERS =====================
   let rowCounter = 0;
 
-  function tambahRowTinta(tintaObj) {
+  function tambahRowTinta(tintaObj, idKomponenSel) {
     const id = 'trow' + (++rowCounter);
     const div = document.createElement('div');
     div.className = 'row-item tinta-row';
@@ -373,6 +532,7 @@
         <input type="text" class="ac-input" placeholder="Ketik nama tinta..." autocomplete="off">
         <div class="ac-dropdown"></div>
       </div>
+      <span class="komponen-select-wrap">${buildKomponenSelectHtml(idKomponenSel)}</span>
       <button class="btn-del" onclick="document.getElementById('${id}').remove();updateWarnaCount()">Hapus</button>
     `;
     document.getElementById('listTinta').appendChild(div);
@@ -384,7 +544,7 @@
     updateWarnaCount();
   }
 
-  function tambahRowBahan(bahanObj, ket) {
+  function tambahRowBahan(bahanObj, ket, idKomponenSel) {
     const id = 'brow' + (++rowCounter);
     const div = document.createElement('div');
     div.className = 'row-item bahan-row';
@@ -394,6 +554,7 @@
         <input type="text" class="ac-input" placeholder="Ketik nama bahan..." autocomplete="off">
         <div class="ac-dropdown"></div>
       </div>
+      <span class="komponen-select-wrap">${buildKomponenSelectHtml(idKomponenSel)}</span>
       <input type="text" class="ket-input" placeholder="Keterangan..." value="${escHtml(ket||'')}">
       <button class="btn-del" onclick="document.getElementById('${id}').remove()">Hapus</button>
     `;
@@ -405,7 +566,7 @@
     if (bahanObj) inp._setItem(bahanObj);
   }
 
-  function tambahRowFinishing(val) {
+  function tambahRowFinishing(val, idKomponenSel) {
     const id = 'frow' + (++rowCounter);
     const div = document.createElement('div');
     div.className = 'fin-row';
@@ -415,6 +576,7 @@
         <input type="text" class="ac-input" placeholder="Ketik atau pilih finishing..." autocomplete="off" value="${escHtml(val||'')}">
         <div class="ac-dropdown"></div>
       </div>
+      <span class="komponen-select-wrap">${buildKomponenSelectHtml(idKomponenSel)}</span>
       <button class="btn-del" onclick="document.getElementById('${id}').remove()">Hapus</button>
     `;
     document.getElementById('listFinishing').appendChild(div);
@@ -458,11 +620,13 @@
     const tinta = [];
     let tintaError = false;
     if (!tanpaCetak) {
-      document.querySelectorAll('#listTinta .tinta-row .ac-input').forEach(inp => {
+      document.querySelectorAll('#listTinta .tinta-row').forEach(row => {
+        const inp = row.querySelector('.ac-input');
         if (!inp.value.trim()) return;
         const id = inp._getSelectedId ? inp._getSelectedId() : null;
         if (!id) { tintaError = true; return; }
-        tinta.push(id);
+        const selKomp = row.querySelector('.komponen-select');
+        tinta.push({ id_tinta: id, id_komponen: selKomp && selKomp.value ? parseInt(selKomp.value, 10) : null });
       });
       if (tintaError)  return tampilAlert('Ada tinta yang tidak dikenali. Pilih dari daftar.', 'danger');
       if (!tinta.length) return tampilAlert('Minimal 1 tinta wajib diisi.', 'danger');
@@ -477,7 +641,8 @@
       if (!inp.value.trim()) return;
       const id = inp._getSelectedId ? inp._getSelectedId() : null;
       if (!id) { bahanError = true; return; }
-      bahan.push({ id_bahan: id, keterangan: ket ? ket.value.trim() : '' });
+      const selKomp = row.querySelector('.komponen-select');
+      bahan.push({ id_bahan: id, keterangan: ket ? ket.value.trim() : '', id_komponen: selKomp && selKomp.value ? parseInt(selKomp.value, 10) : null });
     });
     if (bahanError)  return tampilAlert('Ada bahan yang tidak dikenali. Pilih dari daftar.', 'danger');
     if (!bahan.length) return tampilAlert('Minimal 1 bahan wajib diisi.', 'danger');
@@ -487,7 +652,9 @@
     document.querySelectorAll('#listFinishing .fin-row').forEach(row => {
       const inp = row.querySelector('.ac-input');
       const val = inp._getFinVal ? inp._getFinVal() : inp.value.trim().toUpperCase();
-      if (val) finishing.push(val);
+      if (!val) return;
+      const selKomp = row.querySelector('.komponen-select');
+      finishing.push({ jenis_finishing: val, id_komponen: selKomp && selKomp.value ? parseInt(selKomp.value, 10) : null });
     });
     if (!finishing.length) return tampilAlert('Minimal 1 finishing wajib diisi.', 'danger');
 
@@ -518,18 +685,18 @@
       // Bulk insert detail dengan urut (tinta di-skip kalau tanpa_cetak)
       if (tinta.length > 0) {
         const resTinta = await dbInsert('m_bom_tinta',
-          tinta.map((id_tinta, i) => ({ id_item: idItem, urut: i + 1, id_tinta }))
+          tinta.map((t, i) => ({ id_item: idItem, urut: i + 1, id_tinta: t.id_tinta, id_komponen: t.id_komponen }))
         );
         if (resTinta && resTinta.code) throw new Error('Insert tinta: ' + resTinta.message);
       }
 
       const resBahan = await dbInsert('m_bom_bahan',
-        bahan.map((b, i) => ({ id_item: idItem, urut: i + 1, id_bahan: b.id_bahan, keterangan: b.keterangan }))
+        bahan.map((b, i) => ({ id_item: idItem, urut: i + 1, id_bahan: b.id_bahan, keterangan: b.keterangan, id_komponen: b.id_komponen }))
       );
       if (resBahan && resBahan.code) throw new Error('Insert bahan: ' + resBahan.message);
 
       const resFin = await dbInsert('m_bom_finishing',
-        finishing.map((jenis_finishing, i) => ({ id_item: idItem, urut: i + 1, jenis_finishing }))
+        finishing.map((f, i) => ({ id_item: idItem, urut: i + 1, jenis_finishing: f.jenis_finishing, id_komponen: f.id_komponen }))
       );
       if (resFin && resFin.code) throw new Error('Insert finishing: ' + resFin.message);
 
