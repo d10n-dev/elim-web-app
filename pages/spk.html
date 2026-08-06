@@ -185,6 +185,13 @@
               </div>
             </div>
           </div>
+          <div id="wrapKomponen" style="display:none;margin-bottom:10px">
+            <label class="form-label">Komponen *</label>
+            <select class="form-control" id="inKomponen" onchange="onGantiKomponen()">
+              <option value="">— pilih komponen —</option>
+            </select>
+            <div id="hintKomponen" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px"></div>
+          </div>
           <div class="form-row form-row-3">
             <div><label class="form-label">PPS *</label><input type="number" class="form-control" id="inPps" placeholder="cth: 25" min="1" oninput="updatePreviewQty()"/></div>
             <div id="wrapIsiBuku" style="display:none"><label class="form-label">Isi per Buku</label><input type="number" class="form-control" id="inIsiBuku" placeholder="50" min="1" value="50" oninput="updatePreviewQty()"/></div>
@@ -436,6 +443,11 @@ var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
 // Accordion + edit mode
 var rowStore={}, sdetBySpk={}, pelangganByOrder={}, openSpkId=null, editModeSpk=null, idSpkReviewLebih=null;
 var bomFinishingAktif={}, finishingProgress={}, finishingLogsByRow={}, finishingLegacyAktif=false, bomFinishingNameMap={}, finishingReqKosong=false;
+// Multi-komponen SPK
+var itemDenganKomponenSet={}; // {id_item: true} — item yg punya >=1 komponen AKTIF
+var komponenItemDipilih=[];   // daftar komponen AKTIF milik item yg sedang dipilih di form tambah item
+var idKomponenDipilih=null;   // id_komponen terpilih (null = item tanpa komponen / pilih "umum")
+var komponenLabelMap={};      // {id_komponen: {kode_komponen,tipe}} — cache utk badge di renderItemList
 
 function cekErrorSupabase(res){
   if(!res){throw new Error('Tidak ada respon dari server.');}
@@ -495,7 +507,7 @@ function muatSPK(){
 // plus nama_pelanggan per id_order (join manual, in_spk_detail tidak simpan pelanggan)
 function muatSdetRingkas(){
   if(!semuaSPK.length){ sdetBySpk={}; renderTabel(); return; }
-  dbGet('in_spk_detail',{select:'id_sdet,id_spk,id_detail,id_order,id_item,nama_item,subitem,qty_order,satuan,pps,qty_spk,status,qty_pack'}).then(function(res){
+  dbGet('in_spk_detail',{select:'id_sdet,id_spk,id_detail,id_order,id_item,nama_item,subitem,qty_order,satuan,pps,qty_spk,status,qty_pack,id_komponen'}).then(function(res){
     var rows=Array.isArray(res)?res:[];
     sdetBySpk={};
     var idOrderSet={};
@@ -530,10 +542,14 @@ function muatOrderDetail(){
   // Ambil in_order_detail yang belum ter-SPK penuh + join info dari in_order untuk deadline
   Promise.all([
     dbGet('in_order_detail',{status_spk:'neq.DONE',select:'id_detail,id_order,id_item,nama_item,subitem,qty,satuan,qty_spk,status_spk'}),
-    dbGet('m_item',{select:'id_item,pps,satuan'})
+    dbGet('m_item',{select:'id_item,pps,satuan'}),
+    dbGet('m_item_komponen',{status:'eq.AKTIF',select:'id_item'})
   ]).then(function(r){
     var dtl=Array.isArray(r[0])?r[0]:[];
     var items=Array.isArray(r[1])?r[1]:[];
+    var komponenRows=Array.isArray(r[2])?r[2]:[];
+    itemDenganKomponenSet={};
+    komponenRows.forEach(function(k){ itemDenganKomponenSet[k.id_item]=true; });
     var ppsMap={};
     items.forEach(function(it){ ppsMap[it.id_item]={pps:parseInt(it.pps,10)||0,satuan:it.satuan||''}; });
     semuaOrdDtl=dtl.map(function(d){
@@ -545,7 +561,7 @@ function muatOrderDetail(){
         QTY_ORDER:parseInt(d.qty,10)||0, QTY_SISA:qtySisa,
         SATUAN:d.satuan||ppsInfo.satuan, PPS:ppsInfo.pps
       };
-    }).filter(function(d){ return d.QTY_SISA>0; });
+    }).filter(function(d){ return d.QTY_SISA>0||itemDenganKomponenSet[d.ID_ITEM]; });
   }).catch(function(){});
 }
 
@@ -671,9 +687,11 @@ function setFilter(val,el){
 // ── BUAT SPK ──
 function bukaBuatSPK(){
   editModeSpk=null;
-  daftarItem=[];maxPpsForm=0;itemDipilih=null;
+  daftarItem=[];maxPpsForm=0;itemDipilih=null;idKomponenDipilih=null;komponenItemDipilih=[];
   ['inOplah','inKet','inAcItem','inPps','previewQty'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
   var wb=document.getElementById('wrapIsiBuku'); if(wb)wb.style.display='none';
+  var wk=document.getElementById('wrapKomponen'); if(wk)wk.style.display='none';
+  var hk=document.getElementById('hintKomponen'); if(hk)hk.textContent='';
   var ib=document.getElementById('inIsiBuku'); if(ib)ib.value='50';
   document.getElementById('alertBuat').innerHTML='';
   document.getElementById('alertTambah').innerHTML='';
@@ -690,11 +708,13 @@ function bukaEditSPK(idSpk){
   if(!spk){alert('Data SPK tidak ditemukan.');return;}
   if(spk.status!=='OPEN'){alert('SPK hanya bisa diedit selama status masih OPEN.');return;}
   editModeSpk=idSpk;
-  itemDipilih=null;
+  itemDipilih=null;idKomponenDipilih=null;komponenItemDipilih=[];
   document.getElementById('inOplah').value=spk.total_oplah||'';
   document.getElementById('inKet').value=spk.keterangan||'';
   document.getElementById('inAcItem').value=''; document.getElementById('inPps').value=''; document.getElementById('previewQty').value='';
   var wb=document.getElementById('wrapIsiBuku'); if(wb)wb.style.display='none';
+  var wk=document.getElementById('wrapKomponen'); if(wk)wk.style.display='none';
+  var hk=document.getElementById('hintKomponen'); if(hk)hk.textContent='';
   var ib=document.getElementById('inIsiBuku'); if(ib)ib.value='50';
   document.getElementById('alertBuat').innerHTML='';
   document.getElementById('alertTambah').innerHTML='';
@@ -707,10 +727,21 @@ function bukaEditSPK(idSpk){
       namaItem:r.nama_item,subitem:r.subitem||'',
       qtyOrder:parseInt(r.qty_order,10)||0,satuan:r.satuan||'',
       pps:parseInt(r.pps,10)||0,ppsInput:parseInt(r.pps,10)||0,
-      isiBuku:null,qty:parseInt(r.qty_spk,10)||0
+      isiBuku:null,qty:parseInt(r.qty_spk,10)||0,
+      idKomponen:r.id_komponen||null,kodeKomponen:null,tipeKomponen:null
     };
   });
   maxPpsForm=parseInt(spk.pps,10)||0;
+  var idsKomponen=daftarItem.map(function(it){return it.idKomponen;}).filter(function(v){return v;});
+  if(idsKomponen.length){
+    dbGet('m_item_komponen',{id_komponen:'in.('+idsKomponen.join(',')+')',select:'id_komponen,kode_komponen,tipe'}).then(function(res){
+      var map={}; (Array.isArray(res)?res:[]).forEach(function(k){map[k.id_komponen]=k; komponenLabelMap[k.id_komponen]=k;});
+      daftarItem.forEach(function(it){
+        if(it.idKomponen&&map[it.idKomponen]){it.kodeKomponen=map[it.idKomponen].kode_komponen;it.tipeKomponen=map[it.idKomponen].tipe;}
+      });
+      renderItemList();
+    }).catch(function(){});
+  }
   renderItemList(); updatePPSBar();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBuat')).show();
   muatOrderDetail();
@@ -727,7 +758,7 @@ function initAcItem(){
     if(!q){tutupAC();return;}
     var data=semuaOrdDtl.filter(function(d){
       if(maxPpsForm>0&&parseInt(d.PPS,10)!==maxPpsForm) return false;
-      if(daftarItem.some(function(it){return it.idDetail===d.ID_DETAIL;})) return false;
+      if(!itemDenganKomponenSet[d.ID_ITEM]&&daftarItem.some(function(it){return it.idDetail===d.ID_DETAIL;})) return false;
       return (d.ID_DETAIL||'').toLowerCase().includes(q)||(d.ID_ORDER||'').toLowerCase().includes(q)||
              (d.NAMA_ITEM||'').toLowerCase().includes(q)||(d.SUBITEM||'').toLowerCase().includes(q);
     }).slice(0,30);
@@ -790,6 +821,65 @@ function pilihItem(d,inputEl,dropEl){
     else if(satuan==='RIM') oplahSat=Math.floor(oplah/500);
     inPps.value=oplahSat>0?Math.floor(qtySisa/oplahSat):(parseInt(d.PPS,10)||0);
     updatePreviewQty();
+  }
+  muatKomponenUntukItemDipilih(d.ID_ITEM);
+}
+
+// Load daftar komponen AKTIF milik item yang baru dipilih, lalu tampilkan/sembunyikan selector.
+function muatKomponenUntukItemDipilih(idItem){
+  var wrapKomp=document.getElementById('wrapKomponen');
+  var selKomp=document.getElementById('inKomponen');
+  var hint=document.getElementById('hintKomponen');
+  idKomponenDipilih=null;
+  komponenItemDipilih=[];
+  if(!itemDenganKomponenSet[idItem]){
+    wrapKomp.style.display='none';
+    selKomp.innerHTML='<option value="">— pilih komponen —</option>';
+    hint.textContent='';
+    return;
+  }
+  wrapKomp.style.display='';
+  selKomp.innerHTML='<option value="">Memuat…</option>';
+  hint.textContent='';
+  dbRpc('get_komponen_item',{p_id_item:idItem}).then(function(res){
+    var semua=Array.isArray(res)?res:[];
+    komponenItemDipilih=semua.filter(function(k){return k.status==='AKTIF';})
+      .sort(function(a,b){return (a.urut||0)-(b.urut||0);});
+    selKomp.innerHTML='<option value="">— pilih komponen —</option>'+
+      komponenItemDipilih.map(function(k){
+        return '<option value="'+k.id_komponen+'">'+esc(k.kode_komponen)+' ('+k.tipe+')</option>';
+      }).join('');
+  }).catch(function(){
+    selKomp.innerHTML='<option value="">Gagal memuat komponen</option>';
+  });
+}
+
+// Dipanggil saat operator ganti pilihan komponen di dropdown
+function onGantiKomponen(){
+  var selKomp=document.getElementById('inKomponen');
+  var hint=document.getElementById('hintKomponen');
+  var val=selKomp.value;
+  idKomponenDipilih=val?parseInt(val,10):null;
+  hint.textContent='';
+  if(!idKomponenDipilih) return;
+  var komp=komponenItemDipilih.find(function(k){return k.id_komponen===idKomponenDipilih;});
+  if(!komp) return;
+  if(komp.tipe==='PROSES'){
+    if(komp.lembar_per_pcs&&komp.mata_per_lembar&&itemDipilih){
+      var estimasi=Math.ceil((itemDipilih.QTY_ORDER*komp.lembar_per_pcs)/komp.mata_per_lembar);
+      hint.textContent='Estimasi lembar dibutuhkan (referensi): '+fmtAngka(estimasi)+' — oplah tetap diisi manual di atas.';
+    }
+  } else if(komp.tipe==='FINAL'){
+    hint.textContent='Mengecek status komponen PROSES…';
+    dbRpc('cek_gating_final_komponen',{p_id_detail:itemDipilih.ID_DETAIL}).then(function(res){
+      if(res&&res.boleh===false){
+        var belum=Array.isArray(res.belum)?res.belum:[];
+        var daftar=belum.map(function(b){return b.kode_komponen;}).join(', ');
+        hint.innerHTML='<span style="color:#dc2626">⚠ Belum bisa: komponen '+esc(daftar)+' belum SELESAI di SPK manapun.</span>';
+      } else {
+        hint.innerHTML='<span style="color:#15803d">✓ Semua komponen PROSES sudah selesai, FINAL boleh diterbitkan.</span>';
+      }
+    }).catch(function(){ hint.textContent=''; });
   }
 }
 function tutupAC(){var d=document.getElementById('dropItem');if(d)d.style.display='none';}
@@ -854,36 +944,64 @@ function updatePreviewQty(){
 function tambahItem(){
   var alertEl=document.getElementById('alertTambah'); alertEl.innerHTML='';
   if(!itemDipilih){alertEl.innerHTML='<div class="alert-box alert-err">Pilih item dari daftar.</div>';return;}
+  if(itemDenganKomponenSet[itemDipilih.ID_ITEM]&&!idKomponenDipilih){
+    alertEl.innerHTML='<div class="alert-box alert-err">Item ini punya komponen (COVER/ISI/dst) — pilih komponen dulu sebelum menambah.</div>';return;
+  }
   var oplah=parseInt(document.getElementById('inOplah').value,10);
   var ppsInput=parseInt(document.getElementById('inPps').value,10);
   if(!oplah||oplah<=0){alertEl.innerHTML='<div class="alert-box alert-err">Isi Total Oplah terlebih dahulu.</div>';return;}
   if(!ppsInput||ppsInput<=0){alertEl.innerHTML='<div class="alert-box alert-err">PPS wajib diisi.</div>';return;}
-  if(daftarItem.some(function(it){return it.idDetail===itemDipilih.ID_DETAIL;})){
-    alertEl.innerHTML='<div class="alert-box alert-err">Item ini sudah ada.</div>';return;
+  if(daftarItem.some(function(it){return it.idDetail===itemDipilih.ID_DETAIL&&(it.idKomponen||null)===(idKomponenDipilih||null);})){
+    alertEl.innerHTML='<div class="alert-box alert-err">Item (dengan komponen ini) sudah ada di daftar.</div>';return;
   }
-  var satuan=itemDipilih.SATUAN||'';
-  var isiBuku=parseInt((document.getElementById('inIsiBuku')||{value:'50'}).value,10)||50;
-  var qtyHasil=hitungQty(oplah,ppsInput,satuan,isiBuku);
-  if(qtyHasil<=0){alertEl.innerHTML='<div class="alert-box alert-err">Qty hasil hitung = 0 (cek Oplah / PPS / Isi per Buku). Item tidak ditambahkan.</div>';return;}
-  var ppsItem=parseInt(itemDipilih.PPS||0,10); if(!ppsItem||ppsItem<=0) ppsItem=ppsInput;
-  var maxPpsCek=maxPpsForm===0?ppsItem:maxPpsForm;
-  if(maxPpsForm!==0&&ppsItem!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">PPS item ini ('+ppsItem+') berbeda dengan Max PPS SPK ('+maxPpsForm+'). Tidak bisa digabung.</div>';return;}
-  var totalPpsSkrg=daftarItem.reduce(function(s,it){return s+it.ppsInput;},0);
-  if(totalPpsSkrg+ppsInput>maxPpsCek){alertEl.innerHTML='<div class="alert-box alert-err">Total PPS melebihi Max PPS ('+maxPpsCek+'). Sisa: '+(maxPpsCek-totalPpsSkrg)+'.</div>';return;}
-  maxPpsForm=maxPpsCek;
-  daftarItem.push({
-    idDetail:itemDipilih.ID_DETAIL,idOrder:itemDipilih.ID_ORDER,idItem:itemDipilih.ID_ITEM,
-    namaItem:itemDipilih.NAMA_ITEM,subitem:itemDipilih.SUBITEM||'',
-    qtyOrder:itemDipilih.QTY_ORDER,satuan:satuan,pps:ppsItem,ppsInput:ppsInput,
-    isiBuku:satuan.toUpperCase()==='BUKU'?isiBuku:null,qty:qtyHasil
-  });
-  itemDipilih=null;
-  document.getElementById('inAcItem').value='';
-  document.getElementById('inPps').value='';
-  document.getElementById('previewQty').value='';
-  var wb=document.getElementById('wrapIsiBuku'); if(wb)wb.style.display='none';
-  alertEl.innerHTML='';
-  renderItemList(); updatePPSBar();
+  var kompTerpilih=idKomponenDipilih?komponenItemDipilih.find(function(k){return k.id_komponen===idKomponenDipilih;}):null;
+
+  function lanjutkanTambah(){
+    var satuan=itemDipilih.SATUAN||'';
+    var isiBuku=parseInt((document.getElementById('inIsiBuku')||{value:'50'}).value,10)||50;
+    var qtyHasil=hitungQty(oplah,ppsInput,satuan,isiBuku);
+    if(qtyHasil<=0){alertEl.innerHTML='<div class="alert-box alert-err">Qty hasil hitung = 0 (cek Oplah / PPS / Isi per Buku). Item tidak ditambahkan.</div>';return;}
+    var ppsItem=parseInt(itemDipilih.PPS||0,10); if(!ppsItem||ppsItem<=0) ppsItem=ppsInput;
+    var maxPpsCek=maxPpsForm===0?ppsItem:maxPpsForm;
+    if(maxPpsForm!==0&&ppsItem!==maxPpsForm){alertEl.innerHTML='<div class="alert-box alert-err">PPS item ini ('+ppsItem+') berbeda dengan Max PPS SPK ('+maxPpsForm+'). Tidak bisa digabung.</div>';return;}
+    var totalPpsSkrg=daftarItem.reduce(function(s,it){return s+it.ppsInput;},0);
+    if(totalPpsSkrg+ppsInput>maxPpsCek){alertEl.innerHTML='<div class="alert-box alert-err">Total PPS melebihi Max PPS ('+maxPpsCek+'). Sisa: '+(maxPpsCek-totalPpsSkrg)+'.</div>';return;}
+    maxPpsForm=maxPpsCek;
+    daftarItem.push({
+      idDetail:itemDipilih.ID_DETAIL,idOrder:itemDipilih.ID_ORDER,idItem:itemDipilih.ID_ITEM,
+      namaItem:itemDipilih.NAMA_ITEM,subitem:itemDipilih.SUBITEM||'',
+      qtyOrder:itemDipilih.QTY_ORDER,satuan:satuan,pps:ppsItem,ppsInput:ppsInput,
+      isiBuku:satuan.toUpperCase()==='BUKU'?isiBuku:null,qty:qtyHasil,
+      idKomponen:kompTerpilih?kompTerpilih.id_komponen:null,
+      kodeKomponen:kompTerpilih?kompTerpilih.kode_komponen:null,
+      tipeKomponen:kompTerpilih?kompTerpilih.tipe:null
+    });
+    itemDipilih=null; idKomponenDipilih=null; komponenItemDipilih=[];
+    document.getElementById('inAcItem').value='';
+    document.getElementById('inPps').value='';
+    document.getElementById('previewQty').value='';
+    var wb=document.getElementById('wrapIsiBuku'); if(wb)wb.style.display='none';
+    var wk=document.getElementById('wrapKomponen'); if(wk)wk.style.display='none';
+    var hk=document.getElementById('hintKomponen'); if(hk)hk.textContent='';
+    alertEl.innerHTML='';
+    renderItemList(); updatePPSBar();
+  }
+
+  if(kompTerpilih&&kompTerpilih.tipe==='FINAL'){
+    dbRpc('cek_gating_final_komponen',{p_id_detail:itemDipilih.ID_DETAIL}).then(function(res){
+      if(res&&res.boleh===false){
+        var belum=Array.isArray(res.belum)?res.belum:[];
+        var daftar=belum.map(function(b){return b.kode_komponen;}).join(', ');
+        alertEl.innerHTML='<div class="alert-box alert-err">Belum bisa tambah komponen FINAL: komponen '+esc(daftar||'PROSES')+' belum SELESAI di SPK manapun.</div>';
+        return;
+      }
+      lanjutkanTambah();
+    }).catch(function(){
+      alertEl.innerHTML='<div class="alert-box alert-err">Gagal cek status komponen. Coba lagi.</div>';
+    });
+  } else {
+    lanjutkanTambah();
+  }
 }
 
 function hapusItemList(idx){daftarItem.splice(idx,1);if(!daftarItem.length)maxPpsForm=0;renderItemList();updatePPSBar();}
@@ -911,9 +1029,10 @@ function renderItemList(){
   document.getElementById('jumlahItem').textContent='('+daftarItem.length+')';
   if(!daftarItem.length){wrap.innerHTML='<div class="sdet-empty">Belum ada item.</div>';return;}
   wrap.innerHTML=daftarItem.map(function(it,i){
+    var badgeKomp=it.kodeKomponen?' <span style="display:inline-block;font-size:9px;font-family:var(--mono);font-weight:600;padding:1px 6px;border-radius:4px;margin-left:4px;'+(it.tipeKomponen==='FINAL'?'background:#dcfce7;color:#166534;':'background:#dbeafe;color:#1e40af;')+'">'+esc(it.kodeKomponen)+'</span>':'';
     return '<div class="item-row">'+
       '<div class="item-row-info">'+
-        '<div class="item-row-id">'+esc(it.idOrder)+' · '+esc(it.idDetail)+'</div>'+
+        '<div class="item-row-id">'+esc(it.idOrder)+' · '+esc(it.idDetail)+badgeKomp+'</div>'+
         '<div class="item-row-nama">'+esc(it.namaItem)+(it.subitem?' <span class="item-row-sub">'+esc(it.subitem)+'</span>':'')+'</div>'+
         (it.isiBuku?'<div style="font-family:var(--mono);font-size:.63rem;color:var(--muted)">Isi '+it.isiBuku+' per buku</div>':'')+
       '</div>'+
@@ -1054,12 +1173,15 @@ async function simpanSPK(){
   try {
     var idSpk=genIdSpk();
     var sdetRows=daftarItem.map(function(it){
-      return {id_sdet:'SDET'+Date.now()+Math.floor(Math.random()*9999),id_spk:idSpk,id_detail:it.idDetail,id_order:it.idOrder,id_item:it.idItem,nama_item:it.namaItem,subitem:it.subitem,qty_order:it.qtyOrder,satuan:it.satuan,pps:it.ppsInput,qty_spk:it.qty,status:'OPEN',qty_pack:0};
+      return {id_sdet:'SDET'+Date.now()+Math.floor(Math.random()*9999),id_spk:idSpk,id_detail:it.idDetail,id_order:it.idOrder,id_item:it.idItem,nama_item:it.namaItem,subitem:it.subitem,qty_order:it.qtyOrder,satuan:it.satuan,pps:it.ppsInput,qty_spk:it.qty,status:'OPEN',qty_pack:0,id_komponen:it.idKomponen||null};
     });
     // Cek melebihi sisa order SEBELUM insert header (menentukan status awal SPK)
+    // Komponen PROSES di-skip: qty-nya beda skala/unit dgn qty_order (mis. ISI dlm lembar vs order dlm pcs buku),
+    // jadi tidak relevan dibandingkan ke qty_order.
     var lebihList=[];
     for(var k=0;k<daftarItem.length;k++){
       var itK=daftarItem[k];
+      if(itK.tipeKomponen==='PROSES') continue;
       var infoK=await cekLebihOrder(itK.idDetail,itK.qty,0);
       if(infoK.lebih>0){
         lebihList.push({idSdet:sdetRows[k].id_sdet,idItem:itK.idItem,namaItem:itK.namaItem,idOrder:itK.idOrder,info:infoK});
@@ -1072,9 +1194,12 @@ async function simpanSPK(){
     // Insert spk_detail
     var resSdet=await dbInsert('in_spk_detail',sdetRows);
     if(resSdet&&resSdet.code) throw new Error('Insert SPK detail: '+resSdet.message);
-    // Update qty_spk dan status_spk di in_order_detail
+    // Update qty_spk dan status_spk di in_order_detail — SKIP utk komponen PROSES (lihat catatan di atas).
+    // Item tanpa komponen (idKomponen null) atau komponen FINAL tetap ikut update seperti biasa,
+    // karena qty-nya memang dalam satuan yang sama dengan qty_order.
     for(var i=0;i<daftarItem.length;i++){
       var it=daftarItem[i];
+      if(it.tipeKomponen==='PROSES') continue;
       var ordDtl=semuaOrdDtl.find(function(d){return d.ID_DETAIL===it.idDetail;});
       var qtyOrd=ordDtl?ordDtl.QTY_ORDER:it.qtyOrder;
       var qtySPKLama=ordDtl?(qtyOrd-ordDtl.QTY_SISA):0;
@@ -1137,49 +1262,58 @@ async function simpanEditSPK(){
     if(!spkCek||spkCek.status!=='OPEN') throw new Error('SPK sudah tidak berstatus OPEN, edit dibatalkan. Muat ulang halaman.');
     // Update header (status ditentukan & ditulis belakangan, setelah tau ada lebih order atau tidak)
     await dbUpdate('in_spk',{id_spk:'eq.'+idSpk},{total_oplah:oplah,pps:maxPpsForm,keterangan:ket});
-    // Data lama vs baru (kunci: id_detail)
+    // Data lama vs baru — kunci komposit (id_detail + id_komponen), karena 1 id_detail bisa
+    // punya >1 baris di SPK yang sama kalau item multi-komponen (mis. COVER & ISI sekaligus).
+    function kunciItem(idDetail,idKomponen){ return idDetail+'|'+(idKomponen||''); }
     var lamaRes=await dbGet('in_spk_detail',{id_spk:'eq.'+idSpk});
     var lama=Array.isArray(lamaRes)?lamaRes:[];
-    var lamaByDetail={}; lama.forEach(function(r){lamaByDetail[r.id_detail]=r;});
-    var baruByDetail={}; daftarItem.forEach(function(it){baruByDetail[it.idDetail]=it;});
+    var lamaByKunci={}; lama.forEach(function(r){lamaByKunci[kunciItem(r.id_detail,r.id_komponen)]=r;});
+    var baruByKunci={}; daftarItem.forEach(function(it){baruByKunci[kunciItem(it.idDetail,it.idKomponen)]=it;});
     var lebihList=[];
-    // 1) Item yang dihapus dari form → hapus baris + kurangi qty_spk order
-    for(var idDetailLama in lamaByDetail){
-      if(!baruByDetail[idDetailLama]){
-        var rHapus=lamaByDetail[idDetailLama];
+    // 1) Item yang dihapus dari form → hapus baris + kurangi qty_spk order (skip kalau komponen PROSES)
+    for(var kunciLama in lamaByKunci){
+      if(!baruByKunci[kunciLama]){
+        var rHapus=lamaByKunci[kunciLama];
         await dbDelete('in_spk_detail',{id_sdet:'eq.'+rHapus.id_sdet});
-        await syncQtySpkOrderDetail(rHapus.id_detail,-(parseInt(rHapus.qty_spk,10)||0));
+        var tipeHapus=rHapus.id_komponen?(komponenLabelMap[rHapus.id_komponen]&&komponenLabelMap[rHapus.id_komponen].tipe):null;
+        if(tipeHapus!=='PROSES'){
+          await syncQtySpkOrderDetail(rHapus.id_detail,-(parseInt(rHapus.qty_spk,10)||0));
+        }
       }
     }
-    // 2) Item baru ditambahkan di form → insert + tambah qty_spk order + cek lebih order
-    for(var idDetailBaru in baruByDetail){
-      if(!lamaByDetail[idDetailBaru]){
-        var itBaru=baruByDetail[idDetailBaru];
+    // 2) Item baru ditambahkan di form → insert (+ tambah qty_spk order & cek lebih order kalau bukan PROSES)
+    for(var kunciBaru in baruByKunci){
+      if(!lamaByKunci[kunciBaru]){
+        var itBaru=baruByKunci[kunciBaru];
         var idSdetBaru='SDET'+Date.now()+Math.floor(Math.random()*9999);
-        await dbInsert('in_spk_detail',{id_sdet:idSdetBaru,id_spk:idSpk,id_detail:itBaru.idDetail,id_order:itBaru.idOrder,id_item:itBaru.idItem,nama_item:itBaru.namaItem,subitem:itBaru.subitem,qty_order:itBaru.qtyOrder,satuan:itBaru.satuan,pps:itBaru.ppsInput,qty_spk:itBaru.qty,status:'OPEN',qty_pack:0});
-        await syncQtySpkOrderDetail(itBaru.idDetail,itBaru.qty);
-        var infoBaru=await cekLebihOrder(itBaru.idDetail,itBaru.qty,0);
-        if(infoBaru.lebih>0){
-          lebihList.push({idSdet:idSdetBaru,idItem:itBaru.idItem,namaItem:itBaru.namaItem,idOrder:itBaru.idOrder,info:infoBaru});
+        await dbInsert('in_spk_detail',{id_sdet:idSdetBaru,id_spk:idSpk,id_detail:itBaru.idDetail,id_order:itBaru.idOrder,id_item:itBaru.idItem,nama_item:itBaru.namaItem,subitem:itBaru.subitem,qty_order:itBaru.qtyOrder,satuan:itBaru.satuan,pps:itBaru.ppsInput,qty_spk:itBaru.qty,status:'OPEN',qty_pack:0,id_komponen:itBaru.idKomponen||null});
+        if(itBaru.tipeKomponen!=='PROSES'){
+          await syncQtySpkOrderDetail(itBaru.idDetail,itBaru.qty);
+          var infoBaru=await cekLebihOrder(itBaru.idDetail,itBaru.qty,0);
+          if(infoBaru.lebih>0){
+            lebihList.push({idSdet:idSdetBaru,idItem:itBaru.idItem,namaItem:itBaru.namaItem,idOrder:itBaru.idOrder,info:infoBaru});
+          }
         }
       }
     }
     // 3) FIX BUG: item yang tetap ada di kedua sisi kini ikut di-recalc & disimpan sesuai oplah baru
     //    (sebelumnya qty item ini dibiarkan beku di oplah lama — akar masalah SPK260700022)
-    for(var idDetailTetap in baruByDetail){
-      if(lamaByDetail[idDetailTetap]){
-        var itTetap=baruByDetail[idDetailTetap];
-        var rLama=lamaByDetail[idDetailTetap];
+    for(var kunciTetap in baruByKunci){
+      if(lamaByKunci[kunciTetap]){
+        var itTetap=baruByKunci[kunciTetap];
+        var rLama=lamaByKunci[kunciTetap];
         var qtyLama=parseInt(rLama.qty_spk,10)||0;
         var qtyBaru=itTetap.qty;
         var delta=qtyBaru-qtyLama;
         if(delta!==0){
           await dbUpdate('in_spk_detail',{id_sdet:'eq.'+rLama.id_sdet},{qty_spk:qtyBaru});
-          await syncQtySpkOrderDetail(itTetap.idDetail,delta);
+          if(itTetap.tipeKomponen!=='PROSES') await syncQtySpkOrderDetail(itTetap.idDetail,delta);
         }
-        var infoTetap=await cekLebihOrder(itTetap.idDetail,qtyBaru,qtyLama);
-        if(infoTetap.lebih>0){
-          lebihList.push({idSdet:rLama.id_sdet,idItem:itTetap.idItem,namaItem:itTetap.namaItem,idOrder:itTetap.idOrder,info:infoTetap});
+        if(itTetap.tipeKomponen!=='PROSES'){
+          var infoTetap=await cekLebihOrder(itTetap.idDetail,qtyBaru,qtyLama);
+          if(infoTetap.lebih>0){
+            lebihList.push({idSdet:rLama.id_sdet,idItem:itTetap.idItem,namaItem:itTetap.namaItem,idOrder:itTetap.idOrder,info:infoTetap});
+          }
         }
       }
     }
