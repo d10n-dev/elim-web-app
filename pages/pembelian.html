@@ -1957,8 +1957,12 @@ async function bukaAlokasiStokPembelian(idPembelian){
     return;
   }
   var details=res.details||[];
-  var belumAlokasi=details.filter(function(d){ return !(d.alokasi&&d.alokasi.length); });
-  var sudahAlokasi=details.filter(function(d){ return d.alokasi&&d.alokasi.length; });
+  var mapPerluStok={};
+  cacheAkun.forEach(function(a){ mapPerluStok[a.id_akun]=(a.perlu_alokasi_stok!==false); });
+  var perluStok=function(d){ return mapPerluStok.hasOwnProperty(d.id_akun) ? mapPerluStok[d.id_akun] : true; };
+  var details_stok=details.filter(perluStok);
+  var belumAlokasi=details_stok.filter(function(d){ return !(d.alokasi&&d.alokasi.length); });
+  var sudahAlokasi=details_stok.filter(function(d){ return d.alokasi&&d.alokasi.length; });
 
   alokasiStokItemBaris=belumAlokasi.map(function(d){
     return {
