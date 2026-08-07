@@ -256,7 +256,7 @@
         <div class="log-panel" id="panelFINISHING">
           <div id="finishingKosongWrap" style="display:none">
             <div class="alert-box alert-ok">Tidak ada proses finishing yang disyaratkan untuk item pada SPK ini (sesuai BOM).</div>
-            <div style="text-align:right"><button class="btn-simpan" onclick="lewatiFinishingKosong()">Lewati & Lanjut ke Packing</button></div>
+            <div style="text-align:right"><button class="btn-simpan" id="btnLewatiFinishing" onclick="lewatiFinishingKosong()">Lewati & Lanjut ke Packing</button></div>
           </div>
           <div id="finishingLegacyWrap" style="display:none">
             <div class="alert-box alert-warn" style="margin-bottom:.6rem">SPK ini sudah punya catatan finishing dari sebelum update sistem — pakai mode lama.</div>
@@ -1392,8 +1392,10 @@ function terapkanVisibilitasPacking(){
   var tabBtn=document.getElementById('tabBtnPacking');
   var panel=document.getElementById('panelPACKING');
   var info=document.getElementById('infoProsesTanpaPacking');
+  var btnLewati=document.getElementById('btnLewatiFinishing');
   if(tabBtn) tabBtn.style.display=spkAktifSemuaProses?'none':'';
   if(info) info.style.display=spkAktifSemuaProses?'':'none';
+  if(btnLewati) btnLewati.textContent=spkAktifSemuaProses?'Lewati & Siap Close':'Lewati & Lanjut ke Packing';
   // Kalau tab Packing lagi aktif tapi disembunyikan (mis. buka SPK lain), pindah balik ke CETAK
   if(spkAktifSemuaProses&&tabLogAktif==='PACKING'){
     gantiTabLog('CETAK',document.querySelector('#modalProgress .log-tab'));
