@@ -217,10 +217,13 @@
         <div id="alertProgress"></div>
         <div id="progressInfoSpk" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.6rem .85rem;margin-bottom:.9rem;font-family:var(--mono);font-size:.72rem;"></div>
         <div class="log-tab-wrap">
+          <div id="infoProsesTanpaPacking" style="display:none;width:100%;font-family:var(--mono);font-size:.68rem;background:#dbeafe;color:#1e40af;border-radius:6px;padding:.4rem .6rem;margin-bottom:.4rem">
+            ℹ SPK komponen PROSES — tidak melalui tahap Packing. "Close SPK" aktif otomatis setelah Finishing tuntas (atau langsung setelah Cetak/Potong kalau tidak ada finishing).
+          </div>
           <button class="log-tab aktif" onclick="gantiTabLog('CETAK',this)">Cetak</button>
           <button class="log-tab" onclick="gantiTabLog('POTONG',this)">Potong</button>
           <button class="log-tab" onclick="gantiTabLog('FINISHING',this)">Finishing</button>
-          <button class="log-tab" onclick="gantiTabLog('PACKING',this)">Packing</button>
+          <button class="log-tab" id="tabBtnPacking" onclick="gantiTabLog('PACKING',this)">Packing</button>
           <button class="log-tab" onclick="gantiTabLog('RIWAYAT',this)">📋 Riwayat</button>
         </div>
         <div class="log-panel aktif" id="panelCETAK">
@@ -448,6 +451,7 @@ var itemDenganKomponenSet={}; // {id_item: true} — item yg punya >=1 komponen 
 var komponenItemDipilih=[];   // daftar komponen AKTIF milik item yg sedang dipilih di form tambah item
 var idKomponenDipilih=null;   // id_komponen terpilih (null = item tanpa komponen / pilih "umum")
 var komponenLabelMap={};      // {id_komponen: {kode_komponen,tipe}} — cache utk badge di renderItemList
+var spkAktifSemuaProses=false; // true kalau semua baris SPK yg sedang dibuka = komponen PROSES (skip Packing)
 
 function cekErrorSupabase(res){
   if(!res){throw new Error('Tidak ada respon dari server.');}
@@ -1357,11 +1361,43 @@ function bukaProgress(idSpk){
   });
   dbGet('in_spk_detail',{id_spk:'eq.'+idSpk}).then(function(res){
     sdetAktif=Array.isArray(res)?res:[];
+    return muatSpkAktifTipeKomponen();
+  }).then(function(){
+    terapkanVisibilitasPacking();
     renderPackingItemList();
     muatFinishingRequirement(idSpk);
   });
   muatRiwayatLog(idSpk);
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalProgress')).show();
+}
+
+// Cek: apakah SEMUA baris SPK ini komponen PROSES (mis. SPK khusus cetak COVER atau khusus ISI)?
+// Kalau ya, SPK ini TIDAK boleh lewat tahap Packing (Packing = nambah stok barang jadi,
+// sedangkan komponen PROSES bukan barang jadi — itu tugas komponen FINAL/JILID).
+// Kalau SPK berisi campuran (ada item non-komponen atau FINAL), diperlakukan normal (lewat Packing).
+function muatSpkAktifTipeKomponen(){
+  spkAktifSemuaProses=false;
+  if(!sdetAktif.length) return Promise.resolve();
+  if(sdetAktif.some(function(r){return !r.id_komponen;})) return Promise.resolve();
+  var idsKomp=[];
+  sdetAktif.forEach(function(r){ if(idsKomp.indexOf(r.id_komponen)===-1) idsKomp.push(r.id_komponen); });
+  return dbGet('m_item_komponen',{id_komponen:'in.('+idsKomp.join(',')+')',select:'id_komponen,tipe'}).then(function(res){
+    var arr=Array.isArray(res)?res:[];
+    arr.forEach(function(k){ komponenLabelMap[k.id_komponen]=k; });
+    spkAktifSemuaProses=arr.length>0&&arr.every(function(k){return k.tipe==='PROSES';});
+  }).catch(function(){ spkAktifSemuaProses=false; });
+}
+
+function terapkanVisibilitasPacking(){
+  var tabBtn=document.getElementById('tabBtnPacking');
+  var panel=document.getElementById('panelPACKING');
+  var info=document.getElementById('infoProsesTanpaPacking');
+  if(tabBtn) tabBtn.style.display=spkAktifSemuaProses?'none':'';
+  if(info) info.style.display=spkAktifSemuaProses?'':'none';
+  // Kalau tab Packing lagi aktif tapi disembunyikan (mis. buka SPK lain), pindah balik ke CETAK
+  if(spkAktifSemuaProses&&tabLogAktif==='PACKING'){
+    gantiTabLog('CETAK',document.querySelector('#modalProgress .log-tab'));
+  }
 }
 
 // ── FINISHING GRANULAR (per item x jenis_finishing dari BOM) ──
@@ -1374,7 +1410,7 @@ function muatFinishingRequirement(idSpk){
   }
   var filterIn='in.('+idItemUnik.join(',')+')';
   Promise.all([
-    dbGet('m_bom_finishing',{id_item:filterIn,order:'urut.asc'}),
+    dbGet('m_bom_finishing',{id_item:filterIn,order:'urut.asc',select:'id,id_item,jenis_finishing,urut,id_komponen'}),
     dbGet('log_produksi',{id_spk:'eq.'+idSpk,jenis:'eq.FINISHING',order:'tgl_produksi.asc'}),
     muatMesinVendorCache()
   ]).then(function(r){
@@ -1400,7 +1436,7 @@ function muatFinishingRequirement(idSpk){
       if(!finishingLogsByRow[key]) finishingLogsByRow[key]=[];
       finishingLogsByRow[key].push({qty:parseInt(l.qty,10)||0,mesin_vendor:l.mesin_vendor||'',tgl:l.tgl_produksi});
     });
-    finishingReqKosong=!sdetAktif.some(function(r){ return (bomFinishingAktif[r.id_item]||[]).length>0; });
+    finishingReqKosong=!sdetAktif.some(function(r){ return reqsUntukSdet(r).length>0; });
     renderFinishingItemList();
   }).catch(function(){
     bomFinishingAktif={}; finishingProgress={}; finishingLogsByRow={}; finishingLegacyAktif=false; finishingReqKosong=false;
@@ -1409,6 +1445,14 @@ function muatFinishingRequirement(idSpk){
 }
 
 var mesinVendorCache=null;
+// Ambil requirement finishing khusus utk 1 baris SPK, disaring sesuai id_komponen baris itu
+// (item non-komponen: id_komponen null, cocok dgn BOM finishing yg id_komponen-nya juga null).
+// Ini mencegah checklist finishing COVER ikut nyampur ke SPK ISI, atau sebaliknya.
+function reqsUntukSdet(r){
+  var semua=bomFinishingAktif[r.id_item]||[];
+  var idKompRow=r.id_komponen||null;
+  return semua.filter(function(f){ return (f.id_komponen||null)===idKompRow; });
+}
 function muatMesinVendorCache(){
   if(mesinVendorCache) return Promise.resolve(mesinVendorCache);
   return dbGet('log_produksi',{select:'mesin_vendor',jenis:'eq.FINISHING'}).then(function(res){
@@ -1425,7 +1469,7 @@ function muatMesinVendorCache(){
 function finishingLunas(){
   if(finishingLegacyAktif||finishingReqKosong) return true;
   return sdetAktif.every(function(r){
-    var reqs=bomFinishingAktif[r.id_item]||[];
+    var reqs=reqsUntukSdet(r);
     var target=parseInt(r.qty_spk,10)||0;
     return reqs.every(function(f){
       var terpakai=finishingProgress[r.id_sdet+'_'+f.id]||0;
@@ -1458,7 +1502,7 @@ function renderFinishingItemList(){
   wrapBaruLuar.style.display='';
   var html='';
   sdetAktif.forEach(function(r){
-    var reqs=bomFinishingAktif[r.id_item]||[];
+    var reqs=reqsUntukSdet(r);
     if(!reqs.length) return;
     var target=parseInt(r.qty_spk,10)||0;
     html+='<div class="section-divider" style="margin-top:.6rem">'+esc(r.nama_item)+(r.subitem?' — '+esc(r.subitem):'')+'</div>';
@@ -1525,14 +1569,14 @@ async function simpanFinishingBaris(idSdet,idBomFin,sisa,btn){
     var spk=semuaSPK.find(function(s){return s.id_spk===idSpkAktif;});
     var curStatus=spk?spk.status:'OPEN';
     var lunas=finishingLunas();
-    var statusBaru=lunas?'PACKING':'FINISHING';
+    var statusBaru=lunas?(spkAktifSemuaProses?'SIAP_CLOSE':'PACKING'):'FINISHING';
     if(_statusLebihTinggi(statusBaru,curStatus)){
       await dbUpdate('in_spk',{id_spk:'eq.'+idSpkAktif},{status:statusBaru});
       var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpkAktif;});
       if(si>=0) semuaSPK[si].status=statusBaru;
       renderTabel();
     }
-    alertEl.innerHTML='<div class="alert-box alert-ok">Log Finishing disimpan.'+(lunas?' ✓ Semua proses finishing lunas — Packing terbuka.':'')+'</div>';
+    alertEl.innerHTML='<div class="alert-box alert-ok">Log Finishing disimpan.'+(lunas?(spkAktifSemuaProses?' ✓ Semua finishing lunas — SPK Siap Close (komponen PROSES, tanpa Packing).':' ✓ Semua proses finishing lunas — Packing terbuka.'):'')+'</div>';
     await muatFinishingRequirement(idSpkAktif);
     muatRiwayatLog(idSpkAktif);
   }catch(e){
@@ -1544,13 +1588,16 @@ async function simpanFinishingBaris(idSdet,idBomFin,sisa,btn){
 async function lewatiFinishingKosong(){
   var spk=semuaSPK.find(function(s){return s.id_spk===idSpkAktif;});
   var curStatus=spk?spk.status:'OPEN';
-  if(_statusLebihTinggi('PACKING',curStatus)){
-    await dbUpdate('in_spk',{id_spk:'eq.'+idSpkAktif},{status:'PACKING'});
+  var statusTarget=spkAktifSemuaProses?'SIAP_CLOSE':'PACKING';
+  if(_statusLebihTinggi(statusTarget,curStatus)){
+    await dbUpdate('in_spk',{id_spk:'eq.'+idSpkAktif},{status:statusTarget});
     var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpkAktif;});
-    if(si>=0) semuaSPK[si].status='PACKING';
+    if(si>=0) semuaSPK[si].status=statusTarget;
     renderTabel();
   }
-  document.getElementById('alertProgress').innerHTML='<div class="alert-box alert-ok">✓ Tidak ada proses finishing diperlukan. Lanjut ke Packing.</div>';
+  document.getElementById('alertProgress').innerHTML=spkAktifSemuaProses
+    ? '<div class="alert-box alert-ok">✓ Tidak ada proses finishing diperlukan. SPK Siap Close (komponen PROSES, tanpa Packing).</div>'
+    : '<div class="alert-box alert-ok">✓ Tidak ada proses finishing diperlukan. Lanjut ke Packing.</div>';
 }
 
 function gantiTabLog(jenis,elBtn){
@@ -1634,11 +1681,21 @@ async function prosesKeluarProduksiBahan(data, idLog){
   if(!sdetAktif||!sdetAktif.length) return;
   var totalLembar=(parseInt(data.qty,10)||0)+(parseInt(data.insheet,10)||0);
   if(totalLembar<=0) return;
-  var idItem=sdetAktif[0].id_item;
-  if(!idItem) return;
-  var bomBahan=await dbGet('m_bom_bahan',{id_item:'eq.'+idItem});
-  bomBahan=Array.isArray(bomBahan)?bomBahan:[];
-  bomBahan=bomBahan.filter(function(b){return !!b.id_bahan;});
+
+  // Cari baris SPK pertama yang BOM bahannya terisi, dicocokkan ke (id_item + id_komponen)
+  // baris itu sendiri — bukan asal ambil item pertama SPK seperti sebelumnya.
+  // Ini otomatis benar utk item non-komponen (id_komponen null → cocok dgn BOM id_komponen null)
+  // maupun item multi-komponen (COVER SPK ambil BOM COVER, ISI SPK ambil BOM ISI, dst).
+  var bomBahan=[];
+  for(var i=0;i<sdetAktif.length;i++){
+    var r=sdetAktif[i];
+    if(!r.id_item) continue;
+    var params={id_item:'eq.'+r.id_item};
+    params.id_komponen=r.id_komponen?('eq.'+r.id_komponen):'is.null';
+    var resB=await dbGet('m_bom_bahan',params);
+    var arr=(Array.isArray(resB)?resB:[]).filter(function(b){return !!b.id_bahan;});
+    if(arr.length){ bomBahan=arr; break; }
+  }
   if(!bomBahan.length) return;
   var idBahanList=bomBahan.map(function(b){return b.id_bahan;});
   var bahanMaster=await dbGet('m_bahan',{id_bahan:'in.('+idBahanList.join(',')+')'});
@@ -1850,11 +1907,27 @@ function bukaModalClosing(){
   document.getElementById('saranCetakUlang').style.display='none';
   document.getElementById('chkCetakUlang').checked=false;
   var wrapAlasan=document.getElementById('wrapAlasanClosing'); if(wrapAlasan) wrapAlasan.style.display='none';
+  var infoEl=document.getElementById('closingInfo');
+  var btn=document.getElementById('btnKonfirmasiClosing');
+
+  if(spkAktifSemuaProses){
+    // SPK komponen PROSES tidak pernah lewat Packing — rekap qty_pack tidak relevan.
+    // Status sudah SIAP_CLOSE artinya semua tahap produksi (Cetak/Potong/Finishing) tuntas.
+    infoEl.innerHTML='<div class="alert-box alert-ok">SPK komponen PROSES — semua tahap produksi (Cetak/Potong/Finishing) sudah tuntas. Tidak melalui Packing.</div>';
+    _closingPerluApprove=false;
+    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Siap ditutup.</div>';
+    btn.textContent='✓ Close SPK';
+    ['modalProgress'].forEach(function(id){
+      var m=bootstrap.Modal.getInstance(document.getElementById(id)); if(m) m.hide();
+    });
+    setTimeout(function(){bootstrap.Modal.getOrCreateInstance(document.getElementById('modalClosing')).show();},300);
+    return;
+  }
+
   // Hitung dari sdetAktif (qty_pack sudah ada)
   var items=sdetAktif.map(function(r){
     return {namaItem:r.nama_item,subitem:r.subitem,target:parseInt(r.qty_spk,10)||0,qtyPack:parseInt(r.qty_pack,10)||0};
   });
-  var infoEl=document.getElementById('closingInfo');
   var adaKurang=false,adaSangatKurang=false;
   var html='<div style="font-size:.75rem;font-family:var(--mono);margin-bottom:.5rem"><strong>Rekapitulasi Packing:</strong></div>'+
     '<div style="overflow-x:auto"><table class="sdet-table"><thead><tr><th>Item</th><th>Subitem</th><th style="text-align:right">Target</th><th style="text-align:right">Terpacking</th><th style="text-align:right">%</th></tr></thead><tbody>';
@@ -1872,7 +1945,6 @@ function bukaModalClosing(){
   else html+='</tbody></table></div>';
   infoEl.innerHTML=html;
   _closingPerluApprove=adaKurang;
-  var btn=document.getElementById('btnKonfirmasiClosing');
   if(adaKurang){
     alertEl.innerHTML='<div class="alert-box alert-warn">⚠ Ada subitem belum 100%. Alasan wajib diisi, closing membutuhkan approval Manager.</div>';
     if(wrapAlasan) wrapAlasan.style.display='';
