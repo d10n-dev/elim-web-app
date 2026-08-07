@@ -510,23 +510,25 @@ var dataPotongBahan = [];
 var idPotongAksiSekarang = null;
 
 function initPotongTab(){
-  dbGet('m_operator',{status:'eq.AKTIF',order:'nama_operator.asc'}).then(function(r){
-    daftarOperator = Array.isArray(r)?r:[];
+  muatMasterBahan().then(function(){
+    dbGet('m_operator',{status:'eq.AKTIF',order:'nama_operator.asc'}).then(function(r){
+      daftarOperator = Array.isArray(r)?r:[];
+    });
+
+    var inp = document.getElementById('potongAsalInput');
+    var drop = document.getElementById('potongAsalDrop');
+    buatAC(inp, drop, daftarBahan, 'id_bahan', 'nama_bahan', function(d){
+      potongAsalTerpilih = d; inp.value = d.nama_bahan;
+    });
+
+    var opInp = document.getElementById('potongOperatorInput');
+    opInp.addEventListener('input', function(){ potongOperatorTerpilih = opInp.value.trim(); });
+    opInp.addEventListener('focus', function(){ renderOperatorDrop(opInp.value); });
+    opInp.addEventListener('blur', function(){ setTimeout(function(){ document.getElementById('potongOperatorDrop').classList.remove('open'); }, 200); });
+
+    tambahRowHasil();
+    muatRiwayatPotong();
   });
-
-  var inp = document.getElementById('potongAsalInput');
-  var drop = document.getElementById('potongAsalDrop');
-  buatAC(inp, drop, daftarBahan, 'id_bahan', 'nama_bahan', function(d){
-    potongAsalTerpilih = d; inp.value = d.nama_bahan;
-  });
-
-  var opInp = document.getElementById('potongOperatorInput');
-  opInp.addEventListener('input', function(){ potongOperatorTerpilih = opInp.value.trim(); });
-  opInp.addEventListener('focus', function(){ renderOperatorDrop(opInp.value); });
-  opInp.addEventListener('blur', function(){ setTimeout(function(){ document.getElementById('potongOperatorDrop').classList.remove('open'); }, 200); });
-
-  tambahRowHasil();
-  muatRiwayatPotong();
 }
 
 function renderOperatorDrop(q){
