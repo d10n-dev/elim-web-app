@@ -111,7 +111,7 @@
         <span class="filter-label">Jenis</span>
         <select id="filterJenis" class="filter-input">
           <option value="">Semua</option>
-          <option>CETAK</option><option>POTONG</option><option>FINISHING</option><option>PACKING</option>
+          <option>CETAK</option><option>POTONG</option><option>FINISHING</option><option>PACKING</option><option>POTONG_BAHAN</option>
         </select>
       </div>
       <div class="filter-group">
@@ -543,6 +543,7 @@ function muatRiwayat(){
           '<td class="td-mono" style="font-size:.65rem">'+(isDibatalkan?'<span style="color:var(--red)">DIBATALKAN</span>':isPending?'<span style="color:#713f12">'+labelPending+'</span>':'<span style="color:var(--green)">AKTIF</span>')+'</td>'+
           '<td style="display:flex;gap:.3rem;flex-wrap:wrap">'+
             (isDibatalkan?'<span style="font-size:.68rem;color:var(--muted)">—</span>':
+              l.jenis==='POTONG_BAHAN'?'<span style="font-size:.65rem;color:var(--muted)">Kelola di Stok Bahan</span>':
               '<button class="btn-edit" '+(isPending?'disabled title="Sedang menunggu approval"':'')+' onclick="bukaEdit(\''+esc(l.id_log)+'\')">Edit</button>'+
               '<button class="btn-tolak" style="font-size:.68rem;padding:.2rem .55rem" '+(isPending?'disabled title="Sedang menunggu approval"':'')+' onclick="bukaVoidAjuan(\''+esc(l.id_log)+'\')">Void</button>'
             )+

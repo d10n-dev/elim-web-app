@@ -78,6 +78,7 @@
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="saldo" onclick="gantiTab('saldo')">📦 Saldo Saat Ini</button>
     <button class="tab-btn" data-tab="kartu" onclick="gantiTab('kartu')">📋 Kartu Stok</button>
+    <button class="tab-btn" data-tab="potong" onclick="gantiTab('potong')">✂️ Potong Bahan</button>
   </div>
 
   <!-- ============ TAB: SALDO SAAT INI ============ -->
@@ -137,6 +138,111 @@
     </div>
   </div>
 
+  <!-- ============ TAB: POTONG BAHAN ============ -->
+  <div class="tab-pane" id="tabPotong">
+    <div id="alertPotong" class="alert-box alert-err" style="display:none"></div>
+
+    <div class="bom-card" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:12px;padding:14px;">
+      <div style="font-family:var(--mono);font-weight:600;font-size:13px;color:var(--navy);margin-bottom:10px;">+ Transaksi Potong Baru</div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <div class="ac-wrap" style="min-width:220px;">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Bahan Asal</label>
+          <input type="text" id="potongAsalInput" placeholder="Ketik nama bahan..." autocomplete="off" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;">
+          <div class="ac-drop" id="potongAsalDrop"></div>
+        </div>
+        <div style="min-width:140px;">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Qty Asal (lembar)</label>
+          <input type="number" id="potongQtyAsal" min="0" step="1" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;">
+        </div>
+        <div class="ac-wrap" style="min-width:180px;">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Operator</label>
+          <input type="text" id="potongOperatorInput" placeholder="Nama operator..." autocomplete="off" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;">
+          <div class="ac-drop" id="potongOperatorDrop"></div>
+        </div>
+      </div>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Keterangan (opsional)</label>
+      <input type="text" id="potongKeterangan" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-bottom:12px;">
+
+      <div style="font-family:var(--mono);font-weight:600;font-size:12px;color:var(--navy);margin-bottom:6px;">Hasil Potong</div>
+      <div id="listHasilPotong"></div>
+      <div style="display:flex;gap:8px;margin:8px 0 4px;">
+        <button type="button" onclick="tambahRowHasil()" style="font-size:12px;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;background:none;cursor:pointer;">+ Tambah Hasil</button>
+        <button type="button" onclick="bukaModalBahanBaru()" style="font-size:12px;border:1px dashed var(--orange);color:var(--orange);border-radius:6px;padding:6px 12px;background:none;cursor:pointer;">+ Daftarkan Bahan Baru</button>
+      </div>
+
+      <button class="btn-tampilkan" id="btnSimpanPotong" onclick="simpanPotongBahan()" style="margin-top:10px;">Simpan Transaksi</button>
+    </div>
+
+    <div class="counter-bar" id="counterPotong">Memuat riwayat...</div>
+    <div class="table-wrap">
+      <table id="tabelPotong">
+        <thead><tr>
+          <th>ID</th><th>Tanggal</th><th>Bahan Asal</th><th class="td-right">Qty Asal</th><th>Status</th><th>Aksi</th>
+        </tr></thead>
+        <tbody id="potongTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Daftarkan Bahan Baru -->
+<div class="modal fade" id="modalBahanBaru" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Daftarkan Bahan Baru</h6>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <label style="font-size:12px;color:var(--muted);">Nama Bahan</label>
+      <input type="text" id="bahanBaruNama" class="form-control" style="margin-bottom:8px;">
+      <label style="font-size:12px;color:var(--muted);">Kategori</label>
+      <select id="bahanBaruKategori" class="form-control" style="margin-bottom:8px;">
+        <option value="KERTAS">KERTAS</option><option value="PLASTIK">PLASTIK</option><option value="PACKING">PACKING</option><option value="LAIN">LAIN</option>
+      </select>
+      <div id="alertBahanBaru" style="display:none;color:var(--red);font-size:12px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+      <button type="button" class="btn btn-primary" onclick="simpanBahanBaru()">Simpan</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- Modal Void/Edit -->
+<div class="modal fade" id="modalVoidEditPotong" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulModalVE">Ajukan</h6>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <label style="font-size:12px;color:var(--muted);">Alasan</label>
+      <textarea id="veAlasan" class="form-control" rows="2" style="margin-bottom:8px;"></textarea>
+      <div id="veEditFields" style="display:none;">
+        <div style="font-size:11px;color:var(--muted);">Fitur edit detail hasil: hapus transaksi ini via Void, lalu input ulang sbg transaksi baru. (Edit jumlah kompleks belum didukung form ini — hubungi dev kalau perlu.)</div>
+      </div>
+      <div id="alertVE" style="display:none;color:var(--red);font-size:12px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+      <button type="button" class="btn btn-danger" id="btnKirimVE" onclick="kirimVoidPotong()">Ajukan Void</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- Modal Approve (Direktur) -->
+<div class="modal fade" id="modalApprovePotong" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Approve Pengajuan</h6>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="approvePotongInfo" style="font-size:13px;margin-bottom:10px;"></div>
+      <div id="alertApprovePotong" style="display:none;color:var(--red);font-size:12px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="prosesApprovePotong(false)">Tolak</button>
+      <button type="button" class="btn btn-primary" onclick="prosesApprovePotong(true)">Setujui</button>
+    </div>
+  </div></div>
 </div>
 
 <div id="kontenAksesDitolak" style="display:none">
@@ -194,10 +300,12 @@ window.addEventListener('load', async function () {
   });
 });
 
+var _potongInitDone = false;
 function gantiTab(tab){
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
   document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
   document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+  if (tab==='potong' && !_potongInitDone) { _potongInitDone = true; initPotongTab(); }
 }
 
 // ============================================================
@@ -389,6 +497,228 @@ function renderKartu(rows){
       '<td style="font-size:12px">'+esc(r.keterangan||'—')+'</td>'+
     '</tr>';
   }).join('');
+}
+
+// ============================================================
+// TAB: POTONG BAHAN
+// ============================================================
+var daftarOperator = [];
+var potongAsalTerpilih = null;
+var potongOperatorTerpilih = '';
+var hasilRowCounter = 0;
+var dataPotongBahan = [];
+var idPotongAksiSekarang = null;
+
+function initPotongTab(){
+  dbGet('m_operator',{status:'eq.AKTIF',order:'nama_operator.asc'}).then(function(r){
+    daftarOperator = Array.isArray(r)?r:[];
+  });
+
+  var inp = document.getElementById('potongAsalInput');
+  var drop = document.getElementById('potongAsalDrop');
+  buatAC(inp, drop, daftarBahan, 'id_bahan', 'nama_bahan', function(d){
+    potongAsalTerpilih = d; inp.value = d.nama_bahan;
+  });
+
+  var opInp = document.getElementById('potongOperatorInput');
+  opInp.addEventListener('input', function(){ potongOperatorTerpilih = opInp.value.trim(); });
+  opInp.addEventListener('focus', function(){ renderOperatorDrop(opInp.value); });
+  opInp.addEventListener('blur', function(){ setTimeout(function(){ document.getElementById('potongOperatorDrop').classList.remove('open'); }, 200); });
+
+  tambahRowHasil();
+  muatRiwayatPotong();
+}
+
+function renderOperatorDrop(q){
+  var drop = document.getElementById('potongOperatorDrop');
+  var inp = document.getElementById('potongOperatorInput');
+  q = (q||'').toLowerCase();
+  var items = daftarOperator.filter(function(o){ return (o.nama_operator||'').toLowerCase().includes(q); }).slice(0,20);
+  var r = inp.getBoundingClientRect();
+  drop.style.top = r.bottom+'px'; drop.style.left = r.left+'px'; drop.style.width = r.width+'px';
+  drop.innerHTML = items.length ? items.map(function(o){
+    return '<div class="ac-item" onmousedown="event.preventDefault();pilihOperatorPotong(\''+esc(o.nama_operator)+'\')">'+esc(o.nama_operator)+'</div>';
+  }).join('') : '<div class="ac-empty">Tidak ditemukan (bisa diketik manual)</div>';
+  drop.classList.add('open');
+}
+function pilihOperatorPotong(nama){
+  document.getElementById('potongOperatorInput').value = nama;
+  potongOperatorTerpilih = nama;
+  document.getElementById('potongOperatorDrop').classList.remove('open');
+}
+
+function tambahRowHasil(){
+  var id = 'hrow'+(++hasilRowCounter);
+  var div = document.createElement('div');
+  div.className = 'hasil-row';
+  div.id = id;
+  div.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
+  div.innerHTML =
+    '<div class="ac-wrap" style="flex:2;min-width:160px;">'+
+      '<input type="text" class="hr-bahan-input" placeholder="Bahan hasil..." autocomplete="off" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;">'+
+      '<div class="ac-drop hr-drop"></div>'+
+    '</div>'+
+    '<input type="number" class="hr-qty" placeholder="Qty (lembar)" min="0" step="1" style="width:130px;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;">'+
+    '<button type="button" onclick="document.getElementById(\''+id+'\').remove()" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:16px;">✕</button>';
+  document.getElementById('listHasilPotong').appendChild(div);
+  var bInp = div.querySelector('.hr-bahan-input');
+  var bDrop = div.querySelector('.hr-drop');
+  document.body.appendChild(bDrop);
+  buatAC(bInp, bDrop, daftarBahan, 'id_bahan', 'nama_bahan', function(d){ bInp.value = d.nama_bahan; bInp._sel = d; });
+  bInp.addEventListener('input', function(){ bInp._sel = null; });
+}
+
+function bukaModalBahanBaru(){
+  document.getElementById('bahanBaruNama').value = '';
+  document.getElementById('alertBahanBaru').style.display='none';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBahanBaru')).show();
+}
+function simpanBahanBaru(){
+  var nama = document.getElementById('bahanBaruNama').value.trim().toUpperCase();
+  var kategori = document.getElementById('bahanBaruKategori').value;
+  var alertEl = document.getElementById('alertBahanBaru');
+  if(!nama){ alertEl.textContent='Nama bahan wajib diisi.'; alertEl.style.display='block'; return; }
+  var idBaru = generateIdLokal(daftarBahan, 'BHN', 'id_bahan', 4);
+  dbInsert('m_bahan', { id_bahan: idBaru, nama_bahan: nama, kategori: kategori, satuan: 'LEMBAR', status: 'AKTIF' }).then(function(res){
+    if(res && res.code){ alertEl.textContent='Gagal: '+res.message; alertEl.style.display='block'; return; }
+    daftarBahan.push({id_bahan:idBaru, nama_bahan:nama, kategori:kategori, satuan:'LEMBAR'});
+    mapBahanKategori[idBaru]=kategori;
+    bootstrap.Modal.getInstance(document.getElementById('modalBahanBaru')).hide();
+  });
+}
+
+function simpanPotongBahan(){
+  var alertEl = document.getElementById('alertPotong');
+  alertEl.style.display='none';
+  if(!potongAsalTerpilih){ return tampilErrPotong('Pilih bahan asal dari daftar.'); }
+  var qtyAsal = parseFloat(document.getElementById('potongQtyAsal').value);
+  if(!qtyAsal || qtyAsal<=0){ return tampilErrPotong('Qty asal wajib diisi (> 0).'); }
+  var operator = document.getElementById('potongOperatorInput').value.trim();
+  if(!operator){ return tampilErrPotong('Operator wajib diisi.'); }
+  var keterangan = document.getElementById('potongKeterangan').value.trim();
+
+  var hasil = [];
+  var err = false;
+  document.querySelectorAll('#listHasilPotong .hasil-row').forEach(function(row){
+    var bInp = row.querySelector('.hr-bahan-input');
+    var qInp = row.querySelector('.hr-qty');
+    if(!bInp.value.trim()) return;
+    if(!bInp._sel){ err = true; return; }
+    var qty = parseFloat(qInp.value);
+    if(!qty || qty<=0){ err = true; return; }
+    hasil.push({ id_bahan_hasil: bInp._sel.id_bahan, qty_hasil: qty });
+  });
+  if(err) return tampilErrPotong('Ada baris hasil yang tidak valid (bahan/qty).');
+  if(!hasil.length) return tampilErrPotong('Minimal 1 bahan hasil wajib diisi.');
+
+  var btn = document.getElementById('btnSimpanPotong');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+  dbRpc('buat_potong_bahan', {
+    p_id_bahan_asal: potongAsalTerpilih.id_bahan,
+    p_qty_asal: qtyAsal,
+    p_hasil: hasil,
+    p_operator: operator,
+    p_keterangan: keterangan,
+    p_user: getNamaUser()
+  }).then(function(res){
+    btn.disabled = false; btn.textContent = 'Simpan Transaksi';
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){ return tampilErrPotong('Gagal menyimpan: '+errMsg); }
+    document.getElementById('potongQtyAsal').value = '';
+    document.getElementById('potongKeterangan').value = '';
+    document.getElementById('potongAsalInput').value = '';
+    potongAsalTerpilih = null;
+    document.getElementById('listHasilPotong').innerHTML = '';
+    tambahRowHasil();
+    muatSaldo();
+    muatRiwayatPotong();
+  });
+}
+function tampilErrPotong(msg){
+  var el = document.getElementById('alertPotong');
+  el.textContent = msg; el.style.display='block';
+}
+
+function muatRiwayatPotong(){
+  document.getElementById('counterPotong').textContent = 'Memuat...';
+  dbRpc('get_potong_bahan', {}).then(function(res){
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){ document.getElementById('counterPotong').textContent='Gagal memuat: '+errMsg; return; }
+    dataPotongBahan = Array.isArray(res)?res:[];
+    document.getElementById('counterPotong').textContent = dataPotongBahan.length+' transaksi';
+    renderRiwayatPotong();
+  });
+}
+
+function renderRiwayatPotong(){
+  var tbody = document.getElementById('potongTbody');
+  if(!dataPotongBahan.length){
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted);">Belum ada transaksi.</td></tr>';
+    return;
+  }
+  var direktur = isDirektur();
+  tbody.innerHTML = dataPotongBahan.map(function(p){
+    var badge = p.status==='AKTIF' ? '<span class="badge-saldo badge-ok">AKTIF</span>'
+      : p.status==='DIBATALKAN' ? '<span class="badge-saldo badge-minus">DIBATALKAN</span>'
+      : '<span class="badge-saldo" style="background:#fef9c3;color:#854d0e;">'+esc(p.status)+'</span>';
+    var aksi = '';
+    if(p.status==='AKTIF'){
+      aksi = '<button onclick="bukaVoidPotong(\''+esc(p.id_potong)+'\')" style="font-size:11px;border:1px solid var(--red);color:var(--red);background:none;border-radius:4px;padding:3px 8px;cursor:pointer;">Void</button>';
+    } else if((p.status==='PENDING_VOID'||p.status==='PENDING_EDIT') && direktur){
+      aksi = '<button onclick="bukaApprovePotong(\''+esc(p.id_potong)+'\',\''+esc(p.status)+'\')" style="font-size:11px;border:1px solid var(--navy);color:var(--navy);background:none;border-radius:4px;padding:3px 8px;cursor:pointer;">Review</button>';
+    } else if(p.status==='PENDING_VOID'||p.status==='PENDING_EDIT'){
+      aksi = '<span style="font-size:11px;color:var(--muted);">Menunggu Direktur</span>';
+    } else {
+      aksi = '<span style="font-size:11px;color:var(--muted);">—</span>';
+    }
+    return '<tr>'+
+      '<td class="td-mono-sm">'+esc(p.id_potong)+'</td>'+
+      '<td class="td-mono-sm">'+fmtTgl(p.tgl)+'</td>'+
+      '<td>'+esc(p.nama_bahan_asal||'—')+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(p.qty_asal)+'</td>'+
+      '<td>'+badge+'</td>'+
+      '<td>'+aksi+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function bukaVoidPotong(idPotong){
+  idPotongAksiSekarang = idPotong;
+  document.getElementById('judulModalVE').textContent = 'Ajukan Void — '+idPotong;
+  document.getElementById('veAlasan').value = '';
+  document.getElementById('alertVE').style.display='none';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVoidEditPotong')).show();
+}
+function kirimVoidPotong(){
+  var alasan = document.getElementById('veAlasan').value.trim();
+  var alertEl = document.getElementById('alertVE');
+  if(!alasan){ alertEl.textContent='Alasan wajib diisi.'; alertEl.style.display='block'; return; }
+  dbRpc('ajukan_void_potong_bahan', { p_id_potong: idPotongAksiSekarang, p_alasan: alasan, p_user: getNamaUser() }).then(function(res){
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){ alertEl.textContent='Gagal: '+errMsg; alertEl.style.display='block'; return; }
+    bootstrap.Modal.getInstance(document.getElementById('modalVoidEditPotong')).hide();
+    muatRiwayatPotong();
+  });
+}
+
+function bukaApprovePotong(idPotong, status){
+  idPotongAksiSekarang = idPotong;
+  document.getElementById('approvePotongInfo').innerHTML =
+    '<b>'+esc(idPotong)+'</b> — status: '+esc(status)+'<br>Menyetujui akan '+
+    (status==='PENDING_VOID' ? 'membatalkan transaksi & reverse mutasi stok terkait.' : 'menerapkan perubahan & menyesuaikan mutasi stok.');
+  document.getElementById('alertApprovePotong').style.display='none';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApprovePotong')).show();
+}
+function prosesApprovePotong(disetujui){
+  dbRpc('approve_potong_bahan', { p_id_potong: idPotongAksiSekarang, p_disetujui: disetujui, p_user: getNamaUser() }).then(function(res){
+    var errMsg = cekErrorSupabase(res);
+    var alertEl = document.getElementById('alertApprovePotong');
+    if(errMsg){ alertEl.textContent='Gagal: '+errMsg; alertEl.style.display='block'; return; }
+    bootstrap.Modal.getInstance(document.getElementById('modalApprovePotong')).hide();
+    muatSaldo();
+    muatRiwayatPotong();
+  });
 }
 </script>
 </body>
