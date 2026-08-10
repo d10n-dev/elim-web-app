@@ -671,7 +671,7 @@ function bukaDetail(idOrder){
   document.getElementById('detailTitle').textContent='Detail — '+idOrder;
   document.getElementById('detailBody').innerHTML='<div class="loading">Memuat…</div>';
   var bisaClose=orderAktif&&orderAktif.status==='ANTRI_KIRIM';
-  var bisaEdit=orderAktif&&['BARU','PROSES'].indexOf(orderAktif.status)>=0;
+  var bisaEdit=orderAktif&&['BARU','PRODUKSI'].indexOf(orderAktif.status)>=0;
   document.getElementById('btnClose').style.display=bisaClose?'':'none';
   document.getElementById('btnEdit').style.display=bisaEdit?'':'none';
   document.getElementById('btnLog').style.display='';
@@ -1045,6 +1045,10 @@ function simpanEdit(){
 
   var idLog='LED-'+new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,17)+'-'+Math.floor(Math.random()*900+100);
 
+  // Level approval: perubahan HARGA selalu wajib DIREKTUR (menang atas kondisi lain).
+  // Selain itu (termasuk edit saat order sudah PRODUKSI) cukup MANAGER.
+  var levelApproval=(newHarga!==hargaLama)?'DIREKTUR':'MANAGER';
+
   // PENTING: kirim object mentah, JANGAN JSON.stringify manual — dbInsert sudah stringify body sekali.
   dbInsert('log_edit_order',{
     id_log:idLog,
@@ -1054,10 +1058,11 @@ function simpanEdit(){
     alasan:alasan,
     changes:changes,
     payload:{header:header,details:detailActions},
-    user_input:getNamaUser()
+    user_input:getNamaUser(),
+    level_approval:levelApproval
   }).then(function(res){
     cekErrorSupabase(res);
-    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Perubahan diajukan. Menunggu approval Manager.</div>';
+    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Perubahan diajukan. Menunggu approval '+(levelApproval==='DIREKTUR'?'Direktur (perubahan harga)':'Manager')+'.</div>';
     muatPendingEdit();
     setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();},1500);
   }).catch(function(e){
@@ -1089,19 +1094,25 @@ function bukaModalPending(){
 
 function renderPendingList(data){
   var wrap=document.getElementById('pendingBody');
-  var isApprover=(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR');
+  var role=getRoleUser();
   if(!data.length){
     wrap.innerHTML='<div style="font-family:var(--mono);font-size:.78rem;color:var(--muted);text-align:center;padding:1.5rem">Tidak ada perubahan yang menunggu approval.</div>';
     return;
   }
   var html='';
-  if(!isApprover) html+='<div class="alert-box" style="background:#e8f0fe;border:1px solid #a4c0f9;color:#1a56b0;margin-bottom:.75rem">ℹ️ Hanya Manager/Direktur yang dapat menyetujui.</div>';
   data.forEach(function(p){
+    var level=p.level_approval||'MANAGER';
+    // DIREKTUR selalu bisa approve semua. MANAGER hanya bisa untuk level MANAGER.
+    var bisaProses=(role==='DIREKTUR')||(role==='MANAGER'&&level==='MANAGER');
+    var labelLevel=level==='DIREKTUR'
+      ?'<span style="color:var(--red);font-weight:600">Wajib approval DIREKTUR (perubahan harga)</span>'
+      :'<span style="color:var(--muted)">Approval MANAGER</span>';
     html+='<div class="pending-item">'+
       '<div class="pending-item-hdr">'+
         '<div><div class="pending-item-id">'+esc(p.id_order)+'</div></div>'+
         '<div class="pending-item-tgl">'+fmtTgl(p.tgl)+'</div>'+
       '</div>'+
+      '<div class="pending-item-field"><label>Level</label>'+labelLevel+'</div>'+
       '<div class="pending-item-field"><label>Alasan</label>'+esc(p.alasan||'—')+'</div>'+
       '<div class="pending-item-field"><label>Diajukan oleh</label>'+esc(p.user_input||'—')+'</div>';
     if(p.changes){
@@ -1113,11 +1124,13 @@ function renderPendingList(data){
         });
       }catch(e){}
     }
-    if(isApprover){
+    if(bisaProses){
       html+='<div style="display:flex;gap:.5rem;margin-top:.6rem">'+
         '<button class="btn-simpan" style="font-size:.7rem;padding:.3rem .75rem;background:var(--green)" onclick="prosesApprovalEdit(\''+esc(p.id_log)+'\',\''+esc(p.id_order)+'\',\'APPROVE\',this)">✓ Approve</button>'+
         '<button class="btn-batal" style="font-size:.7rem;padding:.3rem .75rem;color:var(--red);border-color:var(--red)" onclick="prosesApprovalEdit(\''+esc(p.id_log)+'\',\''+esc(p.id_order)+'\',\'TOLAK\',this)">✗ Tolak</button>'+
       '</div>';
+    } else if(role==='MANAGER'&&level==='DIREKTUR'){
+      html+='<div class="alert-box" style="background:#fdecea;border:1px solid #f5a9a0;color:#a00;margin-top:.6rem;padding:.4rem .6rem;font-size:.68rem">Perubahan harga — hanya Direktur yang dapat memproses.</div>';
     }
     html+='</div>';
   });
@@ -1128,10 +1141,11 @@ function prosesApprovalEdit(idLog,idOrder,aksi,btnEl){
   if(!confirm((aksi==='APPROVE'?'Approve':'Tolak')+' perubahan ini?'))return;
   btnEl.disabled=true;
 
+  var emailApprover=(getUserInfo()||{}).email||'';
   var langkah;
   if(aksi==='APPROVE'){
-    // Eksekusi beneran lewat RPC — bukan cuma ubah status log
-    langkah=dbRpc('apply_edit_order',{p_id_log:idLog,p_approved_by:getNamaUser()}).then(function(res){
+    // Eksekusi beneran lewat RPC — role approver divalidasi di dalam RPC (bukan cuma UI)
+    langkah=dbRpc('apply_edit_order',{p_id_log:idLog,p_approved_by:getNamaUser(),p_approver_email:emailApprover}).then(function(res){
       if(res&&res.status==='error') throw new Error(res.message||'Gagal menerapkan perubahan.');
       cekErrorSupabase(res);
       return dbGet('in_order',{order:'tgl_order.desc'}).then(function(r){
@@ -1140,11 +1154,10 @@ function prosesApprovalEdit(idLog,idOrder,aksi,btnEl){
       });
     });
   } else {
-    langkah=dbUpdate('log_edit_order',{id_log:'eq.'+idLog},{
-      status:'DITOLAK',
-      approved_by:getNamaUser(),
-      tgl_approve:new Date().toISOString()
-    }).then(function(res){ cekErrorSupabase(res); });
+    langkah=dbRpc('tolak_edit_order',{p_id_log:idLog,p_approved_by:getNamaUser(),p_approver_email:emailApprover}).then(function(res){
+      if(res&&res.status==='error') throw new Error(res.message||'Gagal menolak perubahan.');
+      cekErrorSupabase(res);
+    });
   }
 
   langkah.then(function(){
