@@ -165,10 +165,10 @@
     <div class="tbl-wrap">
       <table>
         <thead><tr>
-          <th>Tgl Produksi</th><th>ID SPK</th><th>Jenis</th><th>Perubahan</th>
+          <th>Tgl Produksi</th><th>ID SPK</th><th>Item</th><th>Jenis</th><th>Perubahan</th>
           <th>Diajukan Oleh</th><th>Tgl Ajukan</th><th></th>
         </tr></thead>
-        <tbody id="tblPending"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+        <tbody id="tblPending"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -344,8 +344,32 @@ document.addEventListener('DOMContentLoaded', function(){
     initSpkAC(document.getElementById('filterSpk'));
     initEditOperatorAC();
     muatPendingCount();
+    muatSpkItemMapGlobal();
   });
 });
+
+// Peta id_spk -> "nama item, nama item" (semua item unik di SPK tsb), dipakai
+// di dropdown pencarian SPK & tabel Pending, agar admin tidak perlu hafal isi SPK.
+var semuaSpkItemMap={};
+function muatSpkItemMapGlobal(){
+  Promise.all([
+    dbGet('in_spk_detail',{select:'id_spk,id_item'}),
+    dbGet('m_item',{select:'id_item,nama_item'})
+  ]).then(function(r){
+    var sdetAll=Array.isArray(r[0])?r[0]:[];
+    var itemMaster=Array.isArray(r[1])?r[1]:[];
+    var itemMap={}; itemMaster.forEach(function(it){itemMap[it.id_item]=it.nama_item;});
+    var tmp={};
+    sdetAll.forEach(function(s){
+      var nama=itemMap[s.id_item]||'';
+      if(!tmp[s.id_spk]) tmp[s.id_spk]=[];
+      if(nama && tmp[s.id_spk].indexOf(nama)===-1) tmp[s.id_spk].push(nama);
+    });
+    var out={}; Object.keys(tmp).forEach(function(k){out[k]=tmp[k].join(', ');});
+    semuaSpkItemMap=out;
+    if(_spkAcDrop && _spkAcDrop.style.display==='block') renderSpkDrop(_spkAcEl.value);
+  }).catch(function(){});
+}
 
 // ── TAB ──
 function gantiTab(nama,btn){
@@ -382,11 +406,18 @@ function initSpkAC(inputEl){
 }
 function renderSpkDrop(q){
   q=q.toLowerCase();
-  var hasil=semuaSPK.filter(function(s){return s.id_spk.toLowerCase().indexOf(q)>=0;}).slice(0,20);
+  var hasil=semuaSPK.filter(function(s){
+    var namaItem=semuaSpkItemMap[s.id_spk]||'';
+    return s.id_spk.toLowerCase().indexOf(q)>=0 || namaItem.toLowerCase().indexOf(q)>=0;
+  }).slice(0,20);
   _spkAcDrop.innerHTML=hasil.length?hasil.map(function(s){
+    var namaItem=semuaSpkItemMap[s.id_spk]||'';
     return '<div class="ac-item" onmousedown="event.preventDefault();pilihSpk(\''+esc(s.id_spk)+'\')" ontouchstart="_acTouchStart(event)" ontouchmove="_acTouchMove(event)" ontouchend="_acTouchEnd(event,function(){pilihSpk(\''+esc(s.id_spk)+'\')})">'+
+      '<div style="display:flex;justify-content:space-between;gap:8px;">'+
       '<span class="ac-item-id">'+esc(s.id_spk)+'</span>'+
       '<span style="font-size:.72rem;color:var(--muted)">'+esc(s.status)+'</span>'+
+      '</div>'+
+      (namaItem?'<div style="font-size:.7rem;color:var(--muted);white-space:normal;">'+esc(namaItem)+'</div>':'')+
     '</div>';
   }).join(''):'<div class="ac-empty">Tidak ditemukan</div>';
 }
@@ -695,11 +726,11 @@ function muatPendingCount(){
 
 function muatPending(){
   var tbody=document.getElementById('tblPending');
-  tbody.innerHTML='<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  tbody.innerHTML='<tr><td colspan="8" class="loading">Memuat…</td></tr>';
   document.getElementById('alertPending').innerHTML='';
   dbGet('log_produksi',{status:'in.(PENDING_EDIT,PENDING_VOID)',order:'tgl_input.desc'}).then(function(res){
     var logs=Array.isArray(res)?res:[];
-    if (!logs.length){tbody.innerHTML='<tr><td colspan="7" class="loading">Tidak ada yang menunggu approval</td></tr>';return;}
+    if (!logs.length){tbody.innerHTML='<tr><td colspan="8" class="loading">Tidak ada yang menunggu approval</td></tr>';return;}
     tbody.innerHTML=logs.map(function(l){
       var catObj={}; try{catObj=JSON.parse(l.catatan||'{}');}catch(e){}
       var aksi=catObj.aksi||'EDIT';
@@ -717,9 +748,11 @@ function muatPending(){
         if (baru.keterangan!==lama.keterangan) diffHtml.push('Ket: <span class="diff-old">'+esc(lama.keterangan)+'</span> → <span class="diff-new">'+esc(baru.keterangan)+'</span>');
         kolomAksi=diffHtml.join('<br>');
       }
+      var namaItemPending=semuaSpkItemMap[l.id_spk]||'—';
       return '<tr>'+
         '<td class="td-mono">'+fmtTgl(l.tgl_produksi)+'</td>'+
         '<td class="td-mono" style="font-size:.7rem">'+esc(l.id_spk)+'</td>'+
+        '<td class="td-muted" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(namaItemPending)+'">'+esc(namaItemPending)+'</td>'+
         '<td>'+badgeJenis(l.jenis)+'</td>'+
         '<td style="font-size:.75rem;line-height:1.6">'+kolomAksi+'</td>'+
         '<td class="td-muted">'+esc(catObj.user_ajukan||l.user_input||'—')+'</td>'+
@@ -728,7 +761,7 @@ function muatPending(){
       '</tr>';
     }).join('');
   }).catch(function(){
-    tbody.innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" class="loading" style="color:var(--red)">Gagal memuat</td></tr>';
   });
 }
 
