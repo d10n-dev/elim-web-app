@@ -209,22 +209,44 @@
   </div></div>
 </div>
 
-<!-- Modal Void/Edit -->
+<!-- Modal Void -->
 <div class="modal fade" id="modalVoidEditPotong" tabindex="-1">
   <div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header"><h6 class="modal-title" id="judulModalVE">Ajukan</h6>
+    <div class="modal-header"><h6 class="modal-title" id="judulModalVE">Ajukan Void</h6>
       <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
       <label style="font-size:12px;color:var(--muted);">Alasan</label>
       <textarea id="veAlasan" class="form-control" rows="2" style="margin-bottom:8px;"></textarea>
-      <div id="veEditFields" style="display:none;">
-        <div style="font-size:11px;color:var(--muted);">Fitur edit detail hasil: hapus transaksi ini via Void, lalu input ulang sbg transaksi baru. (Edit jumlah kompleks belum didukung form ini — hubungi dev kalau perlu.)</div>
-      </div>
       <div id="alertVE" style="display:none;color:var(--red);font-size:12px;"></div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
       <button type="button" class="btn btn-danger" id="btnKirimVE" onclick="kirimVoidPotong()">Ajukan Void</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- Modal Edit -->
+<div class="modal fade" id="modalEditPotong" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulModalEdit">Ajukan Edit</h6>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Bahan asal tidak bisa diubah. Ubah qty asal dan/atau hasil potong di bawah.</div>
+      <label style="font-size:12px;color:var(--muted);">Bahan Asal</label>
+      <input type="text" id="editPotongBahanAsal" class="form-control" disabled style="margin-bottom:8px;background:#f4f4f4;">
+      <label style="font-size:12px;color:var(--muted);">Qty Asal Baru (lembar)</label>
+      <input type="number" id="editPotongQtyAsal" class="form-control" min="0" step="1" style="margin-bottom:12px;">
+      <div style="font-family:var(--mono);font-weight:600;font-size:12px;color:var(--navy);margin-bottom:6px;">Hasil Potong Baru</div>
+      <div id="listHasilPotongEdit"></div>
+      <button type="button" onclick="tambahRowHasil('listHasilPotongEdit')" style="font-size:12px;border:1px dashed var(--border);border-radius:6px;padding:6px 12px;background:none;cursor:pointer;margin:8px 0 12px;">+ Tambah Hasil</button>
+      <label style="font-size:12px;color:var(--muted);">Alasan Edit</label>
+      <textarea id="editPotongAlasan" class="form-control" rows="2" style="margin-bottom:8px;"></textarea>
+      <div id="alertEditPotong" style="display:none;color:var(--red);font-size:12px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+      <button type="button" class="btn btn-primary" id="btnKirimEdit" onclick="kirimEditPotong()">Ajukan Edit</button>
     </div>
   </div></div>
 </div>
@@ -549,7 +571,8 @@ function pilihOperatorPotong(nama){
   document.getElementById('potongOperatorDrop').classList.remove('open');
 }
 
-function tambahRowHasil(){
+function tambahRowHasil(containerId, prefillBahan, prefillQty){
+  containerId = containerId || 'listHasilPotong';
   var id = 'hrow'+(++hasilRowCounter);
   var div = document.createElement('div');
   div.className = 'hasil-row';
@@ -562,12 +585,19 @@ function tambahRowHasil(){
     '</div>'+
     '<input type="number" class="hr-qty" placeholder="Qty (lembar)" min="0" step="1" style="width:130px;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;">'+
     '<button type="button" onclick="document.getElementById(\''+id+'\').remove()" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:16px;">✕</button>';
-  document.getElementById('listHasilPotong').appendChild(div);
+  document.getElementById(containerId).appendChild(div);
   var bInp = div.querySelector('.hr-bahan-input');
   var bDrop = div.querySelector('.hr-drop');
   document.body.appendChild(bDrop);
   buatAC(bInp, bDrop, daftarBahan, 'id_bahan', 'nama_bahan', function(d){ bInp.value = d.nama_bahan; bInp._sel = d; });
   bInp.addEventListener('input', function(){ bInp._sel = null; });
+  if(prefillBahan){
+    bInp.value = prefillBahan.nama_bahan;
+    bInp._sel = prefillBahan;
+  }
+  if(prefillQty!=null){
+    div.querySelector('.hr-qty').value = prefillQty;
+  }
 }
 
 function bukaModalBahanBaru(){
@@ -666,7 +696,8 @@ function renderRiwayatPotong(){
       : '<span class="badge-saldo" style="background:#fef9c3;color:#854d0e;">'+esc(p.status)+'</span>';
     var aksi = '';
     if(p.status==='AKTIF'){
-      aksi = '<button onclick="bukaVoidPotong(\''+esc(p.id_potong)+'\')" style="font-size:11px;border:1px solid var(--red);color:var(--red);background:none;border-radius:4px;padding:3px 8px;cursor:pointer;">Void</button>';
+      aksi = '<button onclick="bukaEditPotong(\''+esc(p.id_potong)+'\')" style="font-size:11px;border:1px solid var(--navy);color:var(--navy);background:none;border-radius:4px;padding:3px 8px;cursor:pointer;margin-right:4px;">Edit</button>'+
+        '<button onclick="bukaVoidPotong(\''+esc(p.id_potong)+'\')" style="font-size:11px;border:1px solid var(--red);color:var(--red);background:none;border-radius:4px;padding:3px 8px;cursor:pointer;">Void</button>';
     } else if((p.status==='PENDING_VOID'||p.status==='PENDING_EDIT') && direktur){
       aksi = '<button onclick="bukaApprovePotong(\''+esc(p.id_potong)+'\',\''+esc(p.status)+'\')" style="font-size:11px;border:1px solid var(--navy);color:var(--navy);background:none;border-radius:4px;padding:3px 8px;cursor:pointer;">Review</button>';
     } else if(p.status==='PENDING_VOID'||p.status==='PENDING_EDIT'){
@@ -700,6 +731,74 @@ function kirimVoidPotong(){
     var errMsg = cekErrorSupabase(res);
     if(errMsg){ alertEl.textContent='Gagal: '+errMsg; alertEl.style.display='block'; return; }
     bootstrap.Modal.getInstance(document.getElementById('modalVoidEditPotong')).hide();
+    muatRiwayatPotong();
+  });
+}
+
+function bukaEditPotong(idPotong){
+  idPotongAksiSekarang = idPotong;
+  var p = dataPotongBahan.find(function(x){ return x.id_potong===idPotong; });
+  document.getElementById('judulModalEdit').textContent = 'Ajukan Edit — '+idPotong;
+  document.getElementById('editPotongBahanAsal').value = p ? p.nama_bahan_asal : '';
+  document.getElementById('editPotongQtyAsal').value = p ? p.qty_asal : '';
+  document.getElementById('editPotongAlasan').value = '';
+  document.getElementById('alertEditPotong').style.display = 'none';
+  document.getElementById('listHasilPotongEdit').innerHTML = '';
+  document.getElementById('btnKirimEdit').disabled = true;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditPotong')).show();
+  dbRpc('get_potong_bahan_detail', { p_id_potong: idPotong }).then(function(res){
+    document.getElementById('btnKirimEdit').disabled = false;
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){
+      var alertEl = document.getElementById('alertEditPotong');
+      alertEl.textContent = 'Gagal memuat detail hasil: '+errMsg;
+      alertEl.style.display = 'block';
+      return;
+    }
+    var detail = Array.isArray(res) ? res : [];
+    if(!detail.length){ tambahRowHasil('listHasilPotongEdit'); return; }
+    detail.forEach(function(d){
+      tambahRowHasil('listHasilPotongEdit', { id_bahan: d.id_bahan_hasil, nama_bahan: d.nama_bahan_hasil }, d.qty_hasil);
+    });
+  });
+}
+
+function kirimEditPotong(){
+  var alertEl = document.getElementById('alertEditPotong');
+  alertEl.style.display = 'none';
+  var qtyAsal = parseFloat(document.getElementById('editPotongQtyAsal').value);
+  if(!qtyAsal || qtyAsal<=0){ alertEl.textContent='Qty asal baru wajib > 0.'; alertEl.style.display='block'; return; }
+  var alasan = document.getElementById('editPotongAlasan').value.trim();
+  if(!alasan){ alertEl.textContent='Alasan wajib diisi.'; alertEl.style.display='block'; return; }
+
+  var hasil = [];
+  var err = false;
+  document.querySelectorAll('#listHasilPotongEdit .hasil-row').forEach(function(row){
+    var bInp = row.querySelector('.hr-bahan-input');
+    var qInp = row.querySelector('.hr-qty');
+    if(!bInp.value.trim()) return;
+    if(!bInp._sel){ err = true; return; }
+    var qty = parseFloat(qInp.value);
+    if(!qty || qty<=0){ err = true; return; }
+    hasil.push({ id_bahan_hasil: bInp._sel.id_bahan, qty_hasil: qty });
+  });
+  if(err){ alertEl.textContent='Ada baris hasil yang tidak valid (bahan/qty).'; alertEl.style.display='block'; return; }
+  if(!hasil.length){ alertEl.textContent='Minimal 1 bahan hasil wajib diisi.'; alertEl.style.display='block'; return; }
+
+  var btn = document.getElementById('btnKirimEdit');
+  btn.disabled = true; btn.textContent = 'Mengirim...';
+
+  dbRpc('ajukan_edit_potong_bahan', {
+    p_id_potong: idPotongAksiSekarang,
+    p_qty_asal_baru: qtyAsal,
+    p_hasil_baru: hasil,
+    p_alasan: alasan,
+    p_user: getNamaUser()
+  }).then(function(res){
+    btn.disabled = false; btn.textContent = 'Ajukan Edit';
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){ alertEl.textContent='Gagal: '+errMsg; alertEl.style.display='block'; return; }
+    bootstrap.Modal.getInstance(document.getElementById('modalEditPotong')).hide();
     muatRiwayatPotong();
   });
 }
