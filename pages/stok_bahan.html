@@ -79,6 +79,7 @@
     <button class="tab-btn active" data-tab="saldo" onclick="gantiTab('saldo')">📦 Saldo Saat Ini</button>
     <button class="tab-btn" data-tab="kartu" onclick="gantiTab('kartu')">📋 Kartu Stok</button>
     <button class="tab-btn" data-tab="potong" onclick="gantiTab('potong')">✂️ Potong Bahan</button>
+    <button class="tab-btn" data-tab="opname" onclick="gantiTab('opname')">🧮 Penyesuaian Stok</button>
   </div>
 
   <!-- ============ TAB: SALDO SAAT INI ============ -->
@@ -182,6 +183,48 @@
           <th>ID</th><th>Tanggal</th><th>Bahan Asal</th><th class="td-right">Qty Asal</th><th>Status</th><th>Aksi</th>
         </tr></thead>
         <tbody id="potongTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ TAB: PENYESUAIAN STOK (OPNAME) ============ -->
+  <div class="tab-pane" id="tabOpname">
+    <div id="alertOpname" class="alert-box alert-err" style="display:none"></div>
+
+    <div class="bom-card" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:12px;padding:14px;">
+      <div style="font-family:var(--mono);font-weight:600;font-size:13px;color:var(--navy);margin-bottom:10px;">+ Penyesuaian Stok (Hasil Opname)</div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <div class="ac-wrap" style="min-width:220px;flex:1;">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Bahan</label>
+          <input type="text" id="opnameBahanInput" placeholder="Ketik nama bahan..." autocomplete="off" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;">
+          <div class="ac-drop" id="opnameBahanDrop"></div>
+        </div>
+        <div style="min-width:140px;">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Qty Sistem</label>
+          <input type="text" id="opnameQtySistem" disabled style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;background:#f4f4f4;">
+        </div>
+        <div style="min-width:140px;">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Qty Fisik (hasil hitung)</label>
+          <input type="number" id="opnameQtyFisik" min="0" step="1" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;" oninput="hitungSelisihOpname()">
+        </div>
+      </div>
+
+      <div id="selisihOpnameBox" style="display:none;font-family:var(--mono);font-size:13px;font-weight:600;padding:8px 12px;border-radius:6px;margin-bottom:10px;"></div>
+
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:2px;">Alasan / Keterangan Opname (wajib)</label>
+      <textarea id="opnameKeterangan" rows="2" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-bottom:10px;"></textarea>
+
+      <button class="btn-tampilkan" id="btnSimpanOpname" onclick="simpanPenyesuaianStok()">Simpan Penyesuaian</button>
+    </div>
+
+    <div class="counter-bar" id="counterOpname">Memuat riwayat...</div>
+    <div class="table-wrap">
+      <table id="tabelOpname">
+        <thead><tr>
+          <th>ID</th><th>Tanggal</th><th>Bahan</th><th class="td-right">Qty Sistem</th><th class="td-right">Qty Fisik</th><th class="td-right">Selisih</th><th>Keterangan</th><th>User</th>
+        </tr></thead>
+        <tbody id="opnameTbody"></tbody>
       </table>
     </div>
   </div>
@@ -323,11 +366,13 @@ window.addEventListener('load', async function () {
 });
 
 var _potongInitDone = false;
+var _opnameInitDone = false;
 function gantiTab(tab){
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
   document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
   document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
   if (tab==='potong' && !_potongInitDone) { _potongInitDone = true; initPotongTab(); }
+  if (tab==='opname' && !_opnameInitDone) { _opnameInitDone = true; initOpnameTab(); }
 }
 
 // ============================================================
@@ -819,6 +864,126 @@ function prosesApprovePotong(disetujui){
     bootstrap.Modal.getInstance(document.getElementById('modalApprovePotong')).hide();
     muatSaldo();
     muatRiwayatPotong();
+  });
+}
+
+// ============================================================
+// TAB: PENYESUAIAN STOK (OPNAME)
+// ============================================================
+var bahanTerpilihOpname = null;
+var dataRiwayatOpname = [];
+
+function initOpnameTab(){
+  var inputEl = document.getElementById('opnameBahanInput');
+  var dropEl = document.getElementById('opnameBahanDrop');
+  buatAC(inputEl, dropEl, daftarBahan, 'id_bahan', 'nama_bahan', function(d){
+    inputEl.value = d.nama_bahan;
+    bahanTerpilihOpname = d;
+    isiQtySistemOpname();
+  });
+  inputEl.addEventListener('input', function(){
+    bahanTerpilihOpname = null;
+    document.getElementById('opnameQtySistem').value = '';
+    document.getElementById('selisihOpnameBox').style.display = 'none';
+  });
+  muatRiwayatOpname();
+}
+
+function isiQtySistemOpname(){
+  if(!bahanTerpilihOpname) return;
+  var row = dataSaldo.find(function(r){ return r.id_bahan===bahanTerpilihOpname.id_bahan; });
+  var saldo = row ? Number(row.saldo||0) : 0;
+  document.getElementById('opnameQtySistem').value = fmtAngka(saldo);
+  hitungSelisihOpname();
+}
+
+function hitungSelisihOpname(){
+  var box = document.getElementById('selisihOpnameBox');
+  if(!bahanTerpilihOpname){ box.style.display='none'; return; }
+  var row = dataSaldo.find(function(r){ return r.id_bahan===bahanTerpilihOpname.id_bahan; });
+  var saldo = row ? Number(row.saldo||0) : 0;
+  var fisikStr = document.getElementById('opnameQtyFisik').value;
+  if(fisikStr===''){ box.style.display='none'; return; }
+  var fisik = parseFloat(fisikStr);
+  if(isNaN(fisik)){ box.style.display='none'; return; }
+  var selisih = fisik - saldo;
+  box.style.display = 'block';
+  if(selisih===0){
+    box.style.background='#f0f0f0'; box.style.color='var(--muted)';
+    box.textContent = 'Selisih: 0 — sama dengan sistem, tidak perlu penyesuaian.';
+  } else if(selisih>0){
+    box.style.background='#eaf7ee'; box.style.color='#1e7e34';
+    box.textContent = 'Selisih: +'+fmtAngka(selisih)+' (fisik lebih banyak → akan dicatat MASUK)';
+  } else {
+    box.style.background='#fff0f0'; box.style.color='var(--red)';
+    box.textContent = 'Selisih: '+fmtAngka(selisih)+' (fisik lebih sedikit → akan dicatat KELUAR)';
+  }
+}
+
+function simpanPenyesuaianStok(){
+  var alertEl = document.getElementById('alertOpname');
+  alertEl.style.display='none';
+  if(!bahanTerpilihOpname){ alertEl.textContent='Pilih bahan dari daftar (autocomplete) dulu.'; alertEl.style.display='block'; return; }
+  var fisikStr = document.getElementById('opnameQtyFisik').value;
+  var fisik = parseFloat(fisikStr);
+  if(fisikStr==='' || isNaN(fisik) || fisik<0){ alertEl.textContent='Qty fisik wajib diisi (>= 0).'; alertEl.style.display='block'; return; }
+  var ket = document.getElementById('opnameKeterangan').value.trim();
+  if(!ket){ alertEl.textContent='Alasan/keterangan opname wajib diisi.'; alertEl.style.display='block'; return; }
+
+  var btn = document.getElementById('btnSimpanOpname');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+
+  dbRpc('buat_penyesuaian_stok_bahan', {
+    p_id_bahan: bahanTerpilihOpname.id_bahan,
+    p_qty_fisik: fisik,
+    p_keterangan: ket,
+    p_user: getNamaUser()
+  }).then(function(res){
+    btn.disabled = false; btn.textContent = 'Simpan Penyesuaian';
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){ alertEl.textContent='Gagal menyimpan: '+errMsg; alertEl.style.display='block'; return; }
+    document.getElementById('opnameBahanInput').value = '';
+    document.getElementById('opnameQtySistem').value = '';
+    document.getElementById('opnameQtyFisik').value = '';
+    document.getElementById('opnameKeterangan').value = '';
+    document.getElementById('selisihOpnameBox').style.display = 'none';
+    bahanTerpilihOpname = null;
+    muatSaldo();
+    muatRiwayatOpname();
+  });
+}
+
+function muatRiwayatOpname(){
+  document.getElementById('counterOpname').textContent = 'Memuat riwayat...';
+  dbRpc('get_riwayat_penyesuaian_stok_bahan', { p_limit: 200 }).then(function(res){
+    var errMsg = cekErrorSupabase(res);
+    if(errMsg){
+      document.getElementById('alertOpname').textContent = 'Gagal memuat riwayat: '+errMsg;
+      document.getElementById('alertOpname').style.display = 'block';
+      document.getElementById('counterOpname').textContent = 'Gagal memuat data.';
+      return;
+    }
+    dataRiwayatOpname = Array.isArray(res) ? res : [];
+    document.getElementById('counterOpname').textContent = 'Menampilkan '+dataRiwayatOpname.length+' riwayat penyesuaian.';
+    var tbody = document.getElementById('opnameTbody');
+    if(!dataRiwayatOpname.length){
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted);font-family:var(--mono);font-size:12px;">Belum ada riwayat penyesuaian.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = dataRiwayatOpname.map(function(r){
+      var selisih = Number(r.selisih||0);
+      var warna = selisih>0 ? '#1e7e34' : (selisih<0 ? 'var(--red)' : 'var(--muted)');
+      return '<tr>'+
+        '<td class="td-mono-sm">'+esc(r.id_penyesuaian)+'</td>'+
+        '<td class="td-mono-sm">'+esc((r.tgl||'').slice(0,16).replace('T',' '))+'</td>'+
+        '<td>'+esc(r.nama_bahan)+'</td>'+
+        '<td class="td-right td-mono">'+fmtAngka(r.qty_sistem)+'</td>'+
+        '<td class="td-right td-mono">'+fmtAngka(r.qty_fisik)+'</td>'+
+        '<td class="td-right td-mono" style="font-weight:600;color:'+warna+'">'+(selisih>0?'+':'')+fmtAngka(selisih)+'</td>'+
+        '<td style="font-size:.78rem">'+esc(r.keterangan||'—')+'</td>'+
+        '<td class="td-muted" style="font-size:.75rem">'+esc(r.user_input||'—')+'</td>'+
+      '</tr>';
+    }).join('');
   });
 }
 </script>
