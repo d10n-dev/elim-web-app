@@ -662,9 +662,18 @@ function muatRekap(){
     select: 'id_saldo,no_nota,no_sj,tgl,entitas,nama_pelanggan,total_tagih,sisa_piutang,status_piutang',
     order: 'tgl.asc'
   }).then(function(r){return Array.isArray(r)?r:[];});
-  Promise.all([pSJ, pSA]).then(function(results){
+  var pRetur = dbGet('in_retur', {
+    status: 'eq.APPROVED',
+    select: 'id_sj,total_tagihan_retur'
+  }).then(function(r){return Array.isArray(r)?r:[];});
+  Promise.all([pSJ, pSA, pRetur]).then(function(results){
     var dataSJ = results[0];
     var dataSA = results[1];
+    var dataRetur = results[2];
+    var returMap = {};
+    dataRetur.forEach(function(r){
+      returMap[r.id_sj] = (returMap[r.id_sj]||0) + (parseFloat(r.total_tagihan_retur)||0);
+    });
     // Filter saldo awal sesuai filter aktif
     if(!tampilLunas) dataSA = dataSA.filter(function(r){return r.status_piutang!=='LUNAS'&&r.sisa_piutang>0;});
     if(status) dataSA = dataSA.filter(function(r){return r.status_piutang===status;});
@@ -687,8 +696,8 @@ function muatRekap(){
         tgl_jatuh_tempo: null
       };
     });
-    // Tandai SJ dari pengiriman
-    var sjNorm = dataSJ.map(function(r){ r._sumber='BARU'; r._idRef=r.id_sj; r._sumberAlokasi='PENGIRIMAN'; return r; });
+    // Tandai SJ dari pengiriman + tandai kalau ada retur approved
+    var sjNorm = dataSJ.map(function(r){ r._sumber='BARU'; r._idRef=r.id_sj; r._sumberAlokasi='PENGIRIMAN'; r._totalRetur=returMap[r.id_sj]||0; return r; });
     // Gabung dan sort tgl ASC
     var gabung = sjNorm.concat(saNorm).sort(function(a,b){
       return new Date(a.tgl)-new Date(b.tgl);
@@ -712,7 +721,8 @@ function renderRekapTabel(data){
     rkRowStore[key]=r;
     var bisaAlokasi=r.status_piutang!=='LUNAS'&&(parseFloat(r.sisa_piutang)||0)>0;
     var badgeSumber=r._sumber==='IMPORT'?'<span class="badge-sumber-import">IMPORT</span> ':'';
-    var noSJCell=badgeSumber+'<span class="td-mono">'+esc(r.no_sj)+'</span><br><span style="color:var(--muted);font-size:.68rem">'+esc(r.no_nota)+'</span>';
+    var badgeRetur=(r._totalRetur>0)?' <span title="Sudah ada retur approved, mengurangi piutang" style="display:inline-block;background:#fff3cd;color:#8a6416;border:1px solid #f0dcb8;border-radius:4px;padding:1px 6px;font-size:.62rem;font-weight:600;vertical-align:middle">↩ RETUR '+fmtRupiah(r._totalRetur)+'</span>':'';
+    var noSJCell=badgeSumber+'<span class="td-mono">'+esc(r.no_sj)+'</span>'+badgeRetur+'<br><span style="color:var(--muted);font-size:.68rem">'+esc(r.no_nota)+'</span>';
     var jatuhTempo=r.tgl_jatuh_tempo?badgeJatuhTempo(r.hari_terlambat,r.tgl_jatuh_tempo):'<span style="color:var(--muted)">—</span>';
     return '<tr>'+
       '<td>'+(bisaAlokasi?'<input type="checkbox" class="chk-rk-row" data-key="'+esc(key)+'" onclick="toggleRkRow(\''+esc(key)+'\',this.checked)"/>':'')+'</td>'+
