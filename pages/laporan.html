@@ -42,6 +42,19 @@
     table.tbl-laporan td{padding:.5rem .6rem;border-bottom:1px solid var(--border);vertical-align:top;}
     table.tbl-laporan tr:hover td{background:#f4f7fc;}
     .empty-state{text-align:center;padding:2rem;color:var(--muted);font-family:var(--mono);font-size:.8rem;}
+    .print-header{display:none;}
+    @media print{
+      body *{visibility:hidden;}
+      .topbar,.nav-drawer,.nav-overlay,.tab-nav{display:none!important;}
+      .print-area, .print-area *{visibility:visible;}
+      .print-area{position:absolute;top:0;left:0;width:100%;}
+      #tabPiutang .rekap-grid,#tabPiutang .toolbar,#tabPiutang .ringkasan-wrap,
+      #tabHutang .rekap-grid,#tabHutang .toolbar,#tabHutang .ringkasan-wrap{display:none!important;}
+      .print-header{display:block!important;margin-bottom:.8rem;}
+      .print-header .ph-judul{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--navy);}
+      .print-header .ph-sub{font-family:var(--mono);font-size:.78rem;color:#333;margin-top:.15rem;}
+      table.tbl-laporan{font-size:.72rem;}
+    }
   </style>
 </head>
 <body>
@@ -57,7 +70,11 @@
 </div>
 
 <!-- ═══ TAB PIUTANG ═══ -->
-<div class="tab-pane active" id="tabPiutang">
+<div class="tab-pane active print-area" id="tabPiutang">
+  <div class="print-header" id="printHeaderPiutang">
+    <div class="ph-judul">Laporan Aging Piutang</div>
+    <div class="ph-sub" id="phPiutangSub"></div>
+  </div>
   <div class="rekap-grid" id="cardsPiutang">
     <div class="rekap-card"><div class="lbl">0-30 Hari</div><div class="val" id="pcB0">…</div></div>
     <div class="rekap-card warn"><div class="lbl">31-60 Hari</div><div class="val" id="pcB1">…</div></div>
@@ -83,11 +100,11 @@
     </div>
     <button class="btn-outline" onclick="exportPiutangRingkasan()">⬇ Export Ringkasan CSV</button>
     <button class="btn-outline" onclick="exportPiutangDetail()">⬇ Export Detail CSV</button>
-    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+    <button class="btn-outline" onclick="printPiutang()">🖨️ Print PDF</button>
   </div>
   <div id="alertPiutang"></div>
-  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Ringkasan per Pelanggan (klik baris untuk filter detail)</div>
-  <div style="overflow-x:auto;margin-bottom:1.1rem">
+  <div class="sec-label ringkasan-wrap" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Ringkasan per Pelanggan (klik baris untuk filter detail)</div>
+  <div class="ringkasan-wrap" style="overflow-x:auto;margin-bottom:1.1rem">
     <table class="tbl-laporan">
       <thead>
         <tr>
@@ -115,7 +132,11 @@
 </div>
 
 <!-- ═══ TAB HUTANG ═══ -->
-<div class="tab-pane" id="tabHutang">
+<div class="tab-pane print-area" id="tabHutang">
+  <div class="print-header" id="printHeaderHutang">
+    <div class="ph-judul">Laporan Aging Hutang</div>
+    <div class="ph-sub" id="phHutangSub"></div>
+  </div>
   <div class="rekap-grid" id="cardsHutang">
     <div class="rekap-card"><div class="lbl">0-30 Hari</div><div class="val" id="hcB0">…</div></div>
     <div class="rekap-card warn"><div class="lbl">31-60 Hari</div><div class="val" id="hcB1">…</div></div>
@@ -141,11 +162,11 @@
     </div>
     <button class="btn-outline" onclick="exportHutangRingkasan()">⬇ Export Ringkasan CSV</button>
     <button class="btn-outline" onclick="exportHutangDetail()">⬇ Export Detail CSV</button>
-    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+    <button class="btn-outline" onclick="printHutang()">🖨️ Print PDF</button>
   </div>
   <div id="alertHutang"></div>
-  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Ringkasan per Supplier (klik baris untuk filter detail)</div>
-  <div style="overflow-x:auto;margin-bottom:1.1rem">
+  <div class="sec-label ringkasan-wrap" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Ringkasan per Supplier (klik baris untuk filter detail)</div>
+  <div class="ringkasan-wrap" style="overflow-x:auto;margin-bottom:1.1rem">
     <table class="tbl-laporan">
       <thead>
         <tr>
@@ -173,7 +194,7 @@
 </div>
 
 <!-- ═══ TAB PENJUALAN ═══ -->
-<div class="tab-pane" id="tabPenjualan">
+<div class="tab-pane print-area" id="tabPenjualan">
   <div class="toolbar">
     <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
     <input type="month" id="pjBulanDari" onchange="muatPenjualan()"/>
@@ -220,7 +241,7 @@
 </div>
 
 <!-- ═══ TAB PEMBELIAN ═══ -->
-<div class="tab-pane" id="tabPembelian">
+<div class="tab-pane print-area" id="tabPembelian">
   <div class="toolbar">
     <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
     <input type="month" id="pbBulanDari" onchange="muatPembelian()"/>
@@ -254,7 +275,7 @@
 </div>
 
 <!-- ═══ TAB PRODUKSI ═══ -->
-<div class="tab-pane" id="tabProduksi">
+<div class="tab-pane print-area" id="tabProduksi">
   <div class="toolbar">
     <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
     <input type="date" id="pdTglDari"/>
@@ -289,7 +310,7 @@
 </div>
 
 <!-- ═══ TAB SPK LEBIH ORDER ═══ -->
-<div class="tab-pane" id="tabLebihorder">
+<div class="tab-pane print-area" id="tabLebihorder">
   <div class="toolbar">
     <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Dari:</label>
     <input type="date" id="loTglDari"/>
@@ -698,6 +719,15 @@ function pilihPelangganRingkasan(nama){
   var det = document.getElementById('bodyPiutang');
   if (det) det.scrollIntoView({behavior:'smooth', block:'start'});
 }
+function printPiutang(){
+  var entitasSel = document.getElementById('pFilterEntitas');
+  var entitasTxt = entitasSel.value ? entitasSel.options[entitasSel.selectedIndex].text : 'Semua Entitas';
+  var namaTxt = (document.getElementById('pFilterNama').value||'').trim() || 'Semua Pelanggan';
+  var tglCetak = new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('phPiutangSub').innerHTML =
+    'Entitas: <b>'+esc(entitasTxt)+'</b> &nbsp;|&nbsp; Pelanggan: <b>'+esc(namaTxt)+'</b> &nbsp;|&nbsp; Dicetak: '+tglCetak;
+  window.print();
+}
 function exportPiutangRingkasan(){
   var grup = {};
   DATA_PIUTANG.forEach(function(r){
@@ -821,6 +851,15 @@ function pilihSupplierRingkasan(nama){
   renderHutang();
   var det = document.getElementById('bodyHutang');
   if (det) det.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function printHutang(){
+  var entitasSel = document.getElementById('hFilterEntitas');
+  var entitasTxt = entitasSel.value ? entitasSel.options[entitasSel.selectedIndex].text : 'Semua Entitas';
+  var namaTxt = (document.getElementById('hFilterNama').value||'').trim() || 'Semua Supplier';
+  var tglCetak = new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('phHutangSub').innerHTML =
+    'Entitas: <b>'+esc(entitasTxt)+'</b> &nbsp;|&nbsp; Supplier: <b>'+esc(namaTxt)+'</b> &nbsp;|&nbsp; Dicetak: '+tglCetak;
+  window.print();
 }
 function exportHutangRingkasan(){
   var grup = {};
