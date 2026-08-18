@@ -537,6 +537,11 @@ async function prosesRetur(idRetur,aksi){
         }
       }
       await dbUpdate('in_retur',{id_retur:'eq.'+idRetur},{status:'APPROVED',approved_by:approver,tgl_approve:now});
+
+      // Refresh status_piutang SJ terkait, krn retur approved ikut mengurangi piutang
+      if(returAktif&&returAktif.id_sj){
+        await dbRpc('update_status_piutang_sj',{p_id_sj:returAktif.id_sj});
+      }
     }
 
     bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
