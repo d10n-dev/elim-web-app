@@ -1078,7 +1078,10 @@ function genIdSdet(existing){
   // gunakan timestamp agar tidak collision
   return prefix+Date.now()+String(next).padStart(3,'0');
 }
-function genIdLogProd(){return 'LP'+Date.now()+Math.floor(Math.random()*1000);}
+var _logSeq=0;
+function genIdLogProd(){_logSeq=(_logSeq+1)%1000; return 'LP'+Date.now()+String(_logSeq).padStart(3,'0');}
+var _logBjSeq=0;
+function genIdLogBj(){_logBjSeq=(_logBjSeq+1)%1000; return 'LBJ'+Date.now()+String(_logBjSeq).padStart(3,'0');}
 
 // ── CEK & CATAT LEBIH ORDER (approval gate Manager) ──
 // qtyLamaDiSpkIni: kontribusi qty_spk milik SPK ini sendiri yang mau dihitung ulang (0 utk item baru)
@@ -1798,7 +1801,7 @@ async function simpanLog(jenis){
         await dbUpdate('in_spk_detail',{id_sdet:'eq.'+pk.sdet.id_sdet},{qty_pack:newPack});
         pk.sdet.qty_pack=newPack;
         await dbInsert('log_stok_bj',{
-          id_log_bj:'LBJ'+Date.now()+Math.floor(Math.random()*1000),
+          id_log_bj:genIdLogBj(),
           tgl:nowIso,
           jenis:'MASUK_PACKING',
           id_ref:idSpkAktif,
