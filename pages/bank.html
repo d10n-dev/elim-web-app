@@ -2096,8 +2096,9 @@ async function handleCsvText(text) {
     var maxIdRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'id', order:'id.desc', limit:1});
     var lastSeq = 0;
     if (Array.isArray(maxIdRes) && maxIdRes[0]) lastSeq = parseInt(maxIdRes[0].id.replace(/[^0-9]/g,''), 10) || 0;
-    var tglRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'tgl_transaksi', order:'tgl_transaksi.desc,id.desc', limit:1});
-    var lastTgl = (Array.isArray(tglRes) && tglRes[0]) ? tglRes[0].tgl_transaksi : '2000-01-01';
+    var lastRowRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'tgl_transaksi,saldo_akhir', order:'tgl_transaksi.desc,id.desc', limit:1});
+    var lastTgl = (Array.isArray(lastRowRes) && lastRowRes[0]) ? lastRowRes[0].tgl_transaksi : '2000-01-01';
+    var lastSaldo = (Array.isArray(lastRowRes) && lastRowRes[0] && lastRowRes[0].saldo_akhir !== null) ? Number(lastRowRes[0].saldo_akhir) : null;
     var existRes = [];
     if (lastTgl !== '2000-01-01') {
       existRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, tgl_transaksi:'eq.'+lastTgl, select:'jenis,nominal'});
@@ -2109,21 +2110,62 @@ async function handleCsvText(text) {
       if (r.tgl === lastTgl) return !existKeys[r.jenis+'|'+r.nominal];
       return false;
     });
-    importSections.push({id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq, last_tgl: lastTgl, total_csv: sec.rows.length, new_rows: newRows});
+    var gapCheck = verifySaldoChain(newRows, lastSaldo);
+    importSections.push({id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq, last_tgl: lastTgl, last_saldo: lastSaldo, total_csv: sec.rows.length, new_rows: newRows, gap: gapCheck});
   }
   buildPreview();
+}
+
+// Verifikasi rantai saldo: saldo_akhir baris sebelumnya +/- nominal
+// baris ini harus sama dengan saldo_akhir baris ini. Kalau tidak,
+// berarti ada transaksi yang hilang di antaranya (gap) — jangan
+// dipercaya cuma dari urutan tanggal terakhir.
+function verifySaldoChain(rows, startSaldo) {
+  var running = startSaldo; // null kalau rekening ini belum pernah ada data sama sekali
+  var TOLERANSI = 1; // toleransi Rp1 utk pembulatan floating point, BUKAN toleransi bisnis
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (running !== null) {
+      var expected = r.jenis === 'CR' ? running + r.nominal : running - r.nominal;
+      if (Math.abs(expected - r.saldo) > TOLERANSI) {
+        return {
+          ok: false,
+          index: i,
+          row: r,
+          saldo_sebelum: running,
+          saldo_seharusnya: expected,
+          saldo_di_csv: r.saldo,
+          selisih: expected - r.saldo
+        };
+      }
+    }
+    running = r.saldo;
+  }
+  return {ok: true};
 }
 
 function buildPreview() {
   var wrap = document.getElementById('impPreviewWrap');
   var html = '';
-  var hasNew = false;
+  var hasImportable = false;
   importSections.forEach(function(sec) {
     var n = sec.new_rows.length;
-    if (n > 0) hasNew = true;
     html += '<div style="margin-bottom:1rem"><div style="font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--navy);margin-bottom:.4rem">';
     html += sec.id_rekening + ' — <span style="color:' + (n>0?'var(--green)':'var(--muted)') + '">' + n + ' baris baru</span>';
     html += ' <span style="color:var(--muted);font-weight:400">(CSV: ' + sec.total_csv + ' | last DB: ' + sec.last_tgl + ')</span></div>';
+
+    if (n > 0 && sec.gap && !sec.gap.ok) {
+      html += '<div style="background:#fdecea;border:1px solid #f5a8a8;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-bottom:.4rem">';
+      html += '⚠ GAP TERDETEKSI — ada transaksi yang hilang, import diblokir untuk rekening ini.<br>';
+      html += 'Saldo sebelum: Rp' + sec.gap.saldo_sebelum.toLocaleString('id-ID') + '<br>';
+      html += 'Seharusnya jadi: Rp' + sec.gap.saldo_seharusnya.toLocaleString('id-ID') + ' (setelah ' + sec.gap.row.jenis + ' Rp' + sec.gap.row.nominal.toLocaleString('id-ID') + ' tgl ' + sec.gap.row.tgl + ')<br>';
+      html += 'Tapi di CSV saldo tertulis: Rp' + sec.gap.saldo_di_csv.toLocaleString('id-ID') + '<br>';
+      html += 'Selisih: Rp' + Math.abs(sec.gap.selisih).toLocaleString('id-ID') + ' — download ulang CSV periode yang hilang (sekitar tanggal ' + sec.last_tgl + ' s/d ' + sec.gap.row.tgl + ') dan import itu dulu sebelum lanjut.';
+      html += '</div>';
+    } else if (n > 0) {
+      hasImportable = true;
+    }
+
     if (n === 0) {
       html += '<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Data sudah up to date.</div>';
     } else {
@@ -2144,7 +2186,7 @@ function buildPreview() {
   document.getElementById('impStep1').style.display = 'none';
   document.getElementById('impStep2').style.display = '';
   document.getElementById('impParseInfo').textContent = '';
-  document.getElementById('impConfirmBtn').style.display = hasNew ? '' : 'none';
+  document.getElementById('impConfirmBtn').style.display = hasImportable ? '' : 'none';
 }
 
 async function doImport() {
@@ -2156,6 +2198,7 @@ async function doImport() {
   for (var i = 0; i < importSections.length; i++) {
     var sec = importSections[i];
     if (!sec.new_rows.length) continue;
+    if (sec.gap && !sec.gap.ok) { errors.push(sec.id_rekening + ': dilewati — ada gap saldo, perbaiki dulu (lihat peringatan di atas).'); continue; }
     var seq = sec.last_seq;
     var rows = sec.new_rows.map(function(r) {
       seq++;
@@ -2191,10 +2234,15 @@ async function doImport() {
   btn.disabled = false; btn.textContent = 'Import Sekarang';
   document.getElementById('impStep2').style.display = 'none';
   document.getElementById('impStep3').style.display = '';
+  var out = '';
+  if (totalInserted > 0) {
+    out += '<span style="color:var(--green)">✓ Berhasil import ' + totalInserted + ' baris baru.</span>';
+  }
   if (errors.length) {
-    document.getElementById('impStep3').innerHTML = '<span style="color:var(--red)">❌ Error:<br>' + errors.join('<br>') + '</span>';
-  } else {
-    document.getElementById('impStep3').innerHTML = '<span style="color:var(--green)">✓ Berhasil import ' + totalInserted + ' baris baru.</span>';
+    out += (out ? '<br><br>' : '') + '<span style="color:var(--red)">⚠ ' + errors.join('<br>') + '</span>';
+  }
+  document.getElementById('impStep3').innerHTML = out || '<span style="color:var(--muted)">Tidak ada yang diimport.</span>';
+  if (totalInserted > 0) {
     document.getElementById('impConfirmBtn').style.display = 'none';
     setTimeout(function(){ muatRekap(); muatPosting(true); }, 500);
   }
