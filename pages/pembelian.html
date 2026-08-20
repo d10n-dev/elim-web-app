@@ -1012,7 +1012,7 @@ function muatNotaAlokBank(namaSup){
   var wrap=document.getElementById('daftarNotaAlokBankWrap');
   wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota outstanding…</div>';
   dbRpc('get_rekap_hutang',{p_id_supplier:null,p_status:null,p_nama_supplier:namaSup}).then(function(res){
-    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>0;});
+    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>100;});
     if(!data.length){
       wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Tidak ada nota outstanding untuk "'+esc(namaSup)+'".</div>';
       document.getElementById('totalCentangAlokBank').textContent='';
@@ -2455,7 +2455,7 @@ function muatNotaSupplierUtkBayar(idSup,namaSup){
   wrap.style.display='block';
   wrap.innerHTML='<div class="loading" style="padding:.5rem">Memuat nota belum lunas milik '+esc(namaSup)+'…</div>';
   dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:null}).then(function(res){
-    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>0;});
+    var data=(Array.isArray(res)?res:[]).filter(function(r){return r.sisa_hutang>100;});
     if(!data.length){
       wrap.innerHTML='<div style="padding:.6rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">'+esc(namaSup)+' tidak punya nota outstanding.</div>';
       return;
