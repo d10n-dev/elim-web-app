@@ -572,10 +572,19 @@
         <div class="sec-label">Nota Terpilih</div>
         <div id="alokasiBankTerpilihWrap"></div>
         <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalAlokasiBankInfo">Total alokasi: Rp 0</div>
+
+        <div style="margin-top:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px">
+          <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer">
+            <input type="checkbox" id="chkAlokBankParsial" onchange="renderAlokasiBankTerpilih()"/>
+            Pembayaran Parsial (nominal boleh tidak pas / belum tentu pembayaran terakhir)
+          </label>
+          <div id="infoSelisihAlokBank" style="font-family:var(--mono);font-size:.75rem;margin-top:.4rem"></div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
-        <button class="btn-navy" id="btnSimpanAlokBank" onclick="submitAlokasiBank(this)">Simpan Alokasi</button>
+        <button class="btn-navy" id="btnLunasSelisihAlokBank" style="display:none;background:#c45a00" onclick="submitAlokasiBank(this,true)">✓ Anggap Lunas dengan Selisih</button>
+        <button class="btn-navy" id="btnSimpanAlokBank" onclick="submitAlokasiBank(this,false)">Simpan Alokasi</button>
       </div>
     </div>
   </div>
@@ -1055,12 +1064,40 @@ function renderAlokasiBankTerpilih(){
   }
   var total=alokasiBankTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
   document.getElementById('totalAlokasiBankInfo').textContent='Total alokasi: '+fmtRupiah(total);
+  updateInfoSelisihAlokBank(total);
 }
 
 function updateNominalAlokBank(idx,val){
   alokasiBankTerpilih[idx].nominal=parseFloat(val)||0;
   var total=alokasiBankTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
   document.getElementById('totalAlokasiBankInfo').textContent='Total alokasi: '+fmtRupiah(total);
+  updateInfoSelisihAlokBank(total);
+}
+
+function updateInfoSelisihAlokBank(total){
+  var elInfo=document.getElementById('infoSelisihAlokBank');
+  var btnLunas=document.getElementById('btnLunasSelisihAlokBank');
+  if(!bankStmtAktif||!elInfo||!btnLunas) return;
+  var parsial=document.getElementById('chkAlokBankParsial').checked;
+  var sisaBank=Number(bankStmtAktif.sisa_nominal||0);
+  var selisih=sisaBank-total;
+
+  if(!parsial || selisih===0 || total===0){
+    elInfo.innerHTML=selisih===0&&total>0?'<span style="color:var(--green)">Pas, tidak ada selisih.</span>':'';
+    btnLunas.style.display='none';
+    return;
+  }
+  if(selisih<0){
+    elInfo.innerHTML='<span style="color:var(--red)">Total melebihi sisa transfer, tidak valid.</span>';
+    btnLunas.style.display='none';
+    return;
+  }
+  var pesan='Selisih: '+fmtRupiah(selisih)+' (kurang dari total nota vs transfer). ';
+  pesan+= selisih<100
+    ? 'Kecil, akan ditutup otomatis tanpa approval.'
+    : 'Perlu approval Direktur sebelum final.';
+  elInfo.innerHTML='<span style="color:#c45a00">'+pesan+'</span>';
+  btnLunas.style.display='';
 }
 
 function hapusAlokasiBankTerpilih(idx){
@@ -1119,11 +1156,14 @@ function bukaAlokasiBank(idBankStmt){
   document.getElementById('daftarNotaAlokBankWrap').innerHTML='<div style="padding:.5rem;font-family:var(--mono);font-size:.75rem;color:var(--muted)">Ketik nama supplier untuk melihat nota.</div>';
   document.getElementById('totalCentangAlokBank').textContent='';
   alokasiBankTerpilih=[];
+  document.getElementById('chkAlokBankParsial').checked=false;
+  document.getElementById('infoSelisihAlokBank').innerHTML='';
+  document.getElementById('btnLunasSelisihAlokBank').style.display='none';
   renderAlokasiBankTerpilih();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiBank')).show();
 }
 
-async function submitAlokasiBank(btn){
+async function submitAlokasiBank(btn,finalDenganSelisih){
   var elErr=document.getElementById('alertAlokasiBank');
   elErr.innerHTML='';
   if(!bankStmtAktif||!bankStmtAktif.id){
@@ -1136,16 +1176,34 @@ async function submitAlokasiBank(btn){
   });
   if(!detail.length){showAlert('alertAlokasiBank','Pilih minimal 1 nota dan isi nominal.');return;}
   var total=detail.reduce(function(s,a){return s+a.nominal_alokasi;},0);
-  if(total>Number(bankStmtAktif.sisa_nominal||0)){
-    showAlert('alertAlokasiBank','Total alokasi ('+fmtRupiah(total)+') melebihi sisa nominal bank ('+fmtRupiah(bankStmtAktif.sisa_nominal)+').');
+  var sisaBank=Number(bankStmtAktif.sisa_nominal||0);
+  if(total>sisaBank){
+    showAlert('alertAlokasiBank','Total alokasi ('+fmtRupiah(total)+') melebihi sisa nominal bank ('+fmtRupiah(sisaBank)+').');
     return;
   }
+  var parsial=document.getElementById('chkAlokBankParsial').checked;
+  var selisih=sisaBank-total;
+
+  if(!finalDenganSelisih){
+    // Mode "Simpan Alokasi" biasa
+    if(!parsial && selisih!==0){
+      showAlert('alertAlokasiBank','Total nota (Rp'+total+') tidak pas dengan sisa transfer (Rp'+sisaBank+'). Centang "Pembayaran Parsial" untuk lanjut dengan selisih, atau sesuaikan nominal.');
+      return;
+    }
+  }else{
+    // Mode "Anggap Lunas dengan Selisih"
+    if(selisih<=0){showAlert('alertAlokasiBank','Tidak ada selisih untuk ditutup.');return;}
+    var pesanKonfirm='Selisih Rp'+selisih+'. '+(selisih<100?'Akan ditutup otomatis (di bawah Rp100).':'Akan diajukan ke Direktur untuk approval sebelum final.');
+    if(!confirm(pesanKonfirm+' Lanjutkan?')) return;
+  }
+
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
   try{
     var res=await dbRpc('alokasi_transfer_ke_hutang',{
       p_id_bank_stmt:bankStmtAktif.id,
       p_detail:detail,
-      p_user_input:getNamaUser()
+      p_user_input:getNamaUser(),
+      p_final_dengan_selisih: !!finalDenganSelisih
     });
     var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
     if(res && res.status==='error') throw new Error(res.message);
@@ -1155,7 +1213,8 @@ async function submitAlokasiBank(btn){
   }catch(e){
     showAlert('alertAlokasiBank','Gagal menyimpan: '+e.message);
   }finally{
-    btn.disabled=false; btn.innerHTML='Simpan Alokasi';
+    btn.disabled=false;
+    btn.innerHTML = finalDenganSelisih ? '✓ Anggap Lunas dengan Selisih' : 'Simpan Alokasi';
   }
 }
 

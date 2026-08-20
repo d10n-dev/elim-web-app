@@ -1771,14 +1771,21 @@ function renderApprove() {
     if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr) { eligible = true; level = 'manager'; }
     if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir) { eligible = true; level = 'direktur'; }
     if (eligible) aksi = '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'' + level + '\')">✓ Approve</button>';
+    var adaSelisih = r.selisih_alokasi !== null && r.selisih_alokasi !== undefined;
+    if (eligible && level === 'direktur' && adaSelisih) {
+      aksi += ' <button class="btn-sm-action" style="color:var(--red);border-color:#f5a8a8" onclick="rejectAlokasiSelisih(\'' + r.id + '\')">✗ Reject</button>';
+    }
     var cb = eligible
       ? '<input type="checkbox" class="ap-cb" data-id="' + r.id + '" data-level="' + level + '" onclick="toggleApCbRow(this)"/>'
       : '<input type="checkbox" disabled title="Bukan giliran level approve Anda"/>';
+    var ketCell = h(r.keterangan_bank) + (adaSelisih
+      ? '<br><span style="color:#c45a00;font-size:.68rem">Selisih: ' + fmtRp(r.selisih_alokasi) + (r.keterangan_selisih ? ' — ' + h(r.keterangan_selisih) : '') + '</span>'
+      : '');
     html += '<tr data-rid="' + r.id + '">' +
       '<td style="text-align:center">' + cb + '</td>' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
-      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + ketCell + '</td>' +
       '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
       '<td class="td-right"><span class="td-mono">' + fmtRp(r.nominal) + '</span></td>' +
       '<td>' + badgeAlokasi(r.status_alokasi) + '</td>' +
@@ -1865,6 +1872,19 @@ async function approveAlokasi(id, level) {
   muatRekap();
   muatApprove();
   // Refresh koran kalau aktif
+  if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+}
+
+async function rejectAlokasiSelisih(id) {
+  var alasan = prompt('Alasan reject (opsional):', '');
+  if (alasan === null) return; // batal
+  if (!confirm('Reject alokasi ' + id + '? Nota yang sudah dialokasikan akan dikembalikan ke sisa hutang semula.')) return;
+  var res = await dbRpc('reject_alokasi_direktur', {p_id_bank_stmt: id, p_user: getUser(), p_alasan: alasan || null});
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { alert('Error: ' + err); return; }
+  muatRekap();
+  muatApprove();
   if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
 }
 
