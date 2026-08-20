@@ -2107,19 +2107,21 @@ async function handleCsvText(text) {
     var existRes = await dbGet('in_bank_statement', {
       id_rekening: 'eq.' + sec.id_rekening,
       and: '(tgl_transaksi.gte.' + minTgl + ',tgl_transaksi.lte.' + maxTgl + ')',
-      select: 'tgl_transaksi,jenis,nominal,keterangan_bank,saldo_akhir'
+      select: 'tgl_transaksi,jenis,nominal'
     });
 
-    // Multiset key: tgl|jenis|nominal|keterangan — konsumsi 1 per match
-    // supaya transaksi kembar (nominal+jenis sama di hari sama) tetap tercocok benar.
+    // Multiset key: tgl|jenis|nominal — TANPA keterangan (teks keterangan bisa
+    // beda format antara CSV vs data lama/migrasi, bikin match gagal padahal
+    // transaksinya sama). Konsumsi 1 per match supaya transaksi kembar
+    // (nominal+jenis sama di hari sama) tetap tercocok benar.
     var existCount = {};
     if (Array.isArray(existRes)) existRes.forEach(function(r){
-      var k = r.tgl_transaksi + '|' + r.jenis + '|' + r.nominal + '|' + (r.keterangan_bank||'').trim();
+      var k = r.tgl_transaksi + '|' + r.jenis + '|' + r.nominal;
       existCount[k] = (existCount[k]||0) + 1;
     });
     var newRows = [];
     sec.rows.forEach(function(r){
-      var k = r.tgl + '|' + r.jenis + '|' + r.nominal + '|' + (r.desc||'').trim();
+      var k = r.tgl + '|' + r.jenis + '|' + r.nominal;
       if (existCount[k] > 0) { existCount[k]--; } // sudah ada di DB, skip
       else { newRows.push(r); } // tidak ketemu di DB -> baris hilang / baru
     });
