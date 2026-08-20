@@ -2088,30 +2088,53 @@ async function handleCsvText(text) {
     document.getElementById('impParseInfo').textContent = 'Tidak ada data yang bisa dibaca dari file ini.';
     return;
   }
-  document.getElementById('impParseInfo').textContent = 'Memeriksa data terbaru di database…';
+  document.getElementById('impParseInfo').textContent = 'Memeriksa data di database (seluruh rentang tanggal CSV)…';
   importSections = [];
   for (var i = 0; i < sections.length; i++) {
     var sec = sections[i];
     if (!sec.prefix) { document.getElementById('impParseInfo').textContent += '\nRekening ' + sec.norek + ' tidak dikenali, dilewati.'; continue; }
+    if (!sec.rows.length) { continue; }
+
     var maxIdRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'id', order:'id.desc', limit:1});
     var lastSeq = 0;
     if (Array.isArray(maxIdRes) && maxIdRes[0]) lastSeq = parseInt(maxIdRes[0].id.replace(/[^0-9]/g,''), 10) || 0;
-    var lastRowRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'tgl_transaksi,saldo_akhir', order:'tgl_transaksi.desc,id.desc', limit:1});
-    var lastTgl = (Array.isArray(lastRowRes) && lastRowRes[0]) ? lastRowRes[0].tgl_transaksi : '2000-01-01';
-    var lastSaldo = (Array.isArray(lastRowRes) && lastRowRes[0] && lastRowRes[0].saldo_akhir !== null) ? Number(lastRowRes[0].saldo_akhir) : null;
-    var existRes = [];
-    if (lastTgl !== '2000-01-01') {
-      existRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, tgl_transaksi:'eq.'+lastTgl, select:'jenis,nominal'});
-    }
-    var existKeys = {};
-    if (Array.isArray(existRes)) existRes.forEach(function(r){ existKeys[r.jenis+'|'+r.nominal] = true; });
-    var newRows = sec.rows.filter(function(r) {
-      if (r.tgl > lastTgl) return true;
-      if (r.tgl === lastTgl) return !existKeys[r.jenis+'|'+r.nominal];
-      return false;
+
+    var minTgl = sec.rows[0].tgl, maxTgl = sec.rows[0].tgl;
+    sec.rows.forEach(function(r){ if (r.tgl < minTgl) minTgl = r.tgl; if (r.tgl > maxTgl) maxTgl = r.tgl; });
+
+    // Ambil SEMUA transaksi yang SUDAH ada di DB pada rentang tanggal CSV ini
+    // (bukan cuma baris terakhir) — supaya baris yang bolong di tengah pun ketahuan.
+    var existRes = await dbGet('in_bank_statement', {
+      id_rekening: 'eq.' + sec.id_rekening,
+      and: '(tgl_transaksi.gte.' + minTgl + ',tgl_transaksi.lte.' + maxTgl + ')',
+      select: 'tgl_transaksi,jenis,nominal,keterangan_bank,saldo_akhir'
     });
-    var gapCheck = verifySaldoChain(newRows, lastSaldo);
-    importSections.push({id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq, last_tgl: lastTgl, last_saldo: lastSaldo, total_csv: sec.rows.length, new_rows: newRows, gap: gapCheck});
+
+    // Multiset key: tgl|jenis|nominal|keterangan — konsumsi 1 per match
+    // supaya transaksi kembar (nominal+jenis sama di hari sama) tetap tercocok benar.
+    var existCount = {};
+    if (Array.isArray(existRes)) existRes.forEach(function(r){
+      var k = r.tgl_transaksi + '|' + r.jenis + '|' + r.nominal + '|' + (r.keterangan_bank||'').trim();
+      existCount[k] = (existCount[k]||0) + 1;
+    });
+    var newRows = [];
+    sec.rows.forEach(function(r){
+      var k = r.tgl + '|' + r.jenis + '|' + r.nominal + '|' + (r.desc||'').trim();
+      if (existCount[k] > 0) { existCount[k]--; } // sudah ada di DB, skip
+      else { newRows.push(r); } // tidak ketemu di DB -> baris hilang / baru
+    });
+
+    // Verifikasi rantai saldo CSV ITU SENDIRI (semua baris, bukan cuma yg baru).
+    // Kalau newRows nanti diinsert menutupi baris yang match, hasil akhir
+    // otomatis konsisten selama CSV aslinya utuh.
+    var gapCheck = verifySaldoChain(sec.rows, null);
+
+    importSections.push({
+      id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq,
+      min_tgl: minTgl, max_tgl: maxTgl,
+      total_csv: sec.rows.length, sudah_ada: sec.rows.length - newRows.length,
+      new_rows: newRows, gap: gapCheck
+    });
   }
   buildPreview();
 }
@@ -2151,23 +2174,26 @@ function buildPreview() {
   importSections.forEach(function(sec) {
     var n = sec.new_rows.length;
     html += '<div style="margin-bottom:1rem"><div style="font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--navy);margin-bottom:.4rem">';
-    html += sec.id_rekening + ' — <span style="color:' + (n>0?'var(--green)':'var(--muted)') + '">' + n + ' baris baru</span>';
-    html += ' <span style="color:var(--muted);font-weight:400">(CSV: ' + sec.total_csv + ' | last DB: ' + sec.last_tgl + ')</span></div>';
+    html += sec.id_rekening + ' — <span style="color:' + (n>0?'var(--green)':'var(--muted)') + '">' + n + ' baris baru/hilang</span>';
+    html += ' <span style="color:var(--muted);font-weight:400">(CSV: ' + sec.total_csv + ' | sudah ada di DB: ' + sec.sudah_ada + ' | rentang: ' + sec.min_tgl + ' s/d ' + sec.max_tgl + ')</span></div>';
 
-    if (n > 0 && sec.gap && !sec.gap.ok) {
+    if (sec.gap && !sec.gap.ok) {
       html += '<div style="background:#fdecea;border:1px solid #f5a8a8;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-bottom:.4rem">';
-      html += '⚠ GAP TERDETEKSI — ada transaksi yang hilang, import diblokir untuk rekening ini.<br>';
+      html += '⚠ CSV ini sendiri tidak konsisten (kemungkinan file tidak utuh/rusak) — import diblokir untuk rekening ini.<br>';
       html += 'Saldo sebelum: Rp' + sec.gap.saldo_sebelum.toLocaleString('id-ID') + '<br>';
       html += 'Seharusnya jadi: Rp' + sec.gap.saldo_seharusnya.toLocaleString('id-ID') + ' (setelah ' + sec.gap.row.jenis + ' Rp' + sec.gap.row.nominal.toLocaleString('id-ID') + ' tgl ' + sec.gap.row.tgl + ')<br>';
       html += 'Tapi di CSV saldo tertulis: Rp' + sec.gap.saldo_di_csv.toLocaleString('id-ID') + '<br>';
-      html += 'Selisih: Rp' + Math.abs(sec.gap.selisih).toLocaleString('id-ID') + ' — download ulang CSV periode yang hilang (sekitar tanggal ' + sec.last_tgl + ' s/d ' + sec.gap.row.tgl + ') dan import itu dulu sebelum lanjut.';
+      html += 'Download ulang CSV dari BCA (pastikan periode penuh, jangan terputus), lalu upload lagi.';
       html += '</div>';
     } else if (n > 0) {
       hasImportable = true;
+      html += '<div style="background:#fff8e6;border:1px solid #f0d68a;border-radius:6px;padding:.5rem;font-family:var(--mono);font-size:.7rem;color:#8a6d00;margin-bottom:.4rem">';
+      html += 'ℹ Baris ini bisa saja mengisi gap lama (tanggal di tengah data yang sudah ada) atau memang data baru — dicek otomatis, aman untuk diimport.';
+      html += '</div>';
     }
 
     if (n === 0) {
-      html += '<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Data sudah up to date.</div>';
+      html += '<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Semua baris CSV sudah ada di DB, tidak ada yang perlu diimport.</div>';
     } else {
       html += '<div class="tbl-wrap" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Tgl</th><th>Deskripsi</th><th>Jenis</th><th class="td-right">Nominal</th><th class="td-right">Saldo</th></tr></thead><tbody>';
       sec.new_rows.slice(0,50).forEach(function(r) {
