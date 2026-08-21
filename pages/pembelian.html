@@ -69,6 +69,20 @@
     .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
     .akses-blocked p{font-size:.82rem;color:var(--muted);max-width:320px;}
     .info-c1{font-size:.72rem;color:var(--muted);background:#fff3cd;border:1px solid #ffe083;border-radius:6px;padding:.5rem .7rem;margin-bottom:.7rem;}
+    /* ── Accordion Rekap Pembelian ── */
+    .td-desc{cursor:pointer;}
+    .td-desc:hover{text-decoration:underline;}
+    .td-desc.open{color:var(--orange);font-weight:600;}
+    .row-detail td{background:#f4f7fc;padding:.75rem 1.1rem;border-top:none;}
+    .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.5rem .85rem;}
+    .detail-grid .full{grid-column:1/-1;}
+    .df-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+    .df-val{font-family:var(--mono);font-size:.75rem;color:var(--navy);margin-top:.15rem;word-break:break-word;white-space:pre-wrap;}
+    .alok-arrow{display:flex;align-items:flex-start;gap:.5rem;padding:.5rem .6rem;background:#fff;border:1px solid var(--border);border-radius:6px;margin-bottom:.4rem;font-size:.75rem;}
+    .alok-arrow.mismatch{border-color:#f5c98a;background:#fff8ec;}
+    .alok-arrow .arr{color:var(--muted);padding-left:.5rem;}
+    .badge-warn{background:#fff3cd;color:#856404;border:1px solid #ffe083;font-family:var(--mono);font-size:.6rem;padding:.1rem .4rem;border-radius:3px;display:inline-block;margin:.1rem .2rem .1rem 0;}
+    .badge-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);font-family:var(--mono);font-size:.6rem;padding:.1rem .4rem;border-radius:3px;display:inline-block;}
   </style>
 </head>
 <body>
@@ -457,6 +471,36 @@
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
         <button class="btn-navy" style="background:var(--red)" onclick="submitVoidPembelian(this)">Ya, Void Nota Ini</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: BATAL ALOKASI TRANSFER BANK (Direktur only) -->
+<div class="modal fade" id="modalBatalAlokasiHutang" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Batal Alokasi Transfer Bank</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertModalBatalAlokasi"></div>
+        <div class="info-c1">
+          Alokasi transfer bank ke nota <b id="batalAlokasiNoNota"></b> akan dibatalkan. Sisa nominal transfer
+          dikembalikan ke bank statement (status kembali BELUM_DIALOKASI/PARTIAL) dan status hutang nota
+          dihitung ulang. Hanya Direktur yang bisa melakukan ini — divalidasi juga di sisi server.
+        </div>
+        <input type="hidden" id="batalAlokasiId"/>
+        <input type="hidden" id="batalAlokasiIdPembelian"/>
+        <div class="mb-2">
+          <label class="form-label">Alasan Pembatalan *</label>
+          <input type="text" class="form-control" id="batalAlokasiAlasan" placeholder="mis. salah alokasi, nota tertukar, transfer dobel"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" style="background:var(--red)" onclick="submitBatalAlokasiHutang(this)">Ya, Batalkan Alokasi Ini</button>
       </div>
     </div>
   </div>
@@ -1308,7 +1352,7 @@ function renderRekap(){
         : '<span style="font-size:.68rem;color:var(--muted);margin-right:.3rem" title="Sudah ada pembayaran/alokasi/faktur — pakai Nota Debit/Kredit">—</span>')+
         '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="bukaAlokasiStokPembelian(\''+r.id_pembelian+'\')">📦 Alokasi Stok</button>';
       return '<tr>'+
-        '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
+        '<td class="td-mono td-desc" onclick="toggleDetailPembelian(this,\''+esc(r.id_pembelian)+'\')" title="Tap untuk detail item &amp; alokasi">'+esc(r.no_nota)+'</td>'+
         '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
         '<td>'+esc(r.nama_supplier)+'</td>'+
         '<td class="td-mono">'+esc(r.entitas)+'</td>'+
@@ -1320,6 +1364,166 @@ function renderRekap(){
         '<td>'+aksiHtml+'</td>'+
       '</tr>';
   }).join('');
+}
+
+// ── ACCORDION DETAIL REKAP PEMBELIAN ────────────────────────
+// Klik No. Nota → tampilkan detail item input + alokasi stok +
+// arah alokasi pembayaran bank (utk cek visual benar/salah).
+var openDetailPembelianId = null;
+
+function toggleDetailPembelian(tdEl, idPembelian){
+  var tr=tdEl.closest('tr');
+  document.querySelectorAll('#tabRekap .row-detail').forEach(function(el){el.remove();});
+  document.querySelectorAll('#tabRekap .td-desc.open').forEach(function(el){el.classList.remove('open');});
+
+  if(openDetailPembelianId===idPembelian){ openDetailPembelianId=null; return; }
+  openDetailPembelianId=idPembelian;
+  tdEl.classList.add('open');
+
+  var r=rekapStore[idPembelian];
+  if(!r) return;
+  var cols=tr.closest('table').querySelector('thead tr').children.length;
+  var det=document.createElement('tr');
+  det.className='row-detail';
+  det.innerHTML='<td colspan="'+cols+'">'+
+    '<div class="sec-label">🧾 Detail Item Nota</div>'+
+    '<div id="detItemWrap-'+idPembelian+'" class="loading" style="padding:.4rem 0">Memuat…</div>'+
+    '<div class="sec-label">📦 Alokasi Stok</div>'+
+    '<div id="detStokWrap-'+idPembelian+'"></div>'+
+    '<div class="sec-label">🏦 Arah Alokasi Pembayaran (Bank ↔ Nota)</div>'+
+    '<div id="detBankWrap-'+idPembelian+'" class="loading" style="padding:.4rem 0">Memuat…</div>'+
+  '</td>';
+  tr.insertAdjacentElement('afterend',det);
+
+  muatDetailItemPembelian(r);
+  muatAlokasiBankPembelian(r);
+}
+
+function muatDetailItemPembelian(r){
+  var wrapItem=document.getElementById('detItemWrap-'+r.id_pembelian);
+  var wrapStok=document.getElementById('detStokWrap-'+r.id_pembelian);
+  dbRpc('get_pembelian_detail',{p_id_pembelian:r.id_pembelian}).then(function(res){
+    var errMsg=cekErrorSupabase(res);
+    if(errMsg||!res||res.status==='error'){
+      wrapItem.innerHTML='<div class="df-val" style="color:var(--red)">Gagal memuat: '+esc(errMsg||(res&&res.message)||'unknown')+'</div>';
+      wrapStok.innerHTML='';
+      return;
+    }
+    var details=res.details||[];
+    if(!details.length){
+      wrapItem.innerHTML='<div class="df-val" style="color:var(--muted)">Tidak ada item.</div>';
+      wrapStok.innerHTML='';
+      return;
+    }
+    wrapItem.innerHTML='<table style="width:100%;font-family:var(--mono);font-size:.72rem">'+
+      '<thead><tr style="color:var(--muted)"><th style="text-align:left">Item</th><th class="td-right">Jumlah</th><th style="text-align:left">Satuan</th><th class="td-right">Harga</th><th class="td-right">Subtotal</th></tr></thead><tbody>'+
+      details.map(function(d){
+        return '<tr><td>'+esc(d.nama_item_nota)+'</td><td class="td-right">'+fmtAngka(d.jumlah)+'</td><td>'+esc(d.satuan)+'</td>'+
+          '<td class="td-right">'+fmtRupiah(d.harga_satuan)+'</td><td class="td-right">'+fmtRupiah(d.subtotal_item)+'</td></tr>';
+      }).join('')+
+      '</tbody></table>';
+
+    var itemAlokasi=details.filter(function(d){return d.alokasi&&d.alokasi.length;});
+    if(!itemAlokasi.length){
+      wrapStok.innerHTML='<div class="df-val" style="color:var(--muted)">Belum ada item yang dialokasikan ke stok.</div>';
+      return;
+    }
+    wrapStok.innerHTML=itemAlokasi.map(function(d){
+      return '<div style="margin-bottom:.4rem"><div class="df-lbl">'+esc(d.nama_item_nota)+'</div>'+
+        d.alokasi.map(function(a){
+          return '<div class="df-val">→ '+esc(a.nama_bahan||a.id_bahan)+' · '+fmtAngka(a.pps_per_lembar)+' pps/lbr · hasil '+fmtAngka(a.qty_hasil)+' pcs'+(a.keterangan?' ('+esc(a.keterangan)+')':'')+'</div>';
+        }).join('')+
+      '</div>';
+    }).join('');
+  }).catch(function(){
+    wrapItem.innerHTML='<div class="df-val" style="color:var(--red)">Gagal memuat detail item.</div>';
+    wrapStok.innerHTML='';
+  });
+}
+
+// Cek kemiripan nama supplier vs teks keterangan bank (buang PT/CV/Tbk & simbol)
+function _miripNama(a,b){
+  var norm=function(s){return (s||'').toUpperCase().replace(/\bPT\.?\b|\bCV\.?\b|\bTBK\.?\b/g,'').replace(/[^A-Z0-9]/g,'').trim();};
+  a=norm(a); b=norm(b);
+  if(!a||!b) return false;
+  return a.indexOf(b)>=0 || b.indexOf(a)>=0;
+}
+
+function muatAlokasiBankPembelian(r){
+  var wrap=document.getElementById('detBankWrap-'+r.id_pembelian);
+  dbGet('in_bank_alokasi_hutang',{id_pembelian:'eq.'+r.id_pembelian,select:'*',order:'created_at.asc'}).then(function(alokasi){
+    alokasi=Array.isArray(alokasi)?alokasi:[];
+    var aktif=alokasi.filter(function(a){return a.status_alokasi!=='VOID';});
+    if(!aktif.length){
+      wrap.innerHTML='<div class="df-val" style="color:var(--muted)">Belum ada transfer bank yang dialokasikan ke nota ini.</div>';
+      return;
+    }
+    var ids=aktif.map(function(a){return a.id_bank_statement;});
+    dbGet('in_bank_statement',{id:'in.('+ids.join(',')+')',select:'id,tgl_transaksi,keterangan_bank,nominal,sisa_nominal,status,status_alokasi'}).then(function(bs){
+      bs=Array.isArray(bs)?bs:[];
+      var mapBs={}; bs.forEach(function(b){mapBs[b.id]=b;});
+      var totalAlokasi=aktif.reduce(function(s,a){return s+(parseFloat(a.nominal_alokasi)||0);},0);
+      var html=aktif.map(function(a){
+        var b=mapBs[a.id_bank_statement]||{};
+        var cocokNama=_miripNama(r.nama_supplier,b.keterangan_bank);
+        var cocokTgl=!b.tgl_transaksi||!r.tgl_pembelian||(new Date(b.tgl_transaksi)>=new Date(r.tgl_pembelian));
+        var mismatch=!cocokNama||!cocokTgl;
+        var warnBadges='';
+        if(!cocokNama) warnBadges+='<span class="badge-warn">⚠ Nama tidak cocok</span>';
+        if(!cocokTgl) warnBadges+='<span class="badge-warn">⚠ Transfer sebelum tgl nota</span>';
+        if(!mismatch) warnBadges='<span class="badge-ok">✓ Cocok</span>';
+        var btnBatal='';
+        if(typeof isDirektur==='function' && isDirektur() && a.status_alokasi==='TERALOKASI'){
+          btnBatal='<button class="btn-sm-action" style="color:var(--red);border-color:#f5a9a0;white-space:nowrap" onclick="bukaBatalAlokasiHutang(\''+esc(a.id_alokasi)+'\',\''+esc(r.id_pembelian)+'\',\''+esc(a.no_nota)+'\')">🗑️ Batal Alokasi</button>';
+        }
+        return '<div class="alok-arrow'+(mismatch?' mismatch':'')+'">'+
+          '<div style="flex:1">'+
+            '<div><b>🏦 '+fmtTgl(b.tgl_transaksi)+'</b> — '+esc(b.keterangan_bank||b.id||'')+'</div>'+
+            '<div class="arr">↓ dialokasikan ke</div>'+
+            '<div><b>🧾 Nota '+esc(a.no_nota)+'</b> ('+esc(a.nama_supplier)+') — '+fmtRupiah(a.nominal_alokasi)+' — status <b>'+esc(a.status_alokasi)+'</b></div>'+
+            '<div style="margin-top:.25rem">'+warnBadges+'</div>'+
+          '</div>'+btnBatal+
+        '</div>';
+      }).join('');
+      html+='<div class="df-val" style="margin-top:.3rem">Total dialokasikan dari bank: <b>'+fmtRupiah(totalAlokasi)+'</b> dari tagihan <b>'+fmtRupiah(r.total_tagihan)+'</b></div>';
+      wrap.innerHTML=html;
+    });
+  }).catch(function(){
+    wrap.innerHTML='<div class="df-val" style="color:var(--red)">Gagal memuat alokasi bank.</div>';
+  });
+}
+
+// ── BATAL ALOKASI HUTANG (Direktur only) ────────────────────
+function bukaBatalAlokasiHutang(idAlokasi, idPembelian, noNota){
+  document.getElementById('alertModalBatalAlokasi').innerHTML='';
+  document.getElementById('batalAlokasiId').value=idAlokasi;
+  document.getElementById('batalAlokasiIdPembelian').value=idPembelian;
+  document.getElementById('batalAlokasiNoNota').textContent=noNota;
+  document.getElementById('batalAlokasiAlasan').value='';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBatalAlokasiHutang')).show();
+}
+
+async function submitBatalAlokasiHutang(btn){
+  var idAlokasi=document.getElementById('batalAlokasiId').value;
+  var alasan=document.getElementById('batalAlokasiAlasan').value.trim();
+  if(!alasan){showAlert('alertModalBatalAlokasi','Alasan pembatalan wajib diisi.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Memproses…';
+  try{
+    var res=await dbRpc('batal_alokasi_hutang',{
+      p_id_alokasi:idAlokasi, p_alasan:alasan, p_user_input:getNamaUser()
+    });
+    var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    if(res && res.status==='error') throw new Error(res.message);
+    bootstrap.Modal.getInstance(document.getElementById('modalBatalAlokasiHutang')).hide();
+    openDetailPembelianId=null;
+    muatRekap();
+    muatRekapCards();
+  }catch(e){
+    showAlert('alertModalBatalAlokasi','Gagal batal alokasi: '+e.message);
+  }finally{
+    btn.disabled=false; btn.innerHTML='Ya, Batalkan Alokasi Ini';
+  }
 }
 
 // ============================================================
