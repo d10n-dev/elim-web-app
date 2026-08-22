@@ -119,6 +119,30 @@
   </div>
 </div>
 
+<!-- MODAL: KONFIRMASI CASCADE KE ORDER -->
+<div class="modal fade" id="modalCascadeItem" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Item Ini Dipakai di Order yang Belum Selesai</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:.6rem">
+          Ditemukan <b id="cascadeJumlah">0</b> baris order (belum di-SPK-kan penuh) yang masih pakai nama/satuan LAMA item ini.
+          Pilih apakah data di order-order tersebut ikut diperbarui, atau biarkan seperti semula (order tetap pakai data lama).
+        </div>
+        <div id="cascadeListWrap" style="border:1px solid var(--border);border-radius:8px;max-height:260px;overflow-y:auto;font-family:var(--mono);font-size:11px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal (jangan simpan)</button>
+        <button class="btn-outline" onclick="konfirmasiCascade(false)">Hanya Update Master</button>
+        <button class="btn-simpan" onclick="konfirmasiCascade(true)">Update Master + Order Ini</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
@@ -127,6 +151,8 @@
 'use strict';
 let dataItem = [];
 let modalInst;
+let modalCascadeInst;
+let pendingEditPayload = null; // {id, nama, kat, satuan, pps, status, itemLama}
 
 const KATEGORI_LIST = ['NOTA / FORM','BUKU','ETIKET','BOX MAKANAN','BOX PRODUK','HARDBOX','PAPERBAG','LAINNYA'];
 
@@ -134,6 +160,7 @@ window.addEventListener('load', function() {
   if (!guardHalaman()) return;
   initNav('item');
   modalInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalItem'));
+  modalCascadeInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCascadeItem'));
   isiFilterKategori();
   muatData();
 });
@@ -207,6 +234,8 @@ function bukaModalTambah() {
   modalInst.show();
 }
 
+let itemSedangDiedit = null; // snapshot data lama saat modal edit dibuka
+
 function bukaModalEdit(p) {
   document.getElementById('modalJudul').textContent = 'EDIT ITEM — ' + p.id_item;
   document.getElementById('alert-form').innerHTML = '';
@@ -217,10 +246,11 @@ function bukaModalEdit(p) {
   document.getElementById('fPps').value      = p.pps;
   document.getElementById('fStatus').value   = p.status || 'AKTIF';
   document.getElementById('statusGroup').style.display = 'block';
+  itemSedangDiedit = p;
   modalInst.show();
 }
 
-function simpanItem() {
+async function simpanItem() {
   const id     = document.getElementById('fId').value;
   const nama   = document.getElementById('fNama').value.trim().toUpperCase();
   const kat    = document.getElementById('fKategori').value;
@@ -236,18 +266,72 @@ function simpanItem() {
   const btn = document.getElementById('btnSimpan');
   btn.textContent = 'Menyimpan...'; btn.disabled = true;
 
-  const payload = { nama_item: nama, kategori: kat, satuan, pps: Number(pps), status };
-  let p;
-  if (id) {
-    p = dbUpdate('m_item', { id_item: 'eq.' + id }, payload);
-  } else {
-    payload.id_item = generateIdLokal(dataItem, 'ITM', 'id_item', 3);
-    p = dbInsert('m_item', payload);
+  // ITEM BARU — tidak ada order terkait, langsung insert seperti biasa.
+  if (!id) {
+    const payload = { id_item: generateIdLokal(dataItem, 'ITM', 'id_item', 3), nama_item: nama, kategori: kat, satuan, pps: Number(pps), status };
+    dbInsert('m_item', payload).then(res => {
+      if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
+      modalInst.hide(); muatData();
+    }).catch(err => tampilError(err.message || 'Gagal menyimpan'))
+    .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
+    return;
   }
 
-  p.then(res => {
+  // ITEM EXISTING — cek dulu apakah nama/satuan berubah & ada order yang belum
+  // selesai (status_spk != DONE) masih pakai data lama. Kalau ada, tanya user
+  // dulu mau ikut diperbarui atau tidak, sebelum benar-benar simpan.
+  pendingEditPayload = { id, nama, kat, satuan, pps: Number(pps), status };
+  const namaBerubah   = itemSedangDiedit && itemSedangDiedit.nama_item !== nama;
+  const satuanBerubah = itemSedangDiedit && itemSedangDiedit.satuan !== satuan;
+
+  if (!namaBerubah && !satuanBerubah) {
+    return prosesSimpanItem(false);
+  }
+
+  try {
+    const terdampak = await dbRpc('get_order_terdampak_item', {
+      p_id_item: id, p_satuan_baru: satuan, p_nama_baru: nama
+    });
+    const rows = Array.isArray(terdampak) ? terdampak : [];
+    if (!rows.length) {
+      return prosesSimpanItem(false);
+    }
+    document.getElementById('cascadeJumlah').textContent = rows.length;
+    document.getElementById('cascadeListWrap').innerHTML = rows.map(r => `
+      <div style="padding:6px 10px;border-bottom:1px solid var(--border)">
+        <div>${escHtml(r.id_order)}${r.no_po ? ' · PO ' + escHtml(r.no_po) : ''} — ${escHtml(r.id_detail)}</div>
+        <div style="color:var(--muted)">${escHtml(r.nama_lama)}${r.subitem ? ' | ' + escHtml(r.subitem) : ''} · qty ${r.qty} ${escHtml(r.satuan_lama)}</div>
+      </div>
+    `).join('');
+    btn.textContent = 'Simpan'; btn.disabled = false;
+    modalCascadeInst.show();
+  } catch (err) {
+    btn.textContent = 'Simpan'; btn.disabled = false;
+    tampilError('Gagal cek order terdampak: ' + err.message);
+  }
+}
+
+function konfirmasiCascade(cascade) {
+  modalCascadeInst.hide();
+  prosesSimpanItem(cascade);
+}
+
+function prosesSimpanItem(cascade) {
+  if (!pendingEditPayload) return;
+  const { id, nama, kat, satuan, pps, status } = pendingEditPayload;
+  const btn = document.getElementById('btnSimpan');
+  btn.textContent = 'Menyimpan...'; btn.disabled = true;
+
+  dbRpc('edit_item', {
+    p_id_item: id, p_nama_item: nama, p_kategori: kat, p_satuan: satuan,
+    p_pps: pps, p_status: status, p_cascade_ke_order: !!cascade,
+    p_user_input: getNamaUser()
+  }).then(res => {
+    if (res && res.status === 'error') throw new Error(res.message);
     if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
-    modalInst.hide(); muatData();
+    modalInst.hide();
+    pendingEditPayload = null;
+    muatData();
   }).catch(err => tampilError(err.message || 'Gagal menyimpan'))
   .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
 }
