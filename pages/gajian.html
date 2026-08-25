@@ -46,6 +46,9 @@
   .slip-pre{font-family:var(--mono);font-size:.8rem;white-space:pre-wrap;background:var(--bg);border-radius:6px;padding:.8rem;border:1px solid var(--border);}
   .cuti-sisa{font-weight:600;}
   .cuti-sisa.low{color:var(--red);}
+  .notif-row{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.5rem .8rem;font-size:.78rem;margin-bottom:.4rem;}
+  .notif-row b{color:var(--navy);}
+  .notif-row.void{opacity:.55;text-decoration:line-through;}
 </style>
 </head>
 <body>
@@ -263,6 +266,13 @@
         </div>
       </div>
       <div id="alertHasil" style="margin-top:.5rem"></div>
+
+      <div id="statusNotifGaji" style="margin-top:.7rem"></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+        <button class="btn-outline" onclick="uploadNotifPokok()">🔔 Upload Notif Gaji Pokok (setelah upload BCA)</button>
+        <button class="btn-outline" onclick="bukaModalNotifBonus()">🔔 Upload Notif Bonus (setelah upload BCA)</button>
+      </div>
+
       <div style="overflow-x:auto;margin-top:.6rem">
         <table class="sieo-tbl">
           <thead><tr>
@@ -330,6 +340,20 @@
   </div></div>
 </div>
 
+<!-- MODAL: Upload Notif Bonus -->
+<div class="modal fade" id="modalNotifBonus" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Upload Notif Bonus</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p style="font-size:.78rem;color:var(--muted)">Pastikan file bonus SUDAH diupload ke BCA sebelum konfirmasi ini. Setiap karyawan akan dapat notif nominal bonus masing-masing dan tanggal transfer di bawah (jam 06:00).</p>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Tanggal Transfer</label>
+      <input type="date" id="notifBonusTgl" class="form-control">
+      <div id="alertNotifBonus" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" onclick="simpanNotifBonus()">Kirim Notif</button></div>
+  </div></div>
+</div>
+
 <!-- MODAL: Detail Harian -->
 <div class="modal fade" id="modalDetailHarian" tabindex="-1">
   <div class="modal-dialog modal-lg"><div class="modal-content">
@@ -374,7 +398,7 @@ function gantiTab(id) {
   if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); }
   if (id === 'tKinerja') { muatKinerja(); muatPenyesuaian(); }
   if (id === 'tBon') { muatSaldoBon(); muatRiwayatBon(); }
-  if (id === 'tHasil') muatHasil();
+  if (id === 'tHasil') { muatHasil(); muatStatusNotifGaji(); }
 }
 
 // ============================================================
@@ -1019,6 +1043,59 @@ async function finalisasiPeriode() {
   await muatDaftarPeriode();
   document.getElementById('selPeriode').value = periodeAktif.id_periode;
   await gantiPeriode();
+}
+
+// ============================================================
+// NOTIF GAJI (In-App) — Pokok & Bonus
+// ============================================================
+async function muatStatusNotifGaji() {
+  const box = document.getElementById('statusNotifGaji');
+  if (!periodeAktif) { box.innerHTML = ''; return; }
+  const res = await dbGet('in_gaji_notif', { id_periode: 'eq.' + periodeAktif.id_periode, order: 'diupload_at.desc' });
+  if (!cekErrorSupabase(res)) return;
+  if (!res || !res.length) { box.innerHTML = '<div class="periode-info">Belum ada notif gaji dikirim untuk periode ini.</div>'; return; }
+  box.innerHTML = res.map(n => {
+    const label = n.jenis === 'POKOK' ? '💰 Gaji Pokok' : '🎁 Bonus';
+    const info = `<b>${label}</b> — transfer ${formatTanggal(n.tgl_transfer)} jam ${n.jam_transfer.slice(0,5)} · dikirim oleh ${escHtml(n.diupload_oleh)} (${formatTanggalWaktu(n.diupload_at)})`;
+    const aksi = n.status === 'AKTIF'
+      ? `<button class="btn-sm-action btn-hapus" onclick="batalkanNotif('${n.id_notif}')">Batalkan</button>`
+      : `<span class="text-muted" style="font-size:.68rem">Dibatalkan${n.alasan_batal ? ': ' + escHtml(n.alasan_batal) : ''}</span>`;
+    return `<div class="notif-row ${n.status === 'VOID' ? 'void' : ''}"><span>${info}</span>${aksi}</div>`;
+  }).join('');
+}
+
+async function uploadNotifPokok() {
+  if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
+  if (!confirm('Kirim notif Gaji Pokok ke semua karyawan periode ini?\n\nPastikan Anda SUDAH selesai upload file gaji pokok ke BCA sebelum konfirmasi ini — karyawan akan langsung melihat notif ini di menu Slip Gaji mereka.')) return;
+  const res = await dbRpc('upload_notif_gaji_pokok', { p_id_periode: periodeAktif.id_periode, p_user: getNamaUser() });
+  if (!cekErrorSupabase(res)) return;
+  alert(`✓ Notif Gaji Pokok terkirim ke ${res.jumlah_karyawan} karyawan.\nTransfer: ${formatTanggal(res.tgl_transfer)} jam 06:00.`);
+  await muatStatusNotifGaji();
+}
+
+function bukaModalNotifBonus() {
+  if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
+  document.getElementById('notifBonusTgl').value = '';
+  document.getElementById('alertNotifBonus').innerHTML = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalNotifBonus')).show();
+}
+
+async function simpanNotifBonus() {
+  const tgl = document.getElementById('notifBonusTgl').value;
+  if (!tgl) { showAlert('alertNotifBonus', 'Pilih tanggal transfer dulu.'); return; }
+  const res = await dbRpc('upload_notif_gaji_bonus', { p_id_periode: periodeAktif.id_periode, p_tgl_transfer: tgl, p_user: getNamaUser() });
+  if (res.status === 'error') { showAlert('alertNotifBonus', res.message); return; }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalNotifBonus')).hide();
+  alert(`✓ Notif Bonus terkirim ke ${res.jumlah_karyawan} karyawan.\nTransfer: ${formatTanggal(tgl)} jam 06:00.`);
+  await muatStatusNotifGaji();
+}
+
+async function batalkanNotif(idNotif) {
+  const alasan = prompt('Alasan pembatalan notif ini (wajib diisi):');
+  if (!alasan || !alasan.trim()) return;
+  const res = await dbRpc('batalkan_notif_gaji', { p_id_notif: idNotif, p_alasan: alasan, p_user: getNamaUser() });
+  if (!cekErrorSupabase(res)) return;
+  await muatStatusNotifGaji();
 }
 
 // ============================================================
