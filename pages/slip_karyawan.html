@@ -43,10 +43,25 @@
   .absen-badge{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;white-space:nowrap;}
 
   @media print {
-    .topbar-slip, #navRoot, .btn-print, .btn-absensi, #debugBox { display:none !important; }
+    .topbar-slip, #navRoot, .btn-print, .btn-absensi, #debugBox, #gatePin, .notif-box, .btn-ubah-pin { display:none !important; }
     body, .wrap-slip { padding:0; margin:0; max-width:none; }
     .slip-card { border:none; }
   }
+
+  #gatePin{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1.2rem;}
+  .gate-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.5rem;max-width:340px;width:100%;text-align:center;}
+  .gate-card h6{font-family:var(--sans);font-weight:600;color:var(--navy);margin-bottom:.3rem;}
+  .gate-card p{font-size:.78rem;color:var(--muted);margin-bottom:1rem;}
+  .gate-card input{width:100%;text-align:center;letter-spacing:.4em;font-family:var(--mono);font-size:1.2rem;padding:.6rem;border:1px solid var(--border);border-radius:6px;margin-bottom:.6rem;}
+  .gate-card .btn-navy{width:100%;}
+  .gate-alert{font-size:.75rem;color:var(--red);min-height:1.1rem;margin-bottom:.4rem;}
+  .btn-ubah-pin{background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:.68rem;text-decoration:underline;cursor:pointer;padding:0;}
+
+  .notif-box{background:#fff3cd;border:1px solid #ffe083;border-radius:8px;padding:.8rem .9rem;margin-bottom:1rem;font-size:.8rem;}
+  .notif-box .notif-item{border-bottom:1px dashed #ffe083;padding:.4rem 0;}
+  .notif-box .notif-item:last-child{border-bottom:none;}
+  .notif-box b{color:var(--navy);}
+  .notif-badge-baru{background:var(--red);color:#fff;font-size:.6rem;font-weight:600;padding:.1rem .4rem;border-radius:3px;margin-left:.3rem;}
 </style>
 </head>
 <body>
@@ -66,13 +81,44 @@
 </script>
 <div id="navRoot"></div>
 
+<!-- GATE PIN — untuk role selain KARYAWAN, wajib PIN tiap buka halaman ini -->
+<div id="gatePin" style="display:none">
+  <div class="gate-card">
+    <h6 id="gatePinJudul">Masukkan PIN</h6>
+    <p id="gatePinKeterangan">Halaman ini berisi data gaji — masukkan PIN 6 digit kamu.</p>
+    <input type="password" id="gatePinInput" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off">
+    <input type="password" id="gatePinKonfirmasi" inputmode="numeric" maxlength="6" placeholder="Ulangi PIN" autocomplete="off" style="display:none">
+    <div class="gate-alert" id="gatePinAlert"></div>
+    <button class="btn-navy" id="gatePinTombol" onclick="submitGatePin()">Buka</button>
+  </div>
+</div>
+
+<!-- MODAL: Ubah PIN -->
+<div class="modal fade" id="modalUbahPin" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Ubah PIN Slip Gaji</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">PIN Lama</label>
+      <input type="password" id="ubahPinLama" class="form-control" inputmode="numeric" maxlength="6" style="margin-bottom:.5rem">
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">PIN Baru (6 digit)</label>
+      <input type="password" id="ubahPinBaru" class="form-control" inputmode="numeric" maxlength="6" style="margin-bottom:.5rem">
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Ulangi PIN Baru</label>
+      <input type="password" id="ubahPinKonfirmasi" class="form-control" inputmode="numeric" maxlength="6">
+      <div id="alertUbahPin" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" onclick="simpanUbahPin()">Simpan</button></div>
+  </div></div>
+</div>
+
 <div id="konten" style="display:none">
   <div class="topbar-slip">
     <strong id="judulHalaman">Slip Gaji Saya</strong>
     <select id="selKaryawanTest" style="display:none" onchange="gantiKaryawanTest()"></select>
     <select id="selPeriodeSlip" onchange="muatSlip()"></select>
+    <button class="btn-ubah-pin" id="btnUbahPin" style="display:none" onclick="bukaModalUbahPin()">🔒 Ubah PIN</button>
   </div>
   <div class="wrap-slip">
+    <div id="notifBox"></div>
     <div id="areaSlip"></div>
   </div>
 </div>
@@ -225,37 +271,140 @@ function bukaDetailAbsensi() {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailAbsensi')).show();
 }
 
+// ============================================================
+// GATE PIN — wajib untuk role selain KARYAWAN, tiap kali halaman
+// ini dibuka (tidak diingat antar reload, sesuai permintaan: kalau
+// PC kantor ditinggal ke toilet, orang lain tidak bisa langsung buka).
+// ============================================================
+let gateModeSetup = false;
+
+async function tampilkanGatePin() {
+  document.getElementById('gatePinAlert').textContent = '';
+  document.getElementById('gatePinInput').value = '';
+  document.getElementById('gatePinKonfirmasi').value = '';
+  const sudahPunya = await dbRpc('cek_sudah_punya_pin', {});
+  gateModeSetup = !sudahPunya;
+  if (gateModeSetup) {
+    document.getElementById('gatePinJudul').textContent = 'Buat PIN Slip Gaji';
+    document.getElementById('gatePinKeterangan').textContent = 'Baru pertama kali buka menu ini. Buat PIN 6 digit untuk melindungi data gaji dari akses orang lain.';
+    document.getElementById('gatePinKonfirmasi').style.display = '';
+    document.getElementById('gatePinTombol').textContent = 'Buat PIN';
+  } else {
+    document.getElementById('gatePinJudul').textContent = 'Masukkan PIN';
+    document.getElementById('gatePinKeterangan').textContent = 'Halaman ini berisi data gaji — masukkan PIN 6 digit kamu.';
+    document.getElementById('gatePinKonfirmasi').style.display = 'none';
+    document.getElementById('gatePinTombol').textContent = 'Buka';
+  }
+  document.getElementById('gatePin').style.display = 'flex';
+  document.getElementById('gatePinInput').focus();
+}
+
+async function submitGatePin() {
+  const pin = document.getElementById('gatePinInput').value.trim();
+  if (!/^[0-9]{6}$/.test(pin)) { document.getElementById('gatePinAlert').textContent = 'PIN harus 6 digit angka.'; return; }
+
+  if (gateModeSetup) {
+    const konfirmasi = document.getElementById('gatePinKonfirmasi').value.trim();
+    if (pin !== konfirmasi) { document.getElementById('gatePinAlert').textContent = 'PIN dan konfirmasi tidak sama.'; return; }
+    const res = await dbRpc('set_pin_slip_gaji', { p_pin: pin, p_pin_lama: null });
+    if (res.status === 'error') { document.getElementById('gatePinAlert').textContent = res.message; return; }
+  } else {
+    const res = await dbRpc('verify_pin_slip_gaji', { p_pin: pin });
+    if (res.status === 'error') { document.getElementById('gatePinAlert').textContent = res.message; return; }
+  }
+
+  document.getElementById('gatePin').style.display = 'none';
+  document.getElementById('btnUbahPin').style.display = '';
+  await lanjutkanSetelahGate();
+}
+
+function bukaModalUbahPin() {
+  document.getElementById('ubahPinLama').value = '';
+  document.getElementById('ubahPinBaru').value = '';
+  document.getElementById('ubahPinKonfirmasi').value = '';
+  document.getElementById('alertUbahPin').innerHTML = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUbahPin')).show();
+}
+
+async function simpanUbahPin() {
+  const lama = document.getElementById('ubahPinLama').value.trim();
+  const baru = document.getElementById('ubahPinBaru').value.trim();
+  const konfirmasi = document.getElementById('ubahPinKonfirmasi').value.trim();
+  if (!/^[0-9]{6}$/.test(baru)) { showAlert('alertUbahPin', 'PIN baru harus 6 digit angka.'); return; }
+  if (baru !== konfirmasi) { showAlert('alertUbahPin', 'PIN baru dan konfirmasi tidak sama.'); return; }
+  const res = await dbRpc('set_pin_slip_gaji', { p_pin: baru, p_pin_lama: lama });
+  if (res.status === 'error') { showAlert('alertUbahPin', res.message); return; }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUbahPin')).hide();
+  alert('✓ PIN berhasil diganti.');
+}
+
+// ============================================================
+// NOTIF GAJI — banner "gaji pokok/bonus sudah diupload"
+// ============================================================
+async function muatNotifSaya() {
+  const box = document.getElementById('notifBox');
+  const res = await dbRpc('get_notif_gaji_saya', {});
+  if (!res || !res.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="notif-box">` + res.map(n => {
+    const label = n.jenis === 'POKOK' ? 'Gaji Pokok' : 'Bonus';
+    const baru = !n.sudah_dibaca ? '<span class="notif-badge-baru">BARU</span>' : '';
+    return `<div class="notif-item" onclick="tandaiNotifDibaca('${n.id_detail}', this)" style="cursor:pointer">
+      🔔 <b>${label}</b> sebesar <b>${formatRupiah(n.nominal)}</b> sudah diupload, akan diterima
+      <b>${formatTanggal(n.tgl_transfer)} jam ${n.jam_transfer.slice(0,5)}</b>.${baru}
+    </div>`;
+  }).join('') + `</div>`;
+}
+
+async function tandaiNotifDibaca(idDetail, el) {
+  await dbRpc('tandai_notif_dibaca', { p_id_detail: idDetail });
+  const badge = el.querySelector('.notif-badge-baru');
+  if (badge) badge.remove();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function lanjutkanSetelahGate() {
+  initNav('slip_karyawan');
+  document.getElementById('konten').style.display = '';
+  await muatNotifSaya();
+
+  const role = getRoleUser();
+  modeDirektur = (role === 'DIREKTUR');
+
+  if (modeDirektur) {
+    document.getElementById('judulHalaman').textContent = 'Slip Gaji (Mode Test — Direktur)';
+    const daftar = await dbRpc('get_daftar_karyawan_test', {});
+    const sel = document.getElementById('selKaryawanTest');
+    sel.style.display = '';
+    sel.innerHTML = (daftar || []).map(k => `<option value="${k.nip}">${k.nip} — ${k.nama}</option>`).join('');
+    if (daftar && daftar.length) {
+      nipTerpilih = daftar[0].nip;
+      await muatDaftarPeriode();
+    } else {
+      document.getElementById('areaSlip').innerHTML = '<div class="empty-state">Belum ada data karyawan di menu Gajian.</div>';
+    }
+  } else {
+    const profil = await dbRpc('get_profil_login_saya', {});
+    if (!profil) {
+      document.getElementById('areaSlip').innerHTML =
+        '<div class="empty-state">Akun kamu belum terhubung ke data karyawan.<br>Hubungi Direktur untuk menghubungkan email login ini ke data gajimu.</div>';
+      document.getElementById('selPeriodeSlip').style.display = 'none';
+      return;
+    }
+    document.getElementById('judulHalaman').textContent = 'Slip Gaji — ' + profil.nama;
+    await muatDaftarPeriode();
+  }
+}
+
 window.addEventListener('load', async function () {
   try {
     if (!guardHalaman()) return;
-    initNav('slip_karyawan');
-    document.getElementById('konten').style.display = '';
-
     const role = getRoleUser();
-    modeDirektur = (role === 'DIREKTUR');
-
-    if (modeDirektur) {
-      document.getElementById('judulHalaman').textContent = 'Slip Gaji (Mode Test — Direktur)';
-      const daftar = await dbRpc('get_daftar_karyawan_test', {});
-      const sel = document.getElementById('selKaryawanTest');
-      sel.style.display = '';
-      sel.innerHTML = (daftar || []).map(k => `<option value="${k.nip}">${k.nip} — ${k.nama}</option>`).join('');
-      if (daftar && daftar.length) {
-        nipTerpilih = daftar[0].nip;
-        await muatDaftarPeriode();
-      } else {
-        document.getElementById('areaSlip').innerHTML = '<div class="empty-state">Belum ada data karyawan di menu Gajian.</div>';
-      }
+    if (role === 'KARYAWAN') {
+      await lanjutkanSetelahGate();
     } else {
-      const profil = await dbRpc('get_profil_login_saya', {});
-      if (!profil) {
-        document.getElementById('areaSlip').innerHTML =
-          '<div class="empty-state">Akun kamu belum terhubung ke data karyawan.<br>Hubungi Direktur untuk menghubungkan email login ini ke data gajimu.</div>';
-        document.getElementById('selPeriodeSlip').style.display = 'none';
-        return;
-      }
-      document.getElementById('judulHalaman').textContent = 'Slip Gaji — ' + profil.nama;
-      await muatDaftarPeriode();
+      await tampilkanGatePin();
     }
   } catch (err) {
     tampilkanErrorHalaman('INIT ERROR: ' + (err && err.message ? err.message : err) + (err && err.stack ? ('\n' + err.stack) : ''));
