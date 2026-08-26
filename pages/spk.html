@@ -925,8 +925,12 @@ function buatAcOperator(inputEl){
 
 function hitungQty(oplah,pps,satuan,isiBuku){
   var s=(satuan||'').toUpperCase();
-  if(s==='BUKU'){var isi=parseInt(isiBuku,10)||50;return pps*Math.floor(oplah/isi);}
-  if(s==='RIM') return pps*Math.floor(oplah/500);
+  // PENTING: kalikan pps dulu baru dibagi+floor di akhir — bukan floor
+  // duluan baru dikali. floor duluan buang sisa sebelum sempat dikali
+  // pps, jadi qty kehitung lebih kecil dari seharusnya (contoh: 1250
+  // lembar x 2 pps satuan RIM harus jadi 5 RIM, bukan 4).
+  if(s==='BUKU'){var isi=parseInt(isiBuku,10)||50;return Math.floor(oplah*pps/isi);}
+  if(s==='RIM') return Math.floor(oplah*pps/500);
   return pps*oplah;
 }
 
