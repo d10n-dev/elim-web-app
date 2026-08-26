@@ -71,7 +71,7 @@
   <table id="tabelItem" style="display:none">
     <thead><tr>
       <th>ID</th><th>Nama Item</th><th>Kategori</th><th>Satuan</th><th>PPS</th>
-      <th>BK Cetak</th><th>BK Finishing</th><th>BK Packing</th>
+      <th>BK Cetak</th><th>BK Potong</th><th>BK Finishing</th><th>BK Packing</th>
       <th>Status</th><th>Aksi</th>
     </tr></thead>
     <tbody id="tbodyItem"></tbody>
@@ -131,16 +131,26 @@
 
         <div class="bk-section-title">Bobot Beban Kerja (BK) — opsional</div>
         <div class="form-text" style="margin-bottom:8px">Kosongkan kalau proses ini tidak berlaku untuk item ini. Dipakai untuk hitung kinerja karyawan, tidak wajib diisi saat item baru dibuat.</div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="fPakaiPotong">
+          <label class="form-check-label form-text" style="font-size:12px" for="fPakaiPotong">
+            Item ini melalui proses Potong (terpisah, sebelum finishing)
+          </label>
+        </div>
         <div class="row g-2 mb-3">
-          <div class="col-4">
+          <div class="col-3">
             <label class="form-label">BK Cetak</label>
             <input type="number" step="any" min="0" class="form-control" id="fBkCetak" placeholder="—">
           </div>
-          <div class="col-4">
+          <div class="col-3">
+            <label class="form-label">BK Potong</label>
+            <input type="number" step="any" min="0" class="form-control" id="fBkPotong" placeholder="—">
+          </div>
+          <div class="col-3">
             <label class="form-label">BK Finishing</label>
             <input type="number" step="any" min="0" class="form-control" id="fBkFinishing" placeholder="—">
           </div>
-          <div class="col-4">
+          <div class="col-3">
             <label class="form-label">BK Packing</label>
             <input type="number" step="any" min="0" class="form-control" id="fBkPacking" placeholder="—">
           </div>
@@ -196,7 +206,7 @@ let dataItem = [];
 let dataBelumBk = [];
 let modalInst;
 let modalCascadeInst;
-let pendingEditPayload = null; // {id, nama, kat, satuan, pps, status, bkCetak, bkFinishing, bkPacking}
+let pendingEditPayload = null; // {id, nama, kat, satuan, pps, status, bkCetak, bkPotong, bkFinishing, bkPacking, pakaiPotong}
 
 const KATEGORI_LIST = ['NOTA / FORM','BUKU','ETIKET','BOX MAKANAN','BOX PRODUK','HARDBOX','PAPERBAG','LAINNYA'];
 
@@ -235,8 +245,15 @@ function isiFilterKategori() {
 function muatData() {
   document.getElementById('loadingState').style.display = 'block';
   document.getElementById('tabelItem').style.display = 'none';
-  dbGet('m_item', { order: 'id_item.asc', limit: '5000' }).then(res => {
-    dataItem = Array.isArray(res) ? res : [];
+  Promise.all([
+    dbGet('m_item', { order: 'id_item.asc', limit: '5000' }),
+    dbGet('m_bom', { select: 'id_item,pakai_potong', limit: '5000' })
+  ]).then(([itemRes, bomRes]) => {
+    dataItem = Array.isArray(itemRes) ? itemRes : [];
+    const bomRows = Array.isArray(bomRes) ? bomRes : [];
+    const pakaiPotongMap = {};
+    bomRows.forEach(b => { pakaiPotongMap[b.id_item] = !!b.pakai_potong; });
+    dataItem.forEach(p => { p.pakai_potong = !!pakaiPotongMap[p.id_item]; });
     // id_item bertipe TEXT — urutan dari server bersifat leksikografis (ITM1003 < ITM998).
     // Urutkan ulang di client berdasarkan angka murni supaya tampilan & generateIdLokal konsisten.
     dataItem.sort((a, b) => {
@@ -295,11 +312,12 @@ function renderTabelBk(data) {
 function renderTabel(data) {
   const tbody = document.getElementById('tbodyItem');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted);font-family:var(--mono);font-size:12px">Tidak ada data</td></tr>';
     document.getElementById('counterBar').textContent = '0 item';
     return;
   }
   const fmtBk = v => (v === null || v === undefined || v === '') ? '<span class="td-bk kosong">-</span>' : '<span class="td-bk">' + v + '</span>';
+  const fmtPotong = p => p.pakai_potong ? fmtBk(p.bk_potong) : '<span class="td-bk" style="color:#c7c7c7">n/a</span>';
   tbody.innerHTML = data.map(p => `
     <tr>
       <td class="td-id">${escHtml(p.id_item)}</td>
@@ -308,6 +326,7 @@ function renderTabel(data) {
       <td><span class="badge-sat">${escHtml(p.satuan)}</span></td>
       <td class="td-pps">${p.pps}</td>
       <td>${fmtBk(p.bk_cetak)}</td>
+      <td>${fmtPotong(p)}</td>
       <td>${fmtBk(p.bk_finishing)}</td>
       <td>${fmtBk(p.bk_packing)}</td>
       <td><span class="badge-${p.status}">${p.status}</span></td>
@@ -331,10 +350,11 @@ function filterTabel() {
 function bukaModalTambah() {
   document.getElementById('modalJudul').textContent = 'TAMBAH ITEM';
   document.getElementById('alert-form').innerHTML = '';
-  ['fId','fNama','fPps','fBkCetak','fBkFinishing','fBkPacking'].forEach(id => document.getElementById(id).value = '');
+  ['fId','fNama','fPps','fBkCetak','fBkPotong','fBkFinishing','fBkPacking'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fKategori').value = '';
   document.getElementById('fSatuan').value   = '';
   document.getElementById('fStatus').value   = 'AKTIF';
+  document.getElementById('fPakaiPotong').checked = false;
   document.getElementById('statusGroup').style.display = 'none';
   modalInst.show();
 }
@@ -350,8 +370,10 @@ function bukaModalEdit(p) {
   document.getElementById('fSatuan').value   = p.satuan;
   document.getElementById('fPps').value      = p.pps;
   document.getElementById('fBkCetak').value     = (p.bk_cetak     === null || p.bk_cetak     === undefined) ? '' : p.bk_cetak;
+  document.getElementById('fBkPotong').value    = (p.bk_potong    === null || p.bk_potong    === undefined) ? '' : p.bk_potong;
   document.getElementById('fBkFinishing').value = (p.bk_finishing === null || p.bk_finishing === undefined) ? '' : p.bk_finishing;
   document.getElementById('fBkPacking').value   = (p.bk_packing   === null || p.bk_packing   === undefined) ? '' : p.bk_packing;
+  document.getElementById('fPakaiPotong').checked = !!(p.pakai_potong || p.butuh_bk_potong);
   document.getElementById('fStatus').value   = p.status || 'AKTIF';
   document.getElementById('statusGroup').style.display = 'block';
   itemSedangDiedit = p;
@@ -374,14 +396,17 @@ async function simpanItem() {
   const pps    = document.getElementById('fPps').value;
   const status = document.getElementById('fStatus').value;
   const bkCetak     = parseBkField('fBkCetak');
+  const bkPotong    = parseBkField('fBkPotong');
   const bkFinishing = parseBkField('fBkFinishing');
   const bkPacking   = parseBkField('fBkPacking');
+  const pakaiPotong = document.getElementById('fPakaiPotong').checked;
 
   if (!nama)   return tampilError('Nama Item wajib diisi');
   if (!kat)    return tampilError('Kategori wajib dipilih');
   if (!satuan) return tampilError('Satuan wajib dipilih');
   if (!pps || isNaN(pps) || Number(pps) < 1) return tampilError('PPS wajib diisi dan harus >= 1');
   if (bkCetak !== null && bkCetak < 0)         return tampilError('BK Cetak tidak boleh negatif');
+  if (bkPotong !== null && bkPotong < 0)       return tampilError('BK Potong tidak boleh negatif');
   if (bkFinishing !== null && bkFinishing < 0) return tampilError('BK Finishing tidak boleh negatif');
   if (bkPacking !== null && bkPacking < 0)     return tampilError('BK Packing tidak boleh negatif');
 
@@ -389,13 +414,17 @@ async function simpanItem() {
   btn.textContent = 'Menyimpan...'; btn.disabled = true;
 
   // ITEM BARU — tidak ada order terkait, langsung insert seperti biasa (BK ikut disini).
+  // pakai_potong hidup di tabel m_bom (bukan m_item), jadi diupsert terpisah via RPC.
   if (!id) {
+    const idBaru = generateIdLokal(dataItem, 'ITM', 'id_item', 3);
     const payload = {
-      id_item: generateIdLokal(dataItem, 'ITM', 'id_item', 3), nama_item: nama, kategori: kat, satuan, pps: Number(pps), status,
-      bk_cetak: bkCetak, bk_finishing: bkFinishing, bk_packing: bkPacking
+      id_item: idBaru, nama_item: nama, kategori: kat, satuan, pps: Number(pps), status,
+      bk_cetak: bkCetak, bk_potong: bkPotong, bk_finishing: bkFinishing, bk_packing: bkPacking
     };
     dbInsert('m_item', payload).then(res => {
       if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
+      return dbRpc('set_pakai_potong', { p_id_item: idBaru, p_pakai_potong: pakaiPotong });
+    }).then(() => {
       modalInst.hide(); muatData(); muatDataBelumBk();
     }).catch(err => tampilError(err.message || 'Gagal menyimpan'))
     .finally(() => { btn.textContent = 'Simpan'; btn.disabled = false; });
@@ -407,7 +436,7 @@ async function simpanItem() {
   // dulu mau ikut diperbarui atau tidak, sebelum benar-benar simpan.
   // BK TIDAK ikut logic cascade ini — BK disimpan terpisah lewat dbUpdate langsung
   // supaya RPC edit_item (yang sudah teruji) tidak perlu diubah.
-  pendingEditPayload = { id, nama, kat, satuan, pps: Number(pps), status, bkCetak, bkFinishing, bkPacking };
+  pendingEditPayload = { id, nama, kat, satuan, pps: Number(pps), status, bkCetak, bkPotong, bkFinishing, bkPacking, pakaiPotong };
   const namaBerubah   = itemSedangDiedit && itemSedangDiedit.nama_item !== nama;
   const satuanBerubah = itemSedangDiedit && itemSedangDiedit.satuan !== satuan;
 
@@ -445,7 +474,7 @@ function konfirmasiCascade(cascade) {
 
 function prosesSimpanItem(cascade) {
   if (!pendingEditPayload) return;
-  const { id, nama, kat, satuan, pps, status, bkCetak, bkFinishing, bkPacking } = pendingEditPayload;
+  const { id, nama, kat, satuan, pps, status, bkCetak, bkPotong, bkFinishing, bkPacking, pakaiPotong } = pendingEditPayload;
   const btn = document.getElementById('btnSimpan');
   btn.textContent = 'Menyimpan...'; btn.disabled = true;
 
@@ -456,10 +485,13 @@ function prosesSimpanItem(cascade) {
   }).then(res => {
     if (res && res.status === 'error') throw new Error(res.message);
     if (res && res.code) throw new Error(res.message || 'Gagal menyimpan');
-    // BK disimpan terpisah — PATCH langsung ke m_item, tidak lewat RPC edit_item.
-    return dbUpdate('m_item', { id_item: 'eq.' + id }, {
-      bk_cetak: bkCetak, bk_finishing: bkFinishing, bk_packing: bkPacking
-    });
+    // BK & pakai_potong disimpan terpisah, tidak lewat RPC edit_item.
+    return Promise.all([
+      dbUpdate('m_item', { id_item: 'eq.' + id }, {
+        bk_cetak: bkCetak, bk_potong: bkPotong, bk_finishing: bkFinishing, bk_packing: bkPacking
+      }),
+      dbRpc('set_pakai_potong', { p_id_item: id, p_pakai_potong: pakaiPotong })
+    ]);
   }).then(() => {
     modalInst.hide();
     pendingEditPayload = null;
