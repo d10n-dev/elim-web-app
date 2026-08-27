@@ -99,7 +99,7 @@
             <tr>
               <th class="txt-left">Tanggal</th>
               <th class="txt-left">Jenis</th>
-              <th>Total Qty</th>
+              <th>Total Oplah (lembar)</th>
               <th>Jml Operator</th>
               <th class="txt-left">Daftar Operator</th>
             </tr>
@@ -276,7 +276,7 @@ function renderTabelTim() {
     tr.innerHTML = `
       <td class="txt-left">${formatTanggal(row.tgl)}</td>
       <td class="txt-left"><span class="${badgeClass}">${row.jenis}</span></td>
-      <td>${formatRibuan(row.total_qty)}</td>
+      <td>${formatRibuan(Math.round(row.total_oplah))}</td>
       <td>${row.jumlah_operator}</td>
       <td class="txt-left">${escHtml(row.daftar_operator)}</td>
     `;
@@ -312,14 +312,16 @@ async function bukaDetailTim(tanggal, jenis) {
 
   let html = `
     <table class="table table-sm table-bordered tbl-oplah mb-3">
-      <thead><tr><th class="txt-left">Keterangan</th><th class="txt-left">Mesin/Vendor</th><th>Qty</th><th class="txt-left">Operator (baris ini)</th></tr></thead>
+      <thead><tr><th class="txt-left">Keterangan</th><th class="txt-left">Mesin/Vendor</th><th>Qty Asli (pcs)</th><th>PPS</th><th>Oplah (lembar)</th><th class="txt-left">Operator (baris ini)</th></tr></thead>
       <tbody>`;
   res.forEach(r => {
     html += `
       <tr>
         <td class="txt-left">${escHtml(r.keterangan || '-')}</td>
         <td class="txt-left">${escHtml(r.mesin_vendor || '-')}</td>
-        <td>${formatRibuan(r.qty)}</td>
+        <td>${formatRibuan(r.qty_asli)}</td>
+        <td>${r.pps}</td>
+        <td>${formatRibuan(Math.round(r.oplah))}</td>
         <td class="txt-left">${escHtml(r.operator || '-')}</td>
       </tr>`;
   });
@@ -356,25 +358,27 @@ async function bukaDetailOperator(namaOperator) {
   if (res && res.message) { bodyEl.innerHTML = `<div class="info-bar">Gagal memuat: ${escHtml(res.message)}</div>`; return; }
   if (!Array.isArray(res) || res.length === 0) { bodyEl.innerHTML = '<div class="info-bar">Tidak ada data pada periode ini.</div>'; return; }
 
-  let totalQty = 0;
+  let totalOplah = 0;
   let html = `
     <table class="table table-sm table-bordered tbl-oplah mb-0">
-      <thead><tr><th class="txt-left">Tanggal</th><th class="txt-left">Jenis</th><th>Qty</th><th class="txt-left">Keterangan</th></tr></thead>
+      <thead><tr><th class="txt-left">Tanggal</th><th class="txt-left">Jenis</th><th>Qty Asli</th><th>PPS</th><th>Oplah (lembar)</th><th class="txt-left">Keterangan</th></tr></thead>
       <tbody>`;
   res.forEach(r => {
-    totalQty += Number(r.qty || 0);
+    totalOplah += Number(r.oplah || 0);
     html += `
       <tr>
         <td class="txt-left">${formatTanggal(r.tgl)}</td>
         <td class="txt-left">${escHtml(r.jenis)}</td>
-        <td>${formatRibuan(r.qty)}</td>
+        <td>${formatRibuan(r.qty_asli)}</td>
+        <td>${r.pps}</td>
+        <td>${formatRibuan(Math.round(r.oplah))}</td>
         <td class="txt-left">${escHtml(r.keterangan || '-')}</td>
       </tr>`;
   });
   html += `
       <tr class="row-total">
-        <td class="txt-left" colspan="2">TOTAL</td>
-        <td>${formatRibuan(totalQty)}</td>
+        <td class="txt-left" colspan="4">TOTAL OPLAH</td>
+        <td>${formatRibuan(Math.round(totalOplah))}</td>
         <td></td>
       </tr>
     </tbody></table>`;
