@@ -10,15 +10,25 @@
   <style>
     .filter-bar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:end;padding:.85rem 1.1rem;background:var(--surface);border-bottom:1px solid var(--border);}
     .filter-bar .fld label{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:.2rem;}
-    .filter-bar input{font-family:var(--mono);font-size:.78rem;}
+    .filter-bar input, .filter-bar select{font-family:var(--mono);font-size:.78rem;}
     .info-bar{font-family:var(--mono);font-size:.72rem;color:var(--muted);padding:.5rem 1.1rem;}
     .tbl-oplah th, .tbl-oplah td{text-align:right;white-space:nowrap;font-family:var(--mono);font-size:.78rem;}
-    .tbl-oplah th:first-child, .tbl-oplah td:first-child{text-align:left;font-family:var(--sans);}
+    .tbl-oplah th:first-child, .tbl-oplah td:first-child,
+    .tbl-oplah th.txt-left, .tbl-oplah td.txt-left{text-align:left;font-family:var(--sans);white-space:normal;}
     .tbl-oplah thead th{font-family:var(--mono);font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--surface);}
-    .row-total{font-weight:600;background:var(--surface);}
+    .tbl-oplah tbody tr{cursor:pointer;}
+    .tbl-oplah tbody tr:hover{background:#f4f7fc;}
+    .row-total{font-weight:600;background:var(--surface);cursor:default !important;}
+    .row-total:hover{background:var(--surface) !important;}
     .row-total td{color:var(--navy);}
     .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
     .btn-navy:hover{background:var(--navy-mid);}
+    .nav-tabs .nav-link{font-family:var(--mono);font-size:.8rem;color:var(--muted);}
+    .nav-tabs .nav-link.active{color:var(--navy);font-weight:600;border-bottom-color:var(--orange);}
+    .op-link{color:var(--navy);text-decoration:underline;cursor:pointer;font-family:var(--sans);}
+    .op-link:hover{color:var(--orange);}
+    .badge-jenis-f{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.18rem .5rem;border-radius:3px;background:#e8f0fe;color:#1a56db;}
+    .badge-jenis-p{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.18rem .5rem;border-radius:3px;background:#f3e8ff;color:#7c3aed;}
   </style>
 </head>
 <body>
@@ -36,28 +46,101 @@
       <input type="date" id="tglAkhir" class="form-control form-control-sm">
     </div>
     <div class="fld">
-      <button class="btn-navy" onclick="muatLaporan()">Tampilkan</button>
+      <button class="btn-navy" onclick="muatSemua()">Tampilkan</button>
     </div>
   </div>
 
-  <div id="statusBox" class="info-bar">Memuat...</div>
+  <ul class="nav nav-tabs px-3 pt-2" id="tabKinerja">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#paneIndividu" type="button">Cetak &amp; Potong</button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#paneTim" type="button">Finishing &amp; Packing (Tim)</button>
+    </li>
+  </ul>
 
-  <div class="table-responsive">
-    <table class="table table-bordered tbl-oplah bg-white mb-0">
-      <thead>
-        <tr>
-          <th>Operator</th>
-          <th>Cetak</th>
-          <th>Potong</th>
-          <th>Finishing</th>
-          <th>Packing</th>
-          <th>Total Oplah</th>
-        </tr>
-      </thead>
-      <tbody id="tabelBody"></tbody>
-    </table>
+  <div class="tab-content">
+
+    <!-- ===================== TAB 1: INDIVIDU ===================== -->
+    <div class="tab-pane fade show active" id="paneIndividu">
+      <div id="statusIndividu" class="info-bar">Memuat...</div>
+      <div class="table-responsive">
+        <table class="table table-bordered tbl-oplah bg-white mb-0">
+          <thead>
+            <tr>
+              <th class="txt-left">Operator</th>
+              <th>Cetak</th>
+              <th>Potong</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="tabelIndividu"></tbody>
+        </table>
+      </div>
+      <div class="info-bar">Klik baris operator untuk lihat detail pengerjaan harian.</div>
+    </div>
+
+    <!-- ===================== TAB 2: TIM ===================== -->
+    <div class="tab-pane fade" id="paneTim">
+      <div class="filter-bar" style="border-top:none;">
+        <div class="fld">
+          <label>Filter Jenis</label>
+          <select id="filterJenisTim" class="form-select form-select-sm" onchange="renderTabelTim()">
+            <option value="">Semua (Finishing + Packing)</option>
+            <option value="FINISHING">Finishing saja</option>
+            <option value="PACKING">Packing saja</option>
+          </select>
+        </div>
+      </div>
+      <div id="statusTim" class="info-bar">Memuat...</div>
+      <div class="table-responsive">
+        <table class="table table-bordered tbl-oplah bg-white mb-0">
+          <thead>
+            <tr>
+              <th class="txt-left">Tanggal</th>
+              <th class="txt-left">Jenis</th>
+              <th>Total Qty</th>
+              <th>Jml Operator</th>
+              <th class="txt-left">Daftar Operator</th>
+            </tr>
+          </thead>
+          <tbody id="tabelTim"></tbody>
+        </table>
+      </div>
+      <div class="info-bar">Klik baris hari untuk lihat detail per baris log &amp; siapa saja timnya.</div>
+    </div>
+
   </div>
+</div>
 
+<!-- ===================== MODAL: DETAIL TIM 1 HARI ===================== -->
+<div class="modal fade" id="modalDetailTim" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="modalDetailTimTitle">Detail Tim</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalDetailTimBody" class="table-responsive"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: DETAIL HARIAN OPERATOR ===================== -->
+<div class="modal fade" id="modalDetailOperator" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="modalDetailOperatorTitle">Detail Operator</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalDetailOperatorBody" class="table-responsive"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -66,8 +149,9 @@
 <script src="../js/nav.js"></script>
 <script>
 
+let dataTimMentah = []; // cache hasil get_laporan_tim_harian, difilter client-side per jenis
+
 // Default periode gajian: tgl 26 s/d tgl 25 bulan berikutnya.
-// Tanggal akhir default = hari ini, biar bisa lihat laporan parsial di tengah periode.
 function defaultTglAwal() {
   const now = new Date();
   const tgl = now.getDate();
@@ -83,71 +167,219 @@ function formatRibuan(n) {
   return Number(n || 0).toLocaleString('id-ID');
 }
 
-async function muatLaporan() {
-  const tglAwal = document.getElementById('tglAwal').value;
-  const tglAkhir = document.getElementById('tglAkhir').value;
-  const statusBox = document.getElementById('statusBox');
-  const tabelBody = document.getElementById('tabelBody');
+function getRangeTanggal() {
+  return {
+    awal: document.getElementById('tglAwal').value,
+    akhir: document.getElementById('tglAkhir').value
+  };
+}
 
-  if (!tglAwal || !tglAkhir) {
-    statusBox.textContent = 'Tanggal awal dan akhir wajib diisi.';
-    return;
-  }
+function muatSemua() {
+  muatIndividu();
+  muatTim();
+}
+
+// ============ TAB 1: INDIVIDU (CETAK & POTONG) ============
+async function muatIndividu() {
+  const { awal, akhir } = getRangeTanggal();
+  const statusBox = document.getElementById('statusIndividu');
+  const tabelBody = document.getElementById('tabelIndividu');
+
+  if (!awal || !akhir) { statusBox.textContent = 'Tanggal awal dan akhir wajib diisi.'; return; }
 
   statusBox.textContent = 'Memuat...';
   tabelBody.innerHTML = '';
 
-  const res = await dbRpc('get_laporan_oplah_operator', {
-    p_tgl_awal: tglAwal,
-    p_tgl_akhir: tglAkhir
-  });
-
+  const res = await dbRpc('get_laporan_oplah_operator', { p_tgl_awal: awal, p_tgl_akhir: akhir });
   if (!cekAksesGAS(res)) return;
 
-  if (res && res.message) {
-    statusBox.textContent = 'Gagal memuat data: ' + res.message;
-    return;
-  }
+  if (res && res.message) { statusBox.textContent = 'Gagal memuat data: ' + res.message; return; }
+  if (!Array.isArray(res) || res.length === 0) { statusBox.textContent = 'Tidak ada data pada rentang ini.'; return; }
 
-  if (!Array.isArray(res) || res.length === 0) {
-    statusBox.textContent = 'Tidak ada data produksi pada rentang tanggal ini.';
-    return;
-  }
+  // Hanya tampilkan operator yang memang punya oplah cetak/potong.
+  const data = res.filter(r => Number(r.cetak || 0) > 0 || Number(r.potong || 0) > 0);
 
-  statusBox.textContent = `Menampilkan ${res.length} operator, periode ${tglAwal} s/d ${tglAkhir}.`;
+  if (data.length === 0) { statusBox.textContent = 'Tidak ada data Cetak/Potong pada rentang ini.'; return; }
 
-  let totalCetak = 0, totalPotong = 0, totalFinishing = 0, totalPacking = 0, totalOplah = 0;
+  statusBox.textContent = `${data.length} operator, periode ${awal} s/d ${akhir}.`;
 
-  res.forEach(row => {
-    totalCetak     += Number(row.cetak || 0);
-    totalPotong    += Number(row.potong || 0);
-    totalFinishing += Number(row.finishing || 0);
-    totalPacking   += Number(row.packing || 0);
-    totalOplah     += Number(row.total_oplah || 0);
+  let totalCetak = 0, totalPotong = 0;
+
+  data.forEach(row => {
+    const cetak = Number(row.cetak || 0);
+    const potong = Number(row.potong || 0);
+    totalCetak += cetak;
+    totalPotong += potong;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${escHtml(row.operator)}</td>
-      <td>${formatRibuan(row.cetak)}</td>
-      <td>${formatRibuan(row.potong)}</td>
-      <td>${formatRibuan(row.finishing)}</td>
-      <td>${formatRibuan(row.packing)}</td>
-      <td>${formatRibuan(row.total_oplah)}</td>
+      <td class="txt-left">${escHtml(row.operator)}</td>
+      <td>${formatRibuan(cetak)}</td>
+      <td>${formatRibuan(potong)}</td>
+      <td>${formatRibuan(cetak + potong)}</td>
     `;
+    tr.addEventListener('click', () => bukaDetailOperator(row.operator));
     tabelBody.appendChild(tr);
   });
 
   const trTotal = document.createElement('tr');
   trTotal.className = 'row-total';
   trTotal.innerHTML = `
-    <td>TOTAL</td>
+    <td class="txt-left">TOTAL</td>
     <td>${formatRibuan(totalCetak)}</td>
     <td>${formatRibuan(totalPotong)}</td>
-    <td>${formatRibuan(totalFinishing)}</td>
-    <td>${formatRibuan(totalPacking)}</td>
-    <td>${formatRibuan(totalOplah)}</td>
+    <td>${formatRibuan(totalCetak + totalPotong)}</td>
   `;
   tabelBody.appendChild(trTotal);
+}
+
+// ============ TAB 2: TIM (FINISHING & PACKING) ============
+async function muatTim() {
+  const { awal, akhir } = getRangeTanggal();
+  const statusBox = document.getElementById('statusTim');
+
+  if (!awal || !akhir) { statusBox.textContent = 'Tanggal awal dan akhir wajib diisi.'; return; }
+
+  statusBox.textContent = 'Memuat...';
+
+  const res = await dbRpc('get_laporan_tim_harian', { p_tgl_awal: awal, p_tgl_akhir: akhir });
+  if (!cekAksesGAS(res)) return;
+
+  if (res && res.message) { statusBox.textContent = 'Gagal memuat data: ' + res.message; return; }
+
+  dataTimMentah = Array.isArray(res) ? res : [];
+  renderTabelTim();
+}
+
+function renderTabelTim() {
+  const statusBox = document.getElementById('statusTim');
+  const tabelBody = document.getElementById('tabelTim');
+  const filterJenis = document.getElementById('filterJenisTim').value;
+
+  tabelBody.innerHTML = '';
+
+  const data = filterJenis
+    ? dataTimMentah.filter(r => r.jenis === filterJenis)
+    : dataTimMentah;
+
+  if (data.length === 0) {
+    statusBox.textContent = 'Tidak ada data Finishing/Packing pada rentang ini.';
+    return;
+  }
+
+  const { awal, akhir } = getRangeTanggal();
+  statusBox.textContent = `${data.length} baris hari-jenis, periode ${awal} s/d ${akhir}.`;
+
+  data.forEach(row => {
+    const badgeClass = row.jenis === 'FINISHING' ? 'badge-jenis-f' : 'badge-jenis-p';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="txt-left">${formatTanggal(row.tgl)}</td>
+      <td class="txt-left"><span class="${badgeClass}">${row.jenis}</span></td>
+      <td>${formatRibuan(row.total_qty)}</td>
+      <td>${row.jumlah_operator}</td>
+      <td class="txt-left">${escHtml(row.daftar_operator)}</td>
+    `;
+    tr.addEventListener('click', () => bukaDetailTim(row.tgl, row.jenis));
+    tabelBody.appendChild(tr);
+  });
+}
+
+// ============ MODAL: DETAIL TIM 1 HARI ============
+async function bukaDetailTim(tanggal, jenis) {
+  const titleEl = document.getElementById('modalDetailTimTitle');
+  const bodyEl = document.getElementById('modalDetailTimBody');
+  titleEl.textContent = `Detail ${jenis} — ${formatTanggal(tanggal)}`;
+  bodyEl.innerHTML = '<div class="info-bar">Memuat...</div>';
+
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailTim'));
+  modal.show();
+
+  const res = await dbRpc('get_detail_tim_hari', { p_tanggal: tanggal, p_jenis: jenis });
+  if (!cekAksesGAS(res)) return;
+
+  if (res && res.message) { bodyEl.innerHTML = `<div class="info-bar">Gagal memuat: ${escHtml(res.message)}</div>`; return; }
+  if (!Array.isArray(res) || res.length === 0) { bodyEl.innerHTML = '<div class="info-bar">Tidak ada detail.</div>'; return; }
+
+  // Kumpulkan daftar nama operator unik dari semua baris hari ini, biar bisa diklik.
+  const namaSet = new Set();
+  res.forEach(r => {
+    (r.operator || '').split(',').forEach(nm => {
+      const n = nm.trim();
+      if (n) namaSet.add(n);
+    });
+  });
+
+  let html = `
+    <table class="table table-sm table-bordered tbl-oplah mb-3">
+      <thead><tr><th class="txt-left">Keterangan</th><th class="txt-left">Mesin/Vendor</th><th>Qty</th><th class="txt-left">Operator (baris ini)</th></tr></thead>
+      <tbody>`;
+  res.forEach(r => {
+    html += `
+      <tr>
+        <td class="txt-left">${escHtml(r.keterangan || '-')}</td>
+        <td class="txt-left">${escHtml(r.mesin_vendor || '-')}</td>
+        <td>${formatRibuan(r.qty)}</td>
+        <td class="txt-left">${escHtml(r.operator || '-')}</td>
+      </tr>`;
+  });
+  html += `</tbody></table>`;
+
+  html += `<div class="info-bar" style="padding:0 0 .4rem;">Klik nama untuk lihat riwayat harian operator (semua jenis, sepanjang periode):</div>`;
+  html += `<div>`;
+  namaSet.forEach(nm => {
+    html += `<span class="op-link me-3" onclick="bukaDetailOperator('${nm.replace(/'/g, "\\'")}')">${escHtml(nm)}</span>`;
+  });
+  html += `</div>`;
+
+  bodyEl.innerHTML = html;
+}
+
+// ============ MODAL: DETAIL HARIAN OPERATOR (lintas jenis, sepanjang periode) ============
+async function bukaDetailOperator(namaOperator) {
+  const { awal, akhir } = getRangeTanggal();
+  const titleEl = document.getElementById('modalDetailOperatorTitle');
+  const bodyEl = document.getElementById('modalDetailOperatorBody');
+  titleEl.textContent = `Detail Harian — ${namaOperator} (${awal} s/d ${akhir})`;
+  bodyEl.innerHTML = '<div class="info-bar">Memuat...</div>';
+
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailOperator'));
+  modal.show();
+
+  const res = await dbRpc('get_detail_harian_operator', {
+    p_operator: namaOperator,
+    p_tgl_awal: awal,
+    p_tgl_akhir: akhir
+  });
+  if (!cekAksesGAS(res)) return;
+
+  if (res && res.message) { bodyEl.innerHTML = `<div class="info-bar">Gagal memuat: ${escHtml(res.message)}</div>`; return; }
+  if (!Array.isArray(res) || res.length === 0) { bodyEl.innerHTML = '<div class="info-bar">Tidak ada data pada periode ini.</div>'; return; }
+
+  let totalQty = 0;
+  let html = `
+    <table class="table table-sm table-bordered tbl-oplah mb-0">
+      <thead><tr><th class="txt-left">Tanggal</th><th class="txt-left">Jenis</th><th>Qty</th><th class="txt-left">Keterangan</th></tr></thead>
+      <tbody>`;
+  res.forEach(r => {
+    totalQty += Number(r.qty || 0);
+    html += `
+      <tr>
+        <td class="txt-left">${formatTanggal(r.tgl)}</td>
+        <td class="txt-left">${escHtml(r.jenis)}</td>
+        <td>${formatRibuan(r.qty)}</td>
+        <td class="txt-left">${escHtml(r.keterangan || '-')}</td>
+      </tr>`;
+  });
+  html += `
+      <tr class="row-total">
+        <td class="txt-left" colspan="2">TOTAL</td>
+        <td>${formatRibuan(totalQty)}</td>
+        <td></td>
+      </tr>
+    </tbody></table>`;
+
+  bodyEl.innerHTML = html;
 }
 
 // ── INIT ────────────────────────────────────────────────────
@@ -166,7 +398,7 @@ window.addEventListener('load', function() {
   document.getElementById('tglAkhir').value = formatDateInput(new Date());
 
   document.getElementById('kontenLaporan').style.display = '';
-  muatLaporan();
+  muatSemua();
 });
 </script>
 </body>
