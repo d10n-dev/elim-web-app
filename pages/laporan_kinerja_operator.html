@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laporan Kinerja Operator — SIEO</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body { background:#f5f6f8; }
+  .table-oplah th, .table-oplah td { text-align:right; white-space:nowrap; }
+  .table-oplah th:first-child, .table-oplah td:first-child { text-align:left; }
+  .total-row { font-weight:600; background:#eef1f5; }
+  #accessDenied, #loadingBox { display:none; }
+</style>
+</head>
+<body>
+
+<div class="container py-4">
+
+  <div id="loadingBox" class="text-center text-muted py-5">
+    Memeriksa akses...
+  </div>
+
+  <div id="accessDenied" class="alert alert-danger mt-4">
+    Halaman ini hanya bisa diakses oleh <strong>Manager</strong> atau <strong>Direktur</strong>.
+  </div>
+
+  <div id="mainContent" style="display:none;">
+    <h4 class="mb-3">Laporan Kinerja — Oplah per Operator</h4>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-auto">
+            <label class="form-label mb-1">Tanggal Awal</label>
+            <input type="date" id="tglAwal" class="form-control">
+          </div>
+          <div class="col-auto">
+            <label class="form-label mb-1">Tanggal Akhir</label>
+            <input type="date" id="tglAkhir" class="form-control">
+          </div>
+          <div class="col-auto">
+            <button id="btnMuat" class="btn btn-primary">Tampilkan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusBox" class="text-muted small mb-2"></div>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-oplah bg-white">
+        <thead class="table-light">
+          <tr>
+            <th>Operator</th>
+            <th>Cetak</th>
+            <th>Potong</th>
+            <th>Finishing</th>
+            <th>Packing</th>
+            <th>Total Oplah</th>
+          </tr>
+        </thead>
+        <tbody id="tabelBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============ KONFIGURASI ============
+// TODO: sesuaikan dengan config Supabase project yang sudah dipakai di halaman lain SIEO.
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Default periode gajian: 26 tiap bulan s/d 25 bulan berikutnya.
+// Tanggal akhir default = hari ini, supaya bisa lihat laporan parsial di tengah periode.
+function defaultTglAwal() {
+  const now = new Date();
+  const tgl = now.getDate();
+  // kalau tanggal sekarang >= 26, periode berjalan mulai tgl 26 bulan ini
+  // kalau < 26, periode berjalan mulai tgl 26 bulan lalu
+  const bulan = tgl >= 26 ? now.getMonth() : now.getMonth() - 1;
+  return new Date(now.getFullYear(), bulan, 26);
+}
+
+function formatDateInput(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatRibuan(n) {
+  return Number(n || 0).toLocaleString('id-ID');
+}
+
+// ============ GATING ROLE ============
+async function cekAkses() {
+  const loadingBox = document.getElementById('loadingBox');
+  const accessDenied = document.getElementById('accessDenied');
+  const mainContent = document.getElementById('mainContent');
+
+  loadingBox.style.display = 'block';
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    loadingBox.style.display = 'none';
+    accessDenied.style.display = 'block';
+    accessDenied.textContent = 'Anda belum login.';
+    return false;
+  }
+
+  const { data: userRow, error: roleError } = await supabase
+    .from('m_user')
+    .select('role')
+    .eq('email', user.email)
+    .single();
+
+  loadingBox.style.display = 'none';
+
+  if (roleError || !userRow || !['MANAGER', 'DIREKTUR'].includes(userRow.role)) {
+    accessDenied.style.display = 'block';
+    return false;
+  }
+
+  mainContent.style.display = 'block';
+  return true;
+}
+
+// ============ MUAT DATA ============
+async function muatLaporan() {
+  const tglAwal = document.getElementById('tglAwal').value;
+  const tglAkhir = document.getElementById('tglAkhir').value;
+  const statusBox = document.getElementById('statusBox');
+  const tabelBody = document.getElementById('tabelBody');
+
+  if (!tglAwal || !tglAkhir) {
+    statusBox.textContent = 'Tanggal awal dan akhir wajib diisi.';
+    return;
+  }
+
+  statusBox.textContent = 'Memuat...';
+  tabelBody.innerHTML = '';
+
+  const { data, error } = await supabase.rpc('get_laporan_oplah_operator', {
+    p_tgl_awal: tglAwal,
+    p_tgl_akhir: tglAkhir
+  });
+
+  if (error) {
+    statusBox.textContent = 'Gagal memuat data: ' + error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    statusBox.textContent = 'Tidak ada data produksi pada rentang tanggal ini.';
+    return;
+  }
+
+  statusBox.textContent = `Menampilkan ${data.length} operator, periode ${tglAwal} s/d ${tglAkhir}.`;
+
+  let totalCetak = 0, totalPotong = 0, totalFinishing = 0, totalPacking = 0, totalOplah = 0;
+
+  data.forEach(row => {
+    totalCetak += Number(row.cetak || 0);
+    totalPotong += Number(row.potong || 0);
+    totalFinishing += Number(row.finishing || 0);
+    totalPacking += Number(row.packing || 0);
+    totalOplah += Number(row.total_oplah || 0);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.operator}</td>
+      <td>${formatRibuan(row.cetak)}</td>
+      <td>${formatRibuan(row.potong)}</td>
+      <td>${formatRibuan(row.finishing)}</td>
+      <td>${formatRibuan(row.packing)}</td>
+      <td>${formatRibuan(row.total_oplah)}</td>
+    `;
+    tabelBody.appendChild(tr);
+  });
+
+  const trTotal = document.createElement('tr');
+  trTotal.className = 'total-row';
+  trTotal.innerHTML = `
+    <td>TOTAL</td>
+    <td>${formatRibuan(totalCetak)}</td>
+    <td>${formatRibuan(totalPotong)}</td>
+    <td>${formatRibuan(totalFinishing)}</td>
+    <td>${formatRibuan(totalPacking)}</td>
+    <td>${formatRibuan(totalOplah)}</td>
+  `;
+  tabelBody.appendChild(trTotal);
+}
+
+// ============ INIT ============
+(async function init() {
+  const boleh = await cekAkses();
+  if (!boleh) return;
+
+  document.getElementById('tglAwal').value = formatDateInput(defaultTglAwal());
+  document.getElementById('tglAkhir').value = formatDateInput(new Date());
+
+  document.getElementById('btnMuat').addEventListener('click', muatLaporan);
+
+  muatLaporan();
+})();
+</script>
+
+</body>
+</html>
