@@ -78,6 +78,7 @@ const NAV_MENU = [
     group: 'Sistem',
     items: [
       { key: 'user_management', label: 'User Management', icon: '👥', href: 'pages/user_management.html', role: ['DIREKTUR'] },
+      { key: 'pin_setting', label: 'PIN Approval', icon: '🔐', href: 'pages/pin_setting.html', role: ['MANAGER','DIREKTUR'] },
     ]
   }
 ];

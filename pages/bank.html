@@ -689,6 +689,7 @@
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/nav.js"></script>
+<script src="../js/approval-pin.js"></script>
 <script>
 // ============================================================
 // bank.html — SIEO Fase 2
@@ -1829,7 +1830,8 @@ function updateApBatchBtn() {
 async function jalankanBulkApprove() {
   var n = apChecked.size;
   if (n === 0) return;
-  if (!confirm('Approve ' + n + ' transaksi terpilih?')) return;
+  var pin = await mintaApprovalPin('Approve ' + n + ' transaksi terpilih?');
+  if (!pin) return;
 
   var btn = document.getElementById('apBatchBtn');
   btn.disabled = true;
@@ -1840,7 +1842,7 @@ async function jalankanBulkApprove() {
     btn.textContent = 'Memproses ' + (i + 1) + '/' + entries.length + '…';
     var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
     try {
-      var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser()});
+      var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
       var err = cekErrorSupabase(res);
       if (!err && res && res.status === 'error') err = res.message;
       if (err) gagal.push(id + ': ' + err); else okCount++;
@@ -1854,6 +1856,7 @@ async function jalankanBulkApprove() {
   muatApprove();
   if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
 
+  btn.disabled = false;
   var ringkasan = okCount + ' dari ' + n + ' berhasil di-approve.';
   if (gagal.length) ringkasan += '\n\nGagal:\n' + gagal.join('\n');
   alert(ringkasan);
@@ -1863,9 +1866,10 @@ var apChecked = new Map();
 
 
 async function approveAlokasi(id, level) {
-  if (!confirm('Approve alokasi ' + id + '?')) return;
+  var pin = await mintaApprovalPin('Approve alokasi ' + id + '?');
+  if (!pin) return;
   var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
-  var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser()});
+  var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
   var err = cekErrorSupabase(res);
   if (!err && res && res.status === 'error') err = res.message;
   if (err) { alert('Error: ' + err); return; }
@@ -1878,8 +1882,9 @@ async function approveAlokasi(id, level) {
 async function rejectAlokasiSelisih(id) {
   var alasan = prompt('Alasan reject (opsional):', '');
   if (alasan === null) return; // batal
-  if (!confirm('Reject alokasi ' + id + '? Nota yang sudah dialokasikan akan dikembalikan ke sisa hutang semula.')) return;
-  var res = await dbRpc('reject_alokasi_direktur', {p_id_bank_stmt: id, p_user: getUser(), p_alasan: alasan || null});
+  var pin = await mintaApprovalPin('Reject alokasi ' + id + '? Nota yang sudah dialokasikan akan dikembalikan ke sisa hutang semula.');
+  if (!pin) return;
+  var res = await dbRpc('reject_alokasi_direktur', {p_id_bank_stmt: id, p_user: getUser(), p_alasan: alasan || null, p_pin: pin});
   var err = cekErrorSupabase(res);
   if (!err && res && res.status === 'error') err = res.message;
   if (err) { alert('Error: ' + err); return; }

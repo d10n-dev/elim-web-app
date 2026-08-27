@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PIN Approval — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .card-pin{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem 1.1rem;margin-bottom:1rem;max-width:420px;}
+    .card-pin h6{font-family:var(--mono);font-size:.8rem;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.8rem;}
+    .frm-grp{margin-bottom:.7rem;}
+    .frm-grp label{display:block;font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.25rem;}
+    .frm-grp input{width:100%;font-family:var(--mono);font-size:.95rem;padding:.5rem .6rem;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;letter-spacing:.25em;}
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.5rem 1rem;cursor:pointer;}
+    .btn-navy:hover{background:var(--navy-mid);}
+    .btn-navy:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:var(--mono);padding:.5rem 1rem;cursor:pointer;}
+    .status-msg{font-size:.78rem;margin-top:.6rem;padding:.5rem .7rem;border-radius:5px;display:none;}
+    .status-msg.ok{background:var(--green-bg);color:var(--green);display:block;}
+    .status-msg.err{background:#fdecea;color:var(--red);display:block;}
+    .lupa-link{font-size:.72rem;color:var(--muted);text-decoration:underline;cursor:pointer;background:none;border:none;padding:0;margin-top:.4rem;}
+    .badge-punya{font-family:var(--mono);font-size:.65rem;padding:.15rem .5rem;border-radius:3px;background:var(--green-bg);color:var(--green);}
+    .badge-belum{font-family:var(--mono);font-size:.65rem;padding:.15rem .5rem;border-radius:3px;background:#fde9d2;color:#c45a00;}
+    select.frm-select{width:100%;font-family:var(--mono);font-size:.85rem;padding:.5rem .6rem;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;}
+  </style>
+</head>
+<body>
+  <div id="navRoot"></div>
+  <div class="container-fluid" style="padding:1rem 1.2rem;max-width:900px">
+
+    <!-- SET / GANTI PIN SENDIRI -->
+    <div class="card-pin">
+      <h6>PIN Approval Saya <span id="badgeStatus"></span></h6>
+      <div id="frmSetPin">
+        <div class="frm-grp" id="grpPinLama">
+          <label>PIN Lama</label>
+          <input type="password" id="pinLama" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••"/>
+        </div>
+        <div class="frm-grp">
+          <label>PIN Baru (4-6 digit angka)</label>
+          <input type="password" id="pinBaru" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••"/>
+        </div>
+        <div class="frm-grp">
+          <label>Ulangi PIN Baru</label>
+          <input type="password" id="pinBaru2" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••"/>
+        </div>
+        <button class="btn-navy" id="btnSimpanPin" onclick="simpanPin()">Simpan PIN</button>
+        <div id="msgSetPin" class="status-msg"></div>
+      </div>
+      <button class="lupa-link" onclick="mulaiLupaPin()" id="btnLupaPin">Lupa PIN? Login ulang untuk reset</button>
+    </div>
+
+    <!-- RESET PIN MANAGER (khusus Direktur) -->
+    <div class="card-pin" id="cardResetManager" style="display:none">
+      <h6>Reset PIN Manager (Direktur)</h6>
+      <div class="frm-grp">
+        <label>Pilih User</label>
+        <select id="selUserReset" class="frm-select"></select>
+      </div>
+      <div class="frm-grp">
+        <label>PIN Baru untuk User Ini</label>
+        <input type="password" id="pinResetBaru" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••"/>
+      </div>
+      <button class="btn-navy" onclick="resetPinManager()">Reset PIN User Ini</button>
+      <div id="msgResetManager" class="status-msg"></div>
+    </div>
+
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+function cekErrorSupabase(res) {
+  if (!res) return 'Respons kosong.';
+  if (Array.isArray(res)) return null;
+  if (res.code) return res.message || ('Error: ' + res.code);
+  if (res.status === 'error') return res.message || 'Error tidak diketahui.';
+  return null;
+}
+
+function tampilPesan(elId, tipe, teks) {
+  var el = document.getElementById(elId);
+  el.className = 'status-msg ' + tipe;
+  el.textContent = teks;
+}
+
+function getUserEmail() {
+  var info = getUserInfo();
+  return info ? info.email : null;
+}
+
+// ── STATUS PIN SAAT INI ──────────────────────────────────
+async function muatStatusPin() {
+  var email = getUserEmail();
+  var res = await dbRpc('cek_status_pin', { p_user: email });
+  var err = cekErrorSupabase(res);
+  var badge = document.getElementById('badgeStatus');
+  var grpLama = document.getElementById('grpPinLama');
+  if (err) { badge.innerHTML = ''; return; }
+  if (res && res.sudah_ada_pin) {
+    badge.innerHTML = '<span class="badge-punya">Sudah diset</span>';
+    grpLama.style.display = 'block';
+  } else {
+    badge.innerHTML = '<span class="badge-belum">Belum diset</span>';
+    grpLama.style.display = 'none'; // set pertama kali, tidak butuh PIN lama
+  }
+}
+
+// ── SIMPAN / GANTI PIN ───────────────────────────────────
+async function simpanPin() {
+  var lama = document.getElementById('pinLama').value.trim();
+  var baru = document.getElementById('pinBaru').value.trim();
+  var baru2 = document.getElementById('pinBaru2').value.trim();
+
+  if (!/^[0-9]{4,6}$/.test(baru)) {
+    tampilPesan('msgSetPin', 'err', 'PIN baru harus 4-6 digit angka.');
+    return;
+  }
+  if (baru !== baru2) {
+    tampilPesan('msgSetPin', 'err', 'Konfirmasi PIN baru tidak cocok.');
+    return;
+  }
+
+  var btn = document.getElementById('btnSimpanPin');
+  btn.disabled = true;
+  var res = await dbRpc('set_pin', { p_user: getUserEmail(), p_pin_lama: lama || null, p_pin_baru: baru });
+  btn.disabled = false;
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { tampilPesan('msgSetPin', 'err', err); return; }
+
+  tampilPesan('msgSetPin', 'ok', 'PIN berhasil disimpan.');
+  document.getElementById('pinLama').value = '';
+  document.getElementById('pinBaru').value = '';
+  document.getElementById('pinBaru2').value = '';
+  muatStatusPin();
+}
+
+// ── LUPA PIN: paksa login ulang lewat Google, lalu balik ke sini ──
+function mulaiLupaPin() {
+  if (!confirm('Anda akan logout dan diminta login ulang via Google untuk verifikasi identitas, lalu diarahkan kembali ke halaman ini untuk set PIN baru. Lanjutkan?')) return;
+  localStorage.setItem('sieo_reset_pin_pending', '1');
+  localStorage.setItem('sieo_reset_pin_return', window.location.pathname);
+  hapusSesi();
+  var redirectTo = encodeURIComponent(window.location.origin + '/pages/login.html');
+  window.location.href = 'https://sodwffpzgwocujsqrncd.supabase.co/auth/v1/authorize?provider=google&redirect_to=' + redirectTo;
+}
+
+async function cekModeResetPinSetelahLogin() {
+  var pending = localStorage.getItem('sieo_reset_pin_pending');
+  if (!pending) return;
+  localStorage.removeItem('sieo_reset_pin_pending');
+  localStorage.removeItem('sieo_reset_pin_return');
+
+  var baru = prompt('Login ulang berhasil. Masukkan PIN baru (4-6 digit angka):');
+  if (!baru) return;
+  if (!/^[0-9]{4,6}$/.test(baru)) { alert('PIN harus 4-6 digit angka. Silakan set ulang lewat form di atas.'); return; }
+
+  var res = await dbRpc('reset_pin_self', { p_pin_baru: baru });
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { alert('Gagal reset PIN: ' + err + '\nSesi login dianggap tidak baru — coba ulangi proses "Lupa PIN" dari awal.'); return; }
+  alert('PIN berhasil direset.');
+  muatStatusPin();
+}
+
+// ── PANEL DIREKTUR: RESET PIN MANAGER ────────────────────
+async function muatPanelDirektur() {
+  if (!isDirektur()) return;
+  document.getElementById('cardResetManager').style.display = 'block';
+  var res = await dbGet('m_user', { status: 'eq.AKTIF', select: 'email,nama,role', order: 'nama.asc' });
+  var err = cekErrorSupabase(res);
+  var sel = document.getElementById('selUserReset');
+  if (err || !Array.isArray(res)) { sel.innerHTML = '<option value="">(gagal memuat user)</option>'; return; }
+  sel.innerHTML = res.filter(function(u){ return u.role === 'MANAGER' || u.role === 'DIREKTUR'; })
+    .map(function(u){ return '<option value="' + u.email + '">' + (u.nama || u.email) + ' — ' + u.role + '</option>'; })
+    .join('');
+}
+
+async function resetPinManager() {
+  var target = document.getElementById('selUserReset').value;
+  var baru = document.getElementById('pinResetBaru').value.trim();
+  if (!target) { tampilPesan('msgResetManager', 'err', 'Pilih user dulu.'); return; }
+  if (!/^[0-9]{4,6}$/.test(baru)) { tampilPesan('msgResetManager', 'err', 'PIN harus 4-6 digit angka.'); return; }
+
+  var res = await dbRpc('reset_pin_direktur', { p_user_target: target, p_pin_baru: baru });
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { tampilPesan('msgResetManager', 'err', err); return; }
+  tampilPesan('msgResetManager', 'ok', 'PIN user berhasil direset.');
+  document.getElementById('pinResetBaru').value = '';
+}
+
+window.addEventListener('load', function () {
+  if (!guardHalaman()) return;
+  if (getRoleUser() !== 'MANAGER' && getRoleUser() !== 'DIREKTUR') {
+    document.querySelector('.container-fluid').innerHTML =
+      '<div style="padding:2rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:.85rem">Halaman ini khusus Manager & Direktur.</div>';
+    return;
+  }
+  initNav('pin_setting');
+  muatStatusPin();
+  muatPanelDirektur();
+  cekModeResetPinSetelahLogin();
+});
+</script>
+</body>
+</html>
