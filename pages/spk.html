@@ -1230,7 +1230,8 @@ async function simpanSPK(){
       var detailOrd=await dbGet('in_order_detail',{id_order:'eq.'+idOrd,select:'status_spk'});
       if(Array.isArray(detailOrd)&&detailOrd.length){
         var semuaTerSPK=detailOrd.every(function(d){return d.status_spk==='SELESAI'||d.status_spk==='SEBAGIAN'||d.status_spk==='DONE';});
-        await dbUpdate('in_order',{id_order:'eq.'+idOrd,status:'not.in.(SEBAGIAN_KIRIM,SELESAI)'},{status:'PRODUKSI'});
+        var resStat=await dbRpc('update_status_order_produksi',{p_id_order:idOrd});
+      if(resStat&&resStat.status==='error') console.error('Gagal update status order '+idOrd,resStat.message);
       }
     }
     bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
@@ -2017,7 +2018,8 @@ async function closeSPK(idSpk,approver){
   }
   // Update status order → PRODUKSI (siap kirim) kecuali sudah SEBAGIAN_KIRIM/SELESAI
   for(var idOrd in ordSet){
-    await dbUpdate('in_order',{id_order:'eq.'+idOrd,status:'not.in.(SEBAGIAN_KIRIM,SELESAI)'},{status:'PRODUKSI'});
+    var resStat=await dbRpc('update_status_order_produksi',{p_id_order:idOrd});
+      if(resStat&&resStat.status==='error') console.error('Gagal update status order '+idOrd,resStat.message);
   }
   var si=semuaSPK.findIndex(function(s){return s.id_spk===idSpk;});
   if(si>=0) semuaSPK[si].status='SELESAI';
