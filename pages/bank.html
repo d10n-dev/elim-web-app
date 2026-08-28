@@ -689,7 +689,7 @@
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/nav.js"></script>
-<script src="../js/approval_pin.js"></script>
+<script src="../js/approval-pin.js"></script>
 <script>
 // ============================================================
 // bank.html — SIEO Fase 2
@@ -1837,18 +1837,23 @@ async function jalankanBulkApprove() {
   btn.disabled = true;
   var okCount = 0, gagal = [];
   var entries = Array.from(apChecked.entries());
-  for (var i = 0; i < entries.length; i++) {
-    var id = entries[i][0], level = entries[i][1];
-    btn.textContent = 'Memproses ' + (i + 1) + '/' + entries.length + '…';
-    var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
-    try {
-      var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
-      var err = cekErrorSupabase(res);
-      if (!err && res && res.status === 'error') err = res.message;
-      if (err) gagal.push(id + ': ' + err); else okCount++;
-    } catch (e) {
-      gagal.push(id + ': ' + e.message);
+  try {
+    for (var i = 0; i < entries.length; i++) {
+      var id = entries[i][0], level = entries[i][1];
+      btn.textContent = 'Memproses ' + (i + 1) + '/' + entries.length + '…';
+      var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
+      try {
+        var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
+        var err = cekErrorSupabase(res);
+        if (!err && res && res.status === 'error') err = res.message;
+        if (err) gagal.push(id + ': ' + err); else okCount++;
+      } catch (e) {
+        gagal.push(id + ': ' + e.message);
+      }
     }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Approve Terpilih';
   }
 
   apChecked.clear();
@@ -1856,7 +1861,6 @@ async function jalankanBulkApprove() {
   muatApprove();
   if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
 
-  btn.disabled = false;
   var ringkasan = okCount + ' dari ' + n + ' berhasil di-approve.';
   if (gagal.length) ringkasan += '\n\nGagal:\n' + gagal.join('\n');
   alert(ringkasan);
@@ -1868,15 +1872,19 @@ var apChecked = new Map();
 async function approveAlokasi(id, level) {
   var pin = await mintaApprovalPin('Approve alokasi ' + id + '?');
   if (!pin) return;
-  var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
-  var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
-  var err = cekErrorSupabase(res);
-  if (!err && res && res.status === 'error') err = res.message;
-  if (err) { alert('Error: ' + err); return; }
-  muatRekap();
-  muatApprove();
-  // Refresh koran kalau aktif
-  if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+  try {
+    var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
+    var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
+    var err = cekErrorSupabase(res);
+    if (!err && res && res.status === 'error') err = res.message;
+    if (err) { alert('Error: ' + err); return; }
+    muatRekap();
+    muatApprove();
+    // Refresh koran kalau aktif
+    if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+  } catch (e) {
+    alert('Gagal approve (' + id + '): ' + e.message + '\n\nSilakan cek ulang status baris ini sebelum coba lagi.');
+  }
 }
 
 async function rejectAlokasiSelisih(id) {
@@ -1884,13 +1892,17 @@ async function rejectAlokasiSelisih(id) {
   if (alasan === null) return; // batal
   var pin = await mintaApprovalPin('Reject alokasi ' + id + '? Nota yang sudah dialokasikan akan dikembalikan ke sisa hutang semula.');
   if (!pin) return;
-  var res = await dbRpc('reject_alokasi_direktur', {p_id_bank_stmt: id, p_user: getUser(), p_alasan: alasan || null, p_pin: pin});
-  var err = cekErrorSupabase(res);
-  if (!err && res && res.status === 'error') err = res.message;
-  if (err) { alert('Error: ' + err); return; }
-  muatRekap();
-  muatApprove();
-  if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+  try {
+    var res = await dbRpc('reject_alokasi_direktur', {p_id_bank_stmt: id, p_user: getUser(), p_alasan: alasan || null, p_pin: pin});
+    var err = cekErrorSupabase(res);
+    if (!err && res && res.status === 'error') err = res.message;
+    if (err) { alert('Error: ' + err); return; }
+    muatRekap();
+    muatApprove();
+    if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+  } catch (e) {
+    alert('Gagal reject (' + id + '): ' + e.message + '\n\nSilakan cek ulang status baris ini sebelum coba lagi.');
+  }
 }
 
 // ── TAB 6: TERALOKASI ───────────────────────────────────────
