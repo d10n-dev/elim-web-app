@@ -75,21 +75,39 @@ function _headers(extra = {}) {
   };
 }
 
-// Wrapper fetch: pastikan token valid dulu, retry sekali kalau tetap 401/JWT expired
-function dbFetch(url, options = {}) {
+// Wrapper fetch: pastikan token valid dulu, retry sekali kalau tetap 401/JWT expired.
+// _retriedNet: internal flag, retry sekali kalau gagal di level jaringan (bukan JWT).
+function dbFetch(url, options = {}, _retriedNet = false) {
   return pastikanTokenValid().then(() => {
     const opts = Object.assign({}, options, { headers: _headers(options.headers || {}) });
-    return fetch(url, opts).then(r => r.json()).then(data => {
-      const expired = data && (data.message === 'JWT expired' || data.code === 'PGRST301');
-      if (expired) {
-        // fallback terakhir: paksa refresh lalu retry sekali
-        return pastikanTokenValidPaksa().then(() => {
-          const opts2 = Object.assign({}, options, { headers: _headers(options.headers || {}) });
-          return fetch(url, opts2).then(r2 => r2.json());
-        });
-      }
-      return data;
-    });
+    return fetch(url, opts)
+      .then(r => r.text().then(txt => {
+        let data;
+        try { data = txt ? JSON.parse(txt) : null; }
+        catch (e) { throw new Error('Respons server tidak valid: ' + txt.slice(0, 200)); }
+
+        const expired = data && (data.message === 'JWT expired' || data.code === 'PGRST301');
+        if (expired) {
+          return pastikanTokenValidPaksa().then(() => {
+            const opts2 = Object.assign({}, options, { headers: _headers(options.headers || {}) });
+            return fetch(url, opts2).then(r2 => r2.text()).then(t2 => {
+              try { return t2 ? JSON.parse(t2) : null; }
+              catch (e) { throw new Error('Respons server tidak valid setelah refresh token: ' + t2.slice(0, 200)); }
+            });
+          });
+        }
+        return data;
+      }))
+      .catch(err => {
+        // Gagal di level jaringan (koneksi putus sesaat, device background, dll) —
+        // retry sekali otomatis sebelum benar-benar dianggap gagal. Ini penting
+        // di Android karena tab/app bisa sempat background pas user isi PIN.
+        if (!_retriedNet) {
+          return new Promise(resolve => setTimeout(resolve, 800))
+            .then(() => dbFetch(url, options, true));
+        }
+        throw err; // sudah retry sekali, biar caller yang tangkap & tampilkan ke user
+      });
   });
 }
 
