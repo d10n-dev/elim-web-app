@@ -1857,33 +1857,57 @@ async function jalankanBulkApprove() {
   }
 
   apChecked.clear();
-  muatRekap();
-  muatApprove();
+  await muatRekap();
+  await muatApprove();
   if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
 
   var ringkasan = okCount + ' dari ' + n + ' berhasil di-approve.';
   if (gagal.length) ringkasan += '\n\nGagal:\n' + gagal.join('\n');
-  alert(ringkasan);
+  tampilkanToast(ringkasan.split('\n')[0], gagal.length ? 'error' : 'ok');
+  if (gagal.length) alert(ringkasan); // detail kegagalan tetap perlu dibaca lengkap
 }
 
 var apChecked = new Map();
 
 
+function tampilkanToast(pesan, tipe) {
+  var existing = document.getElementById('apToast');
+  if (existing) existing.remove();
+  var div = document.createElement('div');
+  div.id = 'apToast';
+  div.textContent = pesan;
+  div.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;' +
+    'padding:.6rem 1.1rem;border-radius:6px;font-family:var(--mono);font-size:.8rem;font-weight:600;' +
+    'box-shadow:0 2px 10px rgba(0,0,0,.15);' +
+    (tipe === 'ok' ? 'background:#e3f5e9;color:#1a7a3f;border:1px solid #a3ddb8;' : 'background:#fdecea;color:#c0392b;border:1px solid #f5b8b0;');
+  document.body.appendChild(div);
+  setTimeout(function () { div.remove(); }, 2500);
+}
+
 async function approveAlokasi(id, level) {
   var pin = await mintaApprovalPin('Approve alokasi ' + id + '?');
   if (!pin) return;
+  var tombol = document.querySelector('tr[data-rid="' + id + '"] .btn-approve');
+  var teksAsli = tombol ? tombol.textContent : null;
+  if (tombol) { tombol.disabled = true; tombol.textContent = 'Memproses…'; }
   try {
     var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
     var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
     var err = cekErrorSupabase(res);
     if (!err && res && res.status === 'error') err = res.message;
-    if (err) { alert('Error: ' + err); return; }
-    muatRekap();
-    muatApprove();
+    if (err) {
+      tampilkanToast('✗ Gagal: ' + err, 'error');
+      if (tombol) { tombol.disabled = false; tombol.textContent = teksAsli; }
+      return;
+    }
+    await muatRekap();
+    await muatApprove();
+    tampilkanToast('✓ Berhasil di-approve', 'ok');
     // Refresh koran kalau aktif
     if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
   } catch (e) {
-    alert('Gagal approve (' + id + '): ' + e.message + '\n\nSilakan cek ulang status baris ini sebelum coba lagi.');
+    tampilkanToast('✗ Gagal approve: ' + e.message, 'error');
+    if (tombol) { tombol.disabled = false; tombol.textContent = teksAsli; }
   }
 }
 
@@ -1896,12 +1920,13 @@ async function rejectAlokasiSelisih(id) {
     var res = await dbRpc('reject_alokasi_direktur', {p_id_bank_stmt: id, p_user: getUser(), p_alasan: alasan || null, p_pin: pin});
     var err = cekErrorSupabase(res);
     if (!err && res && res.status === 'error') err = res.message;
-    if (err) { alert('Error: ' + err); return; }
-    muatRekap();
-    muatApprove();
+    if (err) { tampilkanToast('✗ Gagal: ' + err, 'error'); return; }
+    await muatRekap();
+    await muatApprove();
+    tampilkanToast('✓ Berhasil di-reject', 'ok');
     if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
   } catch (e) {
-    alert('Gagal reject (' + id + '): ' + e.message + '\n\nSilakan cek ulang status baris ini sebelum coba lagi.');
+    tampilkanToast('✗ Gagal reject: ' + e.message, 'error');
   }
 }
 
