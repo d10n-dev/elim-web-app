@@ -1875,6 +1875,7 @@ async function approveAlokasi(id, level) {
   try {
     var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
     var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
+    alert('DEBUG raw response:\n' + JSON.stringify(res)); // TEMPORARY - hapus setelah debug selesai
     var err = cekErrorSupabase(res);
     if (!err && res && res.status === 'error') err = res.message;
     if (err) { alert('Error: ' + err); return; }
