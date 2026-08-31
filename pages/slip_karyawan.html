@@ -143,6 +143,27 @@
   </div>
 </div>
 
+<!-- MODAL: Detail Potongan Jam -->
+<div class="modal fade" id="modalDetailPotongan" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="judulDetailPotongan">Detail Potongan Jam</h6>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="padding:0">
+        <p style="font-size:.72rem;color:var(--muted);padding:.6rem .9rem 0">Hanya menampilkan tanggal yang ada potongan (telat dan/atau pulang cepat). Jam kerja normal: 08:00–16:00.</p>
+        <table class="absen-tbl">
+          <thead><tr>
+            <th>Tanggal</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Telat (menit)</th><th>Pulang Cepat (menit)</th><th>Net (menit)</th><th>Sanggahan</th>
+          </tr></thead>
+          <tbody id="tblDetailPotongan"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Ajukan Sanggahan -->
 <div class="modal fade" id="modalAjukanSanggahan" tabindex="-1">
   <div class="modal-dialog"><div class="modal-content">
@@ -277,6 +298,7 @@ async function muatSlip() {
       <table class="slip-mini-tbl" style="margin-top:.5rem"><tbody>${riwayatBonHtml}</tbody></table>
     </div>
     <button class="btn-absensi" onclick="bukaDetailAbsensi()">📋 Detail Absensi Harian</button>
+    <button class="btn-absensi" onclick="bukaDetailPotongan()">⏱️ Detail Potongan Jam</button>
     <button class="btn-print" onclick="window.print()">🖨️ Print / Simpan sebagai PDF</button>
   `;
 }
@@ -303,7 +325,7 @@ async function bukaDetailAbsensi() {
           const bStyle = SANGGAHAN_BADGE[s.status] || '';
           aksiHtml = `<span class="absen-badge" style="${bStyle}" title="${escHtml(s.catatan_direktur || '')}">${s.status}</span>`;
         } else if (bisaSanggah) {
-          aksiHtml = `<button class="btn-sm-action btn-edit" onclick="bukaModalSanggahan('${r.tanggal}','${r.status}')">Ajukan</button>`;
+          aksiHtml = `<button class="btn-sm-action btn-edit" onclick="bukaModalSanggahan('${r.tanggal}','${r.status}','absensi')">Ajukan</button>`;
         } else {
           aksiHtml = '<span class="text-muted" style="font-size:.68rem">—</span>';
         }
@@ -321,9 +343,52 @@ async function bukaDetailAbsensi() {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailAbsensi')).show();
 }
 
-function bukaModalSanggahan(tanggal, statusAsal) {
+async function bukaDetailPotongan() {
+  document.getElementById('judulDetailPotongan').textContent = 'Detail Potongan Jam — ' + namaKaryawanAktif;
+
+  sanggahanSayaMap = {};
+  if (periodeAktifIdSlip) {
+    const targetNip = modeDirektur ? nipTerpilih : null;
+    const res = await dbRpc('get_sanggahan_saya', { p_id_periode: periodeAktifIdSlip, p_nip: targetNip });
+    (res || []).forEach(s => { sanggahanSayaMap[s.tanggal] = s; });
+  }
+
+  const targetNip = modeDirektur ? nipTerpilih : null;
+  const rows = await dbRpc('get_detail_potongan_view', { p_id_periode: periodeAktifIdSlip, p_nip: targetNip }) || [];
+  const bisaSanggah = periodeAktifStatusSlip !== 'FINAL';
+
+  document.getElementById('tblDetailPotongan').innerHTML = rows.length
+    ? rows.map(r => {
+        const s = sanggahanSayaMap[r.tanggal];
+        let aksiHtml;
+        if (s) {
+          const bStyle = SANGGAHAN_BADGE[s.status] || '';
+          aksiHtml = `<span class="absen-badge" style="${bStyle}" title="${escHtml(s.catatan_direktur || '')}">${s.status}</span>`;
+        } else if (bisaSanggah) {
+          aksiHtml = `<button class="btn-sm-action btn-edit" onclick="bukaModalSanggahan('${r.tanggal}','HADIR','potongan')">Ajukan</button>`;
+        } else {
+          aksiHtml = '<span class="text-muted" style="font-size:.68rem">—</span>';
+        }
+        return `<tr>
+          <td class="td-mono" style="font-size:.7rem">${formatTanggal(r.tanggal)}</td>
+          <td class="td-mono" style="font-size:.7rem">${r.jam_masuk || '-'}</td>
+          <td class="td-mono" style="font-size:.7rem">${r.jam_pulang || '-'}</td>
+          <td class="td-right td-mono" style="font-size:.7rem;${r.menit_telat > 0 ? 'color:var(--red)' : ''}">${r.menit_telat}</td>
+          <td class="td-right td-mono" style="font-size:.7rem;${r.menit_pulang_cepat > 0 ? 'color:var(--red)' : ''}">${r.menit_pulang_cepat}</td>
+          <td class="td-right td-mono" style="font-size:.7rem;${r.net_menit < 0 ? 'color:var(--red)' : 'color:var(--green)'}">${r.net_menit}</td>
+          <td>${aksiHtml}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="7" class="text-center text-muted" style="padding:1.5rem">Tidak ada potongan jam di periode ini.</td></tr>';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailPotongan')).show();
+}
+
+let sanggahanSumberModal = 'absensi';
+
+function bukaModalSanggahan(tanggal, statusAsal, sumber) {
   sanggahanTargetTanggal = tanggal;
   sanggahanTargetStatusAsal = statusAsal;
+  sanggahanSumberModal = sumber || 'absensi';
   document.getElementById('sanggahanInfoTanggal').textContent =
     `Tanggal: ${formatTanggal(tanggal)} — Status saat ini: ${statusAsal}`;
   document.getElementById('sanggahanAlasan').value = '';
@@ -342,7 +407,7 @@ async function kirimSanggahan() {
   });
   if (res.status === 'error') { showAlert('alertSanggahan', res.message); return; }
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjukanSanggahan')).hide();
-  await bukaDetailAbsensi();
+  if (sanggahanSumberModal === 'potongan') { await bukaDetailPotongan(); } else { await bukaDetailAbsensi(); }
 }
 
 // ============================================================
