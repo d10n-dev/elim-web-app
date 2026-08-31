@@ -292,10 +292,10 @@
         <table class="sieo-tbl">
           <thead><tr>
             <th>NIP</th><th>Nama</th><th class="td-right">Gaji Pokok</th><th class="td-right">Bonus Final</th>
-            <th class="td-right">Total Cair</th><th class="td-right">Alpa</th><th class="td-right">Pot. Jam</th>
-            <th class="td-right">Denda Alpa</th><th class="td-right">Lembur</th><th class="td-right">Bon</th><th class="td-right">Kinerja%</th><th></th>
+            <th class="td-right">Total Cair</th><th class="td-right">Alpa (hari/jam)</th><th class="td-right">Pot. Telat/Pulcep</th>
+            <th class="td-right">Pot. Izin</th><th class="td-right">Denda Alpa</th><th class="td-right">Lembur</th><th class="td-right">Bon</th><th class="td-right">Kinerja%</th><th></th>
           </tr></thead>
-          <tbody id="tblHasil"><tr><td colspan="12" class="text-center text-muted">Pilih periode dan tekan Hitung</td></tr></tbody>
+          <tbody id="tblHasil"><tr><td colspan="13" class="text-center text-muted">Pilih periode dan tekan Hitung</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1118,7 +1118,7 @@ async function hitungGajiPeriode() {
 }
 
 async function muatHasil() {
-  if (!periodeAktif) { document.getElementById('tblHasil').innerHTML = '<tr><td colspan="12" class="text-center text-muted">Pilih periode dulu</td></tr>'; return; }
+  if (!periodeAktif) { document.getElementById('tblHasil').innerHTML = '<tr><td colspan="13" class="text-center text-muted">Pilih periode dulu</td></tr>'; return; }
   const res = await dbRpc('get_rekap_gaji_periode', { p_id_periode: periodeAktif.id_periode });
   if (!cekErrorSupabase(res)) return;
   document.getElementById('tblHasil').innerHTML = (res || []).map(r => `
@@ -1127,14 +1127,15 @@ async function muatHasil() {
       <td class="td-right td-mono">${formatRupiah(r.gaji_pokok_rp)}</td>
       <td class="td-right td-mono">${formatRupiah(r.bonus_final_rp)}</td>
       <td class="td-right td-mono" style="font-weight:600">${formatRupiah(r.total_cair)}</td>
-      <td class="td-right td-mono">${r.hari_alpa}</td>
+      <td class="td-right td-mono">${r.hari_alpa} / ${Number(r.jam_alpa).toFixed(1)}</td>
       <td class="td-right td-mono">${Number(r.jam_potongan_biasa).toFixed(1)}</td>
+      <td class="td-right td-mono">${Number(r.jam_izin_shortfall).toFixed(1)}</td>
       <td class="td-right td-mono">${formatRupiah(r.denda_alpa_rp)}</td>
       <td class="td-right td-mono">${formatRupiah(r.lembur_bonus_rp)}</td>
       <td class="td-right td-mono">${formatRupiah(r.bon_dipotong_rp)}</td>
       <td class="td-right td-mono">${r.persen_kinerja}%</td>
       <td><button class="btn-sm-action btn-slip" onclick="lihatSlip('${r.nip}')">Slip</button><button class="btn-sm-action btn-edit" onclick="lihatDetailHarian('${r.nip}','${escHtml(r.nama)}')">Detail</button></td>
-    </tr>`).join('') || '<tr><td colspan="12" class="text-center text-muted">Belum ada hasil, tekan Hitung dulu</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="13" class="text-center text-muted">Belum ada hasil, tekan Hitung dulu</td></tr>';
 }
 
 async function lihatSlip(nip) {

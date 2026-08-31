@@ -280,8 +280,9 @@ async function muatSlip() {
         <tr><td>Gaji Pokok</td><td class="r">${formatRupiah(h.gaji_pokok_rp)}</td></tr>
         <tr><td>Bonus Dasar</td><td class="r">${formatRupiah(h.bonus_dasar_rp)}</td></tr>
         <tr><td>Kinerja</td><td class="r">${h.persen_kinerja}%</td></tr>
-        <tr><td>Potongan Jam (${Number(h.jam_potongan_biasa + h.jam_izin_shortfall).toFixed(1)} jam)</td><td class="r">- ${formatRupiah((h.jam_potongan_biasa + h.jam_izin_shortfall) * h.pokok_perjam)}</td></tr>
-        <tr><td>Alpa (${h.hari_alpa} hari) + Denda 40%</td><td class="r">- ${formatRupiah(h.jam_alpa * h.pokok_perjam + Number(h.denda_alpa_rp))}</td></tr>
+        <tr><td>Potongan Telat/Pulang Cepat (${Number(h.jam_potongan_biasa).toFixed(1)} jam)</td><td class="r">- ${formatRupiah(h.jam_potongan_biasa * h.pokok_perjam)}</td></tr>
+        <tr><td>Potongan Izin di luar toleransi 8 jam (${Number(h.jam_izin_shortfall).toFixed(1)} jam)</td><td class="r">- ${formatRupiah(h.jam_izin_shortfall * h.pokok_perjam)}</td></tr>
+        <tr><td>Alpa (${h.hari_alpa} hari = ${Number(h.jam_alpa).toFixed(1)} jam) + Denda 40%</td><td class="r">- ${formatRupiah(h.jam_alpa * h.pokok_perjam + Number(h.denda_alpa_rp))}</td></tr>
         <tr><td>Lembur</td><td class="r">+ ${formatRupiah(h.lembur_bonus_rp)}</td></tr>
         <tr><td>Potongan Bon Periode Ini</td><td class="r">- ${formatRupiah(h.bon_dipotong_rp)}</td></tr>
         <tr><td>Penyesuaian Manual</td><td class="r">${Number(h.penyesuaian_rp || 0) < 0 ? '- ' + formatRupiah(Math.abs(h.penyesuaian_rp)) : '+ ' + formatRupiah(h.penyesuaian_rp || 0)}</td></tr>
