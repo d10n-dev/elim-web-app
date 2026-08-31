@@ -277,6 +277,7 @@
           <button class="btn-outline" onclick="exportGajiPokok()">⬇ Export Gaji Pokok</button>
           <button class="btn-outline" onclick="exportBonus()">⬇ Export Bonus</button>
           <button class="btn-navy" id="btnFinalisasi" onclick="finalisasiPeriode()">🔒 Finalisasi Periode</button>
+          <button class="btn-outline" id="btnBukaKembali" style="display:none;border-color:var(--red);color:var(--red)" onclick="bukaModalBukaKembali()">🔓 Buka Kembali Periode</button>
         </div>
       </div>
       <div id="alertHasil" style="margin-top:.5rem"></div>
@@ -351,6 +352,20 @@
       <pre class="slip-pre" id="isiSlip">…</pre>
     </div>
     <div class="modal-footer"><button class="btn-outline" onclick="copySlip()">📋 Copy Teks</button></div>
+  </div></div>
+</div>
+
+<!-- MODAL: Buka Kembali Periode -->
+<div class="modal fade" id="modalBukaKembali" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" style="color:var(--red)">🔓 Buka Kembali Periode FINAL</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p style="font-size:.8rem">Periode akan kembali jadi <b>DRAFT</b>. Kamu perlu <b>Hitung Ulang</b> lalu <b>Finalisasi</b> lagi setelah revisi selesai. Slip yang sudah dilihat karyawan akan sementara berstatus draft sampai difinalisasi ulang.</p>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Alasan Revisi (wajib)</label>
+      <textarea id="alasanBukaKembali" class="form-control" rows="2" placeholder="Contoh: lupa input potongan bon a.n. ..."></textarea>
+      <div id="alertBukaKembali" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" style="background:var(--red)" onclick="simpanBukaKembali()">Buka Kembali Periode</button></div>
   </div></div>
 </div>
 
@@ -482,6 +497,7 @@ async function gantiPeriode() {
   document.getElementById('infoPeriode').innerHTML =
     `Target: <b>${periodeAktif.target_hari} hari / ${periodeAktif.target_jam} jam</b> · Status: <b>${periodeAktif.status}</b>`;
   document.getElementById('btnFinalisasi').style.display = periodeAktif.status === 'FINAL' ? 'none' : '';
+  document.getElementById('btnBukaKembali').style.display = periodeAktif.status === 'FINAL' ? '' : 'none';
   await muatLibur();
   const tabAktif = document.querySelector('.tab-pane.active');
   if (tabAktif) gantiTab(tabAktif.id);
@@ -1205,13 +1221,31 @@ function alokasiIzinDariAlpa(nip, tanggal) {
 
 async function finalisasiPeriode() {
   if (!periodeAktif) return;
-  if (!confirm('Finalisasi periode ini? Setelah final, perhitungan tidak bisa diubah lagi.')) return;
+  if (!confirm('Finalisasi periode ini? Slip akan terkunci utk karyawan. Kalau nanti ada koreksi, periode bisa dibuka kembali lewat tombol "Buka Kembali Periode".')) return;
   const res = await dbRpc('finalisasi_periode_gaji', { p_id_periode: periodeAktif.id_periode, p_user: getNamaUser() });
   if (!cekErrorSupabase(res)) return;
   alert('✓ Periode difinalisasi.');
   await muatDaftarPeriode();
   document.getElementById('selPeriode').value = periodeAktif.id_periode;
   await gantiPeriode();
+}
+
+function bukaModalBukaKembali() {
+  document.getElementById('alasanBukaKembali').value = '';
+  document.getElementById('alertBukaKembali').innerHTML = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBukaKembali')).show();
+}
+
+async function simpanBukaKembali() {
+  const alasan = document.getElementById('alasanBukaKembali').value.trim();
+  if (!alasan) { showAlert('alertBukaKembali', 'Alasan wajib diisi.'); return; }
+  const res = await dbRpc('buka_kembali_periode', { p_id_periode: periodeAktif.id_periode, p_alasan: alasan });
+  if (res.status === 'error') { showAlert('alertBukaKembali', res.message); return; }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBukaKembali')).hide();
+  await muatDaftarPeriode();
+  document.getElementById('selPeriode').value = periodeAktif.id_periode;
+  await gantiPeriode();
+  alert('✓ Periode dibuka kembali jadi DRAFT. Silakan revisi data, lalu Hitung Ulang dan Finalisasi lagi.');
 }
 
 // ============================================================
