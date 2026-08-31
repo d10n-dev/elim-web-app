@@ -134,13 +134,29 @@
       <div class="modal-body" style="padding:0">
         <table class="absen-tbl">
           <thead><tr>
-            <th>Tanggal</th><th>Hari</th><th>Status</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Keterangan</th>
+            <th>Tanggal</th><th>Hari</th><th>Status</th><th>Jam Masuk</th><th>Jam Pulang</th><th>Keterangan</th><th>Sanggahan</th>
           </tr></thead>
           <tbody id="tblDetailAbsensi"></tbody>
         </table>
       </div>
     </div>
   </div>
+</div>
+
+<!-- MODAL: Ajukan Sanggahan -->
+<div class="modal fade" id="modalAjukanSanggahan" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Ajukan Sanggahan</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p style="font-size:.78rem;color:var(--muted)" id="sanggahanInfoTanggal"></p>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Alasan Sanggahan</label>
+      <textarea id="sanggahanAlasan" class="form-control" rows="3" placeholder="Jelaskan kenapa status/keterangan hari ini menurutmu salah..."></textarea>
+      <div id="alertSanggahan" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-navy" onclick="kirimSanggahan()">Kirim Sanggahan</button>
+    </div>
+  </div></div>
 </div>
 
 <script src="../js/api.js"></script>
@@ -161,6 +177,17 @@ let nipTerpilih = null;
 let daftarPeriodeSlip = [];
 let detailHarianAktif = [];
 let namaKaryawanAktif = '';
+let periodeAktifIdSlip = null;
+let periodeAktifStatusSlip = null;
+let sanggahanSayaMap = {};
+let sanggahanTargetTanggal = null;
+let sanggahanTargetStatusAsal = null;
+
+const SANGGAHAN_BADGE = {
+  MENUNGGU: 'background:#fff3cd;color:#856404;border:1px solid #ffe083',
+  DISETUJUI: 'background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)',
+  DITOLAK: 'background:#fde9e9;color:var(--red);border:1px solid #f5b5bb'
+};
 
 async function gantiKaryawanTest() {
   nipTerpilih = document.getElementById('selKaryawanTest').value;
@@ -185,6 +212,9 @@ async function muatDaftarPeriode() {
 async function muatSlip() {
   const idPeriode = document.getElementById('selPeriodeSlip').value;
   if (!idPeriode) return;
+  periodeAktifIdSlip = idPeriode;
+  const pInfo = daftarPeriodeSlip.find(p => p.id_periode === idPeriode);
+  periodeAktifStatusSlip = pInfo ? pInfo.status : null;
   const targetNip = modeDirektur ? nipTerpilih : null;
   const h = await dbRpc('get_slip_gaji_view', { p_id_periode: idPeriode, p_nip: targetNip });
   if (!h) {
@@ -251,13 +281,32 @@ async function muatSlip() {
   `;
 }
 
-function bukaDetailAbsensi() {
+async function bukaDetailAbsensi() {
   document.getElementById('judulDetailAbsensi').textContent = 'Detail Absensi Harian — ' + namaKaryawanAktif;
+
+  sanggahanSayaMap = {};
+  if (periodeAktifIdSlip) {
+    const targetNip = modeDirektur ? nipTerpilih : null;
+    const res = await dbRpc('get_sanggahan_saya', { p_id_periode: periodeAktifIdSlip, p_nip: targetNip });
+    (res || []).forEach(s => { sanggahanSayaMap[s.tanggal] = s; });
+  }
+
+  const bisaSanggah = periodeAktifStatusSlip !== 'FINAL';
   const rows = [...detailHarianAktif].sort((a, b) => a.tanggal.localeCompare(b.tanggal));
   document.getElementById('tblDetailAbsensi').innerHTML = rows.length
     ? rows.map(r => {
         const d = new Date(r.tanggal + 'T00:00:00');
         const style = BADGE_STATUS[r.status] || '';
+        const s = sanggahanSayaMap[r.tanggal];
+        let aksiHtml;
+        if (s) {
+          const bStyle = SANGGAHAN_BADGE[s.status] || '';
+          aksiHtml = `<span class="absen-badge" style="${bStyle}" title="${escHtml(s.catatan_direktur || '')}">${s.status}</span>`;
+        } else if (bisaSanggah) {
+          aksiHtml = `<button class="btn-sm-action btn-edit" onclick="bukaModalSanggahan('${r.tanggal}','${r.status}')">Ajukan</button>`;
+        } else {
+          aksiHtml = '<span class="text-muted" style="font-size:.68rem">—</span>';
+        }
         return `<tr>
           <td class="td-mono" style="font-size:.7rem">${formatTanggal(r.tanggal)}</td>
           <td style="font-size:.72rem">${NAMA_HARI[d.getDay()]}</td>
@@ -265,10 +314,35 @@ function bukaDetailAbsensi() {
           <td class="td-mono" style="font-size:.7rem">${r.jam_masuk || '-'}</td>
           <td class="td-mono" style="font-size:.7rem">${r.jam_pulang || '-'}</td>
           <td style="font-size:.72rem">${escHtml(r.keterangan || '')}</td>
+          <td>${aksiHtml}</td>
         </tr>`;
       }).join('')
-    : '<tr><td colspan="6" class="text-center text-muted" style="padding:1.5rem">Belum ada data absensi utk periode ini.</td></tr>';
+    : '<tr><td colspan="7" class="text-center text-muted" style="padding:1.5rem">Belum ada data absensi utk periode ini.</td></tr>';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailAbsensi')).show();
+}
+
+function bukaModalSanggahan(tanggal, statusAsal) {
+  sanggahanTargetTanggal = tanggal;
+  sanggahanTargetStatusAsal = statusAsal;
+  document.getElementById('sanggahanInfoTanggal').textContent =
+    `Tanggal: ${formatTanggal(tanggal)} — Status saat ini: ${statusAsal}`;
+  document.getElementById('sanggahanAlasan').value = '';
+  document.getElementById('alertSanggahan').innerHTML = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjukanSanggahan')).show();
+}
+
+async function kirimSanggahan() {
+  const alasan = document.getElementById('sanggahanAlasan').value.trim();
+  if (!alasan) { showAlert('alertSanggahan', 'Alasan wajib diisi.'); return; }
+  const res = await dbRpc('ajukan_sanggahan_absensi', {
+    p_id_periode: periodeAktifIdSlip,
+    p_tanggal: sanggahanTargetTanggal,
+    p_status_asal: sanggahanTargetStatusAsal,
+    p_alasan: alasan
+  });
+  if (res.status === 'error') { showAlert('alertSanggahan', res.message); return; }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjukanSanggahan')).hide();
+  await bukaDetailAbsensi();
 }
 
 // ============================================================
