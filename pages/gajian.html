@@ -187,6 +187,20 @@
         <tbody id="tblRiwayatIzin"><tr><td colspan="6" class="text-center text-muted">Memuat…</td></tr></tbody>
       </table>
     </div>
+    <div class="card-box">
+      <h6>🗳️ Sanggahan Absensi
+        <select id="filterStatusSanggahan" style="font-family:var(--mono);font-size:.72rem;padding:.2rem .4rem;margin-left:.6rem" onchange="muatDaftarSanggahan()">
+          <option value="MENUNGGU">Menunggu</option>
+          <option value="DISETUJUI">Disetujui</option>
+          <option value="DITOLAK">Ditolak</option>
+          <option value="">Semua</option>
+        </select>
+      </h6>
+      <table class="sieo-tbl">
+        <thead><tr><th>Diajukan</th><th>NIP</th><th>Nama</th><th>Tanggal</th><th>Status Asal</th><th>Alasan</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tblSanggahan"><tr><td colspan="8" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- =========== TAB: KINERJA =========== -->
@@ -367,6 +381,49 @@
   </div></div>
 </div>
 
+<!-- MODAL: Setujui Sanggahan -->
+<div class="modal fade" id="modalSetujuiSanggahan" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Setujui Sanggahan</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ssIdSanggahan">
+      <p style="font-size:.78rem;color:var(--muted)" id="ssInfo"></p>
+      <p style="font-size:.8rem;background:var(--bg);padding:.5rem .7rem;border-radius:6px" id="ssAlasan"></p>
+
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Koreksi Data</label>
+      <select id="ssJenisKoreksi" class="form-control" style="margin-bottom:.6rem" onchange="renderFormKoreksiSanggahan()">
+        <option value="SET_IZIN">Ubah jadi IZIN</option>
+        <option value="SET_CUTI">Ubah jadi CUTI</option>
+        <option value="SET_SCANLOG">Perbaiki jam scan (tetap HADIR)</option>
+        <option value="HAPUS_IZIN">Hapus catatan izin (batal, ternyata hadir/alpa)</option>
+        <option value="HAPUS_CUTI">Hapus catatan cuti (batal)</option>
+        <option value="TIDAK_ADA_KOREKSI">Setuju tanpa ubah data</option>
+      </select>
+
+      <div id="ssFormKoreksi"></div>
+
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;margin-top:.4rem;display:block">Catatan (opsional)</label>
+      <textarea id="ssCatatan" class="form-control" rows="2"></textarea>
+      <div id="alertSetujuiSanggahan" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" onclick="simpanSetujuiSanggahan()">Setujui & Terapkan</button></div>
+  </div></div>
+</div>
+
+<!-- MODAL: Tolak Sanggahan -->
+<div class="modal fade" id="modalTolakSanggahan" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Tolak Sanggahan</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="tsIdSanggahan">
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Alasan Penolakan</label>
+      <textarea id="tsCatatan" class="form-control" rows="2"></textarea>
+      <div id="alertTolakSanggahan" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" onclick="simpanTolakSanggahan()">Tolak Sanggahan</button></div>
+  </div></div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/nav.js"></script>
@@ -395,7 +452,7 @@ function cekErrorSupabase(res) {
 function gantiTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === id));
-  if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); }
+  if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); muatDaftarSanggahan(); }
   if (id === 'tKinerja') { muatKinerja(); muatPenyesuaian(); }
   if (id === 'tBon') { muatSaldoBon(); muatRiwayatBon(); }
   if (id === 'tHasil') { muatHasil(); muatStatusNotifGaji(); }
@@ -787,6 +844,118 @@ async function muatRiwayatIzin() {
     <td>${escHtml(r.keterangan || '')}</td>
     <td><button class="btn-sm-action btn-edit" onclick="editIzinRow(${r.id_izin})">Edit</button><button class="btn-sm-action btn-hapus" onclick="hapusIzinRow(${r.id_izin})">Hapus</button></td></tr>`
   ).join('') || '<tr><td colspan="6" class="text-center text-muted">Belum ada data izin</td></tr>';
+}
+
+// ============================================================
+// SANGGAHAN ABSENSI
+// ============================================================
+let cacheDaftarSanggahan = [];
+
+async function muatDaftarSanggahan() {
+  const status = document.getElementById('filterStatusSanggahan').value;
+  const res = await dbRpc('get_daftar_sanggahan_direktur', { p_status: status || null });
+  if (res && res.status === 'error') { alert(res.message); return; }
+  cacheDaftarSanggahan = res || [];
+  document.getElementById('tblSanggahan').innerHTML = cacheDaftarSanggahan.map(s => {
+    const badgeStyle = s.status === 'MENUNGGU' ? 'background:#fff3cd;color:#856404;border:1px solid #ffe083'
+      : s.status === 'DISETUJUI' ? 'background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)'
+      : 'background:#fde9e9;color:var(--red);border:1px solid #f5b5bb';
+    const aksi = s.status === 'MENUNGGU'
+      ? `<button class="btn-sm-action btn-edit" onclick="bukaModalSetujuiSanggahan(${s.id_sanggahan})">Setujui</button>
+         <button class="btn-sm-action btn-hapus" onclick="bukaModalTolakSanggahan(${s.id_sanggahan})">Tolak</button>`
+      : `<span style="font-size:.68rem;color:var(--muted)">${escHtml(s.catatan_direktur || '')}</span>`;
+    return `<tr>
+      <td class="td-mono" style="font-size:.7rem">${formatTanggal(s.diajukan_at.slice(0,10))}</td>
+      <td class="td-mono">${s.nip}</td>
+      <td>${escHtml(s.nama)}</td>
+      <td class="td-mono">${formatTanggal(s.tanggal)}</td>
+      <td>${s.status_asal}</td>
+      <td style="font-size:.75rem">${escHtml(s.alasan_karyawan)}</td>
+      <td><span class="absen-badge" style="${badgeStyle};font-family:var(--mono);font-size:.65rem;padding:.15rem .5rem;border-radius:3px">${s.status}</span></td>
+      <td>${aksi}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" class="text-center text-muted">Tidak ada sanggahan</td></tr>';
+}
+
+function bukaModalSetujuiSanggahan(id) {
+  const s = cacheDaftarSanggahan.find(x => x.id_sanggahan === id);
+  if (!s) return;
+  document.getElementById('ssIdSanggahan').value = id;
+  document.getElementById('ssInfo').textContent =
+    `${s.nama} (${s.nip}) — ${formatTanggal(s.tanggal)} — status saat ini: ${s.status_asal}`;
+  document.getElementById('ssAlasan').textContent = s.alasan_karyawan;
+  document.getElementById('ssJenisKoreksi').value = 'SET_IZIN';
+  document.getElementById('ssCatatan').value = '';
+  document.getElementById('alertSetujuiSanggahan').innerHTML = '';
+  renderFormKoreksiSanggahan();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSetujuiSanggahan')).show();
+}
+
+function renderFormKoreksiSanggahan() {
+  const jenis = document.getElementById('ssJenisKoreksi').value;
+  const box = document.getElementById('ssFormKoreksi');
+  if (jenis === 'SET_IZIN') {
+    box.innerHTML = `
+      <div class="form-grid" style="grid-template-columns:100px 1fr">
+        <div><label>Jumlah Jam</label><input type="number" id="ssJumlahJam" value="1" step="0.5" min="0.5" class="form-control"></div>
+        <div><label>Keterangan</label><input type="text" id="ssKeterangan" class="form-control"></div>
+      </div>`;
+  } else if (jenis === 'SET_CUTI') {
+    box.innerHTML = `
+      <div class="form-grid" style="grid-template-columns:100px 1fr">
+        <div><label>Jumlah Hari</label><input type="number" id="ssJumlahHari" value="1" step="0.5" min="0.5" class="form-control"></div>
+        <div><label>Keterangan</label><input type="text" id="ssKeterangan" class="form-control"></div>
+      </div>`;
+  } else if (jenis === 'SET_SCANLOG') {
+    box.innerHTML = `
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div><label>Jam Masuk</label><input type="time" id="ssJamMasuk" class="form-control"></div>
+        <div><label>Jam Pulang</label><input type="time" id="ssJamPulang" class="form-control"></div>
+      </div>`;
+  } else {
+    box.innerHTML = '';
+  }
+}
+
+async function simpanSetujuiSanggahan() {
+  const id = Number(document.getElementById('ssIdSanggahan').value);
+  const jenis = document.getElementById('ssJenisKoreksi').value;
+  const catatan = document.getElementById('ssCatatan').value.trim();
+  let koreksi = {};
+  if (jenis === 'SET_IZIN') {
+    koreksi = { jumlah_jam: Number(document.getElementById('ssJumlahJam').value || 0), keterangan: document.getElementById('ssKeterangan').value.trim() };
+    if (!koreksi.jumlah_jam) { showAlert('alertSetujuiSanggahan', 'Jumlah jam wajib diisi.'); return; }
+  } else if (jenis === 'SET_CUTI') {
+    koreksi = { jumlah_hari: Number(document.getElementById('ssJumlahHari').value || 0), keterangan: document.getElementById('ssKeterangan').value.trim() };
+    if (!koreksi.jumlah_hari) { showAlert('alertSetujuiSanggahan', 'Jumlah hari wajib diisi.'); return; }
+  } else if (jenis === 'SET_SCANLOG') {
+    koreksi = { jam_masuk: document.getElementById('ssJamMasuk').value || null, jam_pulang: document.getElementById('ssJamPulang').value || null };
+  }
+
+  const res = await dbRpc('putuskan_sanggahan', {
+    p_id_sanggahan: id, p_keputusan: 'DISETUJUI',
+    p_catatan: catatan || null, p_jenis_koreksi: jenis, p_koreksi: koreksi
+  });
+  if (res.status === 'error') { showAlert('alertSetujuiSanggahan', res.message); return; }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSetujuiSanggahan')).hide();
+  await muatDaftarSanggahan();
+}
+
+function bukaModalTolakSanggahan(id) {
+  document.getElementById('tsIdSanggahan').value = id;
+  document.getElementById('tsCatatan').value = '';
+  document.getElementById('alertTolakSanggahan').innerHTML = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTolakSanggahan')).show();
+}
+
+async function simpanTolakSanggahan() {
+  const id = Number(document.getElementById('tsIdSanggahan').value);
+  const catatan = document.getElementById('tsCatatan').value.trim();
+  if (!catatan) { showAlert('alertTolakSanggahan', 'Alasan penolakan wajib diisi.'); return; }
+  const res = await dbRpc('putuskan_sanggahan', { p_id_sanggahan: id, p_keputusan: 'DITOLAK', p_catatan: catatan });
+  if (res.status === 'error') { showAlert('alertTolakSanggahan', res.message); return; }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTolakSanggahan')).hide();
+  await muatDaftarSanggahan();
 }
 
 async function muatSaldoCuti() {
