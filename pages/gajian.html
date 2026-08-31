@@ -16,6 +16,7 @@
   .periode-info b{color:var(--navy);}
   .tab-nav{display:flex;gap:.3rem;overflow-x:auto;border-bottom:2px solid var(--border);padding:0 1.1rem;margin-bottom:.85rem;}
   .tab-btn{font-family:var(--mono);font-size:.72rem;font-weight:600;padding:.5rem .85rem;background:none;border:none;color:var(--muted);white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;}
+  .tab-badge-count{display:inline-block;background:var(--red);color:#fff;font-family:var(--mono);font-size:.62rem;font-weight:700;padding:0 .4rem;border-radius:9px;margin-left:.3rem;line-height:1.4;}
   .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
   .tab-pane{display:none;padding:0 1.1rem 1.5rem;}
   .tab-pane.active{display:block;}
@@ -80,7 +81,7 @@
     <button class="tab-btn active" data-tab="tPeriode" onclick="gantiTab('tPeriode')">📅 Periode & Libur</button>
     <button class="tab-btn" data-tab="tMaster" onclick="gantiTab('tMaster')">👤 Master Karyawan</button>
     <button class="tab-btn" data-tab="tImport" onclick="gantiTab('tImport')">📥 Import Absensi</button>
-    <button class="tab-btn" data-tab="tCuti" onclick="gantiTab('tCuti')">🏖️ Cuti & Izin</button>
+    <button class="tab-btn" data-tab="tCuti" onclick="gantiTab('tCuti')">🏖️ Cuti & Izin<span id="badgeSanggahan" class="tab-badge-count" style="display:none"></span></button>
     <button class="tab-btn" data-tab="tKinerja" onclick="gantiTab('tKinerja')">📊 Kinerja</button>
     <button class="tab-btn" data-tab="tBon" onclick="gantiTab('tBon')">💰 Bon</button>
     <button class="tab-btn" data-tab="tHasil" onclick="gantiTab('tHasil')">🧾 Hasil & Slip</button>
@@ -867,6 +868,14 @@ async function muatRiwayatIzin() {
 // ============================================================
 let cacheDaftarSanggahan = [];
 
+async function muatBadgeSanggahan() {
+  const res = await dbRpc('get_daftar_sanggahan_direktur', { p_status: 'MENUNGGU' });
+  const n = (res && res.status !== 'error') ? res.length : 0;
+  const badge = document.getElementById('badgeSanggahan');
+  if (n > 0) { badge.textContent = n; badge.style.display = ''; }
+  else { badge.style.display = 'none'; }
+}
+
 async function muatDaftarSanggahan() {
   const status = document.getElementById('filterStatusSanggahan').value;
   const res = await dbRpc('get_daftar_sanggahan_direktur', { p_status: status || null });
@@ -955,6 +964,7 @@ async function simpanSetujuiSanggahan() {
   if (res.status === 'error') { showAlert('alertSetujuiSanggahan', res.message); return; }
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalSetujuiSanggahan')).hide();
   await muatDaftarSanggahan();
+  await muatBadgeSanggahan();
 }
 
 function bukaModalTolakSanggahan(id) {
@@ -972,6 +982,7 @@ async function simpanTolakSanggahan() {
   if (res.status === 'error') { showAlert('alertTolakSanggahan', res.message); return; }
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTolakSanggahan')).hide();
   await muatDaftarSanggahan();
+  await muatBadgeSanggahan();
 }
 
 async function muatSaldoCuti() {
@@ -1364,6 +1375,7 @@ window.addEventListener('load', async function () {
     document.getElementById('kontenGajian').style.display = '';
     await muatKaryawan();
     await muatDaftarPeriode();
+    await muatBadgeSanggahan();
   } catch (err) {
     tampilkanErrorHalaman('INIT ERROR: ' + (err && err.message ? err.message : err) + (err && err.stack ? ('\n' + err.stack) : ''));
   }
