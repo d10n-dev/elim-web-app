@@ -68,6 +68,21 @@
     .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
     .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
     .akses-blocked p{font-size:.82rem;color:var(--muted);max-width:320px;}
+
+    .btn-cetak{background:#fff;color:var(--navy);border:1px solid var(--navy);font-family:var(--mono);font-size:13px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;white-space:nowrap;}
+    .btn-cetak:hover{background:#eef1f7;}
+    #printHeaderSaldo{display:none;}
+    @media print{
+      #navRoot,.tab-nav,.filter-bar,.counter-bar{display:none!important;}
+      #printHeaderSaldo{display:block;margin:0 0 12px;}
+      #printHeaderSaldo h1{font-family:var(--mono);font-size:15px;margin:0 0 2px;}
+      #printHeaderSaldo .ph-sub{font-family:var(--mono);font-size:10px;color:#333;}
+      .table-wrap{padding:0;overflow:visible;}
+      table{font-size:10px;}
+      thead th{background:#dde3ee!important;color:#000!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      tbody tr{break-inside:avoid;}
+      @page{size:landscape;margin:12mm;}
+    }
   </style>
 </head>
 <body>
@@ -98,9 +113,15 @@
         <input type="checkbox" id="chkSembunyikanNol" checked onchange="renderSaldo()">
         Sembunyikan stok 0
       </label>
+      <button class="btn-cetak" onclick="cetakSaldo()">🖨️ Cetak</button>
     </div>
 
     <div class="counter-bar" id="counterSaldo">Memuat data...</div>
+
+    <div id="printHeaderSaldo">
+      <h1>REKAP STOK BAHAN BAKU</h1>
+      <div class="ph-sub" id="printMetaSaldo"></div>
+    </div>
 
     <div class="table-wrap">
       <div class="loading-state" id="loadingSaldo"><span class="spinner"></span> Mengambil data saldo stok...</div>
@@ -453,6 +474,17 @@ function renderSaldo(){
       '<td>'+badgeStatus+'</td>'+
     '</tr>';
   }).join('');
+}
+
+// ── CETAK REKAP SALDO ──
+function cetakSaldo(){
+  var q=(document.getElementById('cariSaldo').value||'').trim();
+  var kat=document.getElementById('filterKategori').value||'Semua';
+  var nol=document.getElementById('chkSembunyikanNol').checked;
+  var jumlahBaris=document.querySelectorAll('#saldoTbody tr').length;
+  var meta='Kategori: '+kat+(q?' · Pencarian: "'+q+'"':'')+(nol?' · Stok 0 disembunyikan':'')+' · Jumlah baris: '+jumlahBaris+' · Dicetak: '+new Date().toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  document.getElementById('printMetaSaldo').textContent=meta;
+  window.print();
 }
 
 // ============================================================
