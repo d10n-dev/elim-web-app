@@ -1140,7 +1140,7 @@ async function muatHasil() {
       <td class="td-right td-mono" style="font-weight:600">${formatRupiah(r.total_cair)}</td>
       <td class="td-right td-mono">${r.hari_alpa} / ${Number(r.jam_alpa).toFixed(1)}</td>
       <td class="td-right td-mono">${Number(r.jam_potongan_biasa).toFixed(1)}</td>
-      <td class="td-right td-mono">${Number(r.jam_izin_shortfall).toFixed(1)}</td>
+      <td class="td-right td-mono">${Number(r.jam_izin_shortfall).toFixed(1)}<br><span style="font-size:.6rem;color:var(--muted);font-weight:400">(${Number(r.jam_izin_kasar).toFixed(1)} − tol. 8)</span></td>
       <td class="td-right td-mono">${formatRupiah(r.denda_alpa_rp)}</td>
       <td class="td-right td-mono">${formatRupiah(r.lembur_bonus_rp)}</td>
       <td class="td-right td-mono">${formatRupiah(r.bon_dipotong_rp)}</td>
