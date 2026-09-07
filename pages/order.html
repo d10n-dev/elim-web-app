@@ -671,7 +671,9 @@ function bukaDetail(idOrder){
   document.getElementById('detailTitle').textContent='Detail — '+idOrder;
   document.getElementById('detailBody').innerHTML='<div class="loading">Memuat…</div>';
   var bisaClose=orderAktif&&orderAktif.status==='ANTRI_KIRIM';
-  var bisaEdit=orderAktif&&['BARU','PRODUKSI'].indexOf(orderAktif.status)>=0;
+  // Edit selalu tersedia — baris yang sudah punya transaksi turunan otomatis
+  // dikunci per-field di dalam form (lihat renderEditSubitem), bukan di sini.
+  var bisaEdit=!!orderAktif;
   document.getElementById('btnClose').style.display=bisaClose?'':'none';
   document.getElementById('btnEdit').style.display=bisaEdit?'':'none';
   document.getElementById('btnLog').style.display='';
@@ -892,8 +894,8 @@ function renderEditSubitem(details){
     var subitem=d.subitem||'';
     var saldo=getSaldoAvailable(idItem,subitem,orderAktif?orderAktif.id_order:null);
     var locked=!!d.locked;
-    var ro=locked?'readonly style="background:#f5f7fb;color:var(--muted)"':'';
-    var lockInfo=locked?'<div style="font-family:var(--mono);font-size:.62rem;color:#856404;margin-top:.15rem">⚠ Sudah ada transaksi turunan (SPK/kirim/retur/produksi) — terkunci</div>':'';
+    var roQty=locked?'readonly style="background:#f5f7fb;color:var(--muted)"':'';
+    var lockInfo=locked?'<div style="font-family:var(--mono);font-size:.62rem;color:#856404;margin-top:.15rem">⚠ QTY terkunci (sudah ada SPK/kirim/retur/produksi). Nama masih bisa dikoreksi (approval Direktur).</div>':'';
     var hapusBtn=locked?'':'<button class="btn-hapus-sub" type="button" onclick="hapusEditSub('+n+')">✕</button>';
     var div=document.createElement('div');
     div.className='edit-subitem-row';
@@ -903,8 +905,8 @@ function renderEditSubitem(details){
     div.setAttribute('data-locked',locked?'1':'0');
     div.setAttribute('data-baru','0');
     div.innerHTML=
-      '<div><input type="text" id="eSubNama'+n+'" value="'+esc(subitem)+'" '+ro+' style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>'+lockInfo+'</div>'+
-      '<input type="number" id="eSubQty'+n+'" value="'+(d.qty||0)+'" min="1" '+ro+'/>'+
+      '<div><input type="text" id="eSubNama'+n+'" value="'+esc(subitem)+'" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>'+lockInfo+'</div>'+
+      '<input type="number" id="eSubQty'+n+'" value="'+(d.qty||0)+'" min="1" '+roQty+'/>'+
       '<div><input type="number" id="eSubStok'+n+'" value="'+qtyDariStok+'" min="0" '+(locked?'readonly':'')+' oninput="cekEditStokHint('+n+')"/>'+
       '<div class="stok-hint" id="eStokHint'+n+'">Saldo: '+fmtAngka(saldo)+'</div></div>'+
       '<span style="display:flex;align-items:center;gap:.3rem;color:var(--muted);font-size:.7rem;font-family:var(--mono)">#'+n+hapusBtn+'</span>';
@@ -971,8 +973,21 @@ function simpanEdit(){
     var idDetail=row.getAttribute('data-iddetail');
     var locked=row.getAttribute('data-locked')==='1';
     var baru=row.getAttribute('data-baru')==='1';
-    if(locked)return; // baris locked tidak dikirim sebagai instruksi apa pun
     var subitem=(document.getElementById('eSubNama'+n).value||'').trim().toUpperCase();
+
+    if(locked){
+      // Baris sudah punya transaksi turunan: HANYA nama subitem yang boleh
+      // berubah. qty/qty_dari_stok tidak pernah dibaca/dikirim di sini —
+      // RPC apply_edit_order juga mengunci kolom itu di sisi server.
+      if(!subitem){alertEl.innerHTML='<div class="alert-box alert-err">Nama subitem wajib diisi.</div>';valid=false;return;}
+      var oldLocked=detailCache.find(function(d){return d.id_detail===idDetail;});
+      if(oldLocked&&subitem!==(oldLocked.subitem||'')){
+        detailActions.push({aksi:'UPDATE',id_detail:idDetail,subitem:subitem});
+        rowsForLog.push({subitem:subitem,subitemLama:oldLocked.subitem||'',aksi:'RenameLocked'});
+      }
+      return;
+    }
+
     var qty=parseFloat(document.getElementById('eSubQty'+n).value)||0;
     var dariStok=parseFloat(document.getElementById('eSubStok'+n).value)||0;
     if(!subitem){alertEl.innerHTML='<div class="alert-box alert-err">Nama subitem wajib diisi.</div>';valid=false;return;}
@@ -1038,6 +1053,8 @@ function simpanEdit(){
     if(r.aksi==='Ubah'){
       if(r.qtyBaru!=r.qtyLama) changes['QTY '+r.subitem]={lama:r.qtyLama,baru:r.qtyBaru};
       if(r.stokBaru!=r.stokLama) changes['Dari Stok ('+r.subitem+')']={lama:r.stokLama,baru:r.stokBaru};
+    } else if(r.aksi==='RenameLocked'){
+      changes['Nama Subitem (sudah ada transaksi turunan)']={lama:r.subitemLama,baru:r.subitem};
     } else {
       changes[r.aksi+' — '+r.subitem]={lama:'-',baru:r.qtyBaru!==undefined?r.qtyBaru:'-'};
     }
@@ -1045,9 +1062,11 @@ function simpanEdit(){
 
   var idLog='LED-'+new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,17)+'-'+Math.floor(Math.random()*900+100);
 
-  // Level approval: perubahan HARGA selalu wajib DIREKTUR (menang atas kondisi lain).
-  // Selain itu (termasuk edit saat order sudah PRODUKSI) cukup MANAGER.
-  var levelApproval=(newHarga!==hargaLama)?'DIREKTUR':'MANAGER';
+  // Level approval: perubahan HARGA, atau rename subitem yang sudah punya
+  // transaksi turunan (SPK/kirim/retur/produksi), selalu wajib DIREKTUR.
+  // Selain itu (termasuk edit qty saat order masih PRODUKSI) cukup MANAGER.
+  var adaRenameLocked=rowsForLog.some(function(r){return r.aksi==='RenameLocked';});
+  var levelApproval=(newHarga!==hargaLama||adaRenameLocked)?'DIREKTUR':'MANAGER';
 
   // PENTING: kirim object mentah, JANGAN JSON.stringify manual — dbInsert sudah stringify body sekali.
   dbInsert('log_edit_order',{
