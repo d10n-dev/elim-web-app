@@ -257,6 +257,7 @@
           <div class="col-6"><div class="form-group"><label class="form-label">Deadline</label><input type="date" class="form-control-edit" id="editDeadline"/></div></div>
         </div>
         <div class="form-group"><label class="form-label">Keterangan</label><input type="text" class="form-control-edit" id="editKeterangan"/></div>
+        <div class="form-group"><label class="form-label">Entitas</label><select class="form-control-edit" id="editEntitas"><option value="PT">PT Elim Citra Offset</option><option value="DK">DK Offset</option></select><div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.2rem">Ubah entitas wajib approval Direktur, dan ditolak sistem kalau order ini sudah ada pengiriman/SJ.</div></div>
         <div class="modal-section">Item &amp; Harga</div>
         <div class="row g-2">
           <div class="col-8"><div class="form-group"><label class="form-label">Nama Item</label><input type="text" class="form-control-edit" id="editNamaItem" readonly style="text-transform:uppercase;background:#f5f7fb;color:var(--muted)" title="Item tidak bisa diganti lewat Edit — buat order baru jika item berbeda."/><div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.2rem">Item tidak bisa diganti di sini. Untuk item lain, buat order baru.</div></div></div>
@@ -890,6 +891,7 @@ function bukaModalEdit(){
   document.getElementById('editNoPo').value=orderAktif.no_po||'';
   document.getElementById('editDeadline').value=orderAktif.deadline?orderAktif.deadline.slice(0,10):'';
   document.getElementById('editKeterangan').value=orderAktif.keterangan||'';
+  document.getElementById('editEntitas').value=orderAktif.entitas||'PT';
   document.getElementById('editAlasan').value='';
   var harga=detailCache.length?(detailCache[0].harga||0):0;
   var namaItem=orderAktif.nama_item||(detailCache.length?detailCache[0].nama_item||'':'');
@@ -1055,8 +1057,11 @@ function simpanEdit(){
   }
   var newHarga=parseFloat(document.getElementById('editHarga').value)||0;
   var hargaLama=detailCache.length?(detailCache[0].harga||0):0;
+  var newEntitas=document.getElementById('editEntitas').value;
+  var entitasLama=orderAktif.entitas||'';
+  var entitasBerubah=newEntitas!==entitasLama;
 
-  var header={no_po:newNoPo,deadline:newDeadline,keterangan:newKet,nama_item:newNamaItem};
+  var header={no_po:newNoPo,deadline:newDeadline,keterangan:newKet,nama_item:newNamaItem,entitas:newEntitas};
   if(newHarga!==hargaLama) header.harga=newHarga;
 
   // Diff untuk log readable
@@ -1066,6 +1071,7 @@ function simpanEdit(){
   if(newKet!=(orderAktif.keterangan||'')) changes['Keterangan']={lama:orderAktif.keterangan||'',baru:newKet};
   if(newNamaItem!=(orderAktif.nama_item||'')) changes['Nama Item']={lama:orderAktif.nama_item||'',baru:newNamaItem};
   if(newHarga!==hargaLama) changes['Harga']={lama:hargaLama,baru:newHarga};
+  if(entitasBerubah) changes['Entitas']={lama:entitasLama,baru:newEntitas};
   rowsForLog.forEach(function(r){
     if(r.aksi==='Ubah'){
       if(r.qtyBaru!=r.qtyLama) changes['QTY '+r.subitem]={lama:r.qtyLama,baru:r.qtyBaru};
@@ -1083,7 +1089,7 @@ function simpanEdit(){
   // transaksi turunan (SPK/kirim/retur/produksi), selalu wajib DIREKTUR.
   // Selain itu (termasuk edit qty saat order masih PRODUKSI) cukup MANAGER.
   var adaRenameLocked=rowsForLog.some(function(r){return r.aksi==='RenameLocked';});
-  var levelApproval=(newHarga!==hargaLama||adaRenameLocked)?'DIREKTUR':'MANAGER';
+  var levelApproval=(newHarga!==hargaLama||adaRenameLocked||entitasBerubah)?'DIREKTUR':'MANAGER';
 
   // PENTING: kirim object mentah, JANGAN JSON.stringify manual — dbInsert sudah stringify body sekali.
   dbInsert('log_edit_order',{
@@ -1098,7 +1104,7 @@ function simpanEdit(){
     level_approval:levelApproval
   }).then(function(res){
     cekErrorSupabase(res);
-    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Perubahan diajukan. Menunggu approval '+(levelApproval==='DIREKTUR'?'Direktur (perubahan harga)':'Manager')+'.</div>';
+    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Perubahan diajukan. Menunggu approval '+(levelApproval==='DIREKTUR'?'Direktur (perubahan harga/entitas)':'Manager')+'.</div>';
     muatPendingEdit();
     setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();},1500);
   }).catch(function(e){
