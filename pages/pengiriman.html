@@ -96,6 +96,7 @@
     <option value="DK">DK Offset</option>
   </select>
   <button class="btn-tambah" onclick="bukaBuatPengiriman()">+ Buat Pengiriman</button>
+  <button class="btn-outline" onclick="bukaCariTracing()">🔍 Cari Item/PO</button>
   <button class="btn-outline" id="btnAntrianCetak" onclick="bukaAntrianCetak()">🖨 Antrian Cetak PC<span id="badgeAntrian" style="display:none"></span></button>
   <button class="btn-outline" id="btnApproveReprint" style="display:none" onclick="bukaApproveReprint()">🔔 Approve Reprint</button>
   <button class="btn-outline" id="btnLogReprint" style="display:none" onclick="bukaLogReprint()">📋 Log Reprint</button>
@@ -190,6 +191,28 @@
       </div>
       <div class="modal-body" id="detBody"><div class="loading">Memuat…</div></div>
       <div class="modal-footer" id="detFooter"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CARI TRACING (item / subitem / no PO — read-only) -->
+<div class="modal fade" id="modalCariTracing" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Cari Pengiriman — Item / Subitem / No. PO</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertCariTracing"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:.75rem">
+          <input type="text" class="form-control form-control-sm" id="trcNoPo" placeholder="No. PO Pelanggan"/>
+          <input type="text" class="form-control form-control-sm" id="trcNamaItem" placeholder="Nama Item"/>
+          <input type="text" class="form-control form-control-sm" id="trcSubitem" placeholder="Subitem"/>
+        </div>
+        <button class="btn-navy" style="width:100%;margin-bottom:.75rem" onclick="submitCariTracing()">Cari</button>
+        <div id="trcResultBody"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -314,6 +337,73 @@ function cekErrorSupabase(res){
   return res;
 }
 function getTahunDigit(){return String((new Date().getFullYear()-2018)%10);}
+
+// ── CARI TRACING (read-only: item / subitem / no PO -> riwayat kirim) ──
+function bukaCariTracing(){
+  document.getElementById('trcNoPo').value='';
+  document.getElementById('trcNamaItem').value='';
+  document.getElementById('trcSubitem').value='';
+  document.getElementById('trcResultBody').innerHTML='';
+  document.getElementById('alertCariTracing').innerHTML='';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCariTracing')).show();
+}
+async function submitCariTracing(){
+  var noPo=document.getElementById('trcNoPo').value.trim();
+  var namaItem=document.getElementById('trcNamaItem').value.trim();
+  var subitem=document.getElementById('trcSubitem').value.trim();
+  var alertBox=document.getElementById('alertCariTracing');
+  var box=document.getElementById('trcResultBody');
+  alertBox.innerHTML='';
+  if(!noPo&&!namaItem&&!subitem){
+    alertBox.innerHTML='<div class="alert-box alert-err">Isi minimal salah satu: No. PO / Nama Item / Subitem.</div>';
+    return;
+  }
+  box.innerHTML='<div class="loading">Mencari…</div>';
+  try{
+    var res=await dbRpc('get_tracing_order',{
+      p_no_po: noPo||null,
+      p_nama_item: namaItem||null,
+      p_subitem: subitem||null
+    });
+    cekErrorSupabase(res);
+    var rows=Array.isArray(res)?res:[];
+    if(!rows.length){box.innerHTML='<div class="loading">Tidak ditemukan.</div>';return;}
+    var urutOrder=[],byOrder={};
+    rows.forEach(function(r){
+      if(!byOrder[r.id_order]){byOrder[r.id_order]={header:r,urutDet:[],items:{}};urutOrder.push(r.id_order);}
+      var grp=byOrder[r.id_order];
+      if(!grp.items[r.id_detail]){grp.items[r.id_detail]={detail:r,kirim:[]};grp.urutDet.push(r.id_detail);}
+      if(r.id_sj)grp.items[r.id_detail].kirim.push(r);
+    });
+    var html='';
+    urutOrder.forEach(function(idOrder){
+      var grp=byOrder[idOrder];var h=grp.header;
+      html+='<div class="rp-item">';
+      html+='<div class="rp-row"><span class="rp-lbl">Order</span><span class="rp-val">'+esc(idOrder)+' — No.PO '+esc(h.no_po||'—')+'</span></div>';
+      html+='<div class="rp-row"><span class="rp-lbl">Pelanggan</span><span class="rp-val">'+esc(h.nama_pelanggan||'—')+' ('+esc(h.entitas||'—')+')</span></div>';
+      grp.urutDet.forEach(function(idDet){
+        var it=grp.items[idDet];
+        html+='<div style="margin-top:.5rem;padding-top:.4rem;border-top:1px dashed var(--border)">';
+        html+='<div style="font-family:var(--mono);font-size:.72rem;font-weight:600">'+esc(it.detail.nama_item||'—')+' — '+esc(it.detail.subitem||'—')+'</div>';
+        html+='<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-bottom:.3rem">Qty order: '+fmtAngka(it.detail.qty_order)+' | Terkirim: '+fmtAngka(it.detail.qty_kirim_total)+'</div>';
+        if(!it.kirim.length){
+          html+='<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">Belum ada pengiriman.</div>';
+        }else{
+          it.kirim.sort(function(a,b){return new Date(b.tgl_kirim||0)-new Date(a.tgl_kirim||0);});
+          it.kirim.forEach(function(k){
+            html+='<div class="rp-row" style="font-size:.68rem"><span class="rp-lbl">'+esc(k.no_sj)+' / '+esc(k.no_nota||'—')+'</span><span class="rp-val">'+fmtTgl(k.tgl_kirim)+' — '+fmtAngka(k.qty_kirim_baris)+'</span></div>';
+          });
+        }
+        html+='</div>';
+      });
+      html+='</div>';
+    });
+    box.innerHTML=html;
+  }catch(e){
+    alertBox.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+    box.innerHTML='';
+  }
+}
 
 // ── MUAT SJ ──
 function muatSJ(){

@@ -88,6 +88,13 @@
     .log-pending{background:#fff9c4;color:#827717;}
     .form-control-edit{font-family:var(--mono);font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;width:100%;color:var(--text);background:var(--surface);}
     .form-control-edit:focus{border-color:var(--navy);outline:none;}
+    /* Tracing pengiriman */
+    .trc-link{cursor:pointer;text-decoration:underline dotted;color:var(--navy);}
+    .trc-link:hover{color:var(--orange);}
+    .trc-item{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.55rem .75rem;margin-bottom:.5rem;}
+    .trc-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.72rem;padding:.15rem 0;}
+    .trc-lbl{color:var(--muted);}
+    .trc-val{text-align:right;}
   </style>
 </head>
 <body>
@@ -288,6 +295,16 @@
     <div class="modal-content">
       <div class="modal-header"><span class="modal-title" id="logTitle">Log Perubahan</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body" id="logBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TRACING PENGIRIMAN (read-only) -->
+<div class="modal fade" id="modalTracing" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><span class="modal-title" id="trcTitle">Riwayat Pengiriman</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="trcBody"><div class="loading">Memuat…</div></div>
     </div>
   </div>
 </div>
@@ -758,7 +775,7 @@ function renderDetail(order,details){
         '<td style="color:var(--muted);font-family:var(--mono);font-size:.68rem">'+(i+1)+'</td>'+
         '<td style="font-weight:500">'+esc(d.subitem||'—')+'</td>'+
         '<td style="font-family:var(--mono)">'+fmtAngka(qtyOrder)+(d.qty_dari_stok>0?'<div style="font-size:.62rem;color:var(--muted)">stok: '+fmtAngka(d.qty_dari_stok)+'</div>':'')+'</td>'+
-        '<td style="font-family:var(--mono)">'+fmtAngka(qtyKirim)+'</td>'+
+        '<td style="font-family:var(--mono)">'+(qtyKirim>0?'<span class="trc-link" onclick="bukaTracing(\''+esc(d.id_detail)+'\',\''+esc(d.subitem||'')+'\')" title="Lihat riwayat pengiriman">'+fmtAngka(qtyKirim)+' 🚚</span>':fmtAngka(qtyKirim))+'</td>'+
         '<td style="font-family:var(--mono)" class="'+(sisaItem>0?'dtl-sisa-warn':'dtl-sisa-ok')+'">'+fmtAngka(Math.max(0,sisaItem))+'</td>'+
         '<td style="font-family:var(--mono)">'+esc(d.satuan)+'</td>'+
         '<td>'+stBadge+progressHtml+'</td>'+
@@ -1228,6 +1245,36 @@ function bukaModalLog(){
     document.getElementById('logBody').innerHTML=html;
   }).catch(function(){
     document.getElementById('logBody').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat.</div>';
+  });
+}
+
+// ── TRACING PENGIRIMAN (read-only, dipanggil dari qty Terkirim) ──
+function bukaTracing(idDetail,labelSubitem){
+  document.getElementById('trcTitle').textContent='Riwayat Pengiriman — '+(labelSubitem||idDetail);
+  document.getElementById('trcBody').innerHTML='<div class="loading">Memuat…</div>';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTracing')).show();
+  dbRpc('get_tracing_order',{p_id_detail:idDetail}).then(function(res){
+    cekErrorSupabase(res);
+    var rows=Array.isArray(res)?res:[];
+    var kirimRows=rows.filter(function(r){return r.id_sj;});
+    var box=document.getElementById('trcBody');
+    if(!kirimRows.length){
+      box.innerHTML='<div style="font-family:var(--mono);font-size:.78rem;color:var(--muted);text-align:center;padding:1.5rem">Belum ada pengiriman untuk subitem ini.</div>';
+      return;
+    }
+    kirimRows.sort(function(a,b){return new Date(b.tgl_kirim||0)-new Date(a.tgl_kirim||0);});
+    var html='';
+    kirimRows.forEach(function(r){
+      html+='<div class="trc-item">'+
+        '<div class="trc-row"><span class="trc-lbl">No. SJ / Nota</span><span class="trc-val">'+esc(r.no_sj||r.id_sj)+' / '+esc(r.no_nota||'—')+'</span></div>'+
+        '<div class="trc-row"><span class="trc-lbl">Tanggal Kirim</span><span class="trc-val">'+fmtTgl(r.tgl_kirim)+'</span></div>'+
+        '<div class="trc-row"><span class="trc-lbl">Qty Terkirim</span><span class="trc-val">'+fmtAngka(r.qty_kirim_baris)+'</span></div>'+
+        '<div class="trc-row"><span class="trc-lbl">Status SJ</span><span class="trc-val">'+esc(r.status_sj||'—')+'</span></div>'+
+      '</div>';
+    });
+    box.innerHTML=html;
+  }).catch(function(e){
+    document.getElementById('trcBody').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem;padding:1rem">Gagal memuat: '+esc(e.message)+'</div>';
   });
 }
 
