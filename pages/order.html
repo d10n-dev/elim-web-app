@@ -102,7 +102,7 @@
 <div id="navRoot"></div>
 
 <div class="toolbar">
-  <input type="text" id="cariInput" placeholder="Cari pelanggan atau No. PO…" oninput="filterTabel()"/>
+  <input type="text" id="cariInput" placeholder="Cari pelanggan, No. PO, atau nama item…" oninput="filterTabel()"/>
   <select id="filterStatus" onchange="filterTabel()">
     <option value="">Semua Status</option>
     <option value="BARU">Baru</option>
@@ -114,6 +114,11 @@
     <option value="SELESAI">Selesai</option>
     <option value="BATAL">Batal</option>
   </select>
+  <select id="filterEntitas" onchange="filterTabel()">
+    <option value="">PT &amp; DK</option>
+    <option value="PT">PT Elim</option>
+    <option value="DK">DK Offset</option>
+  </select>
   <button class="btn-sort" id="btnSort" onclick="toggleSort()" title="Urutan tanggal">↓ Terbaru</button>
   <button class="btn-tambah" onclick="bukaModalTambah()">+ Tambah Order</button>
   <button class="btn-pending" onclick="bukaModalPending()">⏳ Pending Edit<span class="pending-badge" id="pendingCount" style="display:none">0</span></button>
@@ -123,7 +128,7 @@
 <div class="tbl-wrap">
   <table>
     <thead><tr>
-      <th>ID Order</th><th>Pelanggan</th><th>Item</th><th>No. PO</th>
+      <th>ID Order</th><th>Entitas</th><th>Pelanggan</th><th>Item</th><th>No. PO</th>
       <th>Tgl Order</th><th>Deadline</th><th>Status</th><th></th>
     </tr></thead>
     <tbody id="bodyOrder"><tr class="empty-row"><td colspan="8">Memuat…</td></tr></tbody>
@@ -417,10 +422,11 @@ function setDefaultDeadline(){
 function renderTabel(data){
   document.getElementById('infoBar').textContent=data.length+' dari '+semuaOrder.length+' order';
   var tbody=document.getElementById('bodyOrder');
-  if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">Tidak ada data order.</td></tr>';return;}
+  if(!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="9">Tidak ada data order.</td></tr>';return;}
   tbody.innerHTML=data.map(function(o){
     return '<tr>'+
       '<td class="td-id">'+esc(o.id_order)+'</td>'+
+      '<td><span style="font-family:var(--mono);font-size:.68rem;font-weight:700;padding:.1rem .4rem;border-radius:3px;background:'+(o.entitas==='DK'?'#fdecea;color:#c0392b':'#eaf2fd;color:#1a2744')+'">'+esc(o.entitas||'—')+'</span></td>'+
       '<td style="font-weight:500">'+esc(o.nama_pelanggan)+'</td>'+
       '<td style="font-size:.78rem">'+esc(o.nama_item||'—')+'</td>'+
       '<td style="font-family:var(--mono);font-size:.72rem">'+(o.no_po||'<span style="color:var(--muted)">—</span>')+'</td>'+
@@ -444,9 +450,11 @@ function kelasBadge(s){
 function filterTabel(){
   var q=document.getElementById('cariInput').value.toLowerCase();
   var st=document.getElementById('filterStatus').value;
+  var ent=document.getElementById('filterEntitas').value;
   var filtered=semuaOrder.filter(function(o){
-    return(!q||(o.nama_pelanggan||'').toLowerCase().includes(q)||(o.no_po||'').toLowerCase().includes(q)||(o.id_order||'').toLowerCase().includes(q))
-      &&(!st||o.status===st);
+    return(!q||(o.nama_pelanggan||'').toLowerCase().includes(q)||(o.no_po||'').toLowerCase().includes(q)||(o.id_order||'').toLowerCase().includes(q)||(o.nama_item||'').toLowerCase().includes(q))
+      &&(!st||o.status===st)
+      &&(!ent||o.entitas===ent);
   });
   filtered.sort(function(a,b){
     var ta=new Date(a.tgl_order||0).getTime();
@@ -741,7 +749,9 @@ function renderDetail(order,details){
   var harga=details.length?(details[0].harga||0):0;
   var namaItem=order.nama_item||(details.length?(details[0].nama_item||''):'')|| '—';
   var html='<div class="kv-list">'+
-    kv('Pelanggan',order.nama_pelanggan)+kv('Item',namaItem)+
+    kv('Pelanggan',order.nama_pelanggan)+
+    kv('Entitas','<span style="font-family:var(--mono);font-weight:700;padding:.1rem .4rem;border-radius:3px;background:'+(order.entitas==='DK'?'#fdecea;color:#c0392b':'#eaf2fd;color:#1a2744')+'">'+esc(order.entitas||'—')+'</span>')+
+    kv('Item',namaItem)+
     kv('No. PO',order.no_po||'—')+kv('Tgl. Order',fmtTgl(order.tgl_order))+
     kv('Deadline',fmtTgl(order.deadline))+
     kv('Status','<span class="badge-status '+kelasBadge(order.status)+'">'+esc(order.status)+'</span>')+
