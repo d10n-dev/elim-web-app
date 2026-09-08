@@ -669,12 +669,22 @@
         // Update header
         const resUpd = await dbUpdate('m_bom', { id_item: 'eq.' + idItem }, { keterangan, tanpa_cetak: tanpaCetak });
         if (resUpd && resUpd.code) throw new Error('Update header: ' + resUpd.message);
-        // Hapus semua detail lama
-        await Promise.allSettled([
+        // Hapus semua detail lama — HARUS dicek hasilnya satu-satu.
+        // dbFetch tidak throw pada HTTP error, jadi kegagalan (mis. FK
+        // violation karena baris masih dipakai log_produksi) akan lolos
+        // diam-diam kalau tidak dicek di sini, lalu insert di bawah akan
+        // menumpuk baris baru di atas baris lama yang gagal terhapus.
+        const [delTinta, delBahan, delFinishing] = await Promise.all([
           dbDelete('m_bom_tinta',     { id_item: 'eq.' + idItem }),
           dbDelete('m_bom_bahan',     { id_item: 'eq.' + idItem }),
           dbDelete('m_bom_finishing', { id_item: 'eq.' + idItem })
         ]);
+        if (delTinta && delTinta.code)
+          throw new Error('Tinta lama gagal dihapus (kemungkinan sudah dipakai di produksi): ' + delTinta.message);
+        if (delBahan && delBahan.code)
+          throw new Error('Bahan lama gagal dihapus (kemungkinan sudah dipakai di produksi): ' + delBahan.message);
+        if (delFinishing && delFinishing.code)
+          throw new Error('Finishing lama gagal dihapus (kemungkinan sudah dipakai di produksi): ' + delFinishing.message);
       } else {
         // Insert header baru
         const resIns = await dbInsert('m_bom', { id_item: idItem, keterangan, tanpa_cetak: tanpaCetak });
