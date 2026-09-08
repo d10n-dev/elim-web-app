@@ -655,6 +655,35 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════
+     MODAL: BATAL ALOKASI (DIREKTUR) — untuk closure manual/legacy
+════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="modalBatalAlokasi" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" style="font-family:var(--mono)">Batal Alokasi</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="baInfo" style="font-family:var(--mono);font-size:.78rem;margin-bottom:.6rem;padding:.6rem .75rem;background:var(--surface);border-radius:6px;border:1px solid var(--border)"></div>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.7rem">
+          Hanya untuk closure manual/legacy (tanpa link nota asli). Kalau baris ini ternyata
+          sudah tertaut ke Tunai Masuk / Kas Kecil / Setoran / Pembayaran / Mutasi Antar-Entitas,
+          sistem akan menolak — batalkan lewat mekanisme masing-masing.
+        </div>
+        <label style="font-family:var(--mono);font-size:.75rem;font-weight:600">Alasan Pembatalan <span style="color:var(--red)">*</span></label>
+        <textarea id="baAlasan" class="form-control form-control-sm mt-1 mb-2" rows="3" style="font-family:var(--mono);font-size:.78rem" placeholder="Contoh: nota XYZ ternyata sudah ter-import, mau dialokasikan ulang dengan link asli"></textarea>
+        <div id="baErr" style="display:none;margin-top:.4rem;font-family:var(--mono);font-size:.75rem;color:var(--red)"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="baSimpanBtn" onclick="simpanBatalAlokasi()">Batalkan Alokasi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
      MODAL: IMPORT CSV BCA
 ════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalImportCsv" tabindex="-1">
@@ -1966,7 +1995,8 @@ async function muatDone(reset) {
   rows.forEach(function(r) {
     rowStore[r.id] = r;
     var isDir = roleUser === 'DIREKTUR';
-    var aksi = isDir ? '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button>' : '';
+    var aksi = isDir ? '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ' +
+      '<button class="btn-sm-action" style="color:var(--red);border-color:#f5a8a8" onclick="bukaBatalAlokasi(\'' + r.id + '\')" title="Batal Alokasi">↩️ Batal</button>' : '';
     html += '<tr data-rid="' + r.id + '">' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
       '<td>' + badgeRek(r.id_rekening) + '</td>' +
@@ -2015,6 +2045,48 @@ async function simpanKeterangan() {
   var activeTab = document.querySelector('.tab-btn.active').dataset.tab;
   if (activeTab === 'koran') muatKoran(true);
   else if (activeTab === 'done') muatDone(true);
+}
+
+// ── BATAL ALOKASI (DIREKTUR) ──────────────────────────────────
+var baSelectedId = null;
+
+function bukaBatalAlokasi(id) {
+  baSelectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('baInfo').innerHTML =
+    'ID: ' + h(id) + ' | ' + fmtTgl(r.tgl_transaksi) + ' | ' + fmtRp(r.nominal) + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span><br>' +
+    '<span style="font-size:.7rem;color:var(--muted)">Keterangan saat ini: ' + h(r.keterangan_manual) + '</span>';
+  document.getElementById('baAlasan').value = '';
+  document.getElementById('baErr').style.display = 'none';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBatalAlokasi')).show();
+}
+
+async function simpanBatalAlokasi() {
+  var alasan = document.getElementById('baAlasan').value.trim();
+  var elErr  = document.getElementById('baErr');
+  var btn    = document.getElementById('baSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!alasan) { elErr.textContent = 'Alasan wajib diisi.'; elErr.style.display = ''; return; }
+  if (!confirm('Batalkan alokasi baris ini? Baris akan kembali ke status belum/sebagian dialokasi.')) return;
+
+  btn.disabled = true; btn.textContent = 'Memproses…';
+  var res = await dbRpc('batal_alokasi_direktur', {
+    p_id_bank_stmt: baSelectedId,
+    p_alasan: alasan,
+    p_user_input: getUser()
+  });
+  btn.disabled = false; btn.textContent = 'Batalkan Alokasi';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalBatalAlokasi')).hide();
+  muatRekap();
+  muatDone(true);
+  muatBelum();
 }
 
 // ── TAB NAVIGATION ──────────────────────────────────────────
