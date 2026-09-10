@@ -67,6 +67,7 @@
   <button class="tab-btn"        data-tab="pembelian" onclick="gantiTab('pembelian')">🛒 Pembelian</button>
   <button class="tab-btn"        data-tab="produksi"  onclick="gantiTab('produksi')">🏭 Produksi</button>
   <button class="tab-btn"        data-tab="lebihorder" onclick="gantiTab('lebihorder')">⚠ SPK Lebih Order</button>
+  <button class="tab-btn"        data-tab="nilaistok" onclick="gantiTab('nilaistok')">💰 Nilai Stok</button>
 </div>
 
 <!-- ═══ TAB PIUTANG ═══ -->
@@ -348,6 +349,42 @@
   </div>
 </div>
 
+<!-- ═══ TAB NILAI STOK ═══ -->
+<div class="tab-pane print-area" id="tabNilaistok">
+  <div class="toolbar">
+    <select id="nsFilterKategori" onchange="renderNilaiStok()">
+      <option value="">Semua Kategori</option>
+      <option value="BAHAN">Bahan Baku</option>
+      <option value="TINTA">Tinta</option>
+      <option value="SPAREPART">Sparepart</option>
+    </select>
+    <input type="text" id="nsCari" placeholder="🔍 Cari nama item…" oninput="renderNilaiStok()" style="min-width:200px"/>
+    <label style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:center">Per Tanggal (opsional):</label>
+    <input type="date" id="nsAsOfTgl"/>
+    <button class="btn-primary" onclick="muatNilaiStok()">Tampilkan</button>
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+  </div>
+  <div id="alertNilaiStok"></div>
+  <div class="rekap-grid" id="cardsNilaiStok">
+    <div class="rekap-card"><div class="lbl">Nilai Bahan Baku</div><div class="val" id="nsTotalBahan">…</div></div>
+    <div class="rekap-card"><div class="lbl">Nilai Tinta</div><div class="val" id="nsTotalTinta">…</div></div>
+    <div class="rekap-card"><div class="lbl">Nilai Sparepart</div><div class="val" id="nsTotalSparepart">…</div></div>
+    <div class="rekap-card"><div class="lbl">Grand Total</div><div class="val" id="nsGrandTotal">…</div></div>
+  </div>
+  <div class="sec-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:.3rem 0">Rincian Nilai Stok per Item (rata-rata tertimbang)</div>
+  <div style="overflow-x:auto">
+    <table class="tbl-laporan">
+      <thead>
+        <tr>
+          <th>Kategori</th><th>Nama Item</th><th>Satuan</th>
+          <th class="td-right">Saldo Qty</th><th class="td-right">Harga Rata²</th><th class="td-right">Nilai Total</th>
+        </tr>
+      </thead>
+      <tbody id="bodyNilaiStok"><tr><td colspan="6" class="empty-state">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/utils.js"></script>
@@ -442,6 +479,7 @@ window.addEventListener('load', function () {
   document.getElementById('pdTglSampai').value = hariIni.toISOString().slice(0,10);
   muatProduksi();
   muatLebihOrder();
+  muatNilaiStok();
 });
 
 function gantiTab(nama){
@@ -897,6 +935,58 @@ function exportHutangDetail(){
   });
   downloadCSV('detail_hutang_'+Date.now()+'.csv',
     ['Supplier','Entitas','No Nota','Tanggal','Jatuh Tempo','Bucket','Total Tagihan','Dibayar','Sisa','Status'], out);
+}
+
+// ═══ NILAI STOK ═══
+var nsData = [];
+function muatNilaiStok(){
+  document.getElementById('bodyNilaiStok').innerHTML = '<tr><td colspan="6" class="empty-state">Memuat…</td></tr>';
+  showAlert('alertNilaiStok','');
+  var asOf = document.getElementById('nsAsOfTgl').value || null;
+  dbRpc('get_nilai_stok_berjalan', { p_as_of_tgl: asOf }).then(function(res){
+    var err = cekErrorSupabase(res);
+    if (err) throw new Error(err);
+    nsData = Array.isArray(res) ? res : [];
+    renderNilaiStok();
+  }).catch(function(e){
+    showAlert('alertNilaiStok', 'Gagal memuat: '+e.message, 'danger');
+    document.getElementById('bodyNilaiStok').innerHTML = '<tr><td colspan="6" class="empty-state">Gagal memuat.</td></tr>';
+  });
+}
+
+function renderNilaiStok(){
+  var kat = document.getElementById('nsFilterKategori').value;
+  var cari = (document.getElementById('nsCari').value||'').toLowerCase();
+  var data = nsData.filter(function(d){
+    return (!kat || d.kategori===kat) && (!cari || (d.nama_item||'').toLowerCase().indexOf(cari)>=0);
+  });
+
+  var totalBahan=0, totalTinta=0, totalSparepart=0;
+  nsData.forEach(function(d){
+    if(d.kategori==='BAHAN') totalBahan += Number(d.nilai_total||0);
+    else if(d.kategori==='TINTA') totalTinta += Number(d.nilai_total||0);
+    else if(d.kategori==='SPAREPART') totalSparepart += Number(d.nilai_total||0);
+  });
+  document.getElementById('nsTotalBahan').textContent = fmtRupiah(totalBahan);
+  document.getElementById('nsTotalTinta').textContent = fmtRupiah(totalTinta);
+  document.getElementById('nsTotalSparepart').textContent = fmtRupiah(totalSparepart);
+  document.getElementById('nsGrandTotal').textContent = fmtRupiah(totalBahan+totalTinta+totalSparepart);
+
+  var tbody = document.getElementById('bodyNilaiStok');
+  if (!data.length){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Tidak ada data.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(function(d){
+    return '<tr>'+
+      '<td class="td-mono">'+esc(d.kategori)+'</td>'+
+      '<td>'+esc(d.nama_item)+'</td>'+
+      '<td class="td-mono">'+esc(d.satuan||'')+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngkaLap(d.saldo_qty)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(d.harga_rata2)+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(d.nilai_total)+'</td>'+
+    '</tr>';
+  }).join('');
 }
 </script>
 </body>
