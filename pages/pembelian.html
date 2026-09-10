@@ -100,6 +100,7 @@
     <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">📑 Faktur Pajak Masukan</button>
     <button class="tab-btn" data-tab="supplier" onclick="gantiTab('supplier')">🏭 Supplier</button>
     <button class="tab-btn" data-tab="riwayat" onclick="gantiTab('riwayat')">🗑️ Riwayat Void/Edit</button>
+    <button class="tab-btn" data-tab="alokasiumum" onclick="gantiTab('alokasiumum')">🎨 Alokasi Tinta/Sparepart</button>
   </div>
 
   <!-- ============== TAB: REKAP ============== -->
@@ -241,6 +242,23 @@
       </tr></thead>
       <tbody id="riwayatTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
     </table>
+    </div>
+  </div>
+
+  <!-- ============== TAB: ALOKASI TINTA/SPAREPART ============== -->
+  <div class="tab-pane" id="tabAlokasiumum">
+    <div class="info-bar">Hubungkan baris nota pembelian ke stok Tinta/Sparepart. Qty langsung sesuai satuan beli (tanpa formula konversi lembar).</div>
+    <div class="toolbar">
+      <input type="text" class="form-control" id="auCari" placeholder="🔍 Cari nama item nota / no. nota…" autocomplete="off" oninput="renderAlokasiUmum()" style="flex:1;min-width:200px"/>
+      <button class="btn-outline" onclick="muatAlokasiUmum()">Muat Ulang</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>No. Nota</th><th>Item (sesuai nota)</th><th class="td-right">Jumlah Beli</th><th>Alokasi Saat Ini</th><th></th>
+        </tr></thead>
+        <tbody id="auTbody"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
+      </table>
     </div>
   </div>
 
@@ -773,6 +791,48 @@
   </div>
 </div>
 
+<!-- ============== MODAL: ALOKASI TINTA/SPAREPART ============== -->
+<div class="modal fade" id="modalAlokasiUmum" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Alokasi ke Stok Tinta/Sparepart</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertAlokasiUmum"></div>
+        <div class="mb-2">
+          <div class="df-lbl">Item Nota</div>
+          <div class="df-val" id="auNamaNota">—</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.75rem">Tipe *</label>
+          <select class="form-select" id="auTipe" onchange="auGantiTipe()">
+            <option value="TINTA">Tinta</option>
+            <option value="SPAREPART">Sparepart</option>
+          </select>
+        </div>
+        <div class="mb-3" style="position:relative">
+          <label class="form-label" style="font-size:.75rem">Cari Item *</label>
+          <input type="text" class="form-control" id="auCariItem" placeholder="Ketik nama item…" autocomplete="off">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.75rem">Qty *</label>
+          <input type="number" class="form-control" id="auQty" step="any" placeholder="0">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.75rem">Keterangan</label>
+          <input type="text" class="form-control" id="auKeterangan" placeholder="opsional">
+        </div>
+        <div class="d-flex gap-2 justify-content-end mt-3">
+          <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+          <button class="btn-navy" id="btnSimpanAlokasiUmum" onclick="simpanAlokasiUmum()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
@@ -990,6 +1050,7 @@ function muatSemuaData(){
   muatAlokasiBankList();
   muatFakturList();
   muatRiwayat();
+  muatAlokasiUmum();
 }
 
 // ============================================================
@@ -3124,6 +3185,128 @@ function renderSupplierTable(){
 function bukaEditSupplierById(id){
   var s=(window._supplierCacheTable||[]).find(function(x){return x.id_supplier===id;});
   if(s) bukaEditSupplier(s);
+}
+
+// ============================================================
+// TAB: ALOKASI TINTA/SPAREPART
+// ============================================================
+var auData = [];
+var auCacheTinta = [];
+var auCacheSparepart = [];
+var auRowAktif = null;
+var modalAlokasiUmumInst;
+
+function muatAlokasiUmum(){
+  document.getElementById('auTbody').innerHTML = '<tr><td colspan="5" class="loading">Memuat…</td></tr>';
+  dbRpc('get_pembelian_detail_untuk_alokasi_umum', { p_limit: 200 }).then(function(res){
+    var err = cekErrorSupabase(res);
+    if (err) throw new Error(err);
+    auData = Array.isArray(res) ? res : [];
+    renderAlokasiUmum();
+  }).catch(function(e){
+    document.getElementById('auTbody').innerHTML = '<tr><td colspan="5" class="loading">Gagal: '+esc(e.message)+'</td></tr>';
+  });
+}
+
+function renderAlokasiUmum(){
+  var q = (document.getElementById('auCari').value||'').toLowerCase();
+  var data = !q ? auData : auData.filter(function(d){
+    return (d.nama_item_nota||'').toLowerCase().indexOf(q)>=0 || (d.no_nota||'').toLowerCase().indexOf(q)>=0;
+  });
+  var tbody = document.getElementById('auTbody');
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="5" class="loading">Tidak ada data.</td></tr>'; return; }
+  tbody.innerHTML = data.map(function(d){
+    var alokasiHtml = (d.alokasi||[]).length ? d.alokasi.map(function(a){
+      return '<div class="badge-ok" style="margin-bottom:.2rem">'+esc(a.nama_item||a.id_item)+' · '+fmtAngka(a.qty)+
+        ' <span style="cursor:pointer" onclick="hapusAlokasiUmum(\''+esc(a.id_alokasi)+'\')" title="Hapus">✕</span></div>';
+    }).join('') : '<span style="color:var(--muted);font-size:.72rem">belum dialokasi</span>';
+    return '<tr>'+
+      '<td class="td-mono">'+esc(d.no_nota||d.id_pembelian)+'</td>'+
+      '<td>'+esc(d.nama_item_nota)+'</td>'+
+      '<td class="td-right td-mono">'+fmtAngka(d.jumlah)+' '+esc(d.satuan)+'</td>'+
+      '<td>'+alokasiHtml+'</td>'+
+      '<td><button class="btn-sm-action" onclick=\'bukaModalAlokasiUmum('+JSON.stringify({id_pbldet:d.id_pbldet, nama_item_nota:d.nama_item_nota, jumlah:d.jumlah, satuan:d.satuan})+')\'>+ Alokasi</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function muatCacheTintaSparepart(){
+  var p1 = auCacheTinta.length ? Promise.resolve() : dbGet('m_tinta',{select:'id_tinta,nama_tinta,satuan',status:'eq.AKTIF',order:'nama_tinta.asc'}).then(function(r){ auCacheTinta = Array.isArray(r)?r:[]; });
+  var p2 = auCacheSparepart.length ? Promise.resolve() : dbGet('m_sparepart',{select:'id_sparepart,nama_sparepart,satuan',status:'eq.AKTIF',order:'nama_sparepart.asc'}).then(function(r){ auCacheSparepart = Array.isArray(r)?r:[]; });
+  return Promise.all([p1,p2]);
+}
+
+function bukaModalAlokasiUmum(row){
+  auRowAktif = row;
+  if (!modalAlokasiUmumInst) modalAlokasiUmumInst = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiUmum'));
+  document.getElementById('alertAlokasiUmum').innerHTML = '';
+  document.getElementById('auNamaNota').textContent = row.nama_item_nota + ' — '+fmtAngka(row.jumlah)+' '+row.satuan;
+  document.getElementById('auTipe').value = 'TINTA';
+  document.getElementById('auCariItem').value = '';
+  document.getElementById('auQty').value = row.jumlah;
+  document.getElementById('auKeterangan').value = '';
+  auItemTerpilih = null;
+  muatCacheTintaSparepart().then(function(){ auInitAC(); });
+  modalAlokasiUmumInst.show();
+}
+
+var auItemTerpilih = null;
+function auGantiTipe(){
+  document.getElementById('auCariItem').value = '';
+  auItemTerpilih = null;
+  auInitAC();
+}
+
+function auInitAC(){
+  var lama = document.getElementById('auCariItem');
+  var baru = lama.cloneNode(true);
+  lama.parentNode.replaceChild(baru, lama);
+  var tipe = document.getElementById('auTipe').value;
+  var arr = tipe==='TINTA' ? auCacheTinta : auCacheSparepart;
+  var idKey = tipe==='TINTA' ? 'id_tinta' : 'id_sparepart';
+  var namaKey = tipe==='TINTA' ? 'nama_tinta' : 'nama_sparepart';
+  buatAC(baru, document.getElementById('bahanAcDrop'), arr, idKey, namaKey, function(d){
+    auItemTerpilih = { id_item: d[idKey], nama_item: d[namaKey] };
+  });
+}
+
+function simpanAlokasiUmum(){
+  var tipe = document.getElementById('auTipe').value;
+  var qty = parseFloat(document.getElementById('auQty').value);
+  var ket = document.getElementById('auKeterangan').value.trim();
+  if (!auItemTerpilih) return tampilErrAlokasiUmum('Pilih item dari daftar pencarian dulu.');
+  if (!qty || qty<=0) return tampilErrAlokasiUmum('Qty harus lebih dari 0.');
+
+  var btn = document.getElementById('btnSimpanAlokasiUmum');
+  btn.textContent='Menyimpan...'; btn.disabled=true;
+
+  dbRpc('alokasi_pembelian_umum', {
+    p_id_pbldet: auRowAktif.id_pbldet,
+    p_tipe_item: tipe,
+    p_id_item: auItemTerpilih.id_item,
+    p_qty: qty,
+    p_keterangan: ket || null,
+    p_user_input: getNamaUser()
+  }).then(function(res){
+    var err = cekErrorSupabase(res);
+    if (err) throw new Error(err);
+    modalAlokasiUmumInst.hide();
+    muatAlokasiUmum();
+  }).catch(function(e){ tampilErrAlokasiUmum(e.message); })
+  .finally(function(){ btn.textContent='Simpan'; btn.disabled=false; });
+}
+
+function tampilErrAlokasiUmum(msg){
+  document.getElementById('alertAlokasiUmum').innerHTML = '<div class="alert alert-danger py-2" style="font-size:.78rem">'+esc(msg)+'</div>';
+}
+
+function hapusAlokasiUmum(idAlokasi){
+  if (!confirm('Hapus alokasi ini? Stok akan direversal otomatis.')) return;
+  dbRpc('hapus_alokasi_pembelian_umum', { p_id_alokasi: idAlokasi, p_user_input: getNamaUser() }).then(function(res){
+    var err = cekErrorSupabase(res);
+    if (err) throw new Error(err);
+    muatAlokasiUmum();
+  }).catch(function(e){ alert('Gagal hapus: '+e.message); });
 }
 </script>
 </body>
