@@ -1603,7 +1603,7 @@ function hapusBarisItem(idx){
 }
 
 function tambahBarisAlokasi(idxItem){
-  itemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',keterangan:''});
+  itemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',lembar_dipakai:'',keterangan:''});
   renderItemBaris();
 }
 
@@ -1616,14 +1616,15 @@ function hapusBarisAlokasi(idxItem,idxAlokasi){
 // saat mengetik. Hanya update data model + label hasil via textContent.
 function updateAlokasiBaris(idxItem,idxAlokasi,field,val){
   itemBaris[idxItem].alokasi[idxAlokasi][field]=val;
-  if(field==='pps_per_lembar'){
+  if(field==='pps_per_lembar'||field==='lembar_dipakai'){
     var it=itemBaris[idxItem];
-    var jumlahItem=parseFloat(it.jumlah)||0;
-    var konversi=parseFloat(it.konversi_lembar)||1;
-    var totalLembar=jumlahItem*konversi;
-    var qtyHasil=totalLembar*(parseFloat(val)||0);
+    var a=it.alokasi[idxAlokasi];
+    var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
     var lbl=document.getElementById('hasilPcs_'+idxItem+'_'+idxAlokasi);
     if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    perbaruiSisaLembar('sisaLembarInfo_'+idxItem, jumlahItem*konversi, it.alokasi);
   }
 }
 
@@ -1643,16 +1644,20 @@ function renderItemBaris(){
     var konversi=parseFloat(it.konversi_lembar)||1;
     var totalLembar=jumlahItem*konversi;
 
+    var totalDipakai=hitungTotalLembarDipakai(it.alokasi);
     var alokasiHtml=it.alokasi.map(function(a,ai){
-      var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+      var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
       var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||'';
-      return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+      return '<div style="display:grid;grid-template-columns:1fr 80px 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
         '<div style="position:relative">'+
           '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="add" data-idxitem="'+i+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
           '<div id="hasilPcs_'+i+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
         '</div>'+
         '<div>'+
           '<input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateAlokasiBaris('+i+','+ai+',\'pps_per_lembar\',this.value)"/>'+
+        '</div>'+
+        '<div>'+
+          '<input type="number" class="form-control form-control-sm" placeholder="lbr dipakai" value="'+a.lembar_dipakai+'" oninput="updateAlokasiBaris('+i+','+ai+',\'lembar_dipakai\',this.value)"/>'+
         '</div>'+
         '<button type="button" onclick="hapusBarisAlokasi('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
       '</div>';
@@ -1684,9 +1689,12 @@ function renderItemBaris(){
         '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="totalLembarInfo_'+i+'">'+
           'Total: '+fmtAngka(totalLembar)+' lembar'+
         '</div>'+
+        '<div class="col-12" style="font-family:var(--mono);font-size:.68rem" id="sisaLembarInfo_'+i+'">'+
+          htmlSisaLembar(totalLembar-totalDipakai)+
+        '</div>'+
       '</div>'+
       '<div style="font-size:.68rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">'+
-        '↳ Hasil Potong / Alokasi Stok (opsional — kosongkan jika item ini non-stok, mis. ATK/jasa)'+
+        '↳ Hasil Potong / Alokasi Stok (opsional — kosongkan jika item ini non-stok, mis. ATK/jasa). Total "lbr dipakai" semua baris harus PAS dgn total lembar.'+
       '</div>'+
       alokasiHtml+
       '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.3rem .6rem" onclick="tambahBarisAlokasi('+i+')">+ Tambah Hasil Potong</button>'+
@@ -1708,11 +1716,7 @@ function updateKonversiLembar(idx,val){
   var totalLembar=jumlahItem*konversi;
   var elTotal=document.getElementById('totalLembarInfo_'+idx);
   if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
-  it.alokasi.forEach(function(a,ai){
-    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
-    var lbl=document.getElementById('hasilPcs_'+idx+'_'+ai);
-    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
-  });
+  perbaruiSisaLembar('sisaLembarInfo_'+idx, totalLembar, it.alokasi);
 }
 
 // Dipanggil dari dropdown (onchange) — boleh render ulang penuh, krn
@@ -1744,11 +1748,7 @@ function updateItemBaris(idx,field,val){
       var totalLembar=jumlahItem*konversi;
       var elTotal=document.getElementById('totalLembarInfo_'+idx);
       if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
-      it.alokasi.forEach(function(a,ai){
-        var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
-        var lbl=document.getElementById('hasilPcs_'+idx+'_'+ai);
-        if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
-      });
+      perbaruiSisaLembar('sisaLembarInfo_'+idx, totalLembar, it.alokasi);
     }
     updateTotalItem();
     updateKalkulasiPPN();
@@ -1756,6 +1756,45 @@ function updateItemBaris(idx,field,val){
 }
 
 function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
+
+// ============================================================
+// VALIDASI SPLIT ALOKASI STOK — dipakai di 4 tempat (tambah item,
+// edit item, alokasi susulan, koreksi). Sebelumnya tiap baris
+// "Hasil Potong" pakai totalLembar PENUH (bug: 60rb lembar dgn 2
+// baris hasil = 60rb + 120rb pcs, padahal fisiknya cuma 60rb lembar).
+// Sekarang tiap baris punya lembar_dipakai sendiri, dan totalnya
+// WAJIB pas dgn total lembar item (tidak boleh kurang/lebih).
+// ============================================================
+function hitungTotalLembarDipakai(alokasiArr){
+  return (alokasiArr||[]).reduce(function(s,a){
+    return s + ((a.id_bahan && a.pps_per_lembar) ? (parseFloat(a.lembar_dipakai)||0) : 0);
+  },0);
+}
+function htmlSisaLembar(sisa){
+  var pas=Math.abs(sisa)<0.01;
+  var warna = pas ? '#1a7a3c' : '#c0392b';
+  return 'Sisa belum dialokasikan: <b style="color:'+warna+'">'+fmtAngka(sisa)+' lembar</b>'+(pas?' ✓':'');
+}
+function perbaruiSisaLembar(elId, totalLembar, alokasiArr){
+  var el=document.getElementById(elId);
+  if(!el) return;
+  el.innerHTML=htmlSisaLembar(totalLembar-hitungTotalLembarDipakai(alokasiArr));
+}
+// Dipanggil sebelum submit. items: [{totalLembar, alokasiValid, nama}]. Return pesan error atau null.
+function cekValidasiSplitLembar(items){
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    if(!it.alokasiValid.length) continue; // item non-stok, skip
+    var dipakai=it.alokasiValid.reduce(function(s,a){return s+(parseFloat(a.lembar_dipakai)||0);},0);
+    var sisa=it.totalLembar-dipakai;
+    if(Math.abs(sisa)>=0.01){
+      return 'Item "'+it.nama+'": total lembar dialokasikan ('+fmtAngka(dipakai)+') '+
+        (sisa>0?'kurang '+fmtAngka(sisa):'lebih '+fmtAngka(-sisa))+
+        ' dari total lembar dibeli ('+fmtAngka(it.totalLembar)+'). Harus pas.';
+    }
+  }
+  return null;
+}
 
 function updateTotalItem(){
   var total=itemBaris.reduce(function(s,it){return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));},0);
@@ -1793,6 +1832,14 @@ async function submitInputPembelian(btn){
       return;
     }
   }
+  var errSplit=cekValidasiSplitLembar(itemsValid.map(function(it){
+    var jumlahNum=parseFloat(it.jumlah), konversi=parseFloat(it.konversi_lembar)||1;
+    return {
+      nama:it.nama_item_nota, totalLembar:jumlahNum*konversi,
+      alokasiValid:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;})
+    };
+  }));
+  if(errSplit){ showAlert('alertModalInput',errSplit); return; }
 
   var supplierObj=cacheSupplier.find(function(s){return s.id_supplier===idSupplier;});
 
@@ -1820,7 +1867,7 @@ async function submitInputPembelian(btn){
           jumlah:jumlahNum, satuan:it.satuan, harga_satuan:parseFloat(it.harga_satuan),
           jumlah_lembar: jumlahNum*konversi,
           alokasi:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;}).map(function(a){
-            return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+            return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), lembar_dipakai:parseFloat(a.lembar_dipakai)||0, keterangan:a.keterangan||''};
           })
         };
       })
@@ -1959,7 +2006,7 @@ function hapusBarisItemEdit(idx){
   renderItemBarisEdit();
 }
 function tambahBarisAlokasiEdit(idxItem){
-  editItemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',keterangan:''});
+  editItemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',lembar_dipakai:'',keterangan:''});
   renderItemBarisEdit();
 }
 function hapusBarisAlokasiEdit(idxItem,idxAlokasi){
@@ -1968,14 +2015,15 @@ function hapusBarisAlokasiEdit(idxItem,idxAlokasi){
 }
 function updateAlokasiBarisEdit(idxItem,idxAlokasi,field,val){
   editItemBaris[idxItem].alokasi[idxAlokasi][field]=val;
-  if(field==='pps_per_lembar'){
+  if(field==='pps_per_lembar'||field==='lembar_dipakai'){
     var it=editItemBaris[idxItem];
-    var jumlahItem=parseFloat(it.jumlah)||0;
-    var konversi=parseFloat(it.konversi_lembar)||1;
-    var totalLembar=jumlahItem*konversi;
-    var qtyHasil=totalLembar*(parseFloat(val)||0);
+    var a=it.alokasi[idxAlokasi];
+    var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
     var lbl=document.getElementById('editHasilPcs_'+idxItem+'_'+idxAlokasi);
     if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
+    var jumlahItem=parseFloat(it.jumlah)||0;
+    var konversi=parseFloat(it.konversi_lembar)||1;
+    perbaruiSisaLembar('editSisaLembarInfo_'+idxItem, jumlahItem*konversi, it.alokasi);
   }
 }
 function updateAlokasiBarisStrukturalEdit(idxItem,idxAlokasi,field,val){
@@ -1999,11 +2047,7 @@ function updateItemBarisEdit(idx,field,val){
       var totalLembar=jumlahItem*konversi;
       var elTotal=document.getElementById('editTotalLembarInfo_'+idx);
       if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
-      it.alokasi.forEach(function(a,ai){
-        var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
-        var lbl=document.getElementById('editHasilPcs_'+idx+'_'+ai);
-        if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
-      });
+      perbaruiSisaLembar('editSisaLembarInfo_'+idx, totalLembar, it.alokasi);
     }
     updateTotalItemEdit();
     updateKalkulasiPPNEdit();
@@ -2018,11 +2062,7 @@ function updateKonversiLembarEdit(idx,val){
   var totalLembar=jumlahItem*konversi;
   var elTotal=document.getElementById('editTotalLembarInfo_'+idx);
   if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
-  it.alokasi.forEach(function(a,ai){
-    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
-    var lbl=document.getElementById('editHasilPcs_'+idx+'_'+ai);
-    if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
-  });
+  perbaruiSisaLembar('editSisaLembarInfo_'+idx, totalLembar, it.alokasi);
 }
 function updateTotalItemEdit(){
   var total=editItemBaris.reduce(function(s,it){return s+((parseFloat(it.jumlah)||0)*(parseFloat(it.harga_satuan)||0));},0);
@@ -2043,15 +2083,17 @@ function renderItemBarisEdit(){
     var jumlahItem=parseFloat(it.jumlah)||0;
     var konversi=parseFloat(it.konversi_lembar)||1;
     var totalLembar=jumlahItem*konversi;
+    var totalDipakai=hitungTotalLembarDipakai(it.alokasi);
     var alokasiHtml=it.alokasi.map(function(a,ai){
-      var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+      var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
       var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||'';
-      return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+      return '<div style="display:grid;grid-template-columns:1fr 80px 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
         '<div style="position:relative">'+
           '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="edit" data-idxitem="'+i+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
           '<div id="editHasilPcs_'+i+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
         '</div>'+
         '<div><input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateAlokasiBarisEdit('+i+','+ai+',\'pps_per_lembar\',this.value)"/></div>'+
+        '<div><input type="number" class="form-control form-control-sm" placeholder="lbr dipakai" value="'+a.lembar_dipakai+'" oninput="updateAlokasiBarisEdit('+i+','+ai+',\'lembar_dipakai\',this.value)"/></div>'+
         '<button type="button" onclick="hapusBarisAlokasiEdit('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
       '</div>';
     }).join('');
@@ -2082,9 +2124,12 @@ function renderItemBarisEdit(){
         '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="editTotalLembarInfo_'+i+'">'+
           'Total: '+fmtAngka(totalLembar)+' lembar'+
         '</div>'+
+        '<div class="col-12" style="font-family:var(--mono);font-size:.68rem" id="editSisaLembarInfo_'+i+'">'+
+          htmlSisaLembar(totalLembar-totalDipakai)+
+        '</div>'+
       '</div>'+
       '<div style="font-size:.68rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">'+
-        '↳ Hasil Potong / Alokasi Stok'+
+        '↳ Hasil Potong / Alokasi Stok. Total "lbr dipakai" semua baris harus PAS dgn total lembar.'+
       '</div>'+
       alokasiHtml+
       '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.3rem .6rem" onclick="tambahBarisAlokasiEdit('+i+')">+ Tambah Hasil Potong</button>'+
@@ -2121,6 +2166,14 @@ async function submitEditPembelian(btn){
       return;
     }
   }
+  var errSplitEdit=cekValidasiSplitLembar(itemsValid.map(function(it){
+    var jumlahNum=parseFloat(it.jumlah), konversi=parseFloat(it.konversi_lembar)||1;
+    return {
+      nama:it.nama_item_nota, totalLembar:jumlahNum*konversi,
+      alokasiValid:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;})
+    };
+  }));
+  if(errSplitEdit){ showAlert('alertModalEdit',errSplitEdit); return; }
 
   var supplierObj=cacheSupplier.find(function(s){return s.id_supplier===idSupplier;});
 
@@ -2139,7 +2192,7 @@ async function submitEditPembelian(btn){
       jumlah:jumlahNum, satuan:it.satuan, harga_satuan:parseFloat(it.harga_satuan),
       jumlah_lembar: jumlahNum*konversi,
       alokasi:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;}).map(function(a){
-        return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+        return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), lembar_dipakai:parseFloat(a.lembar_dipakai)||0, keterangan:a.keterangan||''};
       })
     };
   }).concat(idDihapus.map(function(id){return {aksi:'DELETE', id_pbldet:id};}));
@@ -2258,7 +2311,7 @@ async function bukaAlokasiStokPembelian(idPembelian){
 }
 
 function tambahBarisAlokasiStok(idxItem){
-  alokasiStokItemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',keterangan:''});
+  alokasiStokItemBaris[idxItem].alokasi.push({id_bahan:'',pps_per_lembar:'',lembar_dipakai:'',keterangan:''});
   renderAlokasiStokItems();
 }
 function hapusBarisAlokasiStok(idxItem,idxAlokasi){
@@ -2273,6 +2326,10 @@ function updateAlokasiStokPps(idxItem,idxAlokasi,val){
   alokasiStokItemBaris[idxItem].alokasi[idxAlokasi].pps_per_lembar=val;
   hitungUlangAlokasiStok(idxItem);
 }
+function updateAlokasiStokLembar(idxItem,idxAlokasi,val){
+  alokasiStokItemBaris[idxItem].alokasi[idxAlokasi].lembar_dipakai=val;
+  hitungUlangAlokasiStok(idxItem);
+}
 function hitungUlangAlokasiStok(idxItem){
   var it=alokasiStokItemBaris[idxItem];
   var jumlahItem=parseFloat(it.jumlah)||0;
@@ -2281,10 +2338,11 @@ function hitungUlangAlokasiStok(idxItem){
   var elTotal=document.getElementById('stokTotalLembarInfo_'+idxItem);
   if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
   it.alokasi.forEach(function(a,ai){
-    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
     var lbl=document.getElementById('stokHasilPcs_'+idxItem+'_'+ai);
     if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
   });
+  perbaruiSisaLembar('stokSisaLembarInfo_'+idxItem, totalLembar, it.alokasi);
 }
 
 function renderAlokasiStokItems(){
@@ -2293,15 +2351,17 @@ function renderAlokasiStokItems(){
     var jumlahItem=parseFloat(it.jumlah)||0;
     var konversi=parseFloat(it.konversi_lembar)||1;
     var totalLembar=jumlahItem*konversi;
+    var totalDipakai=hitungTotalLembarDipakai(it.alokasi);
     var alokasiHtml=it.alokasi.map(function(a,ai){
-      var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+      var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
       var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||'';
-      return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+      return '<div style="display:grid;grid-template-columns:1fr 80px 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
         '<div style="position:relative">'+
           '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="stok" data-idxitem="'+i+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
           '<div id="stokHasilPcs_'+i+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
         '</div>'+
         '<div><input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateAlokasiStokPps('+i+','+ai+',this.value)"/></div>'+
+        '<div><input type="number" class="form-control form-control-sm" placeholder="lbr dipakai" value="'+a.lembar_dipakai+'" oninput="updateAlokasiStokLembar('+i+','+ai+',this.value)"/></div>'+
         '<button type="button" onclick="hapusBarisAlokasiStok('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
       '</div>';
     }).join('');
@@ -2314,6 +2374,9 @@ function renderAlokasiStokItems(){
         '</div>'+
         '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="stokTotalLembarInfo_'+i+'">'+
           'Total: '+fmtAngka(totalLembar)+' lembar'+
+        '</div>'+
+        '<div class="col-12" style="font-family:var(--mono);font-size:.68rem" id="stokSisaLembarInfo_'+i+'">'+
+          htmlSisaLembar(totalLembar-totalDipakai)+
         '</div>'+
       '</div>'+
       alokasiHtml+
@@ -2358,9 +2421,20 @@ function renderItemSudahAlokasi(){
 function bukaKoreksiAlokasi(idPbldet){
   var it=itemSudahAlokasi.find(function(x){return x.id_pbldet===idPbldet;});
   if(!it) return;
+  // Turunkan konversi_lembar & lembar_dipakai dari data lama (qty_hasil/pps_per_lembar),
+  // krn total lembar asli tidak disimpan permanen di in_pembelian_detail.
+  // CATATAN: kalau item ini korban bug lama (>1 baris, masing2 pakai total penuh),
+  // hasil turunan tiap baris akan sama besar (bukan terbagi) -> validasi split akan
+  // menolak simpan sampai user benar2 bagi ulang lembar_dipakai secara manual. Ini disengaja.
+  var jumlahItem=parseFloat(it.jumlah)||0;
+  var a0=it.alokasi[0];
+  var totalLembarLama=(a0&&parseFloat(a0.pps_per_lembar))?(parseFloat(a0.qty_hasil)/parseFloat(a0.pps_per_lembar)):jumlahItem;
   koreksiState[idPbldet]={
-    konversi_lembar:'1',
-    alokasi:it.alokasi.map(function(a){return {id_bahan:a.id_bahan, nama_bahan:a.nama_bahan, pps_per_lembar:a.pps_per_lembar, keterangan:a.keterangan||''};}),
+    konversi_lembar: jumlahItem ? String(totalLembarLama/jumlahItem) : '1',
+    alokasi:it.alokasi.map(function(a){
+      var lembarDipakai = parseFloat(a.pps_per_lembar) ? (parseFloat(a.qty_hasil)/parseFloat(a.pps_per_lembar)) : '';
+      return {id_bahan:a.id_bahan, nama_bahan:a.nama_bahan, pps_per_lembar:a.pps_per_lembar, lembar_dipakai:lembarDipakai, keterangan:a.keterangan||''};
+    }),
     alasan:''
   };
   renderItemSudahAlokasi();
@@ -2370,7 +2444,7 @@ function batalKoreksiAlokasi(idPbldet){
   renderItemSudahAlokasi();
 }
 function tambahBarisKoreksi(idPbldet){
-  koreksiState[idPbldet].alokasi.push({id_bahan:'',nama_bahan:'',pps_per_lembar:'',keterangan:''});
+  koreksiState[idPbldet].alokasi.push({id_bahan:'',nama_bahan:'',pps_per_lembar:'',lembar_dipakai:'',keterangan:''});
   renderItemSudahAlokasi();
 }
 function hapusBarisKoreksi(idPbldet,idxAlokasi){
@@ -2385,6 +2459,10 @@ function updateKoreksiPps(idPbldet,idxAlokasi,val){
   koreksiState[idPbldet].alokasi[idxAlokasi].pps_per_lembar=val;
   hitungUlangKoreksi(idPbldet);
 }
+function updateKoreksiLembar(idPbldet,idxAlokasi,val){
+  koreksiState[idPbldet].alokasi[idxAlokasi].lembar_dipakai=val;
+  hitungUlangKoreksi(idPbldet);
+}
 function updateKoreksiAlasan(idPbldet,val){
   koreksiState[idPbldet].alasan=val;
 }
@@ -2397,10 +2475,11 @@ function hitungUlangKoreksi(idPbldet){
   var elTotal=document.getElementById('korTotalLembarInfo_'+idPbldet);
   if(elTotal) elTotal.textContent='Total: '+fmtAngka(totalLembar)+' lembar';
   st.alokasi.forEach(function(a,ai){
-    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
     var lbl=document.getElementById('korHasilPcs_'+idPbldet+'_'+ai);
     if(lbl) lbl.textContent='Hasil: '+fmtAngka(qtyHasil)+' pcs';
   });
+  perbaruiSisaLembar('korSisaLembarInfo_'+idPbldet, totalLembar, st.alokasi);
 }
 
 function renderFormKoreksi(it, idxParent){
@@ -2408,15 +2487,17 @@ function renderFormKoreksi(it, idxParent){
   var jumlahItem=parseFloat(it.jumlah)||0;
   var konversi=parseFloat(st.konversi_lembar)||1;
   var totalLembar=jumlahItem*konversi;
+  var totalDipakai=hitungTotalLembarDipakai(st.alokasi);
   var alokasiHtml=st.alokasi.map(function(a,ai){
-    var qtyHasil=totalLembar*(parseFloat(a.pps_per_lembar)||0);
+    var qtyHasil=(parseFloat(a.lembar_dipakai)||0)*(parseFloat(a.pps_per_lembar)||0);
     var namaBahanTerpilih=(cacheBahan.find(function(b){return b.id_bahan===a.id_bahan;})||{}).nama_bahan||a.nama_bahan||'';
-    return '<div style="display:grid;grid-template-columns:1fr 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:#fff;border-radius:6px">'+
+    return '<div style="display:grid;grid-template-columns:1fr 80px 90px 24px;gap:.4rem;align-items:start;margin-bottom:.35rem;padding:.4rem;background:#fff;border-radius:6px">'+
       '<div style="position:relative">'+
         '<input type="text" class="form-control form-control-sm mb-1 ac-bahan-input" data-mode="koreksi" data-idkoreksi="'+esc(it.id_pbldet)+'" data-idxalokasi="'+ai+'" placeholder="Ketik nama bahan…" value="'+esc(namaBahanTerpilih)+'" autocomplete="off"/>'+
         '<div id="korHasilPcs_'+it.id_pbldet+'_'+ai+'" style="font-family:var(--mono);font-size:.65rem;color:var(--muted)">Hasil: '+fmtAngka(qtyHasil)+' pcs</div>'+
       '</div>'+
       '<div><input type="number" class="form-control form-control-sm" placeholder="pps/lembar" value="'+a.pps_per_lembar+'" oninput="updateKoreksiPps(\''+esc(it.id_pbldet)+'\','+ai+',this.value)"/></div>'+
+      '<div><input type="number" class="form-control form-control-sm" placeholder="lbr dipakai" value="'+a.lembar_dipakai+'" oninput="updateKoreksiLembar(\''+esc(it.id_pbldet)+'\','+ai+',this.value)"/></div>'+
       '<button type="button" onclick="hapusBarisKoreksi(\''+esc(it.id_pbldet)+'\','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
     '</div>';
   }).join('');
@@ -2430,6 +2511,9 @@ function renderFormKoreksi(it, idxParent){
       '</div>'+
       '<div class="col-6" style="font-family:var(--mono);font-size:.7rem" id="korTotalLembarInfo_'+it.id_pbldet+'">'+
         'Total: '+fmtAngka(totalLembar)+' lembar'+
+      '</div>'+
+      '<div class="col-12" style="font-family:var(--mono);font-size:.68rem" id="korSisaLembarInfo_'+it.id_pbldet+'">'+
+        htmlSisaLembar(totalLembar-totalDipakai)+
       '</div>'+
     '</div>'+
     alokasiHtml+
@@ -2471,13 +2555,16 @@ async function submitKoreksiAlokasi(idPbldet, btn){
   var konversi=parseFloat(st.konversi_lembar)||1;
   var totalLembar=jumlahItem*konversi;
 
+  var errSplitKor=cekValidasiSplitLembar([{nama:it.nama_item_nota, totalLembar:totalLembar, alokasiValid:alokasiValid}]);
+  if(errSplitKor){ showAlert('alertAlokasiStok',errSplitKor); return; }
+
   btn.disabled=true; btn.textContent='Menyimpan…';
   try{
     var res=await dbRpc('koreksi_alokasi_stok_pembelian',{
       p_id_pbldet:idPbldet,
       p_jumlah_lembar:totalLembar,
       p_alokasi_baru:alokasiValid.map(function(a){
-        return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+        return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), lembar_dipakai:parseFloat(a.lembar_dipakai)||0, keterangan:a.keterangan||''};
       }),
       p_alasan:st.alasan.trim(),
       p_user_input:getNamaUser()
@@ -2513,6 +2600,14 @@ async function submitAlokasiStok(btn){
       return;
     }
   }
+  var errSplitStok=cekValidasiSplitLembar(itemsIsi.map(function(it){
+    var jumlahItem=parseFloat(it.jumlah)||0, konversi=parseFloat(it.konversi_lembar)||1;
+    return {
+      nama:it.nama_item_nota, totalLembar:jumlahItem*konversi,
+      alokasiValid:(it.alokasi||[]).filter(function(a){return a.id_bahan&&a.pps_per_lembar;})
+    };
+  }));
+  if(errSplitStok){ showAlert('alertAlokasiStok',errSplitStok); return; }
 
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
   var gagal=[];
@@ -2522,7 +2617,7 @@ async function submitAlokasiStok(btn){
     var konversi=parseFloat(it.konversi_lembar)||1;
     var totalLembar=jumlahItem*konversi;
     var alokasiValid=it.alokasi.filter(function(a){return a.id_bahan&&a.pps_per_lembar;}).map(function(a){
-      return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), keterangan:a.keterangan||''};
+      return {id_bahan:a.id_bahan, pps_per_lembar:parseFloat(a.pps_per_lembar), lembar_dipakai:parseFloat(a.lembar_dipakai)||0, keterangan:a.keterangan||''};
     });
     try{
       var res=await dbRpc('tambah_alokasi_stok_pembelian',{
