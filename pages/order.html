@@ -45,13 +45,7 @@
     .item-info-bar{background:var(--navy-mid);color:#fff;border-radius:6px;padding:.4rem .75rem;font-family:var(--mono);font-size:.72rem;margin-top:.35rem;display:none;}
     .subitem-wrap{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-top:.25rem;}
     .subitem-header{display:grid;grid-template-columns:2fr 1fr 1fr 32px;background:var(--navy);color:#fff;font-family:var(--mono);font-size:.65rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:.4rem .6rem;gap:.5rem;}
-    .subitem-row{padding:.35rem .6rem;border-top:1px solid var(--border);}
-    .subitem-row-fields{display:grid;grid-template-columns:2fr 1fr 1fr 32px;gap:.5rem;align-items:center;}
-    .subitem-po-row{margin-top:.3rem;}
-    .subitem-po-row input{width:100%;font-family:var(--sans);font-size:.72rem;border:1px solid var(--border);border-radius:4px;padding:.28rem .5rem;color:var(--text);background:var(--bg);outline:none;}
-    .subitem-po-row input:focus{border-color:var(--navy);background:#fff;}
-    .dtl-po-line{font-family:var(--mono);font-size:.62rem;color:var(--muted);cursor:pointer;margin-top:.15rem;text-decoration:underline dotted;}
-    .dtl-po-line:hover{color:var(--navy);}
+    .subitem-row{display:grid;grid-template-columns:2fr 1fr 1fr 32px;padding:.35rem .6rem;gap:.5rem;border-top:1px solid var(--border);align-items:center;}
     .subitem-row input{font-family:var(--sans);font-size:.82rem;border:1px solid var(--border);border-radius:4px;padding:.3rem .5rem;color:var(--text);background:var(--bg);outline:none;width:100%;}
     .subitem-row input:focus{border-color:var(--navy);background:#fff;}
     .btn-hapus-sub{background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:0;line-height:1;}
@@ -540,13 +534,10 @@ function tambahSubitem(){
   div.className='subitem-row';
   div.id='sub-row-'+n;
   div.innerHTML=
-    '<div class="subitem-row-fields">'+
-      '<input type="text" id="subNama'+n+'" placeholder="Contoh: 14X25…" style="font-family:var(--mono);text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>'+
-      '<input type="number" id="subQty'+n+'" placeholder="0" min="1"/>'+
-      '<input type="number" id="subDariStok'+n+'" placeholder="0" min="0" value="0" oninput="cekStokHint('+n+')" title="Qty dari stok BJ"/>'+
-      '<button class="btn-hapus-sub" onclick="hapusSub('+n+')">✕</button>'+
-    '</div>'+
-    '<div class="subitem-po-row"><input type="text" id="subNoPo'+n+'" placeholder="No. PO dari pelanggan (opsional)"/></div>';
+    '<input type="text" id="subNama'+n+'" placeholder="Contoh: 14X25…" style="font-family:var(--mono);text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>'+
+    '<input type="number" id="subQty'+n+'" placeholder="0" min="1"/>'+
+    '<input type="number" id="subDariStok'+n+'" placeholder="0" min="0" value="0" oninput="cekStokHint('+n+')" title="Qty dari stok BJ"/>'+
+    '<button class="btn-hapus-sub" onclick="hapusSub('+n+')">✕</button>';
   document.getElementById('containerSubitem').appendChild(div);
 }
 function hapusSub(n){ var el=document.getElementById('sub-row-'+n); if(el)el.remove(); }
@@ -636,8 +627,7 @@ function simpanOrder(){
       var saldo=getSaldoAvailable(idItem,nama);
       if(dariStok>saldo){tampilAlert('QTY dari stok "'+nama+'" melebihi saldo ('+fmtAngka(saldo)+').');valid=false;return;}
     }
-    var noPo=(document.getElementById('subNoPo'+n).value||'').trim();
-    items.push({subitem:nama,qty:qty,dari_stok:dariStok,no_po:noPo||null});
+    items.push({subitem:nama,qty:qty,dari_stok:dariStok});
   });
   if(!valid)return;
   if(!items.length){tampilAlert('Tambahkan minimal 1 subitem.');return;}
@@ -675,7 +665,6 @@ function simpanOrder(){
         harga: harga,
         komisi_agen: komisi,
         qty_dari_stok: it.dari_stok,
-        no_po: it.no_po,
         qty_produksi:0, qty_kirim:0, qty_rusak:0, qty_retur:0, qty_spk:0,
         status_spk:'BELUM'
       };
@@ -795,9 +784,7 @@ function renderDetail(order,details){
       var progressHtml=qtySPK>0?'<div class="dtl-progress">SPK: <strong>'+fmtAngka(qtySPK)+'</strong>/'+fmtAngka(qtyOrder)+' ('+Math.round((qtySPK/qtyOrder)*100)+'%)</div>':'';
       html+='<tr>'+
         '<td style="color:var(--muted);font-family:var(--mono);font-size:.68rem">'+(i+1)+'</td>'+
-        '<td style="font-weight:500">'+esc(d.subitem||'—')+
-          '<div class="dtl-po-line" onclick="editNoPoDetail(\''+esc(d.id_detail)+'\')" title="Klik untuk isi/ubah No. PO">'+(d.no_po?'PO: '+esc(d.no_po):'+ No PO')+'</div>'+
-        '</td>'+
+        '<td style="font-weight:500">'+esc(d.subitem||'—')+'</td>'+
         '<td style="font-family:var(--mono)">'+fmtAngka(qtyOrder)+(d.qty_dari_stok>0?'<div style="font-size:.62rem;color:var(--muted)">stok: '+fmtAngka(d.qty_dari_stok)+'</div>':'')+'</td>'+
         '<td style="font-family:var(--mono)">'+(qtyKirim>0?'<span class="trc-link" onclick="bukaTracing(\''+esc(d.id_detail)+'\',\''+esc(d.subitem||'')+'\')" title="Lihat riwayat pengiriman">'+fmtAngka(qtyKirim)+' 🚚</span>':fmtAngka(qtyKirim))+'</td>'+
         '<td style="font-family:var(--mono)" class="'+(sisaItem>0?'dtl-sisa-warn':'dtl-sisa-ok')+'">'+fmtAngka(Math.max(0,sisaItem))+'</td>'+
@@ -812,20 +799,6 @@ function renderDetail(order,details){
   document.getElementById('detailBody').innerHTML=html;
 }
 function kv(l,v){return '<div class="kv-item"><label>'+l+'</label><span>'+v+'</span></div>';}
-
-// No PO per item — informasi cetak saja, tidak pengaruh qty/stok/keuangan,
-// jadi update langsung tanpa approval (beda dengan Edit Order lain).
-function editNoPoDetail(idDetail){
-  var d=detailCache.find(function(x){return x.id_detail===idDetail;});
-  var val=prompt('No. PO dari pelanggan (kosongkan untuk hapus):',d?(d.no_po||''):'');
-  if(val===null)return;
-  val=val.trim();
-  dbUpdate('in_order_detail',{id_detail:'eq.'+idDetail},{no_po:val||null}).then(function(res){
-    cekErrorSupabase(res);
-    if(d)d.no_po=val||null;
-    renderDetail(orderAktif,detailCache);
-  }).catch(function(e){alert('Gagal update No PO: '+e.message);});
-}
 
 // ── TUTUP KEKURANGAN ──
 var STATUS_AKTIF_KIRIM_=['BARU','PROSES','PRODUKSI','SEBAGIAN_KIRIM','ANTRI_KIRIM'];
