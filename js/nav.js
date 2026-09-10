@@ -45,6 +45,7 @@ const NAV_MENU = [
       { key: 'log_produksi',  label: 'Log Produksi',    icon: '📊', href: 'pages/log_produksi.html' },
       { key: 'stok_bj',       label: 'Stok BJ',         icon: '📦', href: 'pages/stok_bj.html' },
       { key: 'stok_bahan',    label: 'Stok Bahan',      icon: '🧱', href: 'pages/stok_bahan.html' },
+      { key: 'stok_tinta_sparepart', label: 'Stok Tinta & Sparepart', icon: '🎨', href: 'pages/stok_tinta_sparepart.html' },
       { key: 'pengiriman',    label: 'Pengiriman',      icon: '🚚', href: 'pages/pengiriman.html' },
       { key: 'retur',         label: 'Retur',           icon: '↩️', href: 'pages/retur.html' },
     ]
@@ -70,6 +71,7 @@ const NAV_MENU = [
       { key: 'item',      label: 'Item',       icon: '📦', href: 'pages/item.html' },
       { key: 'bahan',     label: 'Bahan',      icon: '🧱', href: 'pages/bahan.html' },
       { key: 'tinta',     label: 'Tinta',      icon: '🎨', href: 'pages/tinta.html' },
+      { key: 'sparepart', label: 'Sparepart',  icon: '🔧', href: 'pages/sparepart.html' },
       { key: 'bom',       label: 'BOM',        icon: '📋', href: 'pages/bom.html' },
       { key: 'operator',  label: 'Operator',   icon: '👤', href: 'pages/operator.html' },
     ]
