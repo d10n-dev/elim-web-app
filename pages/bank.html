@@ -2234,10 +2234,12 @@ async function handleCsvText(text) {
       existCount[k] = (existCount[k]||0) + 1;
     });
     var newRows = [];
+    var invalidRows = []; // nominal <= 0 / NaN -> melanggar in_bank_statement_nominal_check, jangan dikirim ke DB
     sec.rows.forEach(function(r){
       var k = r.tgl + '|' + r.jenis + '|' + r.nominal;
-      if (existCount[k] > 0) { existCount[k]--; } // sudah ada di DB, skip
-      else { newRows.push(r); } // tidak ketemu di DB -> baris hilang / baru
+      if (existCount[k] > 0) { existCount[k]--; return; } // sudah ada di DB, skip
+      if (!(r.nominal > 0)) { invalidRows.push(r); return; } // nominal 0/negatif/NaN -> bukan transaksi valid
+      newRows.push(r); // tidak ketemu di DB -> baris hilang / baru
     });
 
     // Verifikasi rantai saldo CSV ITU SENDIRI (semua baris, bukan cuma yg baru).
@@ -2248,8 +2250,8 @@ async function handleCsvText(text) {
     importSections.push({
       id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq,
       min_tgl: minTgl, max_tgl: maxTgl,
-      total_csv: sec.rows.length, sudah_ada: sec.rows.length - newRows.length,
-      new_rows: newRows, gap: gapCheck
+      total_csv: sec.rows.length, sudah_ada: sec.rows.length - newRows.length - invalidRows.length,
+      new_rows: newRows, invalid_rows: invalidRows, gap: gapCheck
     });
   }
   buildPreview();
@@ -2301,7 +2303,17 @@ function buildPreview() {
       html += 'Tapi di CSV saldo tertulis: Rp' + sec.gap.saldo_di_csv.toLocaleString('id-ID') + '<br>';
       html += 'Download ulang CSV dari BCA (pastikan periode penuh, jangan terputus), lalu upload lagi.';
       html += '</div>';
-    } else if (n > 0) {
+    }
+    if (sec.invalid_rows && sec.invalid_rows.length) {
+      html += '<div style="background:#fdecea;border:1px solid #f5a8a8;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-bottom:.4rem">';
+      html += '⚠ ' + sec.invalid_rows.length + ' baris diabaikan (nominal 0/tidak valid, DB menolak baris seperti ini):<br>';
+      sec.invalid_rows.slice(0,10).forEach(function(r){
+        html += '&nbsp;&nbsp;' + r.tgl + ' — ' + h(r.desc) + ' (nominal: ' + r.nominal + ')<br>';
+      });
+      if (sec.invalid_rows.length > 10) html += '&nbsp;&nbsp;… dan ' + (sec.invalid_rows.length-10) + ' baris lagi<br>';
+      html += '</div>';
+    }
+    if (n > 0) {
       hasImportable = true;
       html += '<div style="background:#fff8e6;border:1px solid #f0d68a;border-radius:6px;padding:.5rem;font-family:var(--mono);font-size:.7rem;color:#8a6d00;margin-bottom:.4rem">';
       html += 'ℹ Baris ini bisa saja mengisi gap lama (tanggal di tengah data yang sudah ada) atau memang data baru — dicek otomatis, aman untuk diimport.';
@@ -2358,20 +2370,29 @@ async function doImport() {
       };
     });
     var res = await dbInsert('in_bank_statement', rows);
-    var insertErr = null;
-    if (res === null || res === undefined || Array.isArray(res)) {
-      insertErr = null;
-    } else if (res && (res.code || res.status === 'error')) {
-      var msg = res.message || res.code || 'Error tidak diketahui';
-      if (msg.indexOf('duplicate') >= 0 || msg.indexOf('unique') >= 0 || msg.indexOf('23505') >= 0)
-        insertErr = 'ID bentrok — sequence tidak sinkron.';
-      else insertErr = msg;
+    var batchOk = (res === null || res === undefined || Array.isArray(res));
+    var sectionInserted = 0;
+    if (batchOk) {
+      sectionInserted = rows.length;
+    } else {
+      // Batch ditolak DB (mis. constraint tak terduga di 1 baris) —
+      // retry satu-satu supaya baris sehat tetap masuk & baris rusak teridentifikasi jelas.
+      for (var j = 0; j < rows.length; j++) {
+        var r1 = await dbInsert('in_bank_statement', [rows[j]]);
+        var rowOk = (r1 === null || r1 === undefined || Array.isArray(r1));
+        if (rowOk) { sectionInserted++; continue; }
+        var msg1 = (r1 && (r1.message || r1.code)) || 'Error tidak diketahui';
+        if (msg1.indexOf('duplicate') >= 0 || msg1.indexOf('unique') >= 0 || msg1.indexOf('23505') >= 0)
+          msg1 = 'ID bentrok — sequence tidak sinkron.';
+        errors.push(sec.id_rekening + ' ' + rows[j].tgl_transaksi + ' "' + rows[j].keterangan_bank + '" (nominal ' + rows[j].nominal + '): ' + msg1);
+      }
     }
-    if (insertErr) { errors.push(sec.id_rekening + ': ' + insertErr); continue; }
-    var seqUpd = await dbUpdate('in_bank_stmt_seq', {id_rekening:'eq.'+sec.id_rekening}, {last_seq: seq});
-    if (seqUpd !== null && seqUpd !== undefined && !Array.isArray(seqUpd) && seqUpd && (seqUpd.code || seqUpd.status === 'error'))
-      errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence. last_seq=' + seq);
-    totalInserted += rows.length;
+    totalInserted += sectionInserted;
+    if (sectionInserted > 0) {
+      var seqUpd = await dbUpdate('in_bank_stmt_seq', {id_rekening:'eq.'+sec.id_rekening}, {last_seq: seq});
+      if (seqUpd !== null && seqUpd !== undefined && !Array.isArray(seqUpd) && seqUpd && (seqUpd.code || seqUpd.status === 'error'))
+        errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence. last_seq=' + seq);
+    }
   }
   btn.disabled = false; btn.textContent = 'Import Sekarang';
   document.getElementById('impStep2').style.display = 'none';
