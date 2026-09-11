@@ -194,8 +194,35 @@
     </div>
   </div>
 </div>
+<!-- MODAL EDIT TANGGAL SJ (Direktur only) -->
+<div class="modal fade" id="modalEditTgl" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Edit Tanggal SJ</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="editTglErr"></div>
+        <div class="det-row"><span class="det-label">No. SJ</span><span class="det-val" id="editTglNoSj">—</span></div>
+        <div class="det-row"><span class="det-label">Tanggal saat ini</span><span class="det-val" id="editTglLama">—</span></div>
+        <div style="margin-top:.6rem"><label class="form-label">Tanggal Baru</label>
+          <input type="date" class="form-control" id="editTglBaru" oninput="cekBulanEditTgl()"/></div>
+        <div id="editTglWarn" style="display:none;background:#fff8e6;border:1px solid #f0d78c;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:#8a6100">
+          ⚠ Tanggal baru beda bulan dari tanggal asal. SJ ini entitas PT — ini akan menggeser SJ ke periode PPN Keluaran bulan lain. Pastikan sudah dicek status lapor PPN masa bulan asal sebelum lanjut.
+        </div>
+        <div style="margin-top:.6rem"><label class="form-label">Alasan *</label>
+          <textarea class="form-control" id="editTglAlasan" rows="2" placeholder="Wajib diisi, cth: salah input tanggal saat buat SJ"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-simpan" id="btnSimpanEditTgl" onclick="simpanEditTgl()">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-<!-- MODAL CARI TRACING (item / subitem / no PO — read-only) -->
+
 <div class="modal fade" id="modalCariTracing" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
@@ -872,7 +899,8 @@ function bukaDetail(idSJ){
       '<div class="det-row"><span class="det-label">Entitas</span><span class="det-val">'+esc(sjAktif.entitas)+'</span></div>'+
       '<div class="det-row"><span class="det-label">Status</span><span class="det-val"><span class="badge-status '+stCls+'">'+esc(sjAktif.status)+'</span></span></div>'+
       '<div class="det-row"><span class="det-label">Keterangan</span><span class="det-val">'+esc(sjAktif.keterangan||'—')+'</span></div>'+
-      (sjAktif.is_void?'<div style="background:#fdecea;border:1px solid #f5a9a0;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:var(--red)"><b>SJ INI SUDAH DIBATALKAN</b><br>Oleh: '+esc(sjAktif.void_by||'-')+' pada '+fmtTgl(sjAktif.void_at)+'<br>Alasan: '+esc(sjAktif.void_alasan||'-')+'</div>':'');
+      (sjAktif.is_void?'<div style="background:#fdecea;border:1px solid #f5a9a0;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:var(--red)"><b>SJ INI SUDAH DIBATALKAN</b><br>Oleh: '+esc(sjAktif.void_by||'-')+' pada '+fmtTgl(sjAktif.void_at)+'<br>Alasan: '+esc(sjAktif.void_alasan||'-')+'</div>':'')+
+      (sjAktif.edit_tgl_at?'<div style="background:#fff8e6;border:1px solid #f0d78c;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:#8a6100"><b>TANGGAL PERNAH DIEDIT</b><br>Asal: '+fmtTgl(sjAktif.tgl_asli)+' → sekarang: '+fmtTgl(sjAktif.tgl)+'<br>Oleh: '+esc(sjAktif.edit_tgl_by||'-')+' pada '+fmtTgl(sjAktif.edit_tgl_at)+'<br>Alasan: '+esc(sjAktif.edit_tgl_alasan||'-')+'</div>':'');
     var totalSbt=0;
     html+='<table class="det-tbl" style="margin-top:.75rem"><thead><tr>'+
       '<th>Item / Subitem</th><th>Qty</th><th>Sat</th><th>Harga</th><th>Subtotal</th>'+
@@ -907,6 +935,7 @@ function bukaDetail(idSJ){
     var footerHtml = sjAktif.is_void
       ? '<span style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">SJ ini sudah dibatalkan, tidak ada aksi lanjutan.</span>'
       : '<button class="btn-print" onclick="bukaModalPrint()">🖨 Cetak</button>'+
+        (isDirekturUser?' <button class="btn-outline" style="margin-left:.4rem" onclick="bukaModalEditTgl()">✏ Edit Tanggal</button>':'')+
         (isDirekturUser?' <button class="btn-outline" style="color:var(--red);border-color:var(--red);margin-left:.4rem" onclick="voidSJ()">🗑 Void SJ</button>':'');
 
     // Cek status print dari log_print_sj
@@ -943,6 +972,51 @@ async function voidSJ(){
     bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
     muatSJ();
   }catch(e){alert('Gagal: '+e.message);}
+}
+
+// ── EDIT TANGGAL SJ (Direktur only, via RPC edit_tgl_pengiriman) ──
+function bukaModalEditTgl(){
+  if(!sjAktif)return;
+  if(!isDirekturUser){alert('Hanya Direktur yang bisa edit tanggal SJ.');return;}
+  document.getElementById('editTglErr').innerHTML='';
+  document.getElementById('editTglNoSj').textContent=sjAktif.no_sj+' / '+sjAktif.no_nota;
+  document.getElementById('editTglLama').textContent=fmtTgl(sjAktif.tgl);
+  document.getElementById('editTglBaru').value=(sjAktif.tgl||'').slice(0,10);
+  document.getElementById('editTglAlasan').value='';
+  document.getElementById('editTglWarn').style.display='none';
+  var btn=document.getElementById('btnSimpanEditTgl'); btn.disabled=false; btn.textContent='Simpan';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditTgl')).show();
+}
+
+function cekBulanEditTgl(){
+  if(!sjAktif)return;
+  var warn=document.getElementById('editTglWarn');
+  if(sjAktif.entitas!=='PT'){warn.style.display='none';return;}
+  var lama=(sjAktif.tgl||'').slice(0,7);
+  var baru=document.getElementById('editTglBaru').value.slice(0,7);
+  warn.style.display=(baru&&lama&&baru!==lama)?'':'none';
+}
+
+async function simpanEditTgl(){
+  if(!sjAktif)return;
+  var err=document.getElementById('editTglErr'); err.innerHTML='';
+  var baru=document.getElementById('editTglBaru').value;
+  var alasan=(document.getElementById('editTglAlasan').value||'').trim();
+  if(!baru){err.innerHTML='<div class="alert-box alert-err">Tanggal wajib diisi.</div>';return;}
+  if(!alasan){err.innerHTML='<div class="alert-box alert-err">Alasan wajib diisi.</div>';return;}
+  if(!confirm('Ubah tanggal SJ '+sjAktif.no_sj+' dari '+fmtTgl(sjAktif.tgl)+' ke '+baru+'?'))return;
+  var btn=document.getElementById('btnSimpanEditTgl');
+  btn.disabled=true;btn.textContent='Menyimpan…';
+  try{
+    var res=await dbRpc('edit_tgl_pengiriman',{p_id_sj:sjAktif.id_sj,p_tgl_baru:baru+' 00:00:00+07',p_alasan:alasan,p_user:getNamaUser(),p_role:roleUser});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    bootstrap.Modal.getInstance(document.getElementById('modalEditTgl')).hide();
+    bukaDetail(sjAktif.id_sj);
+    muatSJ();
+  }catch(e){
+    err.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message||'Error')+'</div>';
+    btn.disabled=false;btn.textContent='Simpan';
+  }
 }
 
 // ── PRINT (dengan approval reprint) ──
