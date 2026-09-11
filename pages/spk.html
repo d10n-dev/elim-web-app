@@ -296,6 +296,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
+        <button class="btn-print spk-print-btn" onclick="printSPK()">🔍 Preview SPK</button>
         <button class="btn-tolak" id="btnProgressTolak" onclick="bukaModalTolak()" style="display:none">✗ Tolak</button>
         <button class="btn-approve" id="btnProgressApprove" onclick="bukaModalApprove()" style="display:none">✓ Approve</button>
         <button class="btn-simpan" id="btnProgressClose" onclick="bukaModalClosing()" style="background:#6c757d;display:none">✓ Close SPK</button>
@@ -607,6 +608,7 @@ function renderTabel(){
       '<td class="td-muted">'+esc(s.keterangan||'—')+'</td>'+
       '<td style="white-space:nowrap;display:flex;gap:.35rem;flex-wrap:wrap">'+
         (bisa?'<button class="btn-progress" onclick="bukaProgress(\''+esc(s.id_spk)+'\')">📊 Progress</button>':'')+
+        '<button class="btn-print spk-print-btn" onclick="printSpkDariTabel(\''+esc(s.id_spk)+'\')">🔍 Preview SPK</button>'+
         (s.status==='MENUNGGU_APPROVE_MANAGER'&&(getRoleUser()==='MANAGER'||getRoleUser()==='DIREKTUR')?'<button class="btn-progress" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" onclick="bukaReviewLebihOrder(\''+esc(s.id_spk)+'\')">⚠ Review</button>':'')+
       '</td></tr>';
   }).join('');
@@ -675,7 +677,7 @@ function renderAccordionBody(spk,sdet){
   var showApprove=isMP&&status==='MENUNGGU_APPROVE';
   var showTolak=isMP&&status==='MENUNGGU_APPROVE';
   html+='<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.85rem;border-top:1px solid var(--border);padding-top:.75rem">'+
-    '<button class="btn-print" id="btnPrintSPK" onclick="printSPK()">🔍 Preview SPK</button>'+
+    '<button class="btn-print spk-print-btn" id="btnPrintSPK" onclick="printSPK()">🔍 Preview SPK</button>'+
     (showEdit?'<button class="btn-progress" id="btnEditSPK" onclick="bukaEditSPK(\''+esc(spk.id_spk)+'\')">✎ Edit SPK</button>':'')+
     (showTolak?'<button class="btn-tolak" id="btnTolakSPK" onclick="bukaModalTolak()">✗ Tolak</button>':'')+
     (showApprove?'<button class="btn-approve" id="btnApproveSPK" onclick="bukaModalApprove()">✓ Approve</button>':'')+
@@ -2090,12 +2092,25 @@ async function konfirmasiTolak(){
 }
 
 // ── PRINT SPK ──
+// Dipanggil langsung dari baris tabel — perlu muat sdetAktif utk SPK yg dipilih dulu,
+// supaya tidak ikut kepakai sdetAktif SPK lain yg sebelumnya sempat dibuka (accordion/Progress).
+function printSpkDariTabel(idSpk){
+  dbGet('in_spk_detail',{id_spk:'eq.'+idSpk}).then(function(res){
+    idSpkAktif=idSpk;
+    sdetAktif=Array.isArray(res)?res:[];
+    printSPK();
+  }).catch(function(){
+    alert('Gagal memuat detail SPK.');
+  });
+}
+function setPrintSpkBtn(disabled,label){
+  document.querySelectorAll('.spk-print-btn').forEach(function(b){b.disabled=disabled;if(label!==undefined)b.innerHTML=label;});
+}
 function printSPK(){
   if(!idSpkAktif) return;
   var spk=semuaSPK.find(function(s){return s.id_spk===idSpkAktif;});
   if(!spk) return;
-  var btn=document.getElementById('btnPrintSPK');
-  btn.disabled=true; btn.textContent='Memuat…';
+  setPrintSpkBtn(true,'Memuat…');
   _spkPrint=spk; _sdetPrint=sdetAktif;
   var idItem=sdetAktif.length?sdetAktif[0].id_item:null;
   var idOrderList=Array.from(new Set(sdetAktif.map(function(r){return r.id_order;}).filter(Boolean)));
@@ -2104,8 +2119,8 @@ function printSPK(){
     _finPrint=[];_bomPrint={bahan:[],tinta:[]};
     pelangganPromise.then(function(ro){
       _pelangganMapPrint={}; (Array.isArray(ro)?ro:[]).forEach(function(o){_pelangganMapPrint[o.id_order]=o.nama_pelanggan;});
-      btn.disabled=false;btn.innerHTML='🔍 Preview SPK';prosesLog();
-    }).catch(function(){_pelangganMapPrint={};btn.disabled=false;btn.innerHTML='🔍 Preview SPK';prosesLog();});
+      setPrintSpkBtn(false,'🔍 Preview SPK');prosesLog();
+    }).catch(function(){_pelangganMapPrint={};setPrintSpkBtn(false,'🔍 Preview SPK');prosesLog();});
     return;
   }
   Promise.all([
@@ -2121,11 +2136,11 @@ function printSPK(){
     _bahanMap={}; (Array.isArray(r[3])?r[3]:[]).forEach(function(b){_bahanMap[b.id_bahan]=b.nama_bahan;});
     _tintaMap={}; (Array.isArray(r[4])?r[4]:[]).forEach(function(t){_tintaMap[t.id_tinta]=t.nama_tinta;});
     _pelangganMapPrint={}; (Array.isArray(r[5])?r[5]:[]).forEach(function(o){_pelangganMapPrint[o.id_order]=o.nama_pelanggan;});
-    btn.disabled=false;btn.innerHTML='🔍 Preview SPK';
+    setPrintSpkBtn(false,'🔍 Preview SPK');
     prosesLog();
   }).catch(function(){
     _finPrint=[];_bomPrint={bahan:[],tinta:[]};_bahanMap={};_tintaMap={};_pelangganMapPrint={};
-    btn.disabled=false;btn.innerHTML='🔍 Preview SPK';
+    setPrintSpkBtn(false,'🔍 Preview SPK');
     prosesLog();
   });
 }
