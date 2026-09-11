@@ -273,6 +273,9 @@
           </div>
           <div id="finishingBaruWrap">
             <datalist id="dlMesinVendor"></datalist>
+            <div class="form-row form-row-2">
+              <div><label class="form-label">Tanggal Pengerjaan</label><input type="date" class="form-control" id="finBaruTgl"/></div>
+            </div>
             <div class="section-divider">Proses Finishing per Item (sesuai BOM)</div>
             <div id="finishingItemList"><div class="sdet-empty">Memuat…</div></div>
           </div>
@@ -481,7 +484,7 @@ document.addEventListener('DOMContentLoaded', function(){
   dbGet('m_operator',{status:'eq.AKTIF',order:'nama_operator.asc'}).then(function(r){semuaOperator=Array.isArray(r)?r:[];});
   initAcItem();
   var hari=new Date().toISOString().split('T')[0];
-  ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl'].forEach(function(id){
+  ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl','finBaruTgl'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value=hari;
   });
   document.addEventListener('touchstart',function(e){
@@ -1561,6 +1564,9 @@ async function simpanFinishingBaris(idSdet,idBomFin,sisa,btn){
   var qty=parseInt(qtyInp.value,10)||0;
   var mesin=(mesinInp.value||'').trim();
   var operator=(opInp.value||'').trim();
+  var tglInp=document.getElementById('finBaruTgl');
+  var tglPengerjaan=(tglInp&&tglInp.value)?tglInp.value:new Date().toISOString().split('T')[0];
+  if(!tglInp||!tglInp.value){alertEl.innerHTML='<div class="alert-box alert-err">Tanggal pengerjaan wajib diisi.</div>';return;}
   if(!qty){alertEl.innerHTML='<div class="alert-box alert-err">Qty wajib diisi.</div>';return;}
   if(qty>sisa){alertEl.innerHTML='<div class="alert-box alert-err">Qty melebihi sisa ('+fmtAngka(sisa)+').</div>';return;}
   if(!mesin){alertEl.innerHTML='<div class="alert-box alert-err">Mesin / Vendor wajib diisi.</div>';return;}
@@ -1569,7 +1575,7 @@ async function simpanFinishingBaris(idSdet,idBomFin,sisa,btn){
   if(btn){btn.disabled=true;btn.textContent='Menyimpan…';}
   try{
     var nowIso=new Date().toISOString();
-    var row={id_log:genIdLogProd(),id_spk:idSpkAktif,tgl_produksi:nowIso.split('T')[0],tgl_input:nowIso,jenis:'FINISHING',
+    var row={id_log:genIdLogProd(),id_spk:idSpkAktif,tgl_produksi:tglPengerjaan+'T00:00:00+07:00',tgl_input:nowIso,jenis:'FINISHING',
       id_spk_detail:idSdet,id_order_detail:sdet?sdet.id_detail:null,id_bom_finishing:idBomFin,
       qty:qty,satuan:sdet?(sdet.satuan||''):'',mesin_vendor:mesin,operator:operator,user_input:getNamaUser()};
     var res=await dbInsert('log_produksi',row);
@@ -1621,7 +1627,7 @@ function gantiTabLog(jenis,elBtn){
 
 function resetFormLog(){
   var hari=new Date().toISOString().split('T')[0];
-  ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=hari;});
+  ['logCetakTgl','logPotongTgl','logFinishingTgl','logPackingTgl','finBaruTgl'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=hari;});
   ['logCetakQty','logCetakInsheet','logCetakMesin','logCetakOperator','logCetakKet',
    'logPotongQty','logPotongOperator','logPotongKet',
    'logFinishingQty','logFinishingMesin','logFinishingOperator','logFinishingKet',
