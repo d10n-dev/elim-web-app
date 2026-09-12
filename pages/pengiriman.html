@@ -327,7 +327,7 @@
 // ── STATE ──
 var semuaSJ=[], semuaPelanggan=[], sisaKirimCache=[], itemBaris=[];
 var sjAktif=null, printInfo=null;
-var isMP=false, isDirekturUser=false, roleUser='';
+var isMP=false, isDirekturUser=false, bisaEditTgl=false, roleUser='';
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded',function(){
@@ -336,6 +336,7 @@ document.addEventListener('DOMContentLoaded',function(){
   roleUser=getRoleUser();
   isMP=(roleUser==='MANAGER'||roleUser==='DIREKTUR');
   isDirekturUser=(roleUser==='DIREKTUR');
+  bisaEditTgl=(['ADMIN','MANAGER','DIREKTUR'].indexOf(roleUser)>=0);
   if(isMP) document.getElementById('btnApproveReprint').style.display='';
   if(isDirekturUser) document.getElementById('btnLogReprint').style.display='';
   cekBadgeAntrianAwal();
@@ -935,7 +936,7 @@ function bukaDetail(idSJ){
     var footerHtml = sjAktif.is_void
       ? '<span style="font-family:var(--mono);font-size:.7rem;color:var(--muted)">SJ ini sudah dibatalkan, tidak ada aksi lanjutan.</span>'
       : '<button class="btn-print" onclick="bukaModalPrint()">🖨 Cetak</button>'+
-        (isDirekturUser?' <button class="btn-outline" style="margin-left:.4rem" onclick="bukaModalEditTgl()">✏ Edit Tanggal</button>':'')+
+        (bisaEditTgl?' <button class="btn-outline" style="margin-left:.4rem" onclick="bukaModalEditTgl()">✏ Edit Tanggal</button>':'')+
         (isDirekturUser?' <button class="btn-outline" style="color:var(--red);border-color:var(--red);margin-left:.4rem" onclick="voidSJ()">🗑 Void SJ</button>':'');
 
     // Cek status print dari log_print_sj
@@ -977,7 +978,7 @@ async function voidSJ(){
 // ── EDIT TANGGAL SJ (Direktur only, via RPC edit_tgl_pengiriman) ──
 function bukaModalEditTgl(){
   if(!sjAktif)return;
-  if(!isDirekturUser){alert('Hanya Direktur yang bisa edit tanggal SJ.');return;}
+  if(!bisaEditTgl){alert('Hanya Admin/Manager/Direktur yang bisa edit tanggal SJ.');return;}
   document.getElementById('editTglErr').innerHTML='';
   document.getElementById('editTglNoSj').textContent=sjAktif.no_sj+' / '+sjAktif.no_nota;
   document.getElementById('editTglLama').textContent=fmtTgl(sjAktif.tgl);
