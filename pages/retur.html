@@ -52,15 +52,21 @@
     .btn-navy:disabled,.btn-approve:disabled,.btn-tolak:disabled{opacity:.5;cursor:not-allowed;}
     .btn-print{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;border-radius:6px;font-size:.75rem;font-family:var(--mono);font-weight:600;padding:.35rem .8rem;cursor:pointer;}
     .btn-print:hover{background:#d0e2ff;}
-    /* print — kertas fisik 21cm x 10cm, konsisten dgn layout SJ/Invoice di pengiriman.html */
-    #printArea{display:none;}
-    .sj-page{width:21cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-family:'Courier New',Courier,monospace;font-size:8.8pt;font-weight:700;color:#000;background:#fff;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;}
-    .sj-page:last-child{page-break-after:auto;}
-    .sj-spacer{flex:1 1 auto;border-top:1px solid #000;margin-top:.12cm;min-height:.15cm;}
-    .sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:7.8pt;flex-shrink:0;}
-    @media print{@page{size:21cm 10cm;margin:0;}}
-    body.printing>*{display:none!important;}
-    body.printing #printArea{display:block!important;position:fixed;left:0;top:0;width:100%;z-index:99999;background:#fff;}
+    /* sistem cetak — antrian PC Print Agent + approval reprint, pola sama persis dgn pengiriman.html */
+    .reprint-warn{background:#fff3cd;border:1px solid #ffe083;border-radius:6px;padding:.6rem .85rem;font-family:var(--mono);font-size:.75rem;color:#856404;margin-bottom:.75rem;}
+    .reprint-approved-box{background:#e6f4ea;border:1px solid #b7e4c7;border-radius:6px;padding:.6rem .85rem;font-family:var(--mono);font-size:.75rem;color:#1e6b3c;margin-bottom:.75rem;}
+    .reprint-pending-box{background:#e8f0fe;border:1px solid #a4c0f9;border-radius:6px;padding:.6rem .85rem;font-family:var(--mono);font-size:.75rem;color:#1a56db;margin-bottom:.75rem;}
+    .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .rp-item{border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin-bottom:.6rem;background:var(--surface);}
+    .rp-item .rp-row{display:flex;justify-content:space-between;font-size:.75rem;padding:.15rem 0;}
+    .rp-lbl{font-family:var(--mono);color:var(--muted);}
+    .rp-val{font-family:var(--mono);text-align:right;}
+    .rp-status{font-family:var(--mono);font-size:.6rem;padding:.15rem .45rem;border-radius:3px;font-weight:600;}
+    .rp-menunggu{background:#fff3cd;color:#856404;border:1px solid #ffe083;}
+    .rp-approved{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+    .rp-ditolak{background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    #badgeAntrian{background:var(--orange);color:#fff;font-size:.62rem;font-weight:700;padding:.05rem .38rem;border-radius:8px;margin-left:.35rem;}
   </style>
 </head>
 <body>
@@ -76,6 +82,9 @@
     <option value="DITOLAK">Ditolak</option>
   </select>
   <button class="btn-tambah" id="btnTambah" onclick="bukaBuatRetur()" style="display:none">+ Buat Retur</button>
+  <button class="btn-outline" id="btnAntrianCetak" onclick="bukaAntrianCetak()">🖨 Antrian Cetak PC<span id="badgeAntrian" style="display:none"></span></button>
+  <button class="btn-outline" id="btnApproveReprint" style="display:none" onclick="bukaApproveReprint()">🔔 Approve Reprint</button>
+  <button class="btn-outline" id="btnLogReprint" style="display:none" onclick="bukaLogReprint()">📋 Log Reprint</button>
 </div>
 <div class="info-bar" id="infoBar">Memuat data…</div>
 
@@ -154,7 +163,68 @@
   </div>
 </div>
 
-<div id="printArea"></div>
+<!-- MODAL CETAK / AJUKAN REPRINT -->
+<div class="modal fade" id="modalPrint" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="printTitle">Cetak Nota Retur</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertPrint"></div>
+        <div id="printWarnBox" class="reprint-warn" style="display:none"></div>
+        <div id="alasanBoxPrint" style="display:none">
+          <label class="form-label">Alasan Reprint *</label>
+          <input type="text" class="form-control" id="inpAlasanPrint" placeholder="Wajib diisi untuk reprint"/>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="btnCetakRetur" onclick="submitPrintRetur(this)">Cetak</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ANTRIAN CETAK PC -->
+<div class="modal fade" id="modalAntrianCetak" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Antrian Cetak PC — belum dieksekusi fisik</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="antrianCetakBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PERLU APPROVE REPRINT (Manager/Direktur) -->
+<div class="modal fade" id="modalApproveReprint" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Perlu Approve Reprint</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="approveReprintBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOG REPRINT (Direktur — audit) -->
+<div class="modal fade" id="modalLogReprint" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Log Reprint Nota Retur</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="logReprintBody"><div class="loading">Memuat…</div></div>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/api.js"></script>
@@ -163,13 +233,20 @@
 <script>
 var semuaRetur=[], semuaPelanggan=[], sjListAktif=[], sjDipilih=null, itemSJAktif=[];
 var bisaApprove=false, returAktif=null;
+var roleUser='', isMP=false, isDirekturUser=false, printInfoRetur=null;
 
 document.addEventListener('DOMContentLoaded',function(){
   if(!guardHalaman()) return;
   initNav('retur');
   var role=getRoleUser();
+  roleUser=role;
   bisaApprove=(role==='MANAGER'||role==='DIREKTUR');
+  isMP=bisaApprove;
+  isDirekturUser=(role==='DIREKTUR');
   if(role!=='SALES') document.getElementById('btnTambah').style.display='';
+  if(isMP) document.getElementById('btnApproveReprint').style.display='';
+  if(isDirekturUser) document.getElementById('btnLogReprint').style.display='';
+  cekBadgeAntrianAwal();
   document.body.appendChild(document.getElementById('acPelDrop'));
   muatRetur();
   dbGet('m_pelanggan',{status:'eq.AKTIF',order:'nama.asc',select:'id_pelanggan,nama'}).then(function(r){
@@ -209,7 +286,7 @@ function renderTabel(data){
       '<td><span class="badge-status" style="background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9">'+esc(r.entitas)+'</span></td>'+
       '<td class="td-mono">'+fmtRupiah(r.total_tagihan_retur)+'</td>'+
       '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td>'+
-      '<td>'+(r.status==='APPROVED'?'<button class="btn-print" onclick="event.stopPropagation();cetakNotaReturDariBaris(\''+esc(r.id_retur)+'\')">🖨</button>':'—')+'</td>'+
+      '<td>'+(r.status==='APPROVED'?'<button class="btn-print" onclick="event.stopPropagation();bukaPrintRetur(\''+esc(r.id_retur)+'\')">🖨</button>':'—')+'</td>'+
     '</tr>';
   }).join('');
 }
@@ -471,7 +548,7 @@ function bukaDetail(idRetur){
       '<button class="btn-tolak" onclick="prosesRetur(\''+esc(r.id_retur)+'\',\'TOLAK\')">✕ Tolak</button>'+
       '<button class="btn-approve" onclick="prosesRetur(\''+esc(r.id_retur)+'\',\'APPROVE\')">✓ Approve</button>';
   }else{
-    var printBtn=r.status==='APPROVED'?'<button class="btn-print" onclick="cetakNotaRetur()">🖨 Cetak Nota Retur</button>':'';
+    var printBtn=r.status==='APPROVED'?'<button class="btn-print" onclick="bukaPrintRetur(\''+esc(r.id_retur)+'\')">🖨 Cetak Nota Retur</button>':'';
     footer.innerHTML=printBtn+'<button class="btn-outline" data-bs-dismiss="modal">Tutup</button>';
   }
 
@@ -567,90 +644,232 @@ async function prosesRetur(idRetur,aksi){
   }
 }
 
-// ── CETAK NOTA RETUR ──
-function fmtTglPanjang(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});}
-
-function cetakNotaReturDariBaris(idRetur){
-  var r=semuaRetur.find(function(x){return x.id_retur===idRetur;});
-  if(!r) return;
-  returAktif=r;
-  cetakNotaRetur();
+// ── SISTEM CETAK — antrian PC Print Agent + approval reprint (pola sama persis dgn pengiriman.html) ──
+function showAlert(elId,pesan){document.getElementById(elId).innerHTML='<div class="alert-box alert-err">'+pesan+'</div>';}
+function cekErrorSupabase(res){
+  if(!res){throw new Error('Tidak ada respon dari server.');}
+  if(res.code||res.status==='error'){throw new Error(res.message||res.msg||'Terjadi kesalahan.');}
+  return res;
 }
 
-async function cetakNotaRetur(){
-  if(!returAktif) return;
-  var r=returAktif;
+// printInfoRetur: rekap log utk 1 retur (retur cuma 1 jenis dokumen, beda dari SJ yg punya SJ/Invoice)
+function hitungPrintInfoRetur(logs){
+  var ok=logs.filter(function(l){return l.status_approval==='APPROVED';});
+  return {
+    sudah_print: ok.length>0,
+    pending: logs.find(function(l){return l.status_approval==='MENUNGGU_APPROVE';})||null,
+    siap: logs.find(function(l){return l.status_approval==='APPROVED'&&l.sudah_dieksekusi===false;})||null
+  };
+}
+
+function bukaPrintRetur(idRetur){
+  var r=semuaRetur.find(function(x){return x.id_retur===idRetur;})||(returAktif&&returAktif.id_retur===idRetur?returAktif:null);
+  if(!r) return;
   if(r.status!=='APPROVED'){alert('Retur belum disetujui — tidak bisa dicetak jadi Nota Retur resmi.');return;}
-  try{
-    var detRes=await dbGet('in_retur_detail',{id_retur:'eq.'+r.id_retur,order:'id_rdet.asc'});
-    var items=Array.isArray(detRes)?detRes:[];
-    var noNota=null;
-    if(r.id_sj){
-      var sjRes=await dbGet('in_pengiriman',{id_sj:'eq.'+r.id_sj,select:'no_nota'});
-      var sjArr=Array.isArray(sjRes)?sjRes:[];
-      noNota=sjArr.length?sjArr[0].no_nota:null;
-    }
-    var pa=document.getElementById('printArea');
-    pa.innerHTML=layoutRetur(r,items,noNota);
-    document.body.classList.add('printing');
-    function cleanup(){document.body.classList.remove('printing');pa.innerHTML='';window.removeEventListener('afterprint',cleanup);}
-    window.addEventListener('afterprint',cleanup);
-    setTimeout(function(){window.print();},400);
-  }catch(e){
-    alert('Gagal menyiapkan cetak: '+e.message);
+  returAktif=r;
+  dbGet('log_print_retur',{id_retur:'eq.'+idRetur}).then(function(lr){
+    printInfoRetur=hitungPrintInfoRetur(Array.isArray(lr)?lr:[]);
+    bukaModalPrintRetur();
+  });
+}
+
+function bukaModalPrintRetur(){
+  if(!returAktif) return;
+  document.getElementById('alertPrint').innerHTML='';
+  document.getElementById('inpAlasanPrint').value='';
+  document.getElementById('printTitle').textContent='Cetak — '+returAktif.id_retur;
+  cekReprintRetur();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPrint')).show();
+}
+
+function cekReprintRetur(){
+  if(!printInfoRetur) return;
+  var warnBox=document.getElementById('printWarnBox');
+  var alasanBox=document.getElementById('alasanBoxPrint');
+  var btnC=document.getElementById('btnCetakRetur');
+  if(printInfoRetur.siap){
+    warnBox.className='reprint-approved-box'; warnBox.style.display='block';
+    warnBox.innerHTML='✓ Sudah disetujui oleh '+esc(printInfoRetur.siap.approved_by)+'. Menunggu dicetak fisik lewat PC Print Agent — lihat menu "Antrian Cetak PC".';
+    alasanBox.style.display='none'; btnC.disabled=true; btnC.textContent='Sudah Disetujui';
+    return;
+  }
+  if(printInfoRetur.pending){
+    warnBox.className='reprint-pending-box'; warnBox.style.display='block';
+    warnBox.innerHTML='⏳ Menunggu approval Manager/Direktur (diajukan oleh '+esc(printInfoRetur.pending.diajukan_oleh)+').';
+    alasanBox.style.display='none'; btnC.disabled=true; btnC.textContent='Menunggu Approval';
+    return;
+  }
+  if(!printInfoRetur.sudah_print){
+    warnBox.style.display='none'; alasanBox.style.display='none'; btnC.disabled=false; btnC.textContent='Setujui untuk Dicetak';
+    return;
+  }
+  warnBox.className='reprint-warn'; warnBox.style.display='block';
+  if(isMP){
+    warnBox.innerHTML='⚠ Sudah pernah dicetak. Sebagai '+roleUser+', reprint langsung disetujui — wajib isi alasan.';
+    alasanBox.style.display='block'; btnC.disabled=false; btnC.textContent='Setujui Reprint';
+  }else{
+    warnBox.innerHTML='⚠ Sudah pernah dicetak. Ajukan reprint — wajib isi alasan, menunggu approval Manager/Direktur.';
+    alasanBox.style.display='block'; btnC.disabled=false; btnC.textContent='Ajukan Reprint';
   }
 }
 
-function layoutRetur(r,items,noNota){
-  var isPT=r.entitas==='PT';
-  var coName=isPT?'PT. ELIM CITRA OFFSET':'DK OFFSET';
-  var coAddr=isPT?'Jl. Rinjani Utara IV No. 2, Mojosongo, Surakarta 57127':'';
-  var tglStr='Surakarta, '+fmtTglPanjang(r.tgl);
-  var refParts=[];
-  if(r.no_sj) refParts.push('SJ '+r.no_sj);
-  if(noNota) refParts.push('Nota '+noNota);
-  var refStr=refParts.length?refParts.join(' / '):'—';
-  var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:8pt;font-weight:700;text-align:left;';
-  var tdS='padding:.04cm .1cm;vertical-align:top;font-size:8.5pt;line-height:1.3;';
-  var rows=items.map(function(it,i){
-    return '<tr><td style="'+tdS+';width:.5cm">'+(i+1)+'</td>'+
-      '<td style="'+tdS+';word-wrap:break-word;word-break:break-word;white-space:normal">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
-      '<td style="'+tdS+';width:1.2cm">'+esc(it.jenis||'')+'</td>'+
-      '<td style="'+tdS+';text-align:right;width:1.5cm">'+fmtAngka(it.qty_retur||0)+'</td>'+
-      '<td style="'+tdS+';width:.8cm">'+esc(it.satuan||'')+'</td>'+
-      '<td style="'+tdS+';text-align:right;width:1.8cm">'+fmtAngka(parseFloat(it.harga||0))+'</td>'+
-      '<td style="'+tdS+';text-align:right;width:2cm">'+fmtAngka(parseFloat(it.subtotal||0))+'</td></tr>';
-  }).join('');
-  var footerRows=(isPT?
-    '<tr><td colspan="6" style="'+tdS+';text-align:right;font-size:8pt">Subtotal Retur</td><td style="'+tdS+';text-align:right">'+fmtAngka(r.total_retur||0)+'</td></tr>'+
-    '<tr><td colspan="6" style="'+tdS+';text-align:right;font-size:8pt;color:#333">PPN 11%</td><td style="'+tdS+';text-align:right;color:#333">'+fmtAngka(r.ppn||0)+'</td></tr>'
-    :'')+
-    '<tr style="border-top:1.5px solid #000"><td colspan="6" style="'+tdS+';font-weight:700">TOTAL RETUR (KREDIT PIUTANG)</td><td style="'+tdS+';text-align:right;font-weight:700">'+fmtAngka(r.total_tagihan_retur||0)+'</td></tr>';
-  return '<div class="sj-page">'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
-      '<div><div style="font-size:10.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:7.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
-      '<div style="text-align:right"><div style="font-size:10pt;font-weight:700;letter-spacing:.05em">NOTA RETUR</div>'+
-        '<div style="font-size:9pt;font-weight:700;margin-top:1px">'+esc(r.id_retur)+'</div>'+
-        '<div style="font-size:8pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
-    '</div>'+
-    '<div style="display:flex;gap:.5cm;margin-bottom:.15cm;font-size:8.5pt;align-items:flex-start;flex-shrink:0">'+
-      '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm">Kepada Yth.</div>'+
-      '<div><div style="font-weight:700">'+esc(r.nama_pelanggan||'')+'</div></div>'+
-    '</div>'+
-    '<div style="font-size:7.5pt;color:#444;margin-bottom:.2cm;flex-shrink:0">Ref: '+esc(refStr)+'</div>'+
-    '<div style="flex-shrink:0;overflow:hidden">'+
-    '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
-      '<th style="'+thS+';width:.5cm">No.</th><th style="'+thS+'">Nama Barang</th>'+
-      '<th style="'+thS+';width:1.2cm">Jenis</th>'+
-      '<th style="'+thS+';text-align:right;width:1.5cm">Qty</th><th style="'+thS+';width:.8cm">Sat.</th>'+
-      '<th style="'+thS+';text-align:right;width:1.8cm">Harga</th><th style="'+thS+';text-align:right;width:2cm">Subtotal</th>'+
-    '</tr></thead><tbody>'+rows+'</tbody><tfoot>'+footerRows+'</tfoot></table>'+
-    '<div style="font-size:7.3pt;color:#444;border-top:.5px solid #ccc;padding-top:.08cm;margin-top:.1cm">Alasan: '+esc(r.alasan||'—')+'</div></div>'+
-    '<div class="sj-spacer"></div>'+
-    '<div class="sj-footer-ttd">'+
-      '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Hormat Kami</div>'+
-      '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Pelanggan</div>'+
-    '</div></div>';
+// Tombol ini HANYA approval. Eksekusi cetak fisik 100% lewat PC Print Agent (sieo-print-agent.ps1),
+// tidak pernah membuka dialog print Chrome dari sini — sama persis pola pengiriman.html.
+async function submitPrintRetur(btn){
+  var alasan=document.getElementById('inpAlasanPrint').value.trim();
+  if(printInfoRetur.siap||printInfoRetur.pending){showAlert('alertPrint','Tidak ada aksi tersedia — lihat status di atas.');return;}
+  if(printInfoRetur.sudah_print&&!alasan){showAlert('alertPrint','Alasan reprint wajib diisi.');return;}
+
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
+  try{
+    var r=await dbRpc('ajukan_print_retur',{
+      p_id_retur:returAktif.id_retur, p_alasan:alasan||null, p_user:getNamaUser(), p_role:roleUser
+    });
+    cekErrorSupabase(r);
+    bootstrap.Modal.getInstance(document.getElementById('modalPrint')).hide();
+    if(r.status_approval==='MENUNGGU_APPROVE'){
+      alert('Reprint diajukan, menunggu approval Manager/Direktur.');
+    }else{
+      alert('Disetujui — Nota Retur ini sudah masuk Antrian Cetak PC. Buka PC Print Agent untuk mencetak fisik.');
+    }
+    cekBadgeAntrianAwal();
+  }catch(e){
+    showAlert('alertPrint','Gagal: '+esc(e.message));
+    btn.disabled=false; btn.innerHTML='Setujui untuk Dicetak';
+  }
+}
+
+// ── ANTRIAN CETAK PC (siap tapi belum dieksekusi fisik) ──
+function bukaAntrianCetak(){
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAntrianCetak')).show();
+  muatAntrianCetak();
+}
+async function muatAntrianCetak(){
+  var box=document.getElementById('antrianCetakBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_retur',{status_approval:'eq.APPROVED',sudah_dieksekusi:'eq.false',order:'tgl_approve.asc'});
+    logs=Array.isArray(logs)?logs:[];
+    refreshBadgeAntrian(logs.length);
+    if(!logs.length){box.innerHTML='<div class="loading">Tidak ada Nota Retur yang menunggu cetak fisik.</div>';return;}
+    var idRs=logs.map(function(l){return l.id_retur;});
+    var rMap={};
+    if(idRs.length){
+      var rs=await dbGet('in_retur',{id_retur:'in.('+idRs.join(',')+')'});
+      (Array.isArray(rs)?rs:[]).forEach(function(x){rMap[x.id_retur]=x;});
+    }
+    var html='';
+    logs.forEach(function(l){
+      var rr=rMap[l.id_retur]||{};
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">No. Retur</span><span class="rp-val">'+esc(rr.id_retur||l.id_retur)+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Pelanggan</span><span class="rp-val">'+esc(rr.nama_pelanggan||'—')+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Cetak ke</span><span class="rp-val">ke-'+l.print_ke+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Disetujui oleh</span><span class="rp-val">'+esc(l.approved_by)+' — '+fmtTgl(l.tgl_approve)+'</span></div>'+
+      '</div>';
+    });
+    box.innerHTML=html+'<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.5rem">Buka PC Print Agent (jalankan-print-agent.bat) di komputer kantor untuk mencetak daftar ini.</div>';
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
+}
+function refreshBadgeAntrian(n){
+  var b=document.getElementById('badgeAntrian');
+  if(n>0){b.textContent=n;b.style.display='inline-block';}
+  else{b.style.display='none';}
+}
+async function cekBadgeAntrianAwal(){
+  try{
+    var logs=await dbGet('log_print_retur',{status_approval:'eq.APPROVED',sudah_dieksekusi:'eq.false',select:'id_log'});
+    refreshBadgeAntrian(Array.isArray(logs)?logs.length:0);
+  }catch(e){/* diam saja kalau gagal, bukan kritikal */}
+}
+
+// ── APPROVE REPRINT (Manager/Direktur) ──
+function bukaApproveReprint(){
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalApproveReprint')).show();
+  muatApproveReprint();
+}
+async function muatApproveReprint(){
+  var box=document.getElementById('approveReprintBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_retur',{status_approval:'eq.MENUNGGU_APPROVE',order:'tgl_print.asc'});
+    logs=Array.isArray(logs)?logs:[];
+    if(!logs.length){box.innerHTML='<div class="loading">Tidak ada reprint yang menunggu approval.</div>';return;}
+    var idRs=logs.map(function(l){return l.id_retur;});
+    var rMap={};
+    if(idRs.length){
+      var rs=await dbGet('in_retur',{id_retur:'in.('+idRs.join(',')+')'});
+      (Array.isArray(rs)?rs:[]).forEach(function(x){rMap[x.id_retur]=x;});
+    }
+    var html='';
+    logs.forEach(function(l){
+      var rr=rMap[l.id_retur]||{};
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">No. Retur</span><span class="rp-val">'+esc(rr.id_retur||l.id_retur)+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Pelanggan</span><span class="rp-val">'+esc(rr.nama_pelanggan||'—')+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Cetak ke</span><span class="rp-val">ke-'+l.print_ke+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(l.diajukan_oleh)+' — '+fmtTgl(l.tgl_print)+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Alasan</span><span class="rp-val">'+esc(l.alasan||'—')+'</span></div>'+
+        '<div style="display:flex;gap:.5rem;margin-top:.5rem;justify-content:flex-end">'+
+          '<button class="btn-outline" style="border-color:var(--red);color:var(--red)" onclick="approveReprintRetur(\''+esc(l.id_log)+'\',false,this)">✗ Tolak</button>'+
+          '<button class="btn-navy" onclick="approveReprintRetur(\''+esc(l.id_log)+'\',true,this)">✓ Approve</button>'+
+        '</div></div>';
+    });
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
+}
+async function approveReprintRetur(idLog,disetujui,btn){
+  btn.disabled=true;
+  try{
+    var r=await dbRpc('approve_print_retur',{p_id_log:idLog,p_disetujui:disetujui,p_user:getNamaUser()});
+    cekErrorSupabase(r);
+    muatApproveReprint();
+    cekBadgeAntrianAwal();
+  }catch(e){
+    alert('Gagal: '+e.message);
+    btn.disabled=false;
+  }
+}
+
+// ── LOG REPRINT (Direktur — audit) ──
+function bukaLogReprint(){
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalLogReprint')).show();
+  muatLogReprint();
+}
+async function muatLogReprint(){
+  var box=document.getElementById('logReprintBody');
+  box.innerHTML='<div class="loading">Memuat…</div>';
+  try{
+    var logs=await dbGet('log_print_retur',{print_ke:'gt.1',order:'tgl_print.desc'});
+    logs=Array.isArray(logs)?logs:[];
+    if(!logs.length){box.innerHTML='<div class="loading">Belum ada riwayat reprint.</div>';return;}
+    var idRs=logs.map(function(l){return l.id_retur;});
+    var rMap={};
+    if(idRs.length){
+      var rs=await dbGet('in_retur',{id_retur:'in.('+idRs.join(',')+')'});
+      (Array.isArray(rs)?rs:[]).forEach(function(x){rMap[x.id_retur]=x;});
+    }
+    var stCls={MENUNGGU_APPROVE:'rp-menunggu',APPROVED:'rp-approved',DITOLAK:'rp-ditolak'};
+    var html='';
+    logs.forEach(function(l){
+      var rr=rMap[l.id_retur]||{};
+      html+='<div class="rp-item">'+
+        '<div class="rp-row"><span class="rp-lbl">No. Retur</span><span class="rp-val">'+esc(rr.id_retur||l.id_retur)+' <span class="rp-status '+(stCls[l.status_approval]||'')+'">'+esc(l.status_approval)+'</span></span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Cetak ke</span><span class="rp-val">ke-'+l.print_ke+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Dicetak oleh</span><span class="rp-val">'+esc(l.nama_user)+' — '+fmtTgl(l.tgl_print)+'</span></div>'+
+        (l.diajukan_oleh?'<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(l.diajukan_oleh)+'</span></div>':'')+
+        (l.approved_by?'<div class="rp-row"><span class="rp-lbl">Diputuskan oleh</span><span class="rp-val">'+esc(l.approved_by)+' — '+fmtTgl(l.tgl_approve)+'</span></div>':'')+
+        '<div class="rp-row"><span class="rp-lbl">Alasan</span><span class="rp-val">'+esc(l.alasan||'—')+'</span></div>'+
+      '</div>';
+    });
+    box.innerHTML=html;
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
+  }
 }
 </script>
 </body>
