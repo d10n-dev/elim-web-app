@@ -50,6 +50,17 @@
     .btn-approve{background:var(--green);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
     .btn-tolak{background:#fff0f0;color:var(--red);border:1px solid #ffc9c9;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.42rem .9rem;cursor:pointer;}
     .btn-navy:disabled,.btn-approve:disabled,.btn-tolak:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-print{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;border-radius:6px;font-size:.75rem;font-family:var(--mono);font-weight:600;padding:.35rem .8rem;cursor:pointer;}
+    .btn-print:hover{background:#d0e2ff;}
+    /* print — kertas fisik 21cm x 10cm, konsisten dgn layout SJ/Invoice di pengiriman.html */
+    #printArea{display:none;}
+    .sj-page{width:21cm;height:10cm;padding:.35cm .5cm;box-sizing:border-box;font-family:'Courier New',Courier,monospace;font-size:8.8pt;font-weight:700;color:#000;background:#fff;page-break-after:always;display:flex;flex-direction:column;overflow:hidden;}
+    .sj-page:last-child{page-break-after:auto;}
+    .sj-spacer{flex:1 1 auto;border-top:1px solid #000;margin-top:.12cm;min-height:.15cm;}
+    .sj-footer-ttd{display:flex;justify-content:space-between;padding-top:.18cm;font-size:7.8pt;flex-shrink:0;}
+    @media print{@page{size:21cm 10cm;margin:0;}}
+    body.printing>*{display:none!important;}
+    body.printing #printArea{display:block!important;position:fixed;left:0;top:0;width:100%;z-index:99999;background:#fff;}
   </style>
 </head>
 <body>
@@ -72,9 +83,9 @@
   <table>
     <thead><tr>
       <th>ID Retur</th><th>Tanggal</th><th>SJ Ref</th>
-      <th>Pelanggan</th><th>Entitas</th><th>Total Retur</th><th>Status</th>
+      <th>Pelanggan</th><th>Entitas</th><th>Total Retur</th><th>Status</th><th>Cetak</th>
     </tr></thead>
-    <tbody id="tbodyRetur"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+    <tbody id="tbodyRetur"><tr><td colspan="8" class="loading">Memuat…</td></tr></tbody>
   </table>
 </div>
 
@@ -143,6 +154,8 @@
   </div>
 </div>
 
+<div id="printArea"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
@@ -174,18 +187,18 @@ function genIdLogBJ(){return'LBJ'+Date.now()+Math.floor(Math.random()*1000);}
 
 // ── MUAT RETUR ──
 function muatRetur(){
-  document.getElementById('tbodyRetur').innerHTML='<tr><td colspan="7" class="loading">Memuat…</td></tr>';
+  document.getElementById('tbodyRetur').innerHTML='<tr><td colspan="8" class="loading">Memuat…</td></tr>';
   dbGet('in_retur',{order:'tgl.desc'}).then(function(res){
     semuaRetur=Array.isArray(res)?res:[];
     renderTabel(semuaRetur);
   }).catch(function(){
-    document.getElementById('tbodyRetur').innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
+    document.getElementById('tbodyRetur').innerHTML='<tr><td colspan="8" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
   });
 }
 
 function renderTabel(data){
   document.getElementById('infoBar').textContent=data.length+' retur ditemukan';
-  if(!data.length){document.getElementById('tbodyRetur').innerHTML='<tr><td colspan="7" class="loading">Belum ada retur.</td></tr>';return;}
+  if(!data.length){document.getElementById('tbodyRetur').innerHTML='<tr><td colspan="8" class="loading">Belum ada retur.</td></tr>';return;}
   document.getElementById('tbodyRetur').innerHTML=data.map(function(r){
     var stCls='s-'+(r.status||'').toLowerCase();
     return '<tr onclick="bukaDetail(\''+esc(r.id_retur)+'\')">'+
@@ -196,6 +209,7 @@ function renderTabel(data){
       '<td><span class="badge-status" style="background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9">'+esc(r.entitas)+'</span></td>'+
       '<td class="td-mono">'+fmtRupiah(r.total_tagihan_retur)+'</td>'+
       '<td><span class="badge-status '+stCls+'">'+esc(r.status)+'</span></td>'+
+      '<td>'+(r.status==='APPROVED'?'<button class="btn-print" onclick="event.stopPropagation();cetakNotaReturDariBaris(\''+esc(r.id_retur)+'\')">🖨</button>':'—')+'</td>'+
     '</tr>';
   }).join('');
 }
@@ -457,7 +471,8 @@ function bukaDetail(idRetur){
       '<button class="btn-tolak" onclick="prosesRetur(\''+esc(r.id_retur)+'\',\'TOLAK\')">✕ Tolak</button>'+
       '<button class="btn-approve" onclick="prosesRetur(\''+esc(r.id_retur)+'\',\'APPROVE\')">✓ Approve</button>';
   }else{
-    footer.innerHTML='<button class="btn-outline" data-bs-dismiss="modal">Tutup</button>';
+    var printBtn=r.status==='APPROVED'?'<button class="btn-print" onclick="cetakNotaRetur()">🖨 Cetak Nota Retur</button>':'';
+    footer.innerHTML=printBtn+'<button class="btn-outline" data-bs-dismiss="modal">Tutup</button>';
   }
 
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetail')).show();
@@ -550,6 +565,92 @@ async function prosesRetur(idRetur,aksi){
     alertEl.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
     footer.querySelectorAll('button').forEach(function(b){b.disabled=false;});
   }
+}
+
+// ── CETAK NOTA RETUR ──
+function fmtTglPanjang(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});}
+
+function cetakNotaReturDariBaris(idRetur){
+  var r=semuaRetur.find(function(x){return x.id_retur===idRetur;});
+  if(!r) return;
+  returAktif=r;
+  cetakNotaRetur();
+}
+
+async function cetakNotaRetur(){
+  if(!returAktif) return;
+  var r=returAktif;
+  if(r.status!=='APPROVED'){alert('Retur belum disetujui — tidak bisa dicetak jadi Nota Retur resmi.');return;}
+  try{
+    var detRes=await dbGet('in_retur_detail',{id_retur:'eq.'+r.id_retur,order:'id_rdet.asc'});
+    var items=Array.isArray(detRes)?detRes:[];
+    var noNota=null;
+    if(r.id_sj){
+      var sjRes=await dbGet('in_pengiriman',{id_sj:'eq.'+r.id_sj,select:'no_nota'});
+      var sjArr=Array.isArray(sjRes)?sjRes:[];
+      noNota=sjArr.length?sjArr[0].no_nota:null;
+    }
+    var pa=document.getElementById('printArea');
+    pa.innerHTML=layoutRetur(r,items,noNota);
+    document.body.classList.add('printing');
+    function cleanup(){document.body.classList.remove('printing');pa.innerHTML='';window.removeEventListener('afterprint',cleanup);}
+    window.addEventListener('afterprint',cleanup);
+    setTimeout(function(){window.print();},400);
+  }catch(e){
+    alert('Gagal menyiapkan cetak: '+e.message);
+  }
+}
+
+function layoutRetur(r,items,noNota){
+  var isPT=r.entitas==='PT';
+  var coName=isPT?'PT. ELIM CITRA OFFSET':'DK OFFSET';
+  var coAddr=isPT?'Jl. Rinjani Utara IV No. 2, Mojosongo, Surakarta 57127':'';
+  var tglStr='Surakarta, '+fmtTglPanjang(r.tgl);
+  var refParts=[];
+  if(r.no_sj) refParts.push('SJ '+r.no_sj);
+  if(noNota) refParts.push('Nota '+noNota);
+  var refStr=refParts.length?refParts.join(' / '):'—';
+  var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:8pt;font-weight:700;text-align:left;';
+  var tdS='padding:.04cm .1cm;vertical-align:top;font-size:8.5pt;line-height:1.3;';
+  var rows=items.map(function(it,i){
+    return '<tr><td style="'+tdS+';width:.5cm">'+(i+1)+'</td>'+
+      '<td style="'+tdS+';word-wrap:break-word;word-break:break-word;white-space:normal">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+'</td>'+
+      '<td style="'+tdS+';width:1.2cm">'+esc(it.jenis||'')+'</td>'+
+      '<td style="'+tdS+';text-align:right;width:1.5cm">'+fmtAngka(it.qty_retur||0)+'</td>'+
+      '<td style="'+tdS+';width:.8cm">'+esc(it.satuan||'')+'</td>'+
+      '<td style="'+tdS+';text-align:right;width:1.8cm">'+fmtAngka(parseFloat(it.harga||0))+'</td>'+
+      '<td style="'+tdS+';text-align:right;width:2cm">'+fmtAngka(parseFloat(it.subtotal||0))+'</td></tr>';
+  }).join('');
+  var footerRows=(isPT?
+    '<tr><td colspan="6" style="'+tdS+';text-align:right;font-size:8pt">Subtotal Retur</td><td style="'+tdS+';text-align:right">'+fmtAngka(r.total_retur||0)+'</td></tr>'+
+    '<tr><td colspan="6" style="'+tdS+';text-align:right;font-size:8pt;color:#333">PPN 11%</td><td style="'+tdS+';text-align:right;color:#333">'+fmtAngka(r.ppn||0)+'</td></tr>'
+    :'')+
+    '<tr style="border-top:1.5px solid #000"><td colspan="6" style="'+tdS+';font-weight:700">TOTAL RETUR (KREDIT PIUTANG)</td><td style="'+tdS+';text-align:right;font-weight:700">'+fmtAngka(r.total_tagihan_retur||0)+'</td></tr>';
+  return '<div class="sj-page">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
+      '<div><div style="font-size:10.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:7.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
+      '<div style="text-align:right"><div style="font-size:10pt;font-weight:700;letter-spacing:.05em">NOTA RETUR</div>'+
+        '<div style="font-size:9pt;font-weight:700;margin-top:1px">'+esc(r.id_retur)+'</div>'+
+        '<div style="font-size:8pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:.5cm;margin-bottom:.15cm;font-size:8.5pt;align-items:flex-start;flex-shrink:0">'+
+      '<div style="color:#555;white-space:nowrap;padding-top:1px;min-width:1.4cm">Kepada Yth.</div>'+
+      '<div><div style="font-weight:700">'+esc(r.nama_pelanggan||'')+'</div></div>'+
+    '</div>'+
+    '<div style="font-size:7.5pt;color:#444;margin-bottom:.2cm;flex-shrink:0">Ref: '+esc(refStr)+'</div>'+
+    '<div style="flex-shrink:0;overflow:hidden">'+
+    '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
+      '<th style="'+thS+';width:.5cm">No.</th><th style="'+thS+'">Nama Barang</th>'+
+      '<th style="'+thS+';width:1.2cm">Jenis</th>'+
+      '<th style="'+thS+';text-align:right;width:1.5cm">Qty</th><th style="'+thS+';width:.8cm">Sat.</th>'+
+      '<th style="'+thS+';text-align:right;width:1.8cm">Harga</th><th style="'+thS+';text-align:right;width:2cm">Subtotal</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody><tfoot>'+footerRows+'</tfoot></table>'+
+    '<div style="font-size:7.3pt;color:#444;border-top:.5px solid #ccc;padding-top:.08cm;margin-top:.1cm">Alasan: '+esc(r.alasan||'—')+'</div></div>'+
+    '<div class="sj-spacer"></div>'+
+    '<div class="sj-footer-ttd">'+
+      '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Hormat Kami</div>'+
+      '<div style="text-align:center;width:3.8cm"><div style="border-bottom:1px solid #000;height:.6cm;margin-bottom:.05cm"></div>Pelanggan</div>'+
+    '</div></div>';
 }
 </script>
 </body>
