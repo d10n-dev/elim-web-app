@@ -223,6 +223,7 @@
     <input type="checkbox" class="chk-batch" id="chkApvAll" onclick="toggleSemuaApprove(this)"/>
     <label style="font-family:var(--mono);font-size:.72rem">Pilih Semua</label>
     <button class="btn-navy" onclick="batchApproveAlokasi()">✓ Approve Terpilih</button>
+    <button class="btn-sm-action btn-tolak" onclick="batchTolakAlokasi()">✗ Tolak Terpilih</button>
     <input type="text" class="form-control" id="apvCari" placeholder="🔍 Cari no. nota / pelanggan…" autocomplete="off" oninput="renderPerluApprove()" style="flex:1;min-width:180px"/>
   </div>
   <div class="info-bar" id="apvInfoBar">Memuat data…</div>
@@ -1570,6 +1571,26 @@ async function batchApproveAlokasi(){
     }
     if(idsTN.length){
       var r2=await dbRpc('approve_alokasi_tunai',{p_id_detail_list:idsTN,p_user_input:getNamaUser()});
+      var e2=cekErrorSupabase(r2); if(e2) throw new Error('Tunai: '+e2);
+    }
+    muatPerluApprove(); muatRekap(); muatRekapCards();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+async function batchTolakAlokasi(){
+  var items=Array.from(document.querySelectorAll('.chk-apv:checked'));
+  if(!items.length){alert('Pilih minimal 1 alokasi.');return;}
+  var idsTF=items.filter(function(c){return c.dataset.jenis==='TRANSFER';}).map(function(c){return c.value;});
+  var idsTN=items.filter(function(c){return c.dataset.jenis==='TUNAI';}).map(function(c){return c.value;});
+  var alasan=prompt('Alasan penolakan (opsional):','');
+  if(alasan===null)return;
+  if(!confirm('Tolak '+items.length+' alokasi? Nota terkait akan muncul lagi untuk dialokasikan ulang.'))return;
+  try{
+    if(idsTF.length){
+      var r1=await dbRpc('tolak_alokasi_transfer',{p_id_alokasi_list:idsTF,p_user_input:getNamaUser(),p_alasan:alasan||null});
+      var e1=cekErrorSupabase(r1); if(e1) throw new Error('Transfer: '+e1);
+    }
+    if(idsTN.length){
+      var r2=await dbRpc('tolak_alokasi_tunai',{p_id_detail_list:idsTN,p_user_input:getNamaUser(),p_alasan:alasan||null});
       var e2=cekErrorSupabase(r2); if(e2) throw new Error('Tunai: '+e2);
     }
     muatPerluApprove(); muatRekap(); muatRekapCards();
