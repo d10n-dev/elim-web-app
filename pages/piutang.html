@@ -87,6 +87,7 @@
       <div class="ac-dropdown" id="rkDropPelanggan" style="position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:none;max-height:220px;overflow-y:auto;min-width:260px"></div>
     </div>
     <button class="btn-outline" id="btnRkResetPelanggan" style="display:none" onclick="resetRkPelanggan()">✕ Pelanggan</button>
+    <button class="btn-outline" id="btnRkRiwayatBayar" style="display:none" onclick="bukaPembayaranPelanggan()">📄 Riwayat Bayar</button>
     <select id="rkStatus" onchange="muatRekap()">
       <option value="">Semua Status</option>
       <option value="BELUM_DITAGIH">Belum Ditagih</option>
@@ -109,6 +110,15 @@
       <input type="checkbox" id="rkTampilLunas" onchange="muatRekap()"/> Tampilkan yang lunas
     </label>
   </div>
+  <div class="toolbar" style="margin-top:.4rem">
+    <label class="form-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin:0;white-space:nowrap;align-self:center;">Tgl Nota:</label>
+    <input type="date" id="rkTglDari" onchange="muatRekap()" style="max-width:150px"/>
+    <span style="align-self:center;color:var(--muted);font-size:.72rem">s/d</span>
+    <input type="date" id="rkTglSampai" onchange="muatRekap()" style="max-width:150px"/>
+    <button class="btn-outline" onclick="setRkRangeTahun(2025)">2025</button>
+    <button class="btn-outline" onclick="setRkRangeTahun(2026)">2026↑</button>
+    <button class="btn-outline" onclick="document.getElementById('rkTglDari').value='';document.getElementById('rkTglSampai').value='';muatRekap();">Reset Tgl Nota</button>
+  </div>
   <div class="info-bar" id="rkInfoBar">Memuat data…</div>
   <div class="toolbar-batch" id="rkBatchWrap" style="justify-content:space-between;align-items:center">
     <div style="display:flex;align-items:center;gap:.5rem">
@@ -123,9 +133,9 @@
       <thead><tr>
         <th></th><th>No. SJ / Nota</th><th>Tanggal</th><th>Pelanggan</th><th>Entitas</th>
         <th class="td-right">Total Tagih</th><th class="td-right">Sisa</th>
-        <th>Jatuh Tempo</th><th>Status</th>
+        <th>Jatuh Tempo</th><th>Status</th><th>Aksi</th>
       </tr></thead>
-      <tbody id="rkTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
+      <tbody id="rkTbody"><tr><td colspan="10" class="loading">Memuat…</td></tr></tbody>
     </table>
   </div>
   <div class="sec-label" style="margin-top:1.2rem">Rekap per Pelanggan</div>
@@ -321,6 +331,49 @@
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
         <button class="btn-navy" onclick="submitKonfirmasiTT(this)">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: RIWAYAT BAYAR PER NOTA ═══ -->
+<div class="modal fade" id="modalRiwayatBayar" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><span class="modal-title">Riwayat Pembayaran — <span id="rbNoNota"></span></span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p style="font-family:var(--mono);font-size:.75rem;color:var(--muted);margin:0 0 .6rem" id="rbPelanggan"></p>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Sumber</th><th>Tanggal</th><th class="td-right">Nominal</th><th>Keterangan</th><th>Ref</th><th>Disetujui</th></tr></thead>
+            <tbody id="rbTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+        <div style="font-family:var(--mono);font-size:.78rem;font-weight:600;text-align:right;margin-top:.5rem" id="rbTotal"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: RIWAYAT PEMBAYARAN PER PELANGGAN ═══ -->
+<div class="modal fade" id="modalPembayaranPelanggan" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><span class="modal-title">Riwayat Pembayaran — <span id="ppNamaPelanggan"></span></span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin:0 0 .6rem">Klik baris untuk lihat nota yang di-cover pembayaran tsb. Hanya status TERALOKASI.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th></th><th>Sumber</th><th colspan="2">Ref / Keterangan</th><th class="td-right">Nominal Total</th><th class="td-right">Ke Pelanggan Ini</th></tr></thead>
+            <tbody id="ppTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Tutup</button>
       </div>
     </div>
   </div>
@@ -647,11 +700,19 @@ function badgeJatuhTempo(hariTerlambat,tglJT){
   if(sisaHari<=7) return '<span class="badge-jt jt-dekat">'+sisaHari+' hr lagi</span>';
   return '<span class="badge-jt jt-aman">'+fmtTgl(tglJT)+'</span>';
 }
+function setRkRangeTahun(thn){
+  document.getElementById('rkTglDari').value=thn+'-01-01';
+  document.getElementById('rkTglSampai').value=(thn>=2026)?'':(thn+'-12-31');
+  muatRekap();
+}
 function muatRekap(){
   var jt=document.getElementById('rkJatuhTempo').value||null;
   var status=document.getElementById('rkStatus').value||null;
   var entitas=document.getElementById('rkEntitas').value||null;
-  var tampilLunas=document.getElementById('rkTampilLunas').checked;
+  var tglDari=document.getElementById('rkTglDari').value||null;
+  var tglSampai=document.getElementById('rkTglSampai').value||null;
+  var adaFilterTgl=!!(tglDari||tglSampai);
+  var tampilLunas=document.getElementById('rkTampilLunas').checked||adaFilterTgl;
   var idPelLock=rkPelangganTerpilih?rkPelangganTerpilih.id_pelanggan:null;
   var namaPelLock=rkPelangganTerpilih?rkPelangganTerpilih.nama:null;
   var fn=tampilLunas?'get_rekap_piutang_semua':'get_rekap_piutang';
@@ -703,6 +764,9 @@ function muatRekap(){
     var gabung = sjNorm.concat(saNorm).sort(function(a,b){
       return new Date(a.tgl)-new Date(b.tgl);
     });
+    // Filter tanggal nota (dari/sampai) — dicek dari tgl nota masing2 baris
+    if(tglDari) gabung=gabung.filter(function(r){return r.tgl && new Date(r.tgl)>=new Date(tglDari+'T00:00:00');});
+    if(tglSampai) gabung=gabung.filter(function(r){return r.tgl && new Date(r.tgl)<=new Date(tglSampai+'T23:59:59');});
     // Filter search no. SJ/Nota (teks bebas, pelanggan sudah terkunci lewat dropdown)
     var q=document.getElementById('rkCari').value.toLowerCase();
     if(q) gabung=gabung.filter(function(r){
@@ -710,13 +774,14 @@ function muatRekap(){
     });
     rkChecked={};
     renderRekapTabel(gabung); muatRekapPerPelanggan(); updateRkTotalDipilih();
+    if(adaFilterTgl) document.getElementById('rkInfoBar').textContent+=' (termasuk yang sudah Lunas — filter tanggal aktif)';
   }).catch(function(e){document.getElementById('rkInfoBar').textContent='Error: '+(e&&e.message?e.message:JSON.stringify(e));});
 }
 function renderRekapTabel(data){
   document.getElementById('rkInfoBar').textContent=data.length+' SJ ditemukan.';
   var tb=document.getElementById('rkTbody');
   rkRowStore={};
-  if(!data.length){tb.innerHTML='<tr><td colspan="9" class="loading">Tidak ada data.</td></tr>';return;}
+  if(!data.length){tb.innerHTML='<tr><td colspan="10" class="loading">Tidak ada data.</td></tr>';return;}
   tb.innerHTML=data.map(function(r){
     var key=r._sumberAlokasi+'_'+r._idRef;
     rkRowStore[key]=r;
@@ -734,6 +799,7 @@ function renderRekapTabel(data){
       '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.sisa_piutang)+'</td>'+
       '<td>'+jatuhTempo+'</td>'+
       '<td>'+badgeStatusPiutang(r.status_piutang)+'</td>'+
+      '<td><button class="btn-sm-action" onclick="bukaRiwayatBayar(\''+esc(r._sumberAlokasi)+'\',\''+esc(r._idRef)+'\',\''+esc(r.no_nota)+'\',\''+esc(r.nama_pelanggan)+'\')">📄 Histori</button></td>'+
     '</tr>';
   }).join('');
 }
@@ -781,6 +847,7 @@ function inisAcRkPelanggan(){
     rkPelangganTerpilih=p;
     inp.value=p.nama;
     document.getElementById('btnRkResetPelanggan').style.display='';
+    document.getElementById('btnRkRiwayatBayar').style.display='';
     muatRekap();
   });
 }
@@ -793,7 +860,76 @@ function resetRkPelanggan(){
   rkPelangganTerpilih=null;
   document.getElementById('rkCariPelanggan').value='';
   document.getElementById('btnRkResetPelanggan').style.display='none';
+  document.getElementById('btnRkRiwayatBayar').style.display='none';
   muatRekap();
+}
+
+// ── Riwayat pembayaran per nota (modal) ──
+function bukaRiwayatBayar(sumberAlokasi,idRef,noNota,namaPelanggan){
+  document.getElementById('rbNoNota').textContent=noNota;
+  document.getElementById('rbPelanggan').textContent=namaPelanggan;
+  document.getElementById('rbTbody').innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+  document.getElementById('rbTotal').textContent='';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalRiwayatBayar')).show();
+  var params=sumberAlokasi==='SALDO_AWAL'?{p_id_sj:null,p_id_saldo:idRef}:{p_id_sj:idRef,p_id_saldo:null};
+  dbRpc('get_riwayat_bayar_nota',params).then(function(res){
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    var data=Array.isArray(res)?res:[];
+    var tb=document.getElementById('rbTbody');
+    if(!data.length){tb.innerHTML='<tr><td colspan="6" class="loading">Belum ada pembayaran teralokasi.</td></tr>';return;}
+    var total=0;
+    var lblSumber={TRANSFER:'🏦 Transfer',TUNAI:'💵 Tunai',LEGACY:'📜 Legacy'};
+    tb.innerHTML=data.map(function(r){
+      total+=parseFloat(r.nominal_alokasi)||0;
+      return '<tr><td class="td-mono">'+(lblSumber[r.sumber]||r.sumber)+'</td>'+
+        '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+        '<td class="td-mono td-right">'+fmtRupiah(r.nominal_alokasi)+'</td>'+
+        '<td>'+esc(r.keterangan||'—')+'</td>'+
+        '<td class="td-mono">'+esc(r.no_ref||'—')+'</td>'+
+        '<td class="td-mono">'+esc(r.diapprove_oleh||'—')+'</td></tr>';
+    }).join('');
+    document.getElementById('rbTotal').textContent='Total Dibayar (Teralokasi): '+fmtRupiah(total);
+  }).catch(function(e){document.getElementById('rbTbody').innerHTML='<tr><td colspan="6" class="loading">Gagal memuat: '+(e&&e.message?e.message:'')+'</td></tr>';});
+}
+
+// ── Riwayat pembayaran per pelanggan (modal, drill ke nota) ──
+var ppDataCache=[];
+function bukaPembayaranPelanggan(){
+  if(!rkPelangganTerpilih){return;}
+  document.getElementById('ppNamaPelanggan').textContent=rkPelangganTerpilih.nama;
+  document.getElementById('ppTbody').innerHTML='<tr><td colspan="6" class="loading">Memuat…</td></tr>';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPembayaranPelanggan')).show();
+  dbRpc('get_pembayaran_pelanggan',{p_id_pelanggan:rkPelangganTerpilih.id_pelanggan,p_nama_pelanggan:rkPelangganTerpilih.nama}).then(function(res){
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    ppDataCache=Array.isArray(res)?res:[];
+    renderPembayaranPelanggan();
+  }).catch(function(e){document.getElementById('ppTbody').innerHTML='<tr><td colspan="6" class="loading">Gagal memuat: '+(e&&e.message?e.message:'')+'</td></tr>';});
+}
+function renderPembayaranPelanggan(){
+  var tb=document.getElementById('ppTbody');
+  if(!ppDataCache.length){tb.innerHTML='<tr><td colspan="6" class="loading">Belum ada pembayaran teralokasi ke pelanggan ini.</td></tr>';return;}
+  var lblSumber={TRANSFER:'🏦 Transfer',TUNAI:'💵 Tunai',LEGACY:'📜 Legacy'};
+  tb.innerHTML=ppDataCache.map(function(r,i){
+    var detail=Array.isArray(r.detail_nota)?r.detail_nota:[];
+    var detailRows=detail.map(function(d){
+      return '<tr style="background:#f7f8fa"><td colspan="2"></td>'+
+        '<td class="td-mono" style="font-size:.7rem">'+esc(d.no_nota||d.id_sj||d.id_saldo||'—')+'</td>'+
+        '<td class="td-mono" style="font-size:.7rem">'+esc(d.nama_pelanggan||'')+'</td>'+
+        '<td colspan="2" class="td-mono td-right" style="font-size:.7rem">'+fmtRupiah(d.nominal_alokasi)+'</td></tr>';
+    }).join('');
+    return '<tr style="cursor:pointer" onclick="toggleDetailPP('+i+')">'+
+      '<td>▸</td>'+
+      '<td class="td-mono">'+(lblSumber[r.sumber]||r.sumber)+'<br><span style="color:var(--muted);font-size:.68rem">'+fmtTgl(r.tgl)+'</span></td>'+
+      '<td colspan="2">'+esc(r.no_ref||'—')+' — '+esc(r.keterangan||'')+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.nominal_total)+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600">'+fmtRupiah(r.nominal_ke_pelanggan_ini)+'</td>'+
+    '</tr>'+
+    '<tr id="ppDetail'+i+'" style="display:none"><td colspan="6" style="padding:0"><table style="width:100%">'+detailRows+'</table></td></tr>';
+  }).join('');
+}
+function toggleDetailPP(i){
+  var row=document.getElementById('ppDetail'+i);
+  if(row) row.style.display=(row.style.display==='none')?'':'none';
 }
 
 // ── Alokasi langsung dari Rekap ──
