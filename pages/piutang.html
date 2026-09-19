@@ -73,6 +73,7 @@
   <button class="tab-btn"        data-tab="alokasitn"  onclick="gantiTab('alokasitn')">💵 Alokasi Tunai</button>
   <button class="tab-btn"        data-tab="approve"    onclick="gantiTab('approve')">✅ Perlu Approve</button>
   <button class="tab-btn"        data-tab="faktur"     onclick="gantiTab('faktur')">🧾 Faktur Pajak</button>
+  <button class="tab-btn"        data-tab="trackbayar" onclick="gantiTab('trackbayar')">🔎 Tracking Bayar</button>
 </div>
 
 <!-- ═══ TAB REKAP ═══ -->
@@ -266,6 +267,31 @@
         <th class="td-right">DPP</th><th class="td-right">PPN</th><th>No. Faktur</th><th></th>
       </tr></thead>
       <tbody id="fpTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB TRACKING BAYAR ═══ -->
+<div class="tab-pane" id="tabTrackbayar">
+  <div class="toolbar">
+    <label class="form-label" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin:0;white-space:nowrap;align-self:center;">Tgl Bayar:</label>
+    <input type="date" id="tbTglDari" onchange="muatTrackingBayar()" style="max-width:150px"/>
+    <span style="align-self:center;color:var(--muted);font-size:.72rem">s/d</span>
+    <input type="date" id="tbTglSampai" onchange="muatTrackingBayar()" style="max-width:150px"/>
+    <button class="btn-outline" onclick="setTbHariIni()">Hari Ini</button>
+    <button class="btn-outline" onclick="document.getElementById('tbTglDari').value='';document.getElementById('tbTglSampai').value='';muatTrackingBayar();">Reset</button>
+    <select id="tbSumber" onchange="renderTrackingBayar()" style="margin-left:auto">
+      <option value="">Semua Sumber</option>
+      <option value="TRANSFER">Transfer</option>
+      <option value="TUNAI">Tunai</option>
+      <option value="LEGACY">Legacy</option>
+    </select>
+  </div>
+  <div class="info-bar" id="tbInfoBar">Memuat data…</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>Sumber</th><th>Tanggal</th><th colspan="2">Ref / Keterangan</th><th class="td-right">Nominal</th><th class="td-right">Jml Nota</th></tr></thead>
+      <tbody id="tbTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -665,6 +691,7 @@ function gantiTab(tab){
   if(tab==='alokasitf') muatAlokasiTF();
   if(tab==='alokasitn') muatAlokasiTN();
   if(tab==='approve') muatPerluApprove();
+  if(tab==='trackbayar') muatTrackingBayar();
 }
 
 function muatSemuaData(){
@@ -929,6 +956,56 @@ function renderPembayaranPelanggan(){
 }
 function toggleDetailPP(i){
   var row=document.getElementById('ppDetail'+i);
+  if(row) row.style.display=(row.style.display==='none')?'':'none';
+}
+
+// ── TAB TRACKING BAYAR (cari dari sisi tanggal pembayaran, lintas pelanggan) ──
+var tbDataCache=[];
+function setTbHariIni(){
+  var t=new Date().toISOString().slice(0,10);
+  document.getElementById('tbTglDari').value=t;
+  document.getElementById('tbTglSampai').value=t;
+  muatTrackingBayar();
+}
+function muatTrackingBayar(){
+  var dari=document.getElementById('tbTglDari').value||null;
+  var sampai=document.getElementById('tbTglSampai').value||null;
+  document.getElementById('tbInfoBar').textContent='Memuat data…';
+  dbRpc('get_riwayat_pembayaran_piutang',{p_tgl_dari:dari,p_tgl_sampai:sampai}).then(function(res){
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    tbDataCache=Array.isArray(res)?res:[];
+    renderTrackingBayar();
+  }).catch(function(e){document.getElementById('tbInfoBar').textContent='Error: '+(e&&e.message?e.message:JSON.stringify(e));});
+}
+function renderTrackingBayar(){
+  var sumberF=document.getElementById('tbSumber').value;
+  var data=sumberF?tbDataCache.filter(function(r){return r.sumber===sumberF;}):tbDataCache;
+  document.getElementById('tbInfoBar').textContent=data.length+' pembayaran ditemukan.';
+  var tb=document.getElementById('tbTbody');
+  if(!data.length){tb.innerHTML='<tr><td colspan="7" class="loading">Tidak ada data.</td></tr>';return;}
+  var lblSumber={TRANSFER:'🏦 Transfer',TUNAI:'💵 Tunai',LEGACY:'📜 Legacy'};
+  tb.innerHTML=data.map(function(r,i){
+    var detail=Array.isArray(r.detail_nota)?r.detail_nota:[];
+    var detailRows=detail.map(function(d){
+      return '<tr style="background:#f7f8fa"><td colspan="3"></td>'+
+        '<td class="td-mono" style="font-size:.7rem">'+esc(d.no_nota||d.id_sj||d.id_saldo||'—')+'</td>'+
+        '<td class="td-mono" style="font-size:.7rem">'+esc(d.nama_pelanggan||'')+'</td>'+
+        '<td class="td-mono td-right" style="font-size:.7rem">'+fmtRupiah(d.nominal_alokasi)+'</td>'+
+        '<td></td></tr>';
+    }).join('');
+    return '<tr style="cursor:pointer" onclick="toggleDetailTB('+i+')">'+
+      '<td>▸</td>'+
+      '<td class="td-mono">'+(lblSumber[r.sumber]||r.sumber)+'</td>'+
+      '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
+      '<td colspan="2">'+esc(r.no_ref||'—')+' — '+esc(r.keterangan||'')+'</td>'+
+      '<td class="td-mono td-right">'+fmtRupiah(r.nominal_total)+'</td>'+
+      '<td class="td-mono td-right" style="font-weight:600">'+r.jumlah_nota+'</td>'+
+    '</tr>'+
+    '<tr id="tbDetail'+i+'" style="display:none"><td colspan="7" style="padding:0"><table style="width:100%">'+detailRows+'</table></td></tr>';
+  }).join('');
+}
+function toggleDetailTB(i){
+  var row=document.getElementById('tbDetail'+i);
   if(row) row.style.display=(row.style.display==='none')?'':'none';
 }
 
