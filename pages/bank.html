@@ -1905,4 +1905,683 @@ function tampilkanToast(pesan, tipe) {
   var div = document.createElement('div');
   div.id = 'apToast';
   div.textContent = pesan;
-  div.style.cssText = 'position:fixed;top:70px;left:5
+  div.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;' +
+    'padding:.6rem 1.1rem;border-radius:6px;font-family:var(--mono);font-size:.8rem;font-weight:600;' +
+    'box-shadow:0 2px 10px rgba(0,0,0,.15);' +
+    (tipe === 'ok' ? 'background:#e3f5e9;color:#1a7a3f;border:1px solid #a3ddb8;' : 'background:#fdecea;color:#c0392b;border:1px solid #f5b8b0;');
+  document.body.appendChild(div);
+  setTimeout(function () { div.remove(); }, 2500);
+}
+
+async function approveAlokasi(id, level) {
+  var pin = await mintaApprovalPin('Approve alokasi ' + id + '?');
+  if (!pin) return;
+  var tombol = document.querySelector('tr[data-rid="' + id + '"] .btn-approve');
+  var teksAsli = tombol ? tombol.textContent : null;
+  if (tombol) { tombol.disabled = true; tombol.textContent = 'Memproses…'; }
+  try {
+    var rpc = level === 'manager' ? 'approve_alokasi_manager' : 'approve_alokasi_direktur';
+    var res = await dbRpc(rpc, {p_id_bank_stmt: id, p_user: getUser(), p_pin: pin});
+    var err = cekErrorSupabase(res);
+    if (!err && res && res.status === 'error') err = res.message;
+    if (err) {
+      tampilkanToast('✗ Gagal: ' + err, 'error');
+      if (tombol) { tombol.disabled = false; tombol.textContent = teksAsli; }
+      return;
+    }
+    await muatRekap();
+    await muatApprove();
+    tampilkanToast('✓ Berhasil di-approve', 'ok');
+    // Refresh koran kalau aktif
+    if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+  } catch (e) {
+    tampilkanToast('✗ Gagal approve: ' + e.message, 'error');
+    if (tombol) { tombol.disabled = false; tombol.textContent = teksAsli; }
+  }
+}
+
+async function rejectAlokasiSelisih(id) {
+  var alasan = prompt('Alasan reject (opsional):', '');
+  if (alasan === null) return; // batal
+  var pin = await mintaApprovalPin('Reject alokasi ' + id + '? Nota yang sudah dialokasikan akan dikembalikan ke sisa hutang semula.');
+  if (!pin) return;
+  try {
+    var res = await dbRpc('reject_alokasi_direktur', {p_id_bank_stmt: id, p_user: getUser(), p_alasan: alasan || null, p_pin: pin});
+    var err = cekErrorSupabase(res);
+    if (!err && res && res.status === 'error') err = res.message;
+    if (err) { tampilkanToast('✗ Gagal: ' + err, 'error'); return; }
+    await muatRekap();
+    await muatApprove();
+    tampilkanToast('✓ Berhasil di-reject', 'ok');
+    if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
+  } catch (e) {
+    tampilkanToast('✗ Gagal reject: ' + e.message, 'error');
+  }
+}
+
+// ── TAB 6: TERALOKASI ───────────────────────────────────────
+function muatDoneLazy() {
+  clearTimeout(dnTimer);
+  dnTimer = setTimeout(function(){ muatDone(true); }, 380);
+}
+
+async function muatDone(reset) {
+  if (reset) dnOffset = 0;
+  var rek   = document.getElementById('dnRekening').value;
+  var mulai = document.getElementById('dnMulai').value;
+  var akhir = document.getElementById('dnAkhir').value;
+  var kat   = document.getElementById('dnKategori').value;
+  var cari  = document.getElementById('dnCari').value.trim();
+
+  var params = buildParams({
+    select:'*', status_alokasi:'eq.TERALOKASI',
+    order:'tgl_transaksi.desc,id.desc', limit:LIMIT, offset:dnOffset,
+    id_rekening: rek ? 'eq.' + rek : null,
+    kategori:    kat ? 'eq.' + kat : null,
+  });
+  if (mulai && akhir) params['and'] = '(tgl_transaksi.gte.' + mulai + ',tgl_transaksi.lte.' + akhir + ')';
+  else if (mulai) params.tgl_transaksi = 'gte.' + mulai;
+  else if (akhir) params.tgl_transaksi = 'lte.' + akhir;
+  if (cari) params['or'] = '(id.ilike.*' + cari + '*,keterangan_bank.ilike.*' + cari + '*,keterangan_manual.ilike.*' + cari + '*)';
+
+  if (reset) document.getElementById('dnTbody').innerHTML = '<tr><td colspan="8" class="loading">Memuat…</td></tr>';
+  var rows = await dbGet('in_bank_statement', params);
+  var err = cekErrorSupabase(rows);
+  if (err) { renderErr('dnTbody', 8, err); return; }
+
+  var tbody = document.getElementById('dnTbody');
+  if (reset) tbody.innerHTML = '';
+  var html = '';
+  rows.forEach(function(r) {
+    rowStore[r.id] = r;
+    var isDir = roleUser === 'DIREKTUR';
+    var aksi = isDir ? '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ' +
+      '<button class="btn-sm-action" style="color:var(--red);border-color:#f5a8a8" onclick="bukaBatalAlokasi(\'' + r.id + '\')" title="Batal Alokasi">↩️ Batal</button>' : '';
+    html += '<tr data-rid="' + r.id + '">' +
+      '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
+      '<td>' + badgeRek(r.id_rekening) + '</td>' +
+      '<td class="td-desc" onclick="toggleDetail(this,\'' + r.id + '\')">' + h(r.keterangan_bank) + '</td>' +
+      '<td><span class="badge-kat">' + h(r.kategori) + '</span></td>' +
+      '<td class="td-right">' + (r.jenis==='CR'?'<span class="masuk-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td class="td-right">' + (r.jenis==='DB'?'<span class="keluar-val">'+fmtRp(r.nominal)+'</span>':'—') + '</td>' +
+      '<td><span class="ket-short" title="' + h(r.keterangan_manual) + '">' + h(r.keterangan_manual) + '</span></td>' +
+      '<td>' + aksi + '</td>' +
+      '</tr>';
+  });
+  if (reset && rows.length === 0) html = '<tr><td colspan="8" class="loading">Tidak ada data.</td></tr>';
+  tbody.insertAdjacentHTML('beforeend', html);
+  dnOffset += rows.length;
+  document.getElementById('dnMore').style.display = rows.length === LIMIT ? '' : 'none';
+  document.getElementById('dnInfo').textContent = dnOffset + ' transaksi teralokasi';
+}
+
+// ── EDIT KETERANGAN ─────────────────────────────────────────
+function bukaEditKet(id) {
+  selectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('ekInfo').textContent = 'ID: ' + id + ' | ' + fmtTgl(r.tgl_transaksi) + ' | ' + fmtRp(r.nominal);
+  document.getElementById('ekKet').value = r.keterangan_manual || '';
+  var selKat = document.getElementById('ekKategori');
+  selKat.value = r.kategori || 'PIUTANG';
+  document.getElementById('ekErr').style.display = 'none';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditKet')).show();
+}
+
+async function simpanKeterangan() {
+  var ket   = document.getElementById('ekKet').value.trim();
+  var elErr = document.getElementById('ekErr');
+  var btn   = document.getElementById('ekSimpanBtn');
+  elErr.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Menyimpan…';
+  var kat   = document.getElementById('ekKategori').value;
+  var res = await dbUpdate('in_bank_statement', {id:'eq.'+selectedId}, {keterangan_manual: ket, kategori: kat});
+  btn.disabled = false; btn.textContent = 'Simpan';
+  var err = (res !== null && res !== undefined && !Array.isArray(res) && res && (res.code || res.status === 'error'))
+    ? (res.message || res.code || 'Error') : null;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+  if (rowStore[selectedId]) { rowStore[selectedId].keterangan_manual = ket; rowStore[selectedId].kategori = kat; }
+  bootstrap.Modal.getInstance(document.getElementById('modalEditKet')).hide();
+  muatRekap();
+  var activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+  if (activeTab === 'koran') muatKoran(true);
+  else if (activeTab === 'done') muatDone(true);
+}
+
+// ── BATAL ALOKASI (DIREKTUR) ──────────────────────────────────
+var baSelectedId = null;
+
+function bukaBatalAlokasi(id) {
+  baSelectedId = id;
+  var r = rowStore[id] || {};
+  document.getElementById('baInfo').innerHTML =
+    'ID: ' + h(id) + ' | ' + fmtTgl(r.tgl_transaksi) + ' | ' + fmtRp(r.nominal) + '<br>' +
+    '<span style="font-size:.7rem">' + h(r.keterangan_bank) + '</span><br>' +
+    '<span style="font-size:.7rem;color:var(--muted)">Keterangan saat ini: ' + h(r.keterangan_manual) + '</span>';
+  document.getElementById('baAlasan').value = '';
+  document.getElementById('baErr').style.display = 'none';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBatalAlokasi')).show();
+}
+
+async function simpanBatalAlokasi() {
+  var alasan = document.getElementById('baAlasan').value.trim();
+  var elErr  = document.getElementById('baErr');
+  var btn    = document.getElementById('baSimpanBtn');
+  elErr.style.display = 'none';
+
+  if (!alasan) { elErr.textContent = 'Alasan wajib diisi.'; elErr.style.display = ''; return; }
+  if (!confirm('Batalkan alokasi baris ini? Baris akan kembali ke status belum/sebagian dialokasi.')) return;
+
+  btn.disabled = true; btn.textContent = 'Memproses…';
+  var res = await dbRpc('batal_alokasi_direktur', {
+    p_id_bank_stmt: baSelectedId,
+    p_alasan: alasan,
+    p_user_input: getUser()
+  });
+  btn.disabled = false; btn.textContent = 'Batalkan Alokasi';
+
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { elErr.textContent = err; elErr.style.display = ''; return; }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalBatalAlokasi')).hide();
+  muatRekap();
+  muatDone(true);
+  muatBelum();
+}
+
+// ── TAB NAVIGATION ──────────────────────────────────────────
+function gantiTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === tab); });
+  var map = {koran:'tabKoran', posting:'tabPosting', alokdir:'tabAlokdir', kaskecil:'tabKasKecil', belum:'tabBelum', approve:'tabApprove', done:'tabDone'};
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
+  var el = document.getElementById(map[tab]);
+  if (el) el.classList.add('active');
+  openDetailId = null;
+  if      (tab === 'koran')   muatKoran(true);
+  else if (tab === 'posting') muatPosting(true);
+  else if (tab === 'alokdir') muatAlokDir();
+  else if (tab === 'kaskecil') muatKasKecilAlok();
+  else if (tab === 'belum')   muatBelum();
+  else if (tab === 'approve') muatApprove();
+  else if (tab === 'done')    muatDone(true);
+}
+
+// ── IMPORT CSV BCA ──────────────────────────────────────────
+var importSections = [];
+
+function bukaImportCsv() {
+  document.getElementById('impStep1').style.display = '';
+  document.getElementById('impStep2').style.display = 'none';
+  document.getElementById('impStep3').style.display = 'none';
+  document.getElementById('impErr').style.display = 'none';
+  document.getElementById('impConfirmBtn').style.display = 'none';
+  document.getElementById('impFileInput').value = '';
+  document.getElementById('impParseInfo').textContent = '';
+  importSections = [];
+  importNotes = [];
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImportCsv')).show();
+}
+
+function parseCsvLine(line) {
+  var res = [], cur = '', inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { res.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  res.push(cur.trim());
+  return res;
+}
+
+function parseJumlah(s) {
+  // KBB: "17,000.00 DB" / "660,000.00 CR". Wajib berakhiran CR/DB, kalau tidak -> null (baris ditolak, tidak ditebak).
+  s = (s || '').trim();
+  var m = s.match(/\b(CR|DB)$/i);
+  if (!m) return null;
+  var nominal = parseFloat(s.replace(/[^\d.]/g, ''));
+  if (isNaN(nominal)) return null;
+  return {jenis: m[1].toUpperCase(), nominal: nominal};
+}
+
+function parseSaldo(s) { return parseFloat((s || '').replace(/[^\d.]/g, '')); }
+
+// Return {tgl:'YYYY-MM-DD', pend:bool} atau null kalau format tanggal tidak valid.
+function parseTglCorp(s) {
+  s = (s || '').trim();
+  if (s === 'PEND') {
+    var t = new Date();
+    return {tgl: t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0'), pend: true};
+  }
+  var m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  var d = +m[1], mo = +m[2];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return {tgl: m[3] + '-' + m[2] + '-' + m[1], pend: false};
+}
+
+var REK_MAP = {
+  '8175057770': {id_rekening: 'BCA_DK', prefix: 'BDK'},
+  '0158001414': {id_rekening: 'BCA_PT', prefix: 'BPT'},
+};
+
+var importNotes = [];
+
+// Deteksi format dari baris header. KBB = CorpAcctTrxn (lama), MBB = MutasiRekening (baru).
+function detectCsvFormat(text) {
+  var lines = text.split(/\r?\n/), n = 0;
+  for (var i = 0; i < lines.length && n < 15; i++) {
+    var l = lines[i].trim();
+    if (!l) continue;
+    n++;
+    var c = parseCsvLine(l);
+    if (c[0].indexOf('No. rekening') === 0 || c[0] === 'Tanggal Transaksi') return 'KBB';
+    if (c[0] === 'Tanggal' && c.indexOf('Jenis Transaksi') >= 0 && c.indexOf('Mutasi') >= 0) return 'MBB';
+  }
+  return null;
+}
+
+// ── Parser KBB (CorpAcctTrxn): metadata + multi-rekening per file, Jumlah "x CR/DB" ──
+function parseCorpAcctCsv(text) {
+  var lines = text.split(/\r?\n/);
+  var sections = [], cur = null, inData = false;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var cols = parseCsvLine(line);
+    if (cols[0].startsWith('No. rekening')) {
+      if (cur) sections.push(cur);
+      var norek = cols[0].replace('No. rekening :', '').trim();
+      var info = REK_MAP[norek] || null;
+      cur = {format: 'KBB', norek: norek, id_rekening: info ? info.id_rekening : norek, prefix: info ? info.prefix : null, rows: [], skipped: []};
+      inData = false;
+      continue;
+    }
+    if (cols[0] === 'Tanggal Transaksi') { inData = true; continue; }
+    if (!inData || !cur) continue;
+    if (cols[0].startsWith('Saldo') || cols[0].startsWith('Mutasi')) continue;
+    if (cols.length < 5 || !cols[0]) continue;
+    var t = parseTglCorp(cols[0]);
+    var jn = parseJumlah(cols[3]);
+    var saldo = parseSaldo(cols[4]);
+    if (!t || !jn || isNaN(saldo)) {
+      cur.skipped.push({line: i + 1, raw: line.slice(0, 90), reason: !t ? 'tanggal tidak valid' : (!jn ? 'jumlah/jenis tidak valid' : 'saldo tidak valid')});
+      continue;
+    }
+    cur.rows.push({tgl: t.tgl, desc: cols[1], jenis: jn.jenis, nominal: jn.nominal, saldo: saldo, pend: t.pend});
+  }
+  if (cur) sections.push(cur);
+  return sections;
+}
+
+// ── Parser MBB (MutasiRekening): tanpa metadata, 1 rekening per file, no. rekening ada di NAMA FILE.
+// Kolom: Tanggal, Keterangan, Cabang, Mutasi, Jenis Transaksi (CR/DB), Saldo ──
+function parseMbbCsv(text, fileName) {
+  fileName = fileName || '';
+  var mm = fileName.match(/MutasiRekening_(\d+)_/i);
+  var norek = mm ? mm[1] : null;
+  if (!norek) {
+    Object.keys(REK_MAP).forEach(function(k) { if (!norek && fileName.indexOf(k) >= 0) norek = k; });
+  }
+  if (!norek) {
+    return {sections: [], error: 'Nomor rekening tidak terbaca dari nama file "' + fileName + '". Jangan ganti nama file MBB (format asli: MutasiRekening_<norek>_<periode>.csv).'};
+  }
+  var info = REK_MAP[norek] || null;
+  var cur = {format: 'MBB', norek: norek, id_rekening: info ? info.id_rekening : norek, prefix: info ? info.prefix : null, rows: [], skipped: []};
+  var lines = text.split(/\r?\n/), inData = false;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+    var cols = parseCsvLine(line);
+    if (cols[0] === 'Tanggal') { inData = true; continue; }
+    if (!inData) continue;
+    var t = parseTglCorp(cols[0]);
+    var jenis = (cols[4] || '').toUpperCase();
+    var nominal = parseFloat((cols[3] || '').replace(/[^\d.]/g, ''));
+    var saldo = parseSaldo(cols[5]);
+    if (cols.length < 6 || !t || (jenis !== 'CR' && jenis !== 'DB') || isNaN(nominal) || isNaN(saldo)) {
+      cur.skipped.push({line: i + 1, raw: line.slice(0, 90), reason: cols.length < 6 ? 'kolom kurang dari 6' : (!t ? 'tanggal tidak valid' : (jenis !== 'CR' && jenis !== 'DB' ? 'jenis bukan CR/DB' : 'nominal/saldo tidak valid'))});
+      continue;
+    }
+    cur.rows.push({tgl: t.tgl, desc: cols[1], jenis: jenis, nominal: nominal, saldo: saldo, pend: t.pend});
+  }
+  return {sections: [cur], error: null};
+}
+
+function parseCsvAuto(text, fileName) {
+  text = text.replace(/^\uFEFF/, '');
+  var fmt = detectCsvFormat(text);
+  if (fmt === 'KBB') return {format: 'KBB', sections: parseCorpAcctCsv(text), error: null};
+  if (fmt === 'MBB') { var r = parseMbbCsv(text, fileName); r.format = 'MBB'; return r; }
+  return {format: null, sections: [], error: 'Format file tidak dikenali (bukan KBB CorpAcctTrxn maupun MBB MutasiRekening).'};
+}
+
+function handleCsvFile(input) {
+  var file = input.files[0];
+  if (!file) return;
+  document.getElementById('impParseInfo').textContent = 'Membaca file…';
+  var reader = new FileReader();
+  reader.onload = function(e) { handleCsvText(e.target.result, file.name); };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function impAddDays(iso, n) {
+  var d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function impCents(x) { return Math.round(Number(x) * 100); }
+
+async function handleCsvText(text, fileName) {
+  var info = document.getElementById('impParseInfo');
+  importNotes = [];
+  importSections = [];
+  var parsed = parseCsvAuto(text, fileName);
+  if (parsed.error) { info.textContent = parsed.error; return; }
+  var sections = parsed.sections;
+  if (!sections.length) { info.textContent = 'Tidak ada data yang bisa dibaca dari file ini.'; return; }
+  info.textContent = 'Format ' + parsed.format + ' terdeteksi. Memeriksa data di database…';
+
+  for (var i = 0; i < sections.length; i++) {
+    var sec = sections[i];
+    if (!sec.prefix) { importNotes.push('Rekening ' + sec.norek + ' tidak dikenali (tidak ada di daftar rekening), dilewati.'); continue; }
+    if (!sec.rows.length) {
+      importNotes.push('Rekening ' + sec.id_rekening + ': tidak ada baris data yang terbaca' + (sec.skipped.length ? ' (' + sec.skipped.length + ' baris ditolak)' : '') + '.');
+      continue;
+    }
+
+    var maxIdRes = await dbGet('in_bank_statement', {id_rekening:'eq.'+sec.id_rekening, select:'id', order:'id.desc', limit:1});
+    var lastSeq = 0;
+    if (Array.isArray(maxIdRes) && maxIdRes[0]) lastSeq = parseInt(maxIdRes[0].id.replace(/[^0-9]/g,''), 10) || 0;
+
+    var minTgl = sec.rows[0].tgl, maxTgl = sec.rows[0].tgl;
+    sec.rows.forEach(function(r){ if (r.tgl < minTgl) minTgl = r.tgl; if (r.tgl > maxTgl) maxTgl = r.tgl; });
+
+    // Ambil transaksi yang SUDAH ada di DB pada rentang CSV, dilebarkan +/-7 hari supaya baris PEND
+    // (tersimpan dengan tanggal hari import) tetap ketemu walau tanggalnya beda dari tanggal aslinya.
+    var existRes = await dbGet('in_bank_statement', {
+      id_rekening: 'eq.' + sec.id_rekening,
+      and: '(tgl_transaksi.gte.' + impAddDays(minTgl, -7) + ',tgl_transaksi.lte.' + impAddDays(maxTgl, 7) + ')',
+      select: 'tgl_transaksi,jenis,nominal,saldo_akhir'
+    });
+    if (!Array.isArray(existRes)) {
+      importNotes.push('Rekening ' + sec.id_rekening + ': gagal membaca data DB — dilewati (dicegah supaya tidak terjadi duplikat).');
+      continue;
+    }
+
+    var ex = existRes.map(function(r){
+      return {tgl: r.tgl_transaksi, jenis: r.jenis, nom: impCents(r.nominal),
+              saldo: (r.saldo_akhir === null || r.saldo_akhir === undefined) ? null : impCents(r.saldo_akhir), used: false};
+    });
+
+    // TINGKAT 1: tgl|jenis|nominal (tanpa keterangan — teks beda antar format KBB/MBB). Konsumsi 1 per match.
+    var map1 = {};
+    ex.forEach(function(e){ var k = e.tgl + '|' + e.jenis + '|' + e.nom; (map1[k] = map1[k] || []).push(e); });
+    var matched = new Array(sec.rows.length);
+    sec.rows.forEach(function(r, idx){
+      var arr = map1[r.tgl + '|' + r.jenis + '|' + impCents(r.nominal)];
+      if (!arr) return;
+      for (var q = 0; q < arr.length; q++) { if (!arr[q].used) { arr[q].used = true; matched[idx] = 1; return; } }
+    });
+
+    // TINGKAT 2: sisa yang belum cocok dicek via jenis|nominal|saldo_akhir (saldo berjalan tidak bergantung
+    // tanggal -> kebal terhadap baris PEND & beda tanggal posting antar format).
+    var map2 = {};
+    ex.forEach(function(e){ if (e.used || e.saldo === null) return; var k = e.jenis + '|' + e.nom + '|' + e.saldo; (map2[k] = map2[k] || []).push(e); });
+    var tier2 = [];
+    sec.rows.forEach(function(r, idx){
+      if (matched[idx]) return;
+      var arr = map2[r.jenis + '|' + impCents(r.nominal) + '|' + impCents(r.saldo)];
+      if (!arr) return;
+      for (var q = 0; q < arr.length; q++) { if (!arr[q].used) { arr[q].used = true; matched[idx] = 2; tier2.push({row: r, tgl_db: arr[q].tgl}); return; } }
+    });
+
+    var newRows = [];
+    var invalidRows = []; // nominal <= 0 / NaN -> melanggar in_bank_statement_nominal_check
+    var firstNewIdx = -1;
+    sec.rows.forEach(function(r, idx){
+      if (matched[idx]) return;
+      if (!(r.nominal > 0)) { invalidRows.push(r); return; }
+      if (firstNewIdx < 0) firstNewIdx = idx;
+      newRows.push(r);
+    });
+
+    // Rantai saldo CSV itu sendiri.
+    var gapCheck = verifySaldoChain(sec.rows, null);
+
+    // Cek saldo awal (non-blocking): kalau baris baru pertama = baris pertama CSV, saldo sebelumnya harus
+    // sama dengan saldo terakhir di DB. Beda = kemungkinan ada transaksi hilang di antara DB dan CSV ini.
+    // (Kalau baris baru pertama bukan baris pertama CSV, pendahulunya sudah ada di DB -> rantai CSV sudah menjamin.)
+    var opening = null;
+    if (firstNewIdx === 0) {
+      var r0 = sec.rows[0];
+      var sebelum = r0.jenis === 'CR' ? r0.saldo - r0.nominal : r0.saldo + r0.nominal;
+      var prev = await dbGet('in_bank_statement', {
+        id_rekening: 'eq.' + sec.id_rekening, tgl_transaksi: 'lte.' + r0.tgl, saldo_akhir: 'not.is.null',
+        select: 'tgl_transaksi,saldo_akhir', order: 'tgl_transaksi.desc,id.desc', limit: 1
+      });
+      if (Array.isArray(prev) && prev[0]) {
+        var saldoDb = Number(prev[0].saldo_akhir);
+        opening = {ok: Math.abs(saldoDb - sebelum) <= 1, saldo_db: saldoDb, saldo_csv: sebelum, tgl_db: prev[0].tgl_transaksi};
+      }
+    }
+
+    importSections.push({
+      format: sec.format, id_rekening: sec.id_rekening, prefix: sec.prefix, last_seq: lastSeq,
+      min_tgl: minTgl, max_tgl: maxTgl,
+      total_csv: sec.rows.length, sudah_ada: sec.rows.length - newRows.length - invalidRows.length,
+      new_rows: newRows, invalid_rows: invalidRows, gap: gapCheck,
+      tier2: tier2, skipped: sec.skipped || [], opening: opening
+    });
+  }
+  if (!importSections.length) {
+    info.textContent = importNotes.length ? importNotes.join(' | ') : 'Tidak ada data yang bisa diimport.';
+    return;
+  }
+  buildPreview();
+}
+
+function importNotesHtml() {
+  if (!importNotes.length) return '';
+  return '<div style="background:#fff8e6;border:1px solid #f0d68a;border-radius:6px;padding:.5rem;font-family:var(--mono);font-size:.7rem;color:#8a6d00;margin-bottom:.6rem">' +
+    importNotes.map(function(n){ return 'ℹ ' + h(n); }).join('<br>') + '</div>';
+}
+
+// Verifikasi rantai saldo: saldo_akhir baris sebelumnya +/- nominal
+// baris ini harus sama dengan saldo_akhir baris ini. Kalau tidak,
+// berarti ada transaksi yang hilang di antaranya (gap) — jangan
+// dipercaya cuma dari urutan tanggal terakhir.
+function verifySaldoChain(rows, startSaldo) {
+  var running = startSaldo; // null kalau rekening ini belum pernah ada data sama sekali
+  var TOLERANSI = 1; // toleransi Rp1 utk pembulatan floating point, BUKAN toleransi bisnis
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (running !== null) {
+      var expected = r.jenis === 'CR' ? running + r.nominal : running - r.nominal;
+      if (Math.abs(expected - r.saldo) > TOLERANSI) {
+        return {
+          ok: false,
+          index: i,
+          row: r,
+          saldo_sebelum: running,
+          saldo_seharusnya: expected,
+          saldo_di_csv: r.saldo,
+          selisih: expected - r.saldo
+        };
+      }
+    }
+    running = r.saldo;
+  }
+  return {ok: true};
+}
+
+function buildPreview() {
+  var wrap = document.getElementById('impPreviewWrap');
+  var html = importNotesHtml();
+  var hasImportable = false;
+  importSections.forEach(function(sec) {
+    var n = sec.new_rows.length;
+    html += '<div style="margin-bottom:1rem"><div style="font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--navy);margin-bottom:.4rem">';
+    html += sec.id_rekening + ' <span style="color:var(--muted);font-weight:400">[' + sec.format + ']</span> — <span style="color:' + (n>0?'var(--green)':'var(--muted)') + '">' + n + ' baris baru/hilang</span>';
+    html += ' <span style="color:var(--muted);font-weight:400">(CSV: ' + sec.total_csv + ' | sudah ada di DB: ' + sec.sudah_ada + ' | rentang: ' + sec.min_tgl + ' s/d ' + sec.max_tgl + ')</span></div>';
+
+    if (sec.gap && !sec.gap.ok) {
+      html += '<div style="background:#fdecea;border:1px solid #f5a8a8;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-bottom:.4rem">';
+      html += '⚠ CSV ini sendiri tidak konsisten (kemungkinan file tidak utuh/rusak) — import diblokir untuk rekening ini.<br>';
+      html += 'Saldo sebelum: Rp' + sec.gap.saldo_sebelum.toLocaleString('id-ID') + '<br>';
+      html += 'Seharusnya jadi: Rp' + sec.gap.saldo_seharusnya.toLocaleString('id-ID') + ' (setelah ' + sec.gap.row.jenis + ' Rp' + sec.gap.row.nominal.toLocaleString('id-ID') + ' tgl ' + sec.gap.row.tgl + ')<br>';
+      html += 'Tapi di CSV saldo tertulis: Rp' + sec.gap.saldo_di_csv.toLocaleString('id-ID') + '<br>';
+      html += 'Download ulang CSV dari BCA (pastikan periode penuh, jangan terputus), lalu upload lagi.';
+      html += '</div>';
+    }
+    if (sec.opening && !sec.opening.ok) {
+      html += '<div style="background:#fff8e6;border:1px solid #f0d68a;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.72rem;color:#8a6d00;margin-bottom:.4rem">';
+      html += '⚠ Saldo awal CSV tidak nyambung dengan DB — kemungkinan ada transaksi yang hilang di antaranya.<br>';
+      html += 'Saldo terakhir di DB (' + sec.opening.tgl_db + '): Rp' + sec.opening.saldo_db.toLocaleString('id-ID') + '<br>';
+      html += 'Saldo sebelum baris pertama CSV: Rp' + sec.opening.saldo_csv.toLocaleString('id-ID') + '<br>';
+      html += 'Import tetap bisa dilanjutkan, tapi cek dulu ada tidaknya periode yang belum ter-download.';
+      html += '</div>';
+    }
+    if (sec.tier2 && sec.tier2.length) {
+      html += '<div style="background:#eef5ff;border:1px solid #b9d3f5;border-radius:6px;padding:.5rem;font-family:var(--mono);font-size:.7rem;color:#1d4d8f;margin-bottom:.4rem">';
+      html += 'ℹ ' + sec.tier2.length + ' baris dianggap sudah ada: cocok via jenis+nominal+saldo, tapi tanggal di DB berbeda (mis. baris PEND):<br>';
+      sec.tier2.slice(0,5).forEach(function(t){
+        html += '&nbsp;&nbsp;CSV ' + t.row.tgl + (t.row.pend ? ' (PEND)' : '') + ' → DB ' + t.tgl_db + ' — ' + h((t.row.desc||'').slice(0,40)) + ' ' + Number(t.row.nominal).toLocaleString('id-ID') + '<br>';
+      });
+      if (sec.tier2.length > 5) html += '&nbsp;&nbsp;… dan ' + (sec.tier2.length-5) + ' lagi<br>';
+      html += '</div>';
+    }
+    if (sec.skipped && sec.skipped.length) {
+      html += '<div style="background:#fdecea;border:1px solid #f5a8a8;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-bottom:.4rem">';
+      html += '⚠ ' + sec.skipped.length + ' baris tidak terbaca parser dan TIDAK diimport:<br>';
+      sec.skipped.slice(0,10).forEach(function(s){ html += '&nbsp;&nbsp;baris ' + s.line + ' (' + s.reason + '): ' + h(s.raw) + '<br>'; });
+      if (sec.skipped.length > 10) html += '&nbsp;&nbsp;… dan ' + (sec.skipped.length-10) + ' lagi<br>';
+      html += '</div>';
+    }
+    if (sec.invalid_rows && sec.invalid_rows.length) {
+      html += '<div style="background:#fdecea;border:1px solid #f5a8a8;border-radius:6px;padding:.6rem;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-bottom:.4rem">';
+      html += '⚠ ' + sec.invalid_rows.length + ' baris diabaikan (nominal 0/tidak valid, DB menolak baris seperti ini):<br>';
+      sec.invalid_rows.slice(0,10).forEach(function(r){
+        html += '&nbsp;&nbsp;' + r.tgl + ' — ' + h(r.desc) + ' (nominal: ' + r.nominal + ')<br>';
+      });
+      if (sec.invalid_rows.length > 10) html += '&nbsp;&nbsp;… dan ' + (sec.invalid_rows.length-10) + ' baris lagi<br>';
+      html += '</div>';
+    }
+    if (n > 0) {
+      hasImportable = true;
+      html += '<div style="background:#fff8e6;border:1px solid #f0d68a;border-radius:6px;padding:.5rem;font-family:var(--mono);font-size:.7rem;color:#8a6d00;margin-bottom:.4rem">';
+      html += 'ℹ Baris ini bisa saja mengisi gap lama (tanggal di tengah data yang sudah ada) atau memang data baru — dicek otomatis, aman untuk diimport.';
+      html += '</div>';
+    }
+
+    if (n === 0) {
+      html += '<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted)">Semua baris CSV sudah ada di DB, tidak ada yang perlu diimport.</div>';
+    } else {
+      html += '<div class="tbl-wrap" style="max-height:200px;overflow-y:auto"><table><thead><tr><th>Tgl</th><th>Deskripsi</th><th>Jenis</th><th class="td-right">Nominal</th><th class="td-right">Saldo</th></tr></thead><tbody>';
+      sec.new_rows.slice(0,50).forEach(function(r) {
+        html += '<tr><td class="td-mono" style="white-space:nowrap">' + r.tgl + '</td>';
+        html += '<td style="font-size:.72rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + h(r.desc) + '</td>';
+        html += '<td>' + (r.jenis==='CR'?'<span class="badge-jenis j-cr">↑CR</span>':'<span class="badge-jenis j-db">↓DB</span>') + '</td>';
+        html += '<td class="td-right td-mono">' + Number(r.nominal).toLocaleString('id-ID') + '</td>';
+        html += '<td class="td-right td-mono">' + Number(r.saldo).toLocaleString('id-ID') + '</td></tr>';
+      });
+      if (sec.new_rows.length > 50) html += '<tr><td colspan="5" class="loading">… dan ' + (sec.new_rows.length-50) + ' baris lagi</td></tr>';
+      html += '</tbody></table></div>';
+    }
+    html += '</div>';
+  });
+  wrap.innerHTML = html;
+  document.getElementById('impStep1').style.display = 'none';
+  document.getElementById('impStep2').style.display = '';
+  document.getElementById('impParseInfo').textContent = '';
+  document.getElementById('impConfirmBtn').style.display = hasImportable ? '' : 'none';
+}
+
+async function doImport() {
+  if (importSections.some(function(s){ return s.opening && !s.opening.ok; }) &&
+      !confirm('Ada peringatan saldo awal tidak nyambung dengan DB (kemungkinan transaksi hilang). Tetap import?')) return;
+  var btn = document.getElementById('impConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Mengimport…';
+  document.getElementById('impErr').style.display = 'none';
+  var totalInserted = 0;
+  var errors = [];
+  for (var i = 0; i < importSections.length; i++) {
+    var sec = importSections[i];
+    if (!sec.new_rows.length) continue;
+    if (sec.gap && !sec.gap.ok) { errors.push(sec.id_rekening + ': dilewati — ada gap saldo, perbaiki dulu (lihat peringatan di atas).'); continue; }
+    var seq = sec.last_seq;
+    var rows = sec.new_rows.map(function(r) {
+      seq++;
+      return {
+        id: sec.prefix + String(seq).padStart(5,'0'),
+        id_rekening: sec.id_rekening,
+        tgl_transaksi: r.tgl,
+        keterangan_bank: r.desc,
+        jenis: r.jenis,
+        nominal: r.nominal,
+        saldo_akhir: r.saldo,
+        sisa_nominal: r.nominal,
+        status: 'UNPOSTED',
+        status_alokasi: 'BELUM_DIALOKASI'
+      };
+    });
+    var res = await dbInsert('in_bank_statement', rows);
+    var batchOk = (res === null || res === undefined || Array.isArray(res));
+    var sectionInserted = 0;
+    if (batchOk) {
+      sectionInserted = rows.length;
+    } else {
+      // Batch ditolak DB (mis. constraint tak terduga di 1 baris) —
+      // retry satu-satu supaya baris sehat tetap masuk & baris rusak teridentifikasi jelas.
+      for (var j = 0; j < rows.length; j++) {
+        var r1 = await dbInsert('in_bank_statement', [rows[j]]);
+        var rowOk = (r1 === null || r1 === undefined || Array.isArray(r1));
+        if (rowOk) { sectionInserted++; continue; }
+        var msg1 = (r1 && (r1.message || r1.code)) || 'Error tidak diketahui';
+        if (msg1.indexOf('duplicate') >= 0 || msg1.indexOf('unique') >= 0 || msg1.indexOf('23505') >= 0)
+          msg1 = 'ID bentrok — sequence tidak sinkron.';
+        errors.push(sec.id_rekening + ' ' + rows[j].tgl_transaksi + ' "' + rows[j].keterangan_bank + '" (nominal ' + rows[j].nominal + '): ' + msg1);
+      }
+    }
+    totalInserted += sectionInserted;
+    if (sectionInserted > 0) {
+      var seqUpd = await dbUpdate('in_bank_stmt_seq', {id_rekening:'eq.'+sec.id_rekening}, {last_seq: seq});
+      if (seqUpd !== null && seqUpd !== undefined && !Array.isArray(seqUpd) && seqUpd && (seqUpd.code || seqUpd.status === 'error'))
+        errors.push(sec.id_rekening + ': Insert OK tapi gagal update sequence. last_seq=' + seq);
+    }
+  }
+  btn.disabled = false; btn.textContent = 'Import Sekarang';
+  document.getElementById('impStep2').style.display = 'none';
+  document.getElementById('impStep3').style.display = '';
+  var out = '';
+  if (totalInserted > 0) {
+    out += '<span style="color:var(--green)">✓ Berhasil import ' + totalInserted + ' baris baru.</span>';
+  }
+  if (errors.length) {
+    out += (out ? '<br><br>' : '') + '<span style="color:var(--red)">⚠ ' + errors.join('<br>') + '</span>';
+  }
+  document.getElementById('impStep3').innerHTML = out || '<span style="color:var(--muted)">Tidak ada yang diimport.</span>';
+  if (totalInserted > 0) {
+    document.getElementById('impConfirmBtn').style.display = 'none';
+    setTimeout(function(){ muatRekap(); muatPosting(true); }, 500);
+  }
+}
+
+// ── INIT ────────────────────────────────────────────────────
+window.addEventListener('load', function() {
+  if (!guardHalaman()) return;
+  roleUser = getRoleUser();
+  if (roleUser !== 'DIREKTUR') {
+    window.location.replace('../index.html');
+    return;
+  }
+  initNav('bank');
+  document.getElementById('kontenBank').style.display = '';
+  document.getElementById('importBtnWrap').style.display = '';
+  muatRekap();
+  muatKoran(true);
+  muatCacheSupplierBank();
+});
+</script>
+</body>
+</html>
