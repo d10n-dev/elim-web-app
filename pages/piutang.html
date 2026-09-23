@@ -1848,7 +1848,7 @@ function filterFaktur(){
 }
 function bukaInputFaktur(idSJ){
   var r=semuaSJFaktur.find(function(x){return x.id_sj===idSJ;}); if(!r)return;
-  document.getElementById('frmFaktur').reset(); document.getElementById('alertFaktur').innerHTML='';
+  ['inpNoFaktur','inpTglFaktur','inpKetFaktur'].forEach(function(id){document.getElementById(id).value='';}); document.getElementById('alertFaktur').innerHTML='';
   document.getElementById('hidIdSJFaktur').value=idSJ; document.getElementById('hidIdFaktur').value='';
   document.getElementById('lblSJFaktur').textContent=r.no_sj+' — '+r.nama_pelanggan;
   document.getElementById('lblDppFaktur').value=fmtRupiah(r.dpp);
