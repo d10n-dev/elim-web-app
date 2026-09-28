@@ -83,6 +83,19 @@
     .alok-arrow .arr{color:var(--muted);padding-left:.5rem;}
     .badge-warn{background:#fff3cd;color:#856404;border:1px solid #ffe083;font-family:var(--mono);font-size:.6rem;padding:.1rem .4rem;border-radius:3px;display:inline-block;margin:.1rem .2rem .1rem 0;}
     .badge-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);font-family:var(--mono);font-size:.6rem;padding:.1rem .4rem;border-radius:3px;display:inline-block;}
+    /* Perlu Approve (hutang selisih) */
+    .apv-card{background:var(--surface,#fff);border:1px solid var(--border);border-radius:8px;margin-bottom:.7rem;overflow:hidden;}
+    .apv-head{padding:.6rem .8rem;background:#f4f7fc;border-bottom:1px solid var(--border);}
+    .apv-title{font-size:.8rem;font-weight:600;color:var(--navy);word-break:break-word;}
+    .apv-sub{font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.15rem;}
+    .apv-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.4rem;margin-top:.45rem;}
+    .apv-num .l{font-family:var(--mono);font-size:.58rem;color:var(--muted);text-transform:uppercase;}
+    .apv-num .v{font-family:var(--mono);font-size:.78rem;font-weight:600;}
+    .apv-num.sel .v{color:#c45a00;}
+    .apv-row{display:flex;justify-content:space-between;gap:.5rem;padding:.4rem .8rem;border-bottom:1px solid var(--border);font-size:.75rem;}
+    .apv-row:last-child{border-bottom:none;}
+    .apv-row .n{font-family:var(--mono);} .apv-row .s{font-family:var(--mono);font-size:.62rem;color:var(--muted);}
+    .apv-row .nom{font-family:var(--mono);white-space:nowrap;text-align:right;}
   </style>
 </head>
 <body>
@@ -97,6 +110,7 @@
     <button class="tab-btn" data-tab="input" onclick="gantiTab('input')">🧾 Input Pembelian</button>
     <button class="tab-btn" data-tab="bayar" onclick="gantiTab('bayar')">💳 Alokasi Kas Kecil</button>
     <button class="tab-btn" data-tab="alokasibank" onclick="gantiTab('alokasibank')">🏦 Alokasi Transfer Bank</button>
+    <button class="tab-btn" data-tab="approve" onclick="gantiTab('approve')" style="display:none" id="tbApproveHutang">✅ Perlu Approve</button>
     <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">📑 Faktur Pajak Masukan</button>
     <button class="tab-btn" data-tab="supplier" onclick="gantiTab('supplier')">🏭 Supplier</button>
     <button class="tab-btn" data-tab="riwayat" onclick="gantiTab('riwayat')">🗑️ Riwayat Void/Edit</button>
@@ -176,7 +190,7 @@
 
   <!-- ============== TAB: ALOKASI TRANSFER BANK ============== -->
   <div class="tab-pane" id="tabAlokasibank">
-    <div class="info-bar" id="abInfoBar">Transfer bank keluar (kategori HUTANG_BAHAN / HUTANG_MAKLOON) yang belum dialokasikan ke hutang pembelian.</div>
+    <div class="info-bar" id="abInfoBar">Transfer bank keluar (HUTANG_BAHAN / HUTANG_MAKLOON / OPERASIONAL / PEMELIHARAAN) yang belum dialokasikan ke nota pembelian. Biaya tanpa nota ditutup Direktur di halaman Bank (Alokasi Dir).</div>
     <input type="text" class="form-control" id="alokBankCari" placeholder="🔍 Cari keterangan bank / rekening…" autocomplete="off" oninput="renderAlokasiBankList()" style="margin-bottom:.6rem"/>
     <div class="tbl-wrap">
     <table>
@@ -246,6 +260,12 @@
   </div>
 
   <!-- ============== TAB: ALOKASI TINTA/SPAREPART ============== -->
+  <!-- ============== TAB: PERLU APPROVE (Direktur) — alokasi hutang dengan selisih ============== -->
+  <div class="tab-pane" id="tabApprove">
+    <div class="info-bar" id="apvHInfo">Memuat…</div>
+    <div id="apvHWrap" style="padding:0 .1rem"></div>
+  </div>
+
   <div class="tab-pane" id="tabAlokasiumum">
     <div class="info-bar">Hubungkan baris nota pembelian ke stok Tinta/Sparepart. Qty langsung sesuai satuan beli (tanpa formula konversi lembar).</div>
     <div class="toolbar">
@@ -837,6 +857,7 @@
 <script src="../js/api.js"></script>
 <script src="../js/utils.js"></script>
 <script src="../js/nav.js"></script>
+<script src="../js/approval_pin.js"></script>
 <script>
 function fmtRupiah(n){return formatRupiah(n);}
 function fmtTgl(s){return formatTanggal(s);}
@@ -1019,7 +1040,17 @@ window.addEventListener('load', async function () {
   document.getElementById('inpTglPembelian').value=new Date().toISOString().slice(0,10);
   document.getElementById('inpTglFaktur').value=new Date().toISOString().slice(0,10);
   muatMasterAwal();
+  if (isDirektur()) document.getElementById('tbApproveHutang').style.display='';
+  bukaTabPembelianDariHash();
+  window.addEventListener('hashchange', bukaTabPembelianDariHash);
 });
+
+// Deep link dari lonceng notifikasi: pembelian.html#approve, dst.
+function bukaTabPembelianDariHash(){
+  var tab=(location.hash||'').replace('#','');
+  var btn=tab?document.querySelector('.tab-btn[data-tab="'+tab+'"]'):null;
+  if(btn && btn.style.display!=='none') gantiTab(tab);
+}
 
 function muatMasterAwal(){
   dbGet('m_supplier',{select:'id_supplier,nama',order:'nama.asc'}).then(function(res){
@@ -1067,7 +1098,7 @@ function muatAlokasiBankList(){
     var errMsg=cekErrorSupabase(res);
     if(errMsg){ tbody.innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">'+esc(errMsg)+'</td></tr>'; return; }
     semuaAlokBank=(Array.isArray(res)?res:[]).filter(function(r){
-      return r.kategori==='HUTANG_BAHAN' || r.kategori==='HUTANG_MAKLOON';
+      return ['HUTANG_BAHAN','HUTANG_MAKLOON','OPERASIONAL','PEMELIHARAAN'].indexOf(r.kategori)>=0;
     });
     renderAlokasiBankList();
   });
@@ -1332,6 +1363,85 @@ function gantiTab(tab){
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
   document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
   document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+  if(tab==='approve') muatApproveHutang();
+}
+
+// ============================================================
+// PERLU APPROVE — alokasi transfer ke hutang yang ditutup "lunas dengan selisih"
+// (dipindah dari bank.html, 28 Sep 2026). RPC tetap: approve_alokasi_direktur /
+// approve_alokasi_manager / reject_alokasi_direktur (semua pakai PIN).
+// ============================================================
+var apvHData=[];
+function emailUserLogin(){ var i=getUserInfo(); return i&&i.email?i.email:''; }
+function muatApproveHutang(){
+  var info=document.getElementById('apvHInfo'), wrap=document.getElementById('apvHWrap');
+  info.textContent='Memuat…'; wrap.innerHTML='';
+  dbGet('in_bank_statement',{
+    select:'id,id_rekening,tgl_transaksi,keterangan_bank,kategori,nominal,sisa_nominal,status_alokasi,selisih_alokasi,keterangan_selisih,dialokasi_oleh,tgl_alokasi',
+    status_alokasi:'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)',
+    kategori:'in.(HUTANG_BAHAN,HUTANG_MAKLOON,OPERASIONAL,PEMELIHARAAN)',
+    order:'tgl_alokasi.asc'
+  }).then(function(rows){
+    if(!Array.isArray(rows)) throw new Error(cekErrorSupabase(rows)||'Gagal memuat');
+    apvHData=rows;
+    if(!rows.length) return [];
+    return dbGet('in_bank_alokasi_hutang',{
+      select:'id_alokasi,id_bank_statement,no_nota,nama_supplier,nominal_alokasi,status_alokasi,dialokasi_oleh',
+      id_bank_statement:'in.('+rows.map(function(r){return '"'+r.id+'"';}).join(',')+')',
+      status_alokasi:'neq.VOID', order:'id_alokasi.asc'
+    });
+  }).then(function(alok){
+    var per={}; (Array.isArray(alok)?alok:[]).forEach(function(a){(per[a.id_bank_statement]=per[a.id_bank_statement]||[]).push(a);});
+    info.textContent=apvHData.length+' transfer menunggu approve Direktur.';
+    if(!apvHData.length){wrap.innerHTML='<div class="loading" style="padding:1rem">Tidak ada yang perlu di-approve ✓</div>';return;}
+    wrap.innerHTML=apvHData.map(function(r){
+      var notas=per[r.id]||[];
+      var total=notas.reduce(function(s,a){return s+(parseFloat(a.nominal_alokasi)||0);},0);
+      var bisaReject=r.status_alokasi==='MENUNGGU_APPROVE_DIREKTUR' && r.selisih_alokasi!==null && r.selisih_alokasi!==undefined;
+      var rows=notas.map(function(a){
+        var pend=a.status_alokasi!=='TERALOKASI';
+        return '<div class="apv-row"><div><div class="n">'+esc(a.no_nota)+(pend?' <span class="badge-status">MENUNGGU</span>':'')+'</div>'+
+          '<div class="s">'+esc(a.nama_supplier)+' · oleh '+esc(a.dialokasi_oleh||'-')+'</div></div>'+
+          '<div class="nom">'+fmtRupiah(a.nominal_alokasi)+'</div></div>';
+      }).join('');
+      return '<div class="apv-card"><div class="apv-head">'+
+        '<div class="apv-title">'+fmtTgl(r.tgl_transaksi)+' · '+esc(r.keterangan_bank)+'</div>'+
+        '<div class="apv-sub">'+esc(r.id_rekening)+' · '+esc(r.id)+' · '+esc(r.kategori)+' · diajukan '+esc(r.dialokasi_oleh||'-')+'</div>'+
+        (r.keterangan_selisih?'<div class="apv-sub" style="color:#c45a00">'+esc(r.keterangan_selisih)+'</div>':'')+
+        '<div class="apv-nums">'+
+          '<div class="apv-num"><div class="l">Nominal transfer</div><div class="v">'+fmtRupiah(r.nominal)+'</div></div>'+
+          '<div class="apv-num"><div class="l">Total nota ('+notas.length+')</div><div class="v">'+fmtRupiah(total)+'</div></div>'+
+          '<div class="apv-num sel"><div class="l">Selisih</div><div class="v">'+(bisaReject?fmtRupiah(r.selisih_alokasi):'—')+'</div></div>'+
+        '</div>'+
+        '<div style="margin-top:.45rem">'+
+          '<button class="btn-sm-action btn-approve" onclick="approveHutang(\''+esc(r.id)+'\',\''+esc(r.status_alokasi)+'\')">✓ Approve</button> '+
+          (bisaReject?'<button class="btn-sm-action btn-tolak" onclick="rejectHutang(\''+esc(r.id)+'\')">✗ Reject</button>':'')+
+        '</div></div>'+rows+'</div>';
+    }).join('');
+  }).catch(function(e){ info.textContent='Gagal memuat: '+(e&&e.message?e.message:e); });
+}
+async function approveHutang(id,status){
+  var pin=await mintaApprovalPin('Approve alokasi hutang '+id+'? Selisih akan dianggap final.');
+  if(!pin) return;
+  var rpc=status==='MENUNGGU_APPROVE_MANAGER'?'approve_alokasi_manager':'approve_alokasi_direktur';
+  try{
+    var res=await dbRpc(rpc,{p_id_bank_stmt:id,p_user:emailUserLogin(),p_pin:pin});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    muatApproveHutang(); muatSemuaData();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){ alert('Gagal approve: '+e.message); }
+}
+async function rejectHutang(id){
+  var alasan=prompt('Alasan reject (opsional):','');
+  if(alasan===null) return;
+  var pin=await mintaApprovalPin('Reject alokasi '+id+'? Nota yang menunggu dikembalikan ke sisa hutang semula dan transfer terbuka lagi.');
+  if(!pin) return;
+  try{
+    var res=await dbRpc('reject_alokasi_direktur',{p_id_bank_stmt:id,p_user:emailUserLogin(),p_alasan:alasan||null,p_pin:pin});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    muatApproveHutang(); muatSemuaData();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){ alert('Gagal reject: '+e.message); }
 }
 
 // ============================================================

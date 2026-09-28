@@ -96,14 +96,6 @@
       <div class="lbl">Alokasi Direktur</div>
       <div class="val" id="rAlokDir">…</div>
     </div>
-    <div id="rcBelum" class="rekap-card clickable" onclick="gantiTab('belum')">
-      <div class="lbl">Belum Dialokasi</div>
-      <div class="val" id="rBelum">…</div>
-    </div>
-    <div id="rcApprove" class="rekap-card clickable" onclick="gantiTab('approve')">
-      <div class="lbl">Perlu Approve</div>
-      <div class="val" id="rApprove">…</div>
-    </div>
   </div>
 
   <!-- Import CSV BCA — Direktur only -->
@@ -117,8 +109,6 @@
     <button id="tbPosting" class="tab-btn"        data-tab="posting" onclick="gantiTab('posting')">📤 Posting</button>
     <button id="tbAlokdir" class="tab-btn"        data-tab="alokdir" onclick="gantiTab('alokdir')">🎯 Alokasi Dir</button>
     <button id="tbKasKecil" class="tab-btn"        data-tab="kaskecil" onclick="gantiTab('kaskecil')">🏦 Kas Kecil</button>
-    <button id="tbBelum"   class="tab-btn"        data-tab="belum"   onclick="gantiTab('belum')">📥 Belum Dialokasi</button>
-    <button id="tbApprove" class="tab-btn"        data-tab="approve" onclick="gantiTab('approve')">⏳ Perlu Approve</button>
     <button id="tbDone"    class="tab-btn"        data-tab="done"    onclick="gantiTab('done')">✅ Teralokasi</button>
   </div>
 
@@ -239,6 +229,8 @@
         <option value="MODAL_MASUK">MODAL_MASUK</option>
         <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
         <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
+        <option value="OPERASIONAL">OPERASIONAL (tanpa nota)</option>
+        <option value="PEMELIHARAAN">PEMELIHARAAN (tanpa nota)</option>
       </select>
       <button class="btn-navy" id="adBtnBulk" onclick="bukaAlokDirBulk()" disabled style="margin-left:auto">Alokasi Terpilih (0)</button>
       <button class="btn-sm-action" id="adBtnExport" onclick="exportAlokDirCsv()" disabled>⬇ Export CSV (0)</button>
@@ -281,62 +273,9 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-       TAB 4: BELUM DIALOKASI (Admin)
-  ═══════════════════════════════════════════════════════════ -->
-  <div class="tab-pane" id="tabBelum">
-    <div class="toolbar">
-      <select id="blRekening" onchange="muatBelum()" style="font-family:var(--mono);font-size:.78rem">
-        <option value="">Semua Rekening</option>
-        <option value="BCA_DK">BCA DK</option>
-        <option value="BCA_PT">BCA PT</option>
-      </select>
-      <select id="blKategori" onchange="renderBelum()" style="font-family:var(--mono);font-size:.78rem">
-        <option value="">Semua</option>
-        <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
-        <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
-        <option value="OPERASIONAL">OPERASIONAL</option>
-        <option value="PEMELIHARAAN">PEMELIHARAAN</option>
-      </select>
-      <input type="text" id="blCari" placeholder="🔍 Cari deskripsi…" oninput="renderBelum()" style="flex:1;min-width:160px;font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem"/>
-    </div>
-    <div class="info-bar" id="blInfo">Memuat…</div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
-          <th class="td-right">Nominal</th><th class="td-right">Sisa</th><th></th>
-        </tr></thead>
-        <tbody id="blTbody"><tr><td colspan="7" class="loading">Memuat…</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════
-       TAB 5: PERLU APPROVE
-  ═══════════════════════════════════════════════════════════ -->
-  <div class="tab-pane" id="tabApprove">
-    <div class="toolbar">
-      <select id="apRekening" onchange="muatApprove()" style="font-family:var(--mono);font-size:.78rem">
-        <option value="">Semua Rekening</option>
-        <option value="BCA_DK">BCA DK</option>
-        <option value="BCA_PT">BCA PT</option>
-      </select>
-      <button class="btn-navy" style="font-size:.75rem" id="apBatchBtn" disabled onclick="jalankanBulkApprove()">Approve Terpilih (0)</button>
-      <input type="text" id="apCari" placeholder="🔍 Cari deskripsi…" oninput="renderApprove()" style="flex:1;min-width:160px;font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem"/>
-    </div>
-    <div class="info-bar" id="apInfo">Memuat…</div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th style="width:32px"><input type="checkbox" id="apCbAll" onclick="toggleApCbAll(this)"/></th>
-          <th>Tgl</th><th>Rek</th><th>Deskripsi</th><th>Kat</th>
-          <th class="td-right">Nominal</th><th>Status</th><th>Oleh</th><th></th>
-        </tr></thead>
-        <tbody id="apTbody"><tr><td colspan="9" class="loading">Memuat…</td></tr></tbody>
-      </table>
-    </div>
-  </div>
+  <!-- TAB "Belum Dialokasi" & "Perlu Approve" dihapus (28 Sep 2026):
+       PIUTANG dialokasi+approve di piutang.html, HUTANG/OPERASIONAL/PEMELIHARAAN di pembelian.html,
+       biaya tanpa nota ditutup Direktur di tab Alokasi Dir. Notifikasi approval lewat lonceng header. -->
 
   <!-- ═══════════════════════════════════════════════════════
        TAB 6: TERALOKASI
@@ -840,10 +779,10 @@ function muatRekap() {
       el.closest('.rekap-card').classList.toggle('warn', n > 0);
     });
 
-  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK/KAS_KECIL/OPERASIONAL/PEMELIHARAAN
+  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK/KAS_KECIL
   dbGet('in_bank_statement', {
     select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
-    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK,KAS_KECIL,OPERASIONAL,PEMELIHARAAN)',
+    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK,KAS_KECIL)',
     limit:9999
   }).then(function(r){
     var n = Array.isArray(r) ? r.length : 0;
@@ -852,27 +791,7 @@ function muatRekap() {
     el.closest('.rekap-card').classList.toggle('warn', n > 0);
   });
 
-  // Belum Dialokasi admin: HUTANG/OPERASIONAL/PEMELIHARAAN (PIUTANG dialokasi di halaman Piutang)
-  dbGet('in_bank_statement', {
-    select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
-    'kategori': 'in.(HUTANG_BAHAN,HUTANG_MAKLOON,OPERASIONAL,PEMELIHARAAN)',
-    limit:9999
-  }).then(function(r){
-    var n = Array.isArray(r) ? r.length : 0;
-    var el = document.getElementById('rBelum');
-    el.textContent = n > 0 ? n + ' transaksi' : '0';
-    el.closest('.rekap-card').classList.toggle('warn', n > 0);
-  });
-
-  dbGet('in_bank_statement', {
-    select:'id', 'status_alokasi':'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)',
-    'kategori':'neq.PIUTANG', limit:9999
-  }).then(function(r){
-    var n = Array.isArray(r) ? r.length : 0;
-    var el = document.getElementById('rApprove');
-    el.textContent = n > 0 ? n + ' transaksi' : '0';
-    el.closest('.rekap-card').classList.toggle('warn', n > 0);
-  });
+  // (kartu Belum Dialokasi & Perlu Approve dihapus — pindah ke Piutang/Pembelian + lonceng)
 }
 
 // ── ACCORDION ───────────────────────────────────────────────
@@ -999,19 +918,21 @@ async function muatKoran(reset) {
     var aksi = '';
     if (isDir) aksi += '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ';
     var isPiutang = r.kategori === 'PIUTANG';
-    // PIUTANG: alokasi & approve hanya di halaman Piutang (satu jalur, per nota)
-    if (isPiutang && r.jenis === 'CR' && r.status_alokasi === 'BELUM_DIALOKASI' && (r.status === 'POSTED' || r.status === 'PARTIAL'))
+    var isHutang  = r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON';
+    var isBiayaNota = r.kategori === 'OPERASIONAL' || r.kategori === 'PEMELIHARAAN';
+    var terbuka = r.status_alokasi === 'BELUM_DIALOKASI' && (r.status === 'POSTED' || r.status === 'PARTIAL');
+    // Satu jalur: PIUTANG → Piutang, HUTANG → Pembelian, OPERASIONAL/PEMELIHARAAN → Pembelian (ada nota) / Alokasi Dir (tanpa nota)
+    if (isPiutang && r.jenis === 'CR' && terbuka)
       aksi += '<a class="btn-sm-action btn-alokasi" style="text-decoration:none" href="piutang.html#alokasitf">→ Piutang</a>';
-    else if (r.status_alokasi === 'BELUM_DIALOKASI' && r.status === 'POSTED') {
-      if (['HUTANG_BAHAN','HUTANG_MAKLOON'].includes(r.kategori))
-        aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>';
-      else if (isDir && r.kategori !== 'BIAYA_BANK' && !isPiutang)
-        aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button>';
+    else if ((isHutang || isBiayaNota) && terbuka) {
+      aksi += '<a class="btn-sm-action btn-alokasi" style="text-decoration:none" href="pembelian.html#alokasibank">→ Pembelian</a>';
+      if (isBiayaNota && isDir && r.status === 'POSTED')
+        aksi += ' <button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Tanpa nota</button>';
     }
-    if (!isPiutang && r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
-      aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">✓ Mgr</button>';
-    if (!isPiutang && r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
-      aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">✓ Dir</button>';
+    else if (terbuka && r.status === 'POSTED' && isDir && r.kategori !== 'BIAYA_BANK' && r.kategori !== 'KAS_KECIL')
+      aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button>';
+    if (!isPiutang && (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' || r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR'))
+      aksi += '<a class="btn-sm-action btn-approve" style="text-decoration:none" href="pembelian.html#approve">⏳ Approve di Pembelian</a>';
 
     html += '<tr data-rid="' + r.id + '">' +
       '<td class="td-mono" style="white-space:nowrap">' + fmtTgl(r.tgl_transaksi) + '</td>' +
@@ -1517,6 +1438,7 @@ async function submitLinkKasKecil(idKasmasuk) {
 // ── TAB 4: BELUM DIALOKASI (Admin) ──────────────────────────
 var blDataCache = [];
 async function muatBelum() {
+  if (!document.getElementById('blTbody')) return; // tab dihapus (28 Sep 2026)
   var rek = document.getElementById('blRekening').value;
   var params = {p_id_rekening: rek || null, p_mode: 'ADMIN'};
   document.getElementById('blTbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat…</td></tr>';
@@ -1775,6 +1697,7 @@ async function simpanAlokHutang() {
 // ── TAB 5: PERLU APPROVE ────────────────────────────────────
 var apDataCache = [];
 async function muatApprove() {
+  if (!document.getElementById('apTbody')) return; // tab dihapus (28 Sep 2026)
   var rek = document.getElementById('apRekening').value;
   var params = {p_id_rekening: rek || null};
   document.getElementById('apTbody').innerHTML = '<tr><td colspan="9" class="loading">Memuat…</td></tr>';
