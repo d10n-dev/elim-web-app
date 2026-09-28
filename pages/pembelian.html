@@ -110,6 +110,7 @@
     <button class="tab-btn" data-tab="input" onclick="gantiTab('input')">🧾 Input Pembelian</button>
     <button class="tab-btn" data-tab="bayar" onclick="gantiTab('bayar')">💳 Alokasi Kas Kecil</button>
     <button class="tab-btn" data-tab="alokasibank" onclick="gantiTab('alokasibank')">🏦 Alokasi Transfer Bank</button>
+    <button class="tab-btn" data-tab="tracktf" onclick="gantiTab('tracktf')">🔎 Tracking Transfer</button>
     <button class="tab-btn" data-tab="approve" onclick="gantiTab('approve')" style="display:none" id="tbApproveHutang">✅ Perlu Approve</button>
     <button class="tab-btn" data-tab="faktur" onclick="gantiTab('faktur')">📑 Faktur Pajak Masukan</button>
     <button class="tab-btn" data-tab="supplier" onclick="gantiTab('supplier')">🏭 Supplier</button>
@@ -261,7 +262,21 @@
 
   <!-- ============== TAB: ALOKASI TINTA/SPAREPART ============== -->
   <!-- ============== TAB: PERLU APPROVE (Direktur) — alokasi hutang dengan selisih ============== -->
+  <!-- ============== TAB: TRACKING TRANSFER — transfer keluar → nota yang dibayar ============== -->
+  <div class="tab-pane" id="tabTracktf">
+    <div class="toolbar" style="flex-wrap:wrap">
+      <input type="date" id="ttDari" style="max-width:150px" onchange="muatTrackTransfer()"/>
+      <span style="align-self:center;color:var(--muted);font-size:.72rem">s/d</span>
+      <input type="date" id="ttSampai" style="max-width:150px" onchange="muatTrackTransfer()"/>
+      <input type="text" class="form-control" id="ttCari" placeholder="🔍 Cari supplier / no. nota / keterangan bank…" autocomplete="off" oninput="renderTrackTransfer()" style="flex:1;min-width:180px"/>
+      <label style="font-family:var(--mono);font-size:.7rem;align-self:center;white-space:nowrap"><input type="checkbox" id="ttSisa" onchange="renderTrackTransfer()"/> Hanya yang masih ada sisa</label>
+    </div>
+    <div class="info-bar" id="ttInfo">Memuat…</div>
+    <div id="ttWrap" style="padding:0 .1rem"></div>
+  </div>
+
   <div class="tab-pane" id="tabApprove">
+    <div id="pbhWrap"></div>
     <div class="info-bar" id="apvHInfo">Memuat…</div>
     <div id="apvHWrap" style="padding:0 .1rem"></div>
   </div>
@@ -641,6 +656,7 @@
       <div class="modal-body">
         <div id="alertAlokasiBank"></div>
         <div id="infoBarAlokBank" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
+        <div id="sudahAlokBankWrap"></div>
 
         <div class="sec-label">Cari Nota Supplier</div>
         <div style="position:relative">
@@ -1101,8 +1117,46 @@ function muatAlokasiBankList(){
       return ['HUTANG_BAHAN','HUTANG_MAKLOON','OPERASIONAL','PEMELIHARAAN'].indexOf(r.kategori)>=0;
     });
     renderAlokasiBankList();
+    muatRingkasAlokHutang(semuaAlokBank.map(function(r){return r.id;})).then(renderAlokasiBankList);
   });
 }
+// ── Ringkasan nota yang sudah memakai tiap transfer (badge di daftar + list di modal) ──
+var hutAlokMap={};
+function pgIn(arr){return 'in.('+arr.map(function(v){return '"'+String(v).replace(/"/g,'\\"')+'"';}).join(',')+')';}
+function muatRingkasAlokHutang(ids){
+  hutAlokMap={};
+  if(!ids.length) return Promise.resolve();
+  var chunks=[]; for(var i=0;i<ids.length;i+=80) chunks.push(ids.slice(i,i+80));
+  return Promise.all(chunks.map(function(ch){
+    return dbGet('in_bank_alokasi_hutang',{select:'id_bank_statement,nominal_alokasi,status_alokasi',id_bank_statement:pgIn(ch),status_alokasi:'neq.VOID',limit:5000});
+  })).then(function(parts){
+    parts.forEach(function(res){(Array.isArray(res)?res:[]).forEach(function(a){
+      var m=hutAlokMap[a.id_bank_statement]||(hutAlokMap[a.id_bank_statement]={n:0,nom:0});
+      m.n++; m.nom+=parseFloat(a.nominal_alokasi)||0;
+    });});
+  }).catch(function(){});
+}
+function badgeAlokHutang(id){
+  var m=hutAlokMap[id]; if(!m||!m.n) return '';
+  return '<br><span style="font-family:var(--mono);font-size:.6rem;color:var(--green)">✓ '+m.n+' nota teralokasi · '+fmtRupiah(m.nom)+'</span>';
+}
+function muatSudahAlokBank(idBank){
+  var wrap=document.getElementById('sudahAlokBankWrap'); if(!wrap) return;
+  wrap.innerHTML='';
+  dbGet('in_bank_alokasi_hutang',{select:'id_alokasi,no_nota,nama_supplier,nominal_alokasi,status_alokasi,dialokasi_oleh',id_bank_statement:'eq.'+idBank,status_alokasi:'neq.VOID',order:'id_alokasi.asc'}).then(function(res){
+    var data=Array.isArray(res)?res:[];
+    if(!data.length) return;
+    var tot=0;
+    var rows=data.map(function(a){
+      tot+=parseFloat(a.nominal_alokasi)||0;
+      return '<div class="apv-row"><div><div class="n">'+esc(a.no_nota)+(a.status_alokasi!=='TERALOKASI'?' <span class="badge-status">'+esc(a.status_alokasi)+'</span>':'')+'</div>'+
+        '<div class="s">'+esc(a.nama_supplier)+' · oleh '+esc(a.dialokasi_oleh||'-')+'</div></div><div class="nom">'+fmtRupiah(a.nominal_alokasi)+'</div></div>';
+    }).join('');
+    wrap.innerHTML='<div class="sec-label" style="margin-top:0">Sudah dialokasikan dari transfer ini</div><div class="apv-card">'+rows+
+      '<div class="apv-row" style="background:#f4f7fc;font-weight:600"><div class="s">Total '+data.length+' nota</div><div class="nom">'+fmtRupiah(tot)+'</div></div></div>';
+  }).catch(function(){});
+}
+
 function renderAlokasiBankList(){
   var tbody=document.getElementById('alokBankTbody');
   var q=(document.getElementById('alokBankCari')||{value:''}).value.trim().toLowerCase();
@@ -1116,7 +1170,7 @@ function renderAlokasiBankList(){
     return '<tr>'+
       '<td class="td-mono">'+fmtTgl(r.tgl_transaksi)+'</td>'+
       '<td>'+esc(r.nama_rekening||'')+'</td>'+
-      '<td>'+esc(r.keterangan_bank||'')+'</td>'+
+      '<td>'+esc(r.keterangan_bank||'')+badgeAlokHutang(r.id)+'</td>'+
       '<td><span class="badge-status">'+esc(r.kategori)+'</span></td>'+
       '<td class="td-right td-mono">'+fmtRupiah(r.nominal)+'</td>'+
       '<td class="td-right td-mono">'+fmtRupiah(r.sisa_nominal)+'</td>'+
@@ -1301,6 +1355,7 @@ function bukaAlokasiBank(idBankStmt){
   document.getElementById('infoSelisihAlokBank').innerHTML='';
   document.getElementById('btnLunasSelisihAlokBank').style.display='none';
   renderAlokasiBankTerpilih();
+  muatSudahAlokBank(idBankStmt);
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiBank')).show();
 }
 
@@ -1364,6 +1419,7 @@ function gantiTab(tab){
   document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
   document.getElementById('tab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
   if(tab==='approve') muatApproveHutang();
+  if(tab==='tracktf') muatTrackTransfer();
 }
 
 // ============================================================
@@ -1374,6 +1430,7 @@ function gantiTab(tab){
 var apvHData=[];
 function emailUserLogin(){ var i=getUserInfo(); return i&&i.email?i.email:''; }
 function muatApproveHutang(){
+  muatPengajuanBatalHutang();
   var info=document.getElementById('apvHInfo'), wrap=document.getElementById('apvHWrap');
   info.textContent='Memuat…'; wrap.innerHTML='';
   dbGet('in_bank_statement',{
@@ -1420,6 +1477,133 @@ function muatApproveHutang(){
     }).join('');
   }).catch(function(e){ info.textContent='Gagal memuat: '+(e&&e.message?e.message:e); });
 }
+// ============================================================
+// TRACKING TRANSFER — transfer keluar (HUTANG/OPERASIONAL/PEMELIHARAAN) → nota yang dibayar
+// ============================================================
+var ttData=[];
+function muatTrackTransfer(){
+  var dEl=document.getElementById('ttDari'), sEl=document.getElementById('ttSampai');
+  if(!dEl.value){var d=new Date();d.setDate(d.getDate()-60);dEl.value=d.toISOString().slice(0,10);}
+  if(!sEl.value) sEl.value=new Date().toISOString().slice(0,10);
+  var info=document.getElementById('ttInfo'); info.textContent='Memuat…';
+  var bank=[];
+  dbGet('in_bank_statement',{
+    select:'id,id_rekening,tgl_transaksi,keterangan_bank,kategori,nominal,sisa_nominal,status_alokasi,selisih_alokasi,keterangan_selisih',
+    jenis:'eq.DB', kategori:'in.(HUTANG_BAHAN,HUTANG_MAKLOON,OPERASIONAL,PEMELIHARAAN)',
+    and:'(tgl_transaksi.gte.'+dEl.value+',tgl_transaksi.lte.'+sEl.value+')',
+    order:'tgl_transaksi.desc,id.desc', limit:2000
+  }).then(function(res){
+    if(!Array.isArray(res)) throw new Error(cekErrorSupabase(res)||'Gagal memuat transfer');
+    bank=res;
+    var ids=bank.map(function(b){return b.id;});
+    if(!ids.length) return [];
+    var chunks=[]; for(var i=0;i<ids.length;i+=80) chunks.push(ids.slice(i,i+80));
+    return Promise.all(chunks.map(function(ch){
+      return dbGet('in_bank_alokasi_hutang',{select:'*',id_bank_statement:pgIn(ch),status_alokasi:'neq.VOID',order:'id_alokasi.asc',limit:5000});
+    })).then(function(parts){return [].concat.apply([],parts.map(function(p){return Array.isArray(p)?p:[];}));});
+  }).then(function(alok){
+    var per={}; alok.forEach(function(a){(per[a.id_bank_statement]=per[a.id_bank_statement]||[]).push(a);});
+    ttData=bank.filter(function(b){return per[b.id];}).map(function(b){
+      var n=per[b.id]; var tot=n.reduce(function(s,a){return s+(parseFloat(a.nominal_alokasi)||0);},0);
+      return {b:b,nota:n,total:tot};
+    });
+    renderTrackTransfer();
+  }).catch(function(e){info.textContent='Gagal memuat: '+(e&&e.message?e.message:e);});
+}
+function renderTrackTransfer(){
+  var q=(document.getElementById('ttCari').value||'').trim().toLowerCase();
+  var hanyaSisa=document.getElementById('ttSisa').checked;
+  var data=ttData.filter(function(x){
+    if(hanyaSisa && !(parseFloat(x.b.sisa_nominal)>0)) return false;
+    if(!q) return true;
+    if((x.b.keterangan_bank||'').toLowerCase().indexOf(q)>=0 || (x.b.id||'').toLowerCase().indexOf(q)>=0) return true;
+    return x.nota.some(function(a){return ((a.no_nota||'')+' '+(a.nama_supplier||'')).toLowerCase().indexOf(q)>=0;});
+  });
+  var tot=data.reduce(function(s,x){return s+x.total;},0);
+  document.getElementById('ttInfo').textContent=data.length+' transfer · '+data.reduce(function(s,x){return s+x.nota.length;},0)+' nota · total teralokasi '+fmtRupiah(tot);
+  var wrap=document.getElementById('ttWrap');
+  if(!data.length){wrap.innerHTML='<div class="loading" style="padding:1rem">Tidak ada data pada rentang ini.</div>';return;}
+  var isDir=isDirektur();
+  var bolehAjukan=['ADMIN','MANAGER'].indexOf(getRoleUser())>=0;
+  wrap.innerHTML=data.map(function(x){
+    var b=x.b, sisa=parseFloat(b.sisa_nominal)||0;
+    var rows=x.nota.map(function(a){
+      var aksi='';
+      if(a.status_alokasi==='TERALOKASI'){
+        var arg='\''+esc(a.id_alokasi)+'\',\''+esc(a.id_pembelian)+'\',\''+esc(a.no_nota||'')+'\','+(parseFloat(a.nominal_alokasi)||0);
+        if(a.tgl_ajukan_batal){
+          aksi='<div><span class="badge-status" title="'+esc(a.alasan_batal||'')+'">⏳ Diajukan batal · '+esc(a.diajukan_batal_oleh||'-')+'</span></div>';
+        }else if(isDir){
+          aksi='<div style="margin-top:.2rem"><button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.12rem .4rem" onclick="bukaBatalAlokasiHutang(\''+esc(a.id_alokasi)+'\',\''+esc(a.id_pembelian)+'\',\''+esc(a.no_nota||'')+'\')">Batal</button></div>';
+        }else if(bolehAjukan){
+          aksi='<div style="margin-top:.2rem"><button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.12rem .4rem" onclick="ajukanBatalAlokHutang('+arg+')">Ajukan Batal</button></div>';
+        }
+      }
+      return '<div class="apv-row"><div><div class="n">'+esc(a.no_nota)+(a.status_alokasi!=='TERALOKASI'?' <span class="badge-status">'+esc(a.status_alokasi)+'</span>':'')+'</div>'+
+        '<div class="s">'+esc(a.nama_supplier)+' · oleh '+esc(a.dialokasi_oleh||'-')+'</div></div>'+
+        '<div class="nom">'+fmtRupiah(a.nominal_alokasi)+aksi+'</div></div>';
+    }).join('');
+    return '<div class="apv-card"><div class="apv-head">'+
+      '<div class="apv-title">'+fmtTgl(b.tgl_transaksi)+' · '+esc(b.keterangan_bank)+'</div>'+
+      '<div class="apv-sub">'+esc(b.id_rekening)+' · '+esc(b.id)+' · '+esc(b.kategori)+' · '+esc(b.status_alokasi||'')+'</div>'+
+      '<div class="apv-nums">'+
+        '<div class="apv-num"><div class="l">Nominal</div><div class="v">'+fmtRupiah(b.nominal)+'</div></div>'+
+        '<div class="apv-num"><div class="l">Teralokasi ('+x.nota.length+')</div><div class="v" style="color:var(--green)">'+fmtRupiah(x.total)+'</div></div>'+
+        (b.selisih_alokasi!==null&&b.selisih_alokasi!==undefined?'<div class="apv-num sel"><div class="l">Selisih</div><div class="v">'+fmtRupiah(b.selisih_alokasi)+'</div></div>':'')+
+        '<div class="apv-num"><div class="l">Sisa</div><div class="v" style="color:'+(sisa>0?'var(--red)':'inherit')+'">'+fmtRupiah(sisa)+'</div></div>'+
+      '</div>'+
+      (sisa>0 && bankStmtStore[b.id]?'<div style="margin-top:.45rem"><button class="btn-sm-action btn-approve" onclick="bukaAlokasiBank(\''+esc(b.id)+'\')">+ Alokasi sisa</button></div>':'')+
+      '</div>'+rows+'</div>';
+  }).join('');
+}
+async function ajukanBatalAlokHutang(idAlokasi,idPembelian,noNota,nominal){
+  var alasan=prompt('Ajukan pembatalan alokasi nota '+noNota+' ('+fmtRupiah(nominal)+') ke Direktur.\n\nAlasan (wajib):','');
+  if(alasan===null) return;
+  if(!alasan.trim()){alert('Alasan wajib diisi.');return;}
+  try{
+    var res=await dbRpc('pengajuan_batal_alokasi_hutang',{p_id_alokasi:idAlokasi,p_aksi:'AJUKAN',p_alasan:alasan.trim(),p_user_input:getNamaUser()});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    alert('Pengajuan batal terkirim. Alokasi tetap berlaku sampai Direktur menyetujui.');
+    muatTrackTransfer();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+// ── Pengajuan batal (di tab Perlu Approve, Direktur) ──
+var pbhData=[];
+function muatPengajuanBatalHutang(){
+  var wrap=document.getElementById('pbhWrap'); if(!wrap) return;
+  dbGet('in_bank_alokasi_hutang',{
+    select:'id_alokasi,id_bank_statement,id_pembelian,no_nota,nama_supplier,nominal_alokasi,alasan_batal,diajukan_batal_oleh,tgl_ajukan_batal',
+    status_alokasi:'eq.TERALOKASI', tgl_ajukan_batal:'not.is.null', order:'tgl_ajukan_batal.asc'
+  }).then(function(res){
+    pbhData=Array.isArray(res)?res:[];
+    if(!pbhData.length){wrap.innerHTML='';return;}
+    wrap.innerHTML='<div class="sec-label" style="margin-top:0;background:#fdecea;color:var(--red)">Pengajuan Batal Alokasi ('+pbhData.length+')</div>'+
+      '<div class="apv-card">'+pbhData.map(function(a,i){
+        return '<div class="apv-row"><div><div class="n">'+esc(a.no_nota)+' · '+esc(a.id_bank_statement)+'</div>'+
+          '<div class="s">'+esc(a.nama_supplier)+' · diajukan '+esc(a.diajukan_batal_oleh||'-')+' '+fmtTgl(a.tgl_ajukan_batal)+'</div>'+
+          '<div class="s" style="color:var(--navy)">Alasan: '+esc(a.alasan_batal||'-')+'</div></div>'+
+          '<div class="nom">'+fmtRupiah(a.nominal_alokasi)+
+          '<div style="margin-top:.2rem;white-space:nowrap"><button class="btn-sm-action btn-approve" style="font-size:.6rem;padding:.12rem .4rem" onclick="putuskanBatalHutang('+i+',true)">✓ Setujui</button> '+
+          '<button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.12rem .4rem" onclick="putuskanBatalHutang('+i+',false)">✗ Tolak</button></div></div></div>';
+      }).join('')+'</div>';
+  }).catch(function(){wrap.innerHTML='';});
+}
+async function putuskanBatalHutang(i,setuju){
+  var a=pbhData[i]; if(!a) return;
+  var pin=await mintaApprovalPin((setuju?'SETUJUI':'TOLAK')+' pengajuan batal alokasi '+a.no_nota+' '+fmtRupiah(a.nominal_alokasi)+'?'+
+    (setuju?' Nominal kembali ke sisa transfer & hutang nota dibuka lagi.':' Alokasi tetap berlaku.'));
+  if(!pin) return;
+  try{
+    var res=setuju
+      ? await dbRpc('batal_alokasi_hutang',{p_id_alokasi:a.id_alokasi,p_alasan:'Pengajuan '+(a.diajukan_batal_oleh||'-')+': '+(a.alasan_batal||'-'),p_user_input:getNamaUser(),p_pin:pin})
+      : await dbRpc('pengajuan_batal_alokasi_hutang',{p_id_alokasi:a.id_alokasi,p_aksi:'TOLAK',p_user_input:getNamaUser(),p_pin:pin});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    muatPengajuanBatalHutang(); muatSemuaData();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+
 async function approveHutang(id,status){
   var pin=await mintaApprovalPin('Approve alokasi hutang '+id+'? Selisih akan dianggap final.');
   if(!pin) return;
@@ -1679,10 +1863,12 @@ async function submitBatalAlokasiHutang(btn){
   var alasan=document.getElementById('batalAlokasiAlasan').value.trim();
   if(!alasan){showAlert('alertModalBatalAlokasi','Alasan pembatalan wajib diisi.');return;}
 
+  var pin=await mintaApprovalPin('Batalkan alokasi ini? Nominal kembali ke sisa transfer & hutang nota dibuka lagi.');
+  if(!pin) return;
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Memproses…';
   try{
     var res=await dbRpc('batal_alokasi_hutang',{
-      p_id_alokasi:idAlokasi, p_alasan:alasan, p_user_input:getNamaUser()
+      p_id_alokasi:idAlokasi, p_alasan:alasan, p_user_input:getNamaUser(), p_pin:pin
     });
     var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
     if(res && res.status==='error') throw new Error(res.message);
@@ -1690,6 +1876,8 @@ async function submitBatalAlokasiHutang(btn){
     openDetailPembelianId=null;
     muatRekap();
     muatRekapCards();
+    if(document.getElementById('tabTracktf').classList.contains('active')) muatTrackTransfer();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
   }catch(e){
     showAlert('alertModalBatalAlokasi','Gagal batal alokasi: '+e.message);
   }finally{
