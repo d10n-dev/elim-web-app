@@ -105,6 +105,7 @@ function renderTopbar(pageTitle) {
       </div>
       <div class="topbar-right">
         <div class="db-dot checking" id="navDbDot" title="Status Supabase"></div>
+        <button class="nav-bell" id="navBell" onclick="toggleNotifNav(event)" aria-label="Notifikasi" style="display:none">🔔<span class="nav-bell-badge" id="navBellBadge" style="display:none"></span></button>
         <button class="btn-hamburger" onclick="bukaDrawer()" aria-label="Menu">☰</button>
       </div>
     </div>
@@ -233,4 +234,136 @@ function initNav(activeKey, pageTitleOverride) {
   renderDrawer(activeKey);
   cekKoneksiNav();
   setInterval(cekKoneksiNav, 60000);
+  initNotifNav();
+}
+// ----------------------------------------------------------
+// 7. LONCENG NOTIFIKASI — pekerjaan tertunda per role
+// Sumber: RPC get_notif_pending() (role dibaca di server dari JWT).
+// Cache 60 detik di sessionStorage (per email) supaya pindah halaman
+// tidak memanggil RPC berulang; refresh saat app kembali aktif.
+// Halaman lain bisa memaksa refresh: refreshNotifNav()
+// ----------------------------------------------------------
+const NOTIF_TTL_MS = 60000;
+let _notifRows = [];
+let _notifTs = 0;
+
+function _notifKey() {
+  const info = (typeof getUserInfo === 'function') ? getUserInfo() : null;
+  return 'sieo_notif_' + (info && info.email ? info.email : 'anon');
+}
+
+function _notifFmtRp(n) {
+  if (typeof formatRupiah === 'function') return formatRupiah(n);
+  return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+}
+
+function _notifCss() {
+  if (document.getElementById('navNotifCss')) return;
+  const st = document.createElement('style');
+  st.id = 'navNotifCss';
+  st.textContent =
+    '.nav-bell{position:relative;background:none;border:none;font-size:1.05rem;line-height:1;cursor:pointer;padding:.25rem .4rem;margin-right:.15rem;color:inherit;}' +
+    '.nav-bell-badge{position:absolute;top:-3px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#e03131;color:#fff;font-family:var(--mono,monospace);font-size:.58rem;font-weight:700;line-height:17px;text-align:center;box-shadow:0 0 0 2px var(--navy,#1a2b4c);}' +
+    '.nav-notif-panel{position:fixed;z-index:10050;right:8px;width:min(340px,calc(100vw - 16px));max-height:70vh;overflow-y:auto;background:#fff;border:1px solid var(--border,#dde2ea);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);display:none;}' +
+    '.nav-notif-panel.open{display:block;}' +
+    '.nn-head{display:flex;justify-content:space-between;align-items:center;padding:.6rem .8rem;border-bottom:1px solid var(--border,#dde2ea);font-family:var(--mono,monospace);font-size:.72rem;font-weight:700;color:var(--navy,#1a2b4c);text-transform:uppercase;letter-spacing:.05em;}' +
+    '.nn-head button{background:none;border:1px solid var(--border,#dde2ea);border-radius:5px;font-size:.72rem;padding:.1rem .45rem;cursor:pointer;}' +
+    '.nn-item{display:flex;justify-content:space-between;gap:.6rem;align-items:center;padding:.65rem .8rem;border-bottom:1px solid var(--border,#eef1f5);text-decoration:none;color:var(--navy,#1a2b4c);}' +
+    '.nn-item:last-child{border-bottom:none;} .nn-item:active,.nn-item:hover{background:#f4f7fc;}' +
+    '.nn-item .nn-l{font-size:.8rem;font-weight:600;} .nn-item .nn-s{font-family:var(--mono,monospace);font-size:.65rem;color:var(--muted,#6b7a90);margin-top:.1rem;}' +
+    '.nn-item .nn-n{font-family:var(--mono,monospace);font-size:.8rem;font-weight:700;background:#fdecea;color:#c0392b;border-radius:12px;padding:.1rem .55rem;white-space:nowrap;}' +
+    '.nn-item.info .nn-n{background:#f0f2f6;color:var(--muted,#6b7a90);}' +
+    '.nn-empty{padding:1rem .8rem;font-size:.8rem;color:var(--green,#1a7a3f);text-align:center;}' +
+    '.nn-foot{padding:.4rem .8rem;font-family:var(--mono,monospace);font-size:.6rem;color:var(--muted,#6b7a90);border-top:1px solid var(--border,#eef1f5);}';
+  document.head.appendChild(st);
+}
+
+function initNotifNav() {
+  if (typeof dbRpc !== 'function') return;
+  _notifCss();
+  const panel = document.createElement('div');
+  panel.className = 'nav-notif-panel';
+  panel.id = 'navNotifPanel';
+  document.body.appendChild(panel);
+  document.addEventListener('click', function (e) {
+    const p = document.getElementById('navNotifPanel');
+    const b = document.getElementById('navBell');
+    if (p && p.classList.contains('open') && !p.contains(e.target) && b && !b.contains(e.target)) p.classList.remove('open');
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) muatNotifNav(false);
+  });
+  setInterval(function () { if (!document.hidden) muatNotifNav(false); }, 5 * 60000);
+  muatNotifNav(false);
+}
+
+function muatNotifNav(force) {
+  if (!force) {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(_notifKey()) || 'null');
+      if (c && Array.isArray(c.rows) && (Date.now() - c.ts) < NOTIF_TTL_MS) {
+        _notifRows = c.rows; _notifTs = c.ts; renderNotifNav();
+        return Promise.resolve();
+      }
+    } catch (e) { /* abaikan cache rusak */ }
+  }
+  return dbRpc('get_notif_pending', {})
+    .then(function (res) {
+      if (!Array.isArray(res)) throw new Error('notif tidak tersedia');
+      _notifRows = res; _notifTs = Date.now();
+      try { sessionStorage.setItem(_notifKey(), JSON.stringify({ ts: _notifTs, rows: res })); } catch (e) {}
+      renderNotifNav();
+    })
+    .catch(function () {
+      // RPC belum ada / error → sembunyikan lonceng, jangan ganggu halaman
+      const b = document.getElementById('navBell');
+      if (b) b.style.display = 'none';
+    });
+}
+
+function refreshNotifNav() {
+  try { sessionStorage.removeItem(_notifKey()); } catch (e) {}
+  return muatNotifNav(true);
+}
+
+function renderNotifNav() {
+  const bell = document.getElementById('navBell');
+  const badge = document.getElementById('navBellBadge');
+  const panel = document.getElementById('navNotifPanel');
+  if (!bell || !badge || !panel) return;
+  bell.style.display = '';
+  const nAksi = _notifRows.reduce(function (s, r) { return s + (r.level === 'AKSI' ? (Number(r.jumlah) || 0) : 0); }, 0);
+  badge.textContent = nAksi > 99 ? '99+' : String(nAksi);
+  badge.style.display = nAksi > 0 ? '' : 'none';
+  bell.title = nAksi > 0 ? nAksi + ' pekerjaan menunggu' : 'Tidak ada pekerjaan tertunda';
+
+  const items = _notifRows.map(function (r) {
+    const info = r.level !== 'AKSI';
+    return '<a class="nn-item' + (info ? ' info' : '') + '" href="' + NAV_BASE + escHtml(r.url || 'index.html') + '" onclick="tutupNotifNav()">' +
+      '<div><div class="nn-l">' + escHtml(r.label) + '</div>' +
+      '<div class="nn-s">' + (Number(r.nominal) ? _notifFmtRp(r.nominal) + ' · ' : '') + (info ? 'info' : 'perlu tindakan') + '</div></div>' +
+      '<div class="nn-n">' + escHtml(String(r.jumlah)) + '</div></a>';
+  }).join('');
+  const jam = _notifTs ? new Date(_notifTs).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
+  panel.innerHTML =
+    '<div class="nn-head"><span>Pekerjaan Tertunda</span><button onclick="refreshNotifNav()">↻</button></div>' +
+    (items || '<div class="nn-empty">Tidak ada pekerjaan tertunda ✓</div>') +
+    '<div class="nn-foot">Diperbarui ' + jam + '</div>';
+}
+
+function toggleNotifNav(e) {
+  if (e) e.stopPropagation();
+  const p = document.getElementById('navNotifPanel');
+  const b = document.getElementById('navBell');
+  if (!p || !b) return;
+  if (p.classList.contains('open')) { p.classList.remove('open'); return; }
+  const r = b.getBoundingClientRect();
+  p.style.top = (r.bottom + 6) + 'px';
+  p.classList.add('open');
+  if (Date.now() - _notifTs > NOTIF_TTL_MS) muatNotifNav(true);
+}
+
+function tutupNotifNav() {
+  const p = document.getElementById('navNotifPanel');
+  if (p) p.classList.remove('open');
 }

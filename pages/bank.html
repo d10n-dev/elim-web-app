@@ -293,11 +293,8 @@
       </select>
       <select id="blKategori" onchange="renderBelum()" style="font-family:var(--mono);font-size:.78rem">
         <option value="">Semua</option>
-        <option value="PIUTANG">PIUTANG</option>
-        <option value="PIUTANG_KARYAWAN">PIUTANG_KARYAWAN</option>
         <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
         <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
-        <option value="HUTANG_KEUANGAN">HUTANG_KEUANGAN</option>
         <option value="OPERASIONAL">OPERASIONAL</option>
         <option value="PEMELIHARAAN">PEMELIHARAAN</option>
       </select>
@@ -855,10 +852,10 @@ function muatRekap() {
     el.closest('.rekap-card').classList.toggle('warn', n > 0);
   });
 
-  // Belum Dialokasi admin: PIUTANG/HUTANG/OPERASIONAL/PEMELIHARAAN
+  // Belum Dialokasi admin: HUTANG/OPERASIONAL/PEMELIHARAAN (PIUTANG dialokasi di halaman Piutang)
   dbGet('in_bank_statement', {
     select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
-    'kategori': 'in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,OPERASIONAL,PEMELIHARAAN)',
+    'kategori': 'in.(HUTANG_BAHAN,HUTANG_MAKLOON,OPERASIONAL,PEMELIHARAAN)',
     limit:9999
   }).then(function(r){
     var n = Array.isArray(r) ? r.length : 0;
@@ -868,7 +865,8 @@ function muatRekap() {
   });
 
   dbGet('in_bank_statement', {
-    select:'id', 'status_alokasi':'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)', limit:9999
+    select:'id', 'status_alokasi':'in.(MENUNGGU_APPROVE_MANAGER,MENUNGGU_APPROVE_DIREKTUR)',
+    'kategori':'neq.PIUTANG', limit:9999
   }).then(function(r){
     var n = Array.isArray(r) ? r.length : 0;
     var el = document.getElementById('rApprove');
@@ -1000,15 +998,19 @@ async function muatKoran(reset) {
     var isMgr = roleUser === 'MANAGER' || isDir;
     var aksi = '';
     if (isDir) aksi += '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ';
-    if (r.status_alokasi === 'BELUM_DIALOKASI' && r.status === 'POSTED') {
-      if (['PIUTANG','HUTANG_BAHAN','HUTANG_MAKLOON'].includes(r.kategori))
+    var isPiutang = r.kategori === 'PIUTANG';
+    // PIUTANG: alokasi & approve hanya di halaman Piutang (satu jalur, per nota)
+    if (isPiutang && r.jenis === 'CR' && r.status_alokasi === 'BELUM_DIALOKASI' && (r.status === 'POSTED' || r.status === 'PARTIAL'))
+      aksi += '<a class="btn-sm-action btn-alokasi" style="text-decoration:none" href="piutang.html#alokasitf">→ Piutang</a>';
+    else if (r.status_alokasi === 'BELUM_DIALOKASI' && r.status === 'POSTED') {
+      if (['HUTANG_BAHAN','HUTANG_MAKLOON'].includes(r.kategori))
         aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>';
-      else if (isDir && r.kategori !== 'BIAYA_BANK')
+      else if (isDir && r.kategori !== 'BIAYA_BANK' && !isPiutang)
         aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button>';
     }
-    if (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
+    if (!isPiutang && r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' && isMgr)
       aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'manager\')">✓ Mgr</button>';
-    if (r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
+    if (!isPiutang && r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR' && isDir)
       aksi += '<button class="btn-sm-action btn-approve" onclick="approveAlokasi(\'' + r.id + '\',\'direktur\')">✓ Dir</button>';
 
     html += '<tr data-rid="' + r.id + '">' +
@@ -1522,7 +1524,8 @@ async function muatBelum() {
   var err = cekErrorSupabase(rows);
   if (err) { renderErr('blTbody', 7, err); return; }
   if (!Array.isArray(rows)) rows = [];
-  blDataCache = rows;
+  // PIUTANG tidak dialokasi di Bank lagi — lewat halaman Piutang (tab Alokasi Transfer)
+  blDataCache = rows.filter(function(r){ return r.kategori !== 'PIUTANG'; });
   renderBelum();
 }
 
@@ -1557,7 +1560,7 @@ function renderBelum() {
   });
   if (!html) html = '<tr><td colspan="7" class="loading" style="color:var(--green)">' + (q||kat ? 'Tidak ada hasil sesuai filter' : 'Semua sudah dialokasi ✓') + '</td></tr>';
   document.getElementById('blTbody').innerHTML = html;
-  document.getElementById('blInfo').textContent = rows.length + ' transaksi menunggu alokasi' + (q ? ' (cari: ' + q + ')' : '');
+  document.getElementById('blInfo').textContent = rows.length + ' transaksi menunggu alokasi' + (q ? ' (cari: ' + q + ')' : '') + ' · PIUTANG dialokasi di halaman Piutang';
 }
 
 var alSelectedId = null;
@@ -1603,6 +1606,7 @@ async function simpanAlokLegacy() {
 function bukaAlokAdmin(id) {
   aaSelectedId = id;
   var r = rowStore[id] || {};
+  if (r.kategori === 'PIUTANG') { location.href = 'piutang.html#alokasitf'; return; }
   if (r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON' || r.kategori === 'OPERASIONAL' || r.kategori === 'PEMELIHARAAN') {
     bukaAlokHutang(id);
     return;
@@ -1778,7 +1782,8 @@ async function muatApprove() {
   var err = cekErrorSupabase(rows);
   if (err) { renderErr('apTbody', 9, err); return; }
   if (!Array.isArray(rows)) rows = [];
-  apDataCache = rows;
+  // PIUTANG diapprove per nota di halaman Piutang — tidak ditampilkan di sini
+  apDataCache = rows.filter(function(r){ return r.kategori !== 'PIUTANG'; });
   apChecked.clear();
   renderApprove();
 }
@@ -1888,6 +1893,7 @@ async function jalankanBulkApprove() {
   apChecked.clear();
   await muatRekap();
   await muatApprove();
+  if (typeof refreshNotifNav === 'function') refreshNotifNav();
   if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
 
   var ringkasan = okCount + ' dari ' + n + ' berhasil di-approve.';
@@ -1931,6 +1937,7 @@ async function approveAlokasi(id, level) {
     }
     await muatRekap();
     await muatApprove();
+  if (typeof refreshNotifNav === 'function') refreshNotifNav();
     tampilkanToast('✓ Berhasil di-approve', 'ok');
     // Refresh koran kalau aktif
     if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
@@ -1952,6 +1959,7 @@ async function rejectAlokasiSelisih(id) {
     if (err) { tampilkanToast('✗ Gagal: ' + err, 'error'); return; }
     await muatRekap();
     await muatApprove();
+  if (typeof refreshNotifNav === 'function') refreshNotifNav();
     tampilkanToast('✓ Berhasil di-reject', 'ok');
     if (document.querySelector('.tab-btn.active').dataset.tab === 'koran') muatKoran(true);
   } catch (e) {
@@ -2581,7 +2589,15 @@ window.addEventListener('load', function() {
   muatRekap();
   muatKoran(true);
   muatCacheSupplierBank();
+  bukaTabBankDariHash();
+  window.addEventListener('hashchange', bukaTabBankDariHash);
 });
+
+// Deep link dari lonceng notifikasi: bank.html#approve, dst.
+function bukaTabBankDariHash() {
+  var tab = (location.hash || '').replace('#', '');
+  if (tab && document.querySelector('.tab-btn[data-tab="' + tab + '"]')) gantiTab(tab);
+}
 </script>
 </body>
 </html>
