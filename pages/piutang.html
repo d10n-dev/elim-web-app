@@ -260,6 +260,7 @@
 
 <!-- ═══ TAB PERLU APPROVE ═══ -->
 <div class="tab-pane" id="tabApprove">
+  <div id="pbWrap"></div>
   <div class="toolbar-batch">
     <input type="checkbox" class="chk-batch" id="chkApvAll" onclick="toggleSemuaApprove(this)"/>
     <label style="font-family:var(--mono);font-size:.72rem">Pilih Semua</label>
@@ -1034,9 +1035,7 @@ function renderTrackingBayar(){
         '<td class="td-mono" style="font-size:.7rem">'+esc(d.no_nota||d.id_sj||d.id_saldo||'—')+'</td>'+
         '<td class="td-mono" style="font-size:.7rem">'+esc(d.nama_pelanggan||'')+'</td>'+
         '<td class="td-mono td-right" style="font-size:.7rem">'+fmtRupiah(d.nominal_alokasi)+'</td>'+
-        '<td>'+(isDirektur() && r.sumber==='TRANSFER' && d.id_alokasi
-          ? '<button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.15rem .4rem" onclick="batalAlokasiPiutang(\''+esc(d.id_alokasi)+'\',\''+esc(d.no_nota||'')+'\','+(parseFloat(d.nominal_alokasi)||0)+')">Batal</button>'
-          : '')+'</td></tr>';
+        '<td>'+aksiBatalTB(r,d)+'</td></tr>';
     }).join('');
     return '<tr style="cursor:pointer" onclick="toggleDetailTB('+i+')">'+
       '<td>▸</td>'+
@@ -1063,6 +1062,33 @@ async function batalAlokasiPiutang(idAlokasi,noNota,nominal){
     muatTrackingBayar(); muatRekap(); muatRekapCards();
     if(typeof refreshNotifNav==='function') refreshNotifNav();
   }catch(e){alert('Gagal batal: '+e.message);}
+}
+// Tombol batal di Tracking Bayar:
+//  Direktur → Batal langsung (PIN). Admin/Manager → Ajukan Batal (Direktur putuskan di tab Perlu Approve).
+function aksiBatalTB(r,d){
+  if(r.sumber!=='TRANSFER' || !d.id_alokasi) return '';
+  var nom=parseFloat(d.nominal_alokasi)||0;
+  var arg='\''+esc(d.id_alokasi)+'\',\''+esc(d.no_nota||'')+'\','+nom;
+  var st='font-size:.6rem;padding:.15rem .4rem';
+  if(d.tgl_ajukan_batal){
+    var tag='<span class="badge-status s-menunggu_approve" title="'+esc(d.alasan_ajukan||'')+'">⏳ Diajukan batal · '+esc(d.diajukan_batal_oleh||'-')+'</span>';
+    return tag+(isDirektur()?'<br><button class="btn-sm-action" style="'+st+';margin-top:.2rem" onclick="gantiTab(\'approve\')">Putuskan</button>':'');
+  }
+  if(isDirektur()) return '<button class="btn-sm-action btn-tolak" style="'+st+'" onclick="batalAlokasiPiutang('+arg+')">Batal</button>';
+  if(ROLE==='ADMIN'||ROLE==='MANAGER') return '<button class="btn-sm-action btn-tolak" style="'+st+'" onclick="ajukanBatalAlokasi('+arg+')">Ajukan Batal</button>';
+  return '';
+}
+async function ajukanBatalAlokasi(idAlokasi,noNota,nominal){
+  var alasan=prompt('Ajukan pembatalan alokasi nota '+noNota+' ('+fmtRupiah(nominal)+') ke Direktur.\n\nAlasan (wajib):','');
+  if(alasan===null) return;
+  if(!alasan.trim()){alert('Alasan wajib diisi.');return;}
+  try{
+    var res=await dbRpc('pengajuan_batal_alokasi_piutang',{p_id_alokasi:idAlokasi,p_aksi:'AJUKAN',p_alasan:alasan.trim(),p_user_input:getNamaUser()});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    alert('Pengajuan batal terkirim. Alokasi tetap berlaku sampai Direktur menyetujui.');
+    muatTrackingBayar();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){alert('Gagal: '+e.message);}
 }
 function toggleDetailTB(i){
   var row=document.getElementById('tbDetail'+i);
@@ -1878,6 +1904,7 @@ function renderAlokasiTN(){
 // ── PERLU APPROVE ────────────────────────────────────────────
 var apvDataStore=[];
 function muatPerluApprove(){
+  muatPengajuanBatal();
   document.getElementById('apvInfoBar').textContent='Memuat data…';
   dbRpc('get_alokasi_perlu_approve',{}).then(function(res){
     apvDataStore=Array.isArray(res)?res:[];
@@ -2047,6 +2074,42 @@ async function aksiAlokPending(aksi,idAlokasi,noNota,nominalLama,konteks){
     }
     if(document.getElementById('tabPending').classList.contains('active')) muatPending();
     if(document.getElementById('tabAlokasitf').classList.contains('active')) muatAlokasiTF();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+
+// ── Pengajuan batal alokasi (sudah TERALOKASI) dari Admin/Manager ──
+var pbData=[];
+function muatPengajuanBatal(){
+  var wrap=document.getElementById('pbWrap'); if(!wrap) return;
+  dbGet('in_bank_alokasi_piutang',{
+    select:'id_alokasi,id_bank_statement,no_nota,nama_pelanggan,nominal_alokasi,alasan_batal,diajukan_batal_oleh,tgl_ajukan_batal',
+    status_alokasi:'eq.TERALOKASI', tgl_ajukan_batal:'not.is.null', order:'tgl_ajukan_batal.asc'
+  }).then(function(res){
+    pbData=Array.isArray(res)?res:[];
+    if(!pbData.length){wrap.innerHTML='';return;}
+    wrap.innerHTML='<div class="sec-label" style="margin-top:0;background:#fdecea;color:var(--red)">Pengajuan Batal Alokasi ('+pbData.length+')</div>'+
+      '<div class="pd-card">'+pbData.map(function(a,i){
+        return '<div class="pd-row"><div><div class="n">'+esc(a.no_nota)+' · '+esc(a.id_bank_statement)+'</div>'+
+          '<div class="s">'+esc(a.nama_pelanggan)+' · diajukan '+esc(a.diajukan_batal_oleh||'-')+' '+fmtTgl(a.tgl_ajukan_batal)+'</div>'+
+          '<div class="s" style="color:var(--navy)">Alasan: '+esc(a.alasan_batal||'-')+'</div></div>'+
+          '<div class="nom">'+fmtRupiah(a.nominal_alokasi)+
+          '<div style="margin-top:.2rem;white-space:nowrap"><button class="btn-sm-action btn-approve" style="font-size:.6rem;padding:.12rem .4rem" onclick="putuskanBatal('+i+',true)">✓ Setujui</button> '+
+          '<button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.12rem .4rem" onclick="putuskanBatal('+i+',false)">✗ Tolak</button></div></div></div>';
+      }).join('')+'</div>';
+  }).catch(function(){wrap.innerHTML='';});
+}
+async function putuskanBatal(i,setuju){
+  var a=pbData[i]; if(!a) return;
+  var pin=await mintaApprovalPin((setuju?'SETUJUI':'TOLAK')+' pengajuan batal alokasi '+a.no_nota+' '+fmtRupiah(a.nominal_alokasi)+'?'+
+    (setuju?' Nominal kembali ke sisa transfer & piutang nota dibuka lagi.':' Alokasi tetap berlaku.'));
+  if(!pin) return;
+  try{
+    var res=setuju
+      ? await dbRpc('batal_alokasi_piutang',{p_id_alokasi:a.id_alokasi,p_alasan:'Pengajuan '+(a.diajukan_batal_oleh||'-')+': '+(a.alasan_batal||'-'),p_user_input:getNamaUser(),p_pin:pin})
+      : await dbRpc('pengajuan_batal_alokasi_piutang',{p_id_alokasi:a.id_alokasi,p_aksi:'TOLAK',p_user_input:getNamaUser(),p_pin:pin});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    muatPengajuanBatal(); muatRekap(); muatRekapCards();
     if(typeof refreshNotifNav==='function') refreshNotifNav();
   }catch(e){alert('Gagal: '+e.message);}
 }
