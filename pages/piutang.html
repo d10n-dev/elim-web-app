@@ -1034,7 +1034,9 @@ function renderTrackingBayar(){
         '<td class="td-mono" style="font-size:.7rem">'+esc(d.no_nota||d.id_sj||d.id_saldo||'—')+'</td>'+
         '<td class="td-mono" style="font-size:.7rem">'+esc(d.nama_pelanggan||'')+'</td>'+
         '<td class="td-mono td-right" style="font-size:.7rem">'+fmtRupiah(d.nominal_alokasi)+'</td>'+
-        '<td></td></tr>';
+        '<td>'+(isDirektur() && r.sumber==='TRANSFER' && d.id_alokasi
+          ? '<button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.15rem .4rem" onclick="batalAlokasiPiutang(\''+esc(d.id_alokasi)+'\',\''+esc(d.no_nota||'')+'\','+(parseFloat(d.nominal_alokasi)||0)+')">Batal</button>'
+          : '')+'</td></tr>';
     }).join('');
     return '<tr style="cursor:pointer" onclick="toggleDetailTB('+i+')">'+
       '<td>▸</td>'+
@@ -1046,6 +1048,21 @@ function renderTrackingBayar(){
     '</tr>'+
     '<tr id="tbDetail'+i+'" style="display:none"><td colspan="7" style="padding:0"><table style="width:100%">'+detailRows+'</table></td></tr>';
   }).join('');
+}
+// Batal alokasi transfer yang SUDAH diapprove (per nota) — Direktur + PIN + alasan
+async function batalAlokasiPiutang(idAlokasi,noNota,nominal){
+  var alasan=prompt('Batalkan alokasi nota '+noNota+' ('+fmtRupiah(nominal)+')?\n\nNominal kembali ke sisa transfer & piutang nota dibuka lagi.\nAlasan (wajib):','');
+  if(alasan===null) return;
+  if(!alasan.trim()){alert('Alasan wajib diisi.');return;}
+  var pin=await mintaApprovalPin('Batalkan alokasi '+noNota+' '+fmtRupiah(nominal)+'?');
+  if(!pin) return;
+  try{
+    var res=await dbRpc('batal_alokasi_piutang',{p_id_alokasi:idAlokasi,p_alasan:alasan.trim(),p_user_input:getNamaUser(),p_pin:pin});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    alert('Alokasi '+noNota+' dibatalkan. Sisa transfer sekarang '+fmtRupiah(res.sisa_bank)+' — alokasikan ulang di tab Alokasi Transfer.');
+    muatTrackingBayar(); muatRekap(); muatRekapCards();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){alert('Gagal batal: '+e.message);}
 }
 function toggleDetailTB(i){
   var row=document.getElementById('tbDetail'+i);
