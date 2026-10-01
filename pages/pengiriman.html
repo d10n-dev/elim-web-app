@@ -430,7 +430,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <span class="modal-title">Void SJ — <span id="voidNoSj"></span></span>
+        <span class="modal-title"><span id="voidTitle">Void SJ</span> — <span id="voidNoSj"></span></span>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -449,6 +449,7 @@
         <label class="form-label">Keterangan *</label>
         <textarea class="form-control" id="voidAlasan" rows="2" placeholder="Kronologi singkat"></textarea>
         <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:.4rem">Tidak bisa void kalau sudah ada pembayaran, faktur pajak, atau retur. Tindakan ini tidak bisa dibatalkan.</div>
+        <div id="voidInfoApproval" style="font-family:var(--mono);font-size:.68rem;color:var(--navy);margin-top:.3rem"></div>
       </div>
       <div class="modal-footer">
         <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
@@ -483,12 +484,13 @@ document.addEventListener('DOMContentLoaded',function(){
   if(isDirekturUser) document.getElementById('btnLogReprint').style.display='';
   if(isMP){ document.getElementById('btnApproveEditSJ').style.display=''; cekBadgeEditSJAwal(); }
   cekBadgeAntrianAwal();
+  window.addEventListener('hashchange',bukaDariHashPengiriman);
   document.getElementById('inpTgl').value=new Date().toISOString().slice(0,10);
   // AC dropdown ke body
   document.body.appendChild(document.getElementById('acPelDrop'));
 
   Promise.all([
-    muatSJ(),
+    muatSJ().then(bukaDariHashPengiriman),
     dbGet('m_pelanggan',{status:'eq.AKTIF',order:'nama.asc',select:'id_pelanggan,nama,tipe'}).then(function(r){
       semuaPelanggan=Array.isArray(r)?r:[];
     })
@@ -507,6 +509,24 @@ function cekErrorSupabase(res){
   if(res.code||res.status==='error'){throw new Error(res.message||res.msg||'Terjadi kesalahan.');}
   return res;
 }
+function segarkanNotif(){if(typeof refreshNotifNav==='function'){try{refreshNotifNav();}catch(e){}}}
+
+// Deep link dari lonceng: #approve-edit, #kirim-ulang
+var filterKirimUlang=null;
+function bukaDariHashPengiriman(){
+  var h=(location.hash||'');
+  if(h==='#approve-edit'&&isMP) bukaApproveEditSJ();
+  if(h==='#kirim-ulang') tampilkanKirimUlang();
+}
+function tampilkanKirimUlang(){
+  dbGet('in_penagihan_detail',{perlu_kirim_ulang:'eq.true',select:'id_sj'}).then(function(res){
+    var ids={};(Array.isArray(res)?res:[]).forEach(function(r){if(r.id_sj)ids[r.id_sj]=true;});
+    filterKirimUlang=ids;
+    filterTabel();
+  }).catch(function(){});
+}
+function hapusFilterKirimUlang(){filterKirimUlang=null;if(location.hash==='#kirim-ulang')history.replaceState(null,'',location.pathname);filterTabel();}
+
 function getTahunDigit(){return String((new Date().getFullYear()-2018)%10);}
 
 // ── CARI TRACING (read-only: item / subitem / no PO -> riwayat kirim) ──
@@ -596,7 +616,7 @@ function sjMenungguPengganti(){
 function renderTabel(data){
   var nPengganti=sjMenungguPengganti().length;
   var info=document.getElementById('infoBar');
-  info.innerHTML=esc(data.length+' SJ ditemukan')+(nPengganti?' &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600">⚠ '+nPengganti+' SJ void menunggu SJ pengganti</span>':'');
+  info.innerHTML=(filterKirimUlang?'<b>Filter: nota revisi perlu dikirim ulang</b> <a href="#" onclick="hapusFilterKirimUlang();return false;">[tampilkan semua]</a> &nbsp;·&nbsp; ':'')+esc(data.length+' SJ ditemukan')+(nPengganti?' &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600">⚠ '+nPengganti+' SJ void menunggu SJ pengganti</span>':'');
   if(!data.length){document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading">Belum ada data pengiriman.</td></tr>';return;}
   document.getElementById('tbodySJ').innerHTML=data.map(function(r){
     var stCls='s-'+(r.status||'').toLowerCase().replace(/_/g,'-');
@@ -620,7 +640,7 @@ function filterTabel(){
   var ent=document.getElementById('filterEntitas').value;
   renderTabel(semuaSJ.filter(function(r){
     var hay=(r.no_sj+' '+r.no_nota+' '+r.nama_pelanggan).toLowerCase();
-    return(!q||hay.indexOf(q)>=0)&&(!st||r.status===st)&&(!ent||r.entitas===ent);
+    return(!q||hay.indexOf(q)>=0)&&(!st||r.status===st)&&(!ent||r.entitas===ent)&&(!filterKirimUlang||filterKirimUlang[r.id_sj]);
   }));
 }
 
@@ -1122,7 +1142,8 @@ function bukaDetail(idSJ){
       : '<button class="btn-print" onclick="bukaModalPrint()">🖨 Cetak</button>'+
         (bisaEditTgl?' <button class="btn-outline" style="margin-left:.4rem" onclick="bukaModalEditTgl()">✏ Edit Tanggal</button>':'')+
         (bisaEditItemSJ?' <button class="btn-outline" style="margin-left:.4rem" onclick="bukaModalSusulan()">+ Item Susulan</button>':'')+
-        (isDirekturUser?' <button class="btn-outline" style="color:var(--red);border-color:var(--red);margin-left:.4rem" onclick="voidSJ()">🗑 Void SJ</button>':'');
+        (isDirekturUser?' <button class="btn-outline" style="color:var(--red);border-color:var(--red);margin-left:.4rem" onclick="voidSJ()">🗑 Void SJ</button>':
+          (bisaEditItemSJ?' <button class="btn-outline" style="color:var(--red);border-color:var(--red);margin-left:.4rem" onclick="voidSJ()">🗑 Ajukan Void</button>':''));
 
     // Cek status print dari log_print_sj
     dbGet('log_print_sj',{id_sj:'eq.'+idSJ,order:'tgl_print.asc'}).then(function(lr){
@@ -1171,17 +1192,30 @@ function muatInfoPenagihanSJ(idSJ){
       return '<div style="background:'+(warn?'#fff3cd':'#f4f7fc')+';border:1px solid '+(warn?'#ffe083':'var(--border)')+';border-radius:6px;padding:.5rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:'+(warn?'#856404':'var(--text)')+'">'+
         'Sudah ditagihkan: <b>'+esc((r.in_penagihan&&r.in_penagihan.no_penagihan)||r.id_penagihan)+'</b> — nilai di penagihan '+fmtRupiah(r.total_sj)+
         (r.total_sj_awal!=null?' (semula '+fmtRupiah(r.total_sj_awal)+')':'')+
-        (warn?'<br>⚠ '+esc(r.revisi_catatan||'Nota lama perlu ditarik & diganti nota revisi')+'':'')+
+        (warn?'<br>⚠ '+esc(r.revisi_catatan||'Nota lama perlu ditarik & diganti nota revisi')+
+          (bisaEditItemSJ?'<div style="margin-top:.4rem"><button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="tandaiNotaTerkirim()">✓ Nota revisi sudah dikirim ke pelanggan</button></div>':''):'')+
       '</div>';
     }).join('');
   }).catch(function(){});
+}
+
+async function tandaiNotaTerkirim(){
+  if(!sjAktif)return;
+  if(!confirm('Nota lama sudah ditarik dan nota revisi sudah dikirim ke pelanggan?'))return;
+  try{
+    var r=await dbRpc('tandai_nota_revisi_terkirim',{p_id_sj:sjAktif.id_sj,p_user:getNamaUser()});
+    cekErrorSupabase(r);
+    muatInfoPenagihanSJ(sjAktif.id_sj);
+    if(filterKirimUlang) tampilkanKirimUlang();
+    segarkanNotif();
+  }catch(e){alert('Gagal: '+e.message);}
 }
 
 // ── KIRIM PENGAJUAN EDIT SJ (semua aksi) — tangani konfirmasi tarik nota dari penagihan ──
 async function kirimPengajuanEdit(params){
   var base={p_id_order_detail:null,p_id_item:null,p_nama_item:null,p_subitem:null,
     p_qty:null,p_satuan:null,p_harga:null,p_no_po:null,
-    p_potongan:null,p_update_harga_order:false,p_tarik_penagihan:false,
+    p_potongan:null,p_update_harga_order:false,p_tarik_penagihan:false,p_jenis_void:null,
     p_user:getNamaUser(),p_role:roleUser};
   var body=Object.assign({},base,params);
   var res=await dbRpc('ajukan_edit_item_pengiriman',body);
@@ -1208,12 +1242,14 @@ function pesanHasilEdit(res,teksOk){
 // ── VOID SJ (Direktur) — wajib pilih jenis ──
 function voidSJ(){
   if(!sjAktif)return;
-  if(!isDirekturUser){alert('Hanya Direktur yang bisa void SJ.');return;}
+  if(!isDirekturUser&&!bisaEditItemSJ){alert('Role tidak diizinkan.');return;}
+  document.getElementById('voidTitle').textContent=isDirekturUser?'Void SJ':'Ajukan Void SJ';
   document.getElementById('voidErr').innerHTML='';
   document.getElementById('voidNoSj').textContent=sjAktif.no_sj+' / '+sjAktif.no_nota;
   document.getElementById('voidAlasan').value='';
   document.querySelectorAll('input[name="voidJenis"]').forEach(function(r){r.checked=false;});
-  var btn=document.getElementById('btnVoid'); btn.disabled=false; btn.textContent='Void SJ';
+  var btn=document.getElementById('btnVoid'); btn.disabled=false; btn.textContent=isDirekturUser?'Void SJ':'Ajukan Void';
+  document.getElementById('voidInfoApproval').textContent=isDirekturUser?'Kamu Direktur — langsung diproses.':'Pengajuan ini menunggu keputusan Direktur. Selama menunggu, SJ tidak bisa diedit.';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVoid')).show();
 }
 async function submitVoid(btn){
@@ -1223,6 +1259,22 @@ async function submitVoid(btn){
   if(!jenisEl){err.innerHTML='<div class="alert-box alert-err">Pilih alasan void.</div>';return;}
   if(!alasan){err.innerHTML='<div class="alert-box alert-err">Keterangan wajib diisi.</div>';return;}
   var jenis=jenisEl.value;
+  if(!isDirekturUser){
+    if(!confirm('Ajukan void SJ '+sjAktif.no_sj+' / '+sjAktif.no_nota+' ('+(jenis==='BATAL_KIRIM'?'batal kirim':'diganti SJ lain')+') ke Direktur?'))return;
+    btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
+    try{
+      var ra=await kirimPengajuanEdit({p_id_sj:sjAktif.id_sj,p_aksi:'VOID',p_id_pgdet:null,p_alasan:alasan,p_jenis_void:jenis});
+      if(!ra){btn.disabled=false;btn.textContent='Ajukan Void';return;}
+      bootstrap.Modal.getInstance(document.getElementById('modalVoid')).hide();
+      alert('Pengajuan void terkirim — menunggu keputusan Direktur.');
+      segarkanNotif();
+      bukaDetail(sjAktif.id_sj);
+    }catch(e){
+      err.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+      btn.disabled=false; btn.textContent='Ajukan Void';
+    }
+    return;
+  }
   if(!confirm('Void SJ '+sjAktif.no_sj+' / '+sjAktif.no_nota+' ('+(jenis==='BATAL_KIRIM'?'batal kirim':'diganti SJ lain')+')?\nStok BJ dikembalikan & sisa order dibuka lagi. Tidak bisa dibatalkan.'))return;
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
   try{
@@ -1241,6 +1293,7 @@ async function submitVoid(btn){
       (res.penagihan_ditarik?'\nNota di penagihan ditandai ditarik.':'')+
       (jenis==='DIGANTI_SJ_LAIN'?'\nSekarang buat SJ pengganti dan pilih SJ ini di kolom "SJ pengganti untuk".':''));
     muatSJ();
+    segarkanNotif();
   }catch(e){
     err.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
     btn.disabled=false; btn.textContent='Void SJ';
@@ -1346,6 +1399,7 @@ async function submitKoreksi(btn){
     if(!res){btn.disabled=false;btn.textContent='Simpan Koreksi';return;}
     bootstrap.Modal.getInstance(document.getElementById('modalKoreksi')).hide();
     alert(pesanHasilEdit(res,'Koreksi tersimpan.'));
+    segarkanNotif();
     await muatSJ();
     bukaDetail(sjAktif.id_sj);
     if(isMP) cekBadgeEditSJAwal();
@@ -1481,12 +1535,15 @@ async function muatApproveEditSJ(){
     list=Array.isArray(list)?list:[];
     refreshBadgeEditSJ(list.length);
     if(!list.length){box.innerHTML='<div class="loading">Tidak ada pengajuan edit item yang menunggu approval.</div>';return;}
-    var labelAksi={HAPUS:'🗑 HAPUS ITEM',TAMBAH:'➕ TAMBAH ITEM',UBAH_HARGA:'💲 KOREKSI HARGA',POTONGAN:'🏷 POTONGAN HARGA',UBAH_QTY:'🔢 KOREKSI QTY'};
+    var labelAksi={VOID:'⛔ VOID SJ',HAPUS:'🗑 HAPUS ITEM',TAMBAH:'➕ TAMBAH ITEM',UBAH_HARGA:'💲 KOREKSI HARGA',POTONGAN:'🏷 POTONGAN HARGA',UBAH_QTY:'🔢 KOREKSI QTY'};
     box.innerHTML=list.map(function(p){
-      var butuhDir=(p.aksi==='UBAH_HARGA'||p.aksi==='POTONGAN');
+      var butuhDir=(p.aksi==='UBAH_HARGA'||p.aksi==='POTONGAN'||p.aksi==='VOID');
       var bisaPutus=!butuhDir||isDirekturUser;
       var rinci;
-      if(p.aksi==='UBAH_HARGA'){
+      if(p.aksi==='VOID'){
+        rinci='<div class="rp-row"><span class="rp-lbl">Jenis void</span><span class="rp-val"><b>'+(p.jenis_void==='DIGANTI_SJ_LAIN'?'Diganti SJ lain':'Batal kirim')+'</b></span></div>'+
+          '<div class="rp-row"><span class="rp-lbl">Nilai nota</span><span class="rp-val">'+fmtRupiah(p.total_tagih)+'</span></div>';
+      }else if(p.aksi==='UBAH_HARGA'){
         rinci='<div class="rp-row"><span class="rp-lbl">Harga</span><span class="rp-val">'+fmtRupiah(p.harga_lama)+' → <b>'+fmtRupiah(p.harga)+'</b> ('+fmtAngka(p.qty)+' '+esc(p.satuan||'')+')</span></div>'+
           '<div class="rp-row"><span class="rp-lbl">Harga order</span><span class="rp-val">'+(p.update_harga_order?'<b>ikut diupdate</b>':'tidak diubah')+'</span></div>';
       }else if(p.aksi==='POTONGAN'){
@@ -1499,7 +1556,7 @@ async function muatApproveEditSJ(){
       return '<div class="rp-item">'+
         '<div class="rp-row"><span class="rp-lbl">No. SJ / Nota</span><span class="rp-val">'+esc(p.no_sj)+' / '+esc(p.no_nota)+'</span></div>'+
         '<div class="rp-row"><span class="rp-lbl">Pelanggan</span><span class="rp-val">'+esc(p.nama_pelanggan)+'</span></div>'+
-        '<div class="rp-row"><span class="rp-lbl">Aksi</span><span class="rp-val">'+(labelAksi[p.aksi]||esc(p.aksi))+' — '+esc(p.nama_item||'')+(p.subitem?' ('+esc(p.subitem)+')':'')+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Aksi</span><span class="rp-val">'+(labelAksi[p.aksi]||esc(p.aksi))+(p.nama_item?' — '+esc(p.nama_item)+(p.subitem?' ('+esc(p.subitem)+')':''):'')+'</span></div>'+
         rinci+
         (p.tarik_penagihan?'<div class="rp-row"><span class="rp-lbl">Penagihan</span><span class="rp-val" style="color:#856404">⚠ sudah ditagihkan — nota ditarik &amp; diganti</span></div>':'')+
         '<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(p.diajukan_oleh)+' — '+fmtTgl(p.tgl_ajukan)+'</span></div>'+
@@ -1521,6 +1578,11 @@ async function approveEditSJAction(idPengajuan,disetujui,btn){
   try{
     var r=await dbRpc('approve_edit_item_pengiriman',{p_id_pengajuan:idPengajuan,p_disetujui:disetujui,p_approved_by:getNamaUser(),p_role:roleUser});
     cekErrorSupabase(r);
+    if(disetujui&&r.jenis_void){
+      alert('SJ di-void. '+(r.baris_stok_dikembalikan||0)+' baris stok BJ dikembalikan.'+
+        (r.jenis_void==='DIGANTI_SJ_LAIN'?'\nBuat SJ pengganti dan pilih SJ ini di kolom "SJ pengganti untuk".':''));
+      muatSJ();
+    }
     if(disetujui&&r.revisi_ke){
       alert('Disetujui. Nota sekarang REV-'+r.revisi_ke+'.'+
         (r.reprint&&r.reprint.length?'\nOtomatis masuk Antrian Cetak PC: '+r.reprint.join(' & ')+'.':'')+
@@ -1528,6 +1590,7 @@ async function approveEditSJAction(idPengajuan,disetujui,btn){
     }
     muatApproveEditSJ();
     cekBadgeAntrianAwal();
+    segarkanNotif();
     muatSJ();
   }catch(e){
     alert('Gagal: '+e.message);

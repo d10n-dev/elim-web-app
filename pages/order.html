@@ -401,6 +401,7 @@ window.addEventListener('load', function(){
     semuaOrderDetail = Array.isArray(r[4]) ? r[4] : [];
     renderTabel(semuaOrder);
     muatPendingEdit();
+    bukaDariHashOrder();
   }).catch(function(){
     document.getElementById('infoBar').textContent='Gagal memuat data.';
   });
@@ -1124,6 +1125,12 @@ function simpanEdit(){
   });
 }
 
+// Deep link dari lonceng notifikasi: order.html#pending-edit
+function bukaDariHashOrder(){
+  if((location.hash||'')==='#pending-edit') bukaModalPending();
+}
+window.addEventListener('hashchange',bukaDariHashOrder);
+
 // ── PENDING APPROVAL ──
 function muatPendingEdit(){
   dbGet('log_edit_order',{status:'eq.PENDING'}).then(function(res){
@@ -1215,6 +1222,7 @@ function prosesApprovalEdit(idLog,idOrder,aksi,btnEl){
   langkah.then(function(){
     muatPendingEdit();
     bukaModalPending();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
   }).catch(function(e){
     alert('Gagal: '+(e.message||'Error'));
     btnEl.disabled=false;
