@@ -151,6 +151,11 @@
             <label class="form-label">Keterangan</label>
             <input type="text" class="form-control" id="inpKet" placeholder="Opsional"/>
           </div>
+          <div class="col-12" id="wrapPengganti" style="display:none">
+            <label class="form-label">SJ ini pengganti untuk SJ yang di-void <span style="font-weight:400;text-transform:none;font-size:.65rem">(opsional)</span></label>
+            <select class="form-select" id="selPengganti"><option value="">— bukan SJ pengganti —</option></select>
+            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.25rem">Isi kalau SJ ini menggantikan SJ yang di-void dengan alasan "Diganti SJ lain".</div>
+          </div>
         </div>
         <div class="sec-label">Tambah Item dari Order</div>
         <div id="sisaKirimWrap" style="display:none;margin-bottom:.75rem;">
@@ -365,6 +370,94 @@
   </div>
 </div>
 
+<!-- MODAL KOREKSI ITEM SJ (harga / potongan / qty) -->
+<div class="modal fade" id="modalKoreksi" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Koreksi Item — <span id="korNoSj"></span></span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="korErr"></div>
+        <div id="korInfo" style="font-family:var(--mono);font-size:.72rem;background:#f4f7fc;border:1px solid var(--border);border-radius:6px;padding:.5rem .65rem;margin-bottom:.6rem"></div>
+        <label class="form-label">Jenis Koreksi *</label>
+        <select class="form-select" id="korJenis" onchange="gantiJenisKoreksi()">
+          <option value="">— pilih —</option>
+          <option value="UBAH_HARGA">A. Salah input harga (harga dikoreksi)</option>
+          <option value="POTONGAN">B. Potongan harga khusus (tampil di nota)</option>
+          <option value="UBAH_QTY">C. Salah input qty (barang memang tidak/lebih terkirim)</option>
+        </select>
+
+        <div id="korBoxHarga" style="display:none;margin-top:.6rem">
+          <label class="form-label">Harga baru per satuan *</label>
+          <input type="number" class="form-control" id="korHarga" step="any" min="0" oninput="hitungPreviewKoreksi()"/>
+          <label id="korLblOrder" style="display:flex;gap:.45rem;align-items:flex-start;margin-top:.5rem;font-size:.78rem">
+            <input type="checkbox" id="korUpdateOrder" style="margin-top:.2rem"/>
+            <span>Update juga harga di <b>order</b> untuk item ini — pengiriman berikutnya ikut harga baru.</span>
+          </label>
+          <div id="korSjLain" style="margin-top:.5rem"></div>
+        </div>
+
+        <div id="korBoxPot" style="display:none;margin-top:.6rem">
+          <label class="form-label">Nominal potongan TOTAL baris ini (Rp) *</label>
+          <input type="number" class="form-control" id="korPotongan" step="any" min="0" oninput="hitungPreviewKoreksi()"/>
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.25rem">Harga asli tetap. Potongan tercetak sebagai baris "POTONGAN HARGA" di nota. Isi 0 untuk menghapus potongan. Harga di order tidak berubah.</div>
+        </div>
+
+        <div id="korBoxQty" style="display:none;margin-top:.6rem">
+          <label class="form-label">Qty baru *</label>
+          <input type="number" class="form-control" id="korQty" step="any" min="0" oninput="hitungPreviewKoreksi()"/>
+          <div class="alert-box alert-warn" style="margin-top:.4rem;font-size:.72rem">Hanya untuk <b>salah input</b>. Qty turun → stok BJ kembali. Qty naik → stok BJ terpotong (dicek stok &amp; sisa order).<br>Barang yang sudah diterima pelanggan lalu dikembalikan → pakai <b>Retur</b>. Barang rusak → <b>Keluar Rusak</b> di Stok BJ.</div>
+        </div>
+
+        <div id="korPreview" style="font-family:var(--mono);font-size:.75rem;margin-top:.6rem"></div>
+
+        <label class="form-label" style="margin-top:.6rem">Alasan *</label>
+        <textarea class="form-control" id="korAlasan" rows="2" placeholder="Wajib diisi, cth: harga order salah input sejak awal"></textarea>
+        <div id="korApprovalInfo" style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:.4rem"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="btnKoreksi" onclick="submitKoreksi(this)">Simpan Koreksi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VOID SJ (Direktur) -->
+<div class="modal fade" id="modalVoid" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Void SJ — <span id="voidNoSj"></span></span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="voidErr"></div>
+        <label class="form-label">Alasan void *</label>
+        <div style="display:flex;flex-direction:column;gap:.45rem;margin-bottom:.6rem">
+          <label style="display:flex;gap:.45rem;align-items:flex-start;font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.5rem .6rem">
+            <input type="radio" name="voidJenis" value="BATAL_KIRIM" style="margin-top:.2rem"/>
+            <span><b>Batal kirim</b><br><span style="font-size:.72rem;color:var(--muted)">Barang tidak jadi keluar / sudah kembali ke gudang. Stok BJ dikembalikan, sisa order dibuka lagi.</span></span>
+          </label>
+          <label style="display:flex;gap:.45rem;align-items:flex-start;font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.5rem .6rem">
+            <input type="radio" name="voidJenis" value="DIGANTI_SJ_LAIN" style="margin-top:.2rem"/>
+            <span><b>Diganti SJ lain</b><br><span style="font-size:.72rem;color:var(--muted)">Barang sudah di pelanggan, SJ salah administrasi (salah pelanggan/entitas/gabung SJ). Stok dikembalikan lalu terpotong lagi saat SJ pengganti dibuat → efek bersih nol. <b>Wajib buat SJ pengganti</b> dan tautkan.</span></span>
+          </label>
+        </div>
+        <label class="form-label">Keterangan *</label>
+        <textarea class="form-control" id="voidAlasan" rows="2" placeholder="Kronologi singkat"></textarea>
+        <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:.4rem">Tidak bisa void kalau sudah ada pembayaran, faktur pajak, atau retur. Tindakan ini tidak bisa dibatalkan.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" style="background:var(--red)" id="btnVoid" onclick="submitVoid(this)">Void SJ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="printArea"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -374,7 +467,7 @@
 <script>
 // ── STATE ──
 var semuaSJ=[], semuaPelanggan=[], sisaKirimCache=[], itemBaris=[];
-var sjAktif=null, printInfo=null;
+var sjAktif=null, printInfo=null, itemsSJAktif=[], korItem=null;
 var isMP=false, isDirekturUser=false, bisaEditTgl=false, bisaEditItemSJ=false, roleUser='';
 
 // ── INIT ──
@@ -494,15 +587,23 @@ function muatSJ(){
   });
 }
 
+// SJ void "diganti SJ lain" yang belum punya SJ pengganti
+function sjMenungguPengganti(){
+  var sudahDiganti={};
+  semuaSJ.forEach(function(s){if(s.id_sj_asal&&!s.is_void)sudahDiganti[s.id_sj_asal]=true;});
+  return semuaSJ.filter(function(s){return s.is_void&&s.void_jenis==='DIGANTI_SJ_LAIN'&&!sudahDiganti[s.id_sj];});
+}
 function renderTabel(data){
-  document.getElementById('infoBar').textContent=data.length+' SJ ditemukan';
+  var nPengganti=sjMenungguPengganti().length;
+  var info=document.getElementById('infoBar');
+  info.innerHTML=esc(data.length+' SJ ditemukan')+(nPengganti?' &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600">⚠ '+nPengganti+' SJ void menunggu SJ pengganti</span>':'');
   if(!data.length){document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading">Belum ada data pengiriman.</td></tr>';return;}
   document.getElementById('tbodySJ').innerHTML=data.map(function(r){
     var stCls='s-'+(r.status||'').toLowerCase().replace(/_/g,'-');
     var voidStyle=r.is_void?' style="opacity:.55;text-decoration:line-through"':'';
     var statusHtml=r.is_void?'<span class="badge-status" style="background:#fdecea;color:var(--red);border:1px solid #f5a9a0;text-decoration:none;display:inline-block">DIBATALKAN</span>':'<span class="badge-status '+stCls+'">'+esc(r.status)+'</span>';
     return '<tr onclick="bukaDetail(\''+esc(r.id_sj)+'\')"'+voidStyle+'>'+
-      '<td><div class="td-mono">'+esc(r.no_sj)+'</div><div class="td-id">'+esc(r.no_nota)+'</div></td>'+
+      '<td><div class="td-mono">'+esc(r.no_sj)+'</div><div class="td-id">'+esc(r.no_nota)+(r.revisi_ke>0?' <span class="badge-status" style="background:#fff3cd;color:#856404;border:1px solid #ffe083;text-decoration:none">REV-'+r.revisi_ke+'</span>':'')+'</div></td>'+
       '<td class="td-mono" style="font-size:.72rem">'+fmtTgl(r.tgl)+'</td>'+
       '<td style="font-size:.8rem">'+esc(r.nama_pelanggan)+'</td>'+
       '<td><span class="badge-status" style="background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9">'+esc(r.entitas)+'</span></td>'+
@@ -772,6 +873,13 @@ function bukaBuatPengiriman(){
   document.getElementById('sisaKirimWrap').style.display='none';
   document.getElementById('sisaKirimList').innerHTML='';
   document.getElementById('inpTgl').value=new Date().toISOString().slice(0,10);
+  // daftar SJ void "diganti SJ lain" yang belum punya pengganti
+  var pend=sjMenungguPengganti();
+  var sel=document.getElementById('selPengganti');
+  sel.innerHTML='<option value="">— bukan SJ pengganti —</option>'+pend.map(function(s){
+    return '<option value="'+esc(s.id_sj)+'">'+esc(s.no_sj+' / '+s.no_nota+' — '+s.nama_pelanggan+' ('+fmtTgl(s.tgl)+')')+'</option>';
+  }).join('');
+  document.getElementById('wrapPengganti').style.display=pend.length?'':'none';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBuat')).show();
 }
 
@@ -803,6 +911,7 @@ async function submitPengiriman(btn){
   var entitas=document.getElementById('hidEntitas').value;
   var tgl=document.getElementById('inpTgl').value;
   var ket=document.getElementById('inpKet').value.trim();
+  var idSjAsal=document.getElementById('selPengganti').value||null;
   var user=getNamaUser();
 
   if(!idPel){showAlert('alertBuat','Pelanggan wajib dipilih.');return;}
@@ -868,7 +977,8 @@ async function submitPengiriman(btn){
         tgl:tglIso,id_pelanggan:idPel,nama_pelanggan:nmPel,
         entitas:entitas,jenis_kirim:jenisChunk,status:'TERKIRIM',
         total:total,dpp:dpp,ppn:ppn,total_tagih:totalTagih,
-        user_input:user,keterangan:ket||null
+        user_input:user,keterangan:ket||null,
+        id_sj_asal:(c===0&&idSjAsal)?idSjAsal:null
       });
       if(resSJ&&resSJ.code) throw new Error('Gagal insert SJ: '+resSJ.message);
 
@@ -940,6 +1050,7 @@ function bukaDetail(idSJ){
 
   dbGet('in_pengiriman_detail',{id_sj:'eq.'+idSJ,order:'id_pgdet.asc'}).then(function(res){
     var items=Array.isArray(res)?res:[];
+    itemsSJAktif=items;
     var isPT=sjAktif.entitas==='PT';
     var stCls='s-'+(sjAktif.status||'').toLowerCase().replace(/_/g,'-');
     var html=
@@ -950,7 +1061,10 @@ function bukaDetail(idSJ){
       '<div class="det-row"><span class="det-label">Entitas</span><span class="det-val">'+esc(sjAktif.entitas)+'</span></div>'+
       '<div class="det-row"><span class="det-label">Status</span><span class="det-val"><span class="badge-status '+stCls+'">'+esc(sjAktif.status)+'</span></span></div>'+
       '<div class="det-row"><span class="det-label">Keterangan</span><span class="det-val">'+esc(sjAktif.keterangan||'—')+'</span></div>'+
-      (sjAktif.is_void?'<div style="background:#fdecea;border:1px solid #f5a9a0;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:var(--red)"><b>SJ INI SUDAH DIBATALKAN</b><br>Oleh: '+esc(sjAktif.void_by||'-')+' pada '+fmtTgl(sjAktif.void_at)+'<br>Alasan: '+esc(sjAktif.void_alasan||'-')+'</div>':'')+
+      (sjAktif.revisi_ke>0?'<div class="det-row"><span class="det-label">Revisi</span><span class="det-val"><span class="badge-status" style="background:#fff3cd;color:#856404;border:1px solid #ffe083">REV-'+sjAktif.revisi_ke+'</span> '+fmtTgl(sjAktif.revisi_terakhir_at)+'</span></div>':'')+
+      (sjAktif.is_void?'<div style="background:#fdecea;border:1px solid #f5a9a0;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:var(--red)"><b>SJ INI SUDAH DIBATALKAN</b>'+(sjAktif.void_jenis?' — '+(sjAktif.void_jenis==='DIGANTI_SJ_LAIN'?'DIGANTI SJ LAIN':'BATAL KIRIM'):' — (void lama, stok tidak dikembalikan)')+'<br>Oleh: '+esc(sjAktif.void_by||'-')+' pada '+fmtTgl(sjAktif.void_at)+'<br>Alasan: '+esc(sjAktif.void_alasan||'-')+infoPengganti(sjAktif)+'</div>':'')+
+      (sjAktif.id_sj_asal?'<div style="background:#eef6ff;border:1px solid #bcdcff;border-radius:6px;padding:.5rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem">SJ pengganti untuk: <b>'+esc(noSjDari(sjAktif.id_sj_asal))+'</b></div>':'')+
+      '<div id="detPenagihanBox"></div>'+
       (sjAktif.edit_tgl_at?'<div style="background:#fff8e6;border:1px solid #f0d78c;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:#8a6100"><b>TANGGAL PERNAH DIEDIT</b><br>Asal: '+fmtTgl(sjAktif.tgl_asli)+' → sekarang: '+fmtTgl(sjAktif.tgl)+'<br>Oleh: '+esc(sjAktif.edit_tgl_by||'-')+' pada '+fmtTgl(sjAktif.edit_tgl_at)+'<br>Alasan: '+esc(sjAktif.edit_tgl_alasan||'-')+'</div>':'');
     var totalSbt=0;
     var bisaHapusItem=bisaEditItemSJ&&!sjAktif.is_void;
@@ -973,14 +1087,21 @@ function bukaDetail(idSJ){
         return;
       }
       totalSbt+=sbt;
+      var pot=parseFloat(it.potongan||0);
+      var hargaAwalInfo=(it.harga_awal!=null&&parseFloat(it.harga_awal)!==parseFloat(it.harga))?'<br><span style="font-size:.6rem;color:var(--muted);text-decoration:line-through">'+fmtRupiah(it.harga_awal)+'</span>':'';
       html+='<tr>'+
         '<td><b>'+esc(it.nama_item||'')+'</b><br>'+esc(it.subitem||'')+'</td>'+
         '<td>'+fmtAngka(it.qty_kirim||0)+'</td><td>'+esc(it.satuan||'')+'</td>'+
-        '<td>'+fmtRupiah(it.harga||0)+'</td><td>'+fmtRupiah(sbt)+'</td>'+
+        '<td>'+fmtRupiah(it.harga||0)+hargaAwalInfo+'</td><td>'+fmtRupiah(sbt)+(pot>0?'<br><span style="font-size:.6rem;color:var(--red)">pot. '+fmtRupiah(pot)+'</span>':'')+'</td>'+
         (isPT?'<td style="font-family:var(--mono);font-size:.7rem;color:#c45a00">'+fmtRupiah(dpp)+'</td>':'')+
         '<td style="font-family:var(--mono);font-size:.65rem">'+esc(it.jenis||'')+'</td>'+
-        (bisaHapusItem?'<td><button class="btn-outline" style="color:var(--red);border-color:var(--red);font-size:.65rem;padding:.2rem .45rem" onclick="hapusItemSJ(\''+esc(it.id_pgdet)+'\',\''+esc(it.nama_item||'')+'\')">Hapus</button></td>':'')+
+        (bisaHapusItem?'<td style="white-space:nowrap"><button class="btn-outline" style="font-size:.65rem;padding:.2rem .45rem" onclick="bukaKoreksi(\''+esc(it.id_pgdet)+'\')">✏ Koreksi</button> '+
+          '<button class="btn-outline" style="color:var(--red);border-color:var(--red);font-size:.65rem;padding:.2rem .45rem" onclick="hapusItemSJ(\''+esc(it.id_pgdet)+'\',\''+esc(it.nama_item||'')+'\')">Hapus</button></td>':'')+
       '</tr>';
+      if(pot>0){
+        html+='<tr><td colspan="4" style="font-size:.65rem;color:var(--red);padding-top:0">↳ POTONGAN HARGA'+(it.potongan_ket?' — '+esc(it.potongan_ket):'')+'</td>'+
+          '<td style="font-size:.65rem;color:var(--red);padding-top:0">−'+fmtRupiah(pot)+'</td><td colspan="'+((isPT?1:0)+1+(bisaHapusItem?1:0))+'"></td></tr>';
+      }
     });
     html+='</tbody></table>';
     if(isPT){
@@ -1015,28 +1136,223 @@ function bukaDetail(idSJ){
       '</div>';
       document.getElementById('detBody').innerHTML=html;
       document.getElementById('detFooter').innerHTML=footerHtml;
+      muatInfoPenagihanSJ(idSJ);
     }).catch(function(){
       document.getElementById('detBody').innerHTML=html;
       document.getElementById('detFooter').innerHTML=footerHtml;
+      muatInfoPenagihanSJ(idSJ);
     });
   }).catch(function(){
     document.getElementById('detBody').innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat detail.</div>';
   });
 }
 
-async function voidSJ(){
+// ── INFO TAUTAN SJ PENGGANTI ──
+function noSjDari(idSj){
+  var s=semuaSJ.find(function(x){return x.id_sj===idSj;});
+  return s?(s.no_sj+' / '+s.no_nota):idSj;
+}
+function infoPengganti(sj){
+  if(sj.void_jenis!=='DIGANTI_SJ_LAIN')return '';
+  var peng=semuaSJ.filter(function(x){return x.id_sj_asal===sj.id_sj&&!x.is_void;});
+  return peng.length
+    ? '<br>Diganti oleh: <b>'+peng.map(function(x){return esc(x.no_sj+' / '+x.no_nota);}).join(', ')+'</b>'
+    : '<br><b>⚠ Belum ada SJ pengganti</b> — buat SJ baru dan pilih SJ ini di kolom "SJ pengganti untuk".';
+}
+
+// ── INFO PENAGIHAN DI DETAIL SJ ──
+function muatInfoPenagihanSJ(idSJ){
+  dbGet('in_penagihan_detail',{id_sj:'eq.'+idSJ,select:'id_penagihan,total_sj,total_sj_awal,perlu_kirim_ulang,revisi_catatan,revisi_at,in_penagihan(no_penagihan,status)'}).then(function(res){
+    var rows=Array.isArray(res)?res:[];
+    var box=document.getElementById('detPenagihanBox');
+    if(!box||!rows.length)return;
+    box.innerHTML=rows.map(function(r){
+      var warn=r.perlu_kirim_ulang;
+      return '<div style="background:'+(warn?'#fff3cd':'#f4f7fc')+';border:1px solid '+(warn?'#ffe083':'var(--border)')+';border-radius:6px;padding:.5rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:'+(warn?'#856404':'var(--text)')+'">'+
+        'Sudah ditagihkan: <b>'+esc((r.in_penagihan&&r.in_penagihan.no_penagihan)||r.id_penagihan)+'</b> — nilai di penagihan '+fmtRupiah(r.total_sj)+
+        (r.total_sj_awal!=null?' (semula '+fmtRupiah(r.total_sj_awal)+')':'')+
+        (warn?'<br>⚠ '+esc(r.revisi_catatan||'Nota lama perlu ditarik & diganti nota revisi')+'':'')+
+      '</div>';
+    }).join('');
+  }).catch(function(){});
+}
+
+// ── KIRIM PENGAJUAN EDIT SJ (semua aksi) — tangani konfirmasi tarik nota dari penagihan ──
+async function kirimPengajuanEdit(params){
+  var base={p_id_order_detail:null,p_id_item:null,p_nama_item:null,p_subitem:null,
+    p_qty:null,p_satuan:null,p_harga:null,p_no_po:null,
+    p_potongan:null,p_update_harga_order:false,p_tarik_penagihan:false,
+    p_user:getNamaUser(),p_role:roleUser};
+  var body=Object.assign({},base,params);
+  var res=await dbRpc('ajukan_edit_item_pengiriman',body);
+  cekErrorSupabase(res);
+  if(res.status==='konfirmasi'){
+    if(!confirm(res.message)) return null;
+    body.p_tarik_penagihan=true;
+    res=await dbRpc('ajukan_edit_item_pengiriman',body);
+    cekErrorSupabase(res);
+  }
+  return res;
+}
+function pesanHasilEdit(res,teksOk){
+  if(res.status_pengajuan!=='DISETUJUI'){
+    return 'Diajukan — menunggu approval '+(res.perlu_approval||'Manager/Direktur')+'.';
+  }
+  var m=teksOk+' Nota sekarang REV-'+res.revisi_ke+'.';
+  if(res.reprint&&res.reprint.length) m+='\nOtomatis masuk Antrian Cetak PC: '+res.reprint.join(' & ')+'.';
+  if(res.penagihan_diupdate) m+='\nNilai di penagihan sudah diganti — tarik nota lama dari pelanggan & kirim nota revisi.';
+  if(res.harga_order_diupdate) m+='\nHarga di order juga sudah diupdate.';
+  return m;
+}
+
+// ── VOID SJ (Direktur) — wajib pilih jenis ──
+function voidSJ(){
   if(!sjAktif)return;
   if(!isDirekturUser){alert('Hanya Direktur yang bisa void SJ.');return;}
-  var alasan=prompt('Alasan void SJ '+sjAktif.no_sj+':');
-  if(alasan===null)return;
-  if(!alasan.trim()){alert('Alasan wajib diisi.');return;}
-  if(!confirm('Yakin void SJ '+sjAktif.no_sj+'/'+sjAktif.no_nota+'? Stok barang jadi TIDAK dikembalikan (barang sudah keluar gudang) — hanya tagihan & sisa order yang di-reset. Tindakan ini tidak bisa dibatalkan.'))return;
+  document.getElementById('voidErr').innerHTML='';
+  document.getElementById('voidNoSj').textContent=sjAktif.no_sj+' / '+sjAktif.no_nota;
+  document.getElementById('voidAlasan').value='';
+  document.querySelectorAll('input[name="voidJenis"]').forEach(function(r){r.checked=false;});
+  var btn=document.getElementById('btnVoid'); btn.disabled=false; btn.textContent='Void SJ';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVoid')).show();
+}
+async function submitVoid(btn){
+  var err=document.getElementById('voidErr'); err.innerHTML='';
+  var jenisEl=document.querySelector('input[name="voidJenis"]:checked');
+  var alasan=document.getElementById('voidAlasan').value.trim();
+  if(!jenisEl){err.innerHTML='<div class="alert-box alert-err">Pilih alasan void.</div>';return;}
+  if(!alasan){err.innerHTML='<div class="alert-box alert-err">Keterangan wajib diisi.</div>';return;}
+  var jenis=jenisEl.value;
+  if(!confirm('Void SJ '+sjAktif.no_sj+' / '+sjAktif.no_nota+' ('+(jenis==='BATAL_KIRIM'?'batal kirim':'diganti SJ lain')+')?\nStok BJ dikembalikan & sisa order dibuka lagi. Tidak bisa dibatalkan.'))return;
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
   try{
-    var res=await dbRpc('void_pengiriman',{p_id_sj:sjAktif.id_sj,p_alasan:alasan.trim(),p_user:getNamaUser(),p_role:roleUser});
-    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    var body={p_id_sj:sjAktif.id_sj,p_alasan:alasan,p_user:getNamaUser(),p_role:roleUser,p_jenis_void:jenis,p_tarik_penagihan:false};
+    var res=await dbRpc('void_pengiriman',body);
+    cekErrorSupabase(res);
+    if(res.status==='konfirmasi'){
+      if(!confirm(res.message)){btn.disabled=false;btn.textContent='Void SJ';return;}
+      body.p_tarik_penagihan=true;
+      res=await dbRpc('void_pengiriman',body);
+      cekErrorSupabase(res);
+    }
+    bootstrap.Modal.getInstance(document.getElementById('modalVoid')).hide();
     bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
+    alert('SJ di-void. '+res.baris_stok_dikembalikan+' baris stok BJ dikembalikan.'+
+      (res.penagihan_ditarik?'\nNota di penagihan ditandai ditarik.':'')+
+      (jenis==='DIGANTI_SJ_LAIN'?'\nSekarang buat SJ pengganti dan pilih SJ ini di kolom "SJ pengganti untuk".':''));
     muatSJ();
-  }catch(e){alert('Gagal: '+e.message);}
+  }catch(e){
+    err.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+    btn.disabled=false; btn.textContent='Void SJ';
+  }
+}
+
+// ── KOREKSI ITEM SJ (harga / potongan / qty) ──
+function bukaKoreksi(idPgdet){
+  korItem=itemsSJAktif.find(function(x){return x.id_pgdet===idPgdet;})||null;
+  if(!korItem||!sjAktif)return;
+  document.getElementById('korErr').innerHTML='';
+  document.getElementById('korNoSj').textContent=sjAktif.no_sj+' / '+sjAktif.no_nota;
+  var pot=parseFloat(korItem.potongan||0);
+  document.getElementById('korInfo').innerHTML=
+    '<b>'+esc(korItem.nama_item||'')+'</b>'+(korItem.subitem?' — '+esc(korItem.subitem):'')+'<br>'+
+    'Qty: '+fmtAngka(korItem.qty_kirim)+' '+esc(korItem.satuan||'')+' &nbsp;|&nbsp; Harga: '+fmtRupiah(korItem.harga)+
+    (pot>0?' &nbsp;|&nbsp; Potongan: '+fmtRupiah(pot):'')+'<br>Subtotal: <b>'+fmtRupiah(korItem.subtotal)+'</b>'+
+    (korItem.id_order_detail?'':'<br><span style="color:var(--orange)">Item dari stok (tanpa order)</span>');
+  document.getElementById('korJenis').value='';
+  document.getElementById('korHarga').value='';
+  document.getElementById('korPotongan').value=pot||'';
+  document.getElementById('korQty').value='';
+  document.getElementById('korAlasan').value='';
+  document.getElementById('korUpdateOrder').checked=false;
+  document.getElementById('korLblOrder').style.display=korItem.id_order_detail?'flex':'none';
+  document.getElementById('korSjLain').innerHTML='';
+  gantiJenisKoreksi();
+  var btn=document.getElementById('btnKoreksi'); btn.disabled=false; btn.textContent='Simpan Koreksi';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKoreksi')).show();
+}
+function gantiJenisKoreksi(){
+  var j=document.getElementById('korJenis').value;
+  document.getElementById('korBoxHarga').style.display=j==='UBAH_HARGA'?'':'none';
+  document.getElementById('korBoxPot').style.display=j==='POTONGAN'?'':'none';
+  document.getElementById('korBoxQty').style.display=j==='UBAH_QTY'?'':'none';
+  var info='';
+  if(j==='UBAH_HARGA'||j==='POTONGAN') info=isDirekturUser?'Kamu Direktur — langsung diproses.':'Perlu approval Direktur.';
+  else if(j==='UBAH_QTY') info=isMP?'Kamu '+roleUser+' — langsung diproses.':'Perlu approval Manager/Direktur.';
+  document.getElementById('korApprovalInfo').textContent=info;
+  if(j==='UBAH_HARGA') muatSJLainHargaLama();
+  hitungPreviewKoreksi();
+}
+// SJ lain (aktif, belum dibayar) dari baris order yang sama yang masih pakai harga lama
+function muatSJLainHargaLama(){
+  var box=document.getElementById('korSjLain');
+  box.innerHTML='';
+  if(!korItem||!korItem.id_order_detail)return;
+  dbGet('in_pengiriman_detail',{id_order_detail:'eq.'+korItem.id_order_detail,harga:'eq.'+korItem.harga,dibatalkan:'eq.false',select:'id_sj,qty_kirim'}).then(function(res){
+    var rows=(Array.isArray(res)?res:[]).filter(function(r){
+      if(r.id_sj===sjAktif.id_sj)return false;
+      var s=semuaSJ.find(function(x){return x.id_sj===r.id_sj;});
+      return s&&!s.is_void;
+    });
+    if(!rows.length)return;
+    box.innerHTML='<div class="alert-box alert-warn" style="font-size:.7rem">SJ lain dari order yang sama masih pakai harga lama '+fmtRupiah(korItem.harga)+':<br>'+
+      rows.map(function(r){return '• '+esc(noSjDari(r.id_sj))+' ('+fmtAngka(r.qty_kirim)+')';}).join('<br>')+
+      '<br>Koreksi masing-masing SJ tersebut terpisah kalau perlu.</div>';
+  }).catch(function(){});
+}
+function hitungPreviewKoreksi(){
+  var box=document.getElementById('korPreview');
+  if(!korItem){box.innerHTML='';return;}
+  var j=document.getElementById('korJenis').value;
+  var qty=parseFloat(korItem.qty_kirim)||0, harga=parseFloat(korItem.harga)||0, pot=parseFloat(korItem.potongan||0);
+  if(j==='UBAH_HARGA'){var v=document.getElementById('korHarga').value; if(v==='')return void(box.innerHTML=''); harga=parseFloat(v)||0;}
+  else if(j==='POTONGAN'){var v2=document.getElementById('korPotongan').value; if(v2==='')return void(box.innerHTML=''); pot=parseFloat(v2)||0;}
+  else if(j==='UBAH_QTY'){var v3=document.getElementById('korQty').value; if(v3==='')return void(box.innerHTML=''); qty=parseFloat(v3)||0;}
+  else {box.innerHTML='';return;}
+  var sbtBaru=qty*harga-pot;
+  var totalLain=itemsSJAktif.reduce(function(s,it){return (it.dibatalkan||it.id_pgdet===korItem.id_pgdet)?s:s+parseFloat(it.subtotal||0);},0);
+  var dpp=totalLain+sbtBaru;
+  var ppn=sjAktif.entitas==='PT'?Math.round(Math.round(dpp*11/12)*12/100):0;
+  var warn=sbtBaru<0?'<div style="color:var(--red)">Potongan melebihi subtotal.</div>':'';
+  box.innerHTML='<div style="background:#eef6ff;border:1px solid #bcdcff;border-radius:6px;padding:.45rem .6rem">'+
+    'Subtotal baris: '+fmtRupiah(korItem.subtotal)+' → <b>'+fmtRupiah(sbtBaru)+'</b><br>'+
+    'Total tagihan SJ: '+fmtRupiah(sjAktif.total_tagih)+' → <b>'+fmtRupiah(dpp+ppn)+'</b>'+(sjAktif.entitas==='PT'?' (incl. PPN)':'')+warn+'</div>';
+}
+async function submitKoreksi(btn){
+  var err=document.getElementById('korErr'); err.innerHTML='';
+  if(!korItem)return;
+  var j=document.getElementById('korJenis').value;
+  var alasan=document.getElementById('korAlasan').value.trim();
+  if(!j){err.innerHTML='<div class="alert-box alert-err">Pilih jenis koreksi.</div>';return;}
+  var p={p_id_sj:sjAktif.id_sj,p_aksi:j,p_id_pgdet:korItem.id_pgdet,p_alasan:alasan};
+  if(j==='UBAH_HARGA'){
+    var h=document.getElementById('korHarga').value;
+    if(h===''||parseFloat(h)<0){err.innerHTML='<div class="alert-box alert-err">Harga baru wajib diisi.</div>';return;}
+    p.p_harga=parseFloat(h);
+    p.p_update_harga_order=!!(korItem.id_order_detail&&document.getElementById('korUpdateOrder').checked);
+  }else if(j==='POTONGAN'){
+    var pt=document.getElementById('korPotongan').value;
+    if(pt===''||parseFloat(pt)<0){err.innerHTML='<div class="alert-box alert-err">Nominal potongan wajib diisi (0 = hapus potongan).</div>';return;}
+    p.p_potongan=parseFloat(pt);
+  }else{
+    var q=document.getElementById('korQty').value;
+    if(q===''||!(parseFloat(q)>0)){err.innerHTML='<div class="alert-box alert-err">Qty baru harus &gt; 0. Kalau item tidak jadi dikirim sama sekali, pakai Hapus.</div>';return;}
+    p.p_qty=parseFloat(q);
+  }
+  if(!alasan){err.innerHTML='<div class="alert-box alert-err">Alasan wajib diisi.</div>';return;}
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
+  try{
+    var res=await kirimPengajuanEdit(p);
+    if(!res){btn.disabled=false;btn.textContent='Simpan Koreksi';return;}
+    bootstrap.Modal.getInstance(document.getElementById('modalKoreksi')).hide();
+    alert(pesanHasilEdit(res,'Koreksi tersimpan.'));
+    await muatSJ();
+    bukaDetail(sjAktif.id_sj);
+    if(isMP) cekBadgeEditSJAwal();
+  }catch(e){
+    err.innerHTML='<div class="alert-box alert-err">Gagal: '+esc(e.message)+'</div>';
+    btn.disabled=false; btn.textContent='Simpan Koreksi';
+  }
 }
 
 // ── HAPUS ITEM DARI SJ (item tertinggal, tidak jadi ikut terkirim) ──
@@ -1047,16 +1363,11 @@ async function hapusItemSJ(idPgdet,namaItem){
   if(!alasan.trim()){alert('Alasan wajib diisi.');return;}
   if(!confirm((isMP?'Kamu '+roleUser+', ini langsung diproses. ':'Akan diajukan, menunggu approval Manager/Direktur. ')+'Yakin hapus item "'+namaItem+'"?'))return;
   try{
-    var res=await dbRpc('ajukan_edit_item_pengiriman',{
-      p_id_sj:sjAktif.id_sj,p_aksi:'HAPUS',p_id_pgdet:idPgdet,
-      p_id_order_detail:null,p_id_item:null,p_nama_item:null,p_subitem:null,
-      p_qty:null,p_satuan:null,p_harga:null,p_no_po:null,
-      p_alasan:alasan.trim(),p_user:getNamaUser(),p_role:roleUser
-    });
-    var e=cekErrorSupabase(res); if(e) throw new Error(e);
-    alert(res.status_pengajuan==='DISETUJUI'?'Item dihapus, total SJ sudah diperbarui.':'Diajukan — menunggu approval Manager/Direktur.');
+    var res=await kirimPengajuanEdit({p_id_sj:sjAktif.id_sj,p_aksi:'HAPUS',p_id_pgdet:idPgdet,p_alasan:alasan.trim()});
+    if(!res)return;
+    alert(pesanHasilEdit(res,'Item dihapus, total SJ sudah diperbarui.'));
+    await muatSJ();
     bukaDetail(sjAktif.id_sj);
-    muatSJ();
   }catch(e){alert('Gagal: '+e.message);}
 }
 
@@ -1138,18 +1449,18 @@ async function submitSusulan(btn){
   if(!alasan){errBox.innerHTML='Alasan wajib diisi.';return;}
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
   try{
-    var res=await dbRpc('ajukan_edit_item_pengiriman',{
+    var res=await kirimPengajuanEdit({
       p_id_sj:sjAktif.id_sj,p_aksi:'TAMBAH',p_id_pgdet:null,
       p_id_order_detail:susulanDipilih.idOrderDetail,p_id_item:susulanDipilih.idItem,
       p_nama_item:susulanDipilih.namaItem,p_subitem:susulanDipilih.subitem||null,
       p_qty:qty,p_satuan:susulanDipilih.satuan,p_harga:harga,p_no_po:susulanDipilih.noPo,
-      p_alasan:alasan,p_user:getNamaUser(),p_role:roleUser
+      p_alasan:alasan
     });
-    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    if(!res)return;
     bootstrap.Modal.getInstance(document.getElementById('modalSusulan')).hide();
-    alert(res.status_pengajuan==='DISETUJUI'?'Item susulan ditambahkan, total SJ sudah diperbarui.':'Diajukan — menunggu approval Manager/Direktur.');
+    alert(pesanHasilEdit(res,'Item susulan ditambahkan, total SJ sudah diperbarui.'));
+    await muatSJ();
     bukaDetail(sjAktif.id_sj);
-    muatSJ();
   }catch(e){
     errBox.innerHTML=esc(e.message);
   }finally{
@@ -1170,18 +1481,36 @@ async function muatApproveEditSJ(){
     list=Array.isArray(list)?list:[];
     refreshBadgeEditSJ(list.length);
     if(!list.length){box.innerHTML='<div class="loading">Tidak ada pengajuan edit item yang menunggu approval.</div>';return;}
+    var labelAksi={HAPUS:'🗑 HAPUS ITEM',TAMBAH:'➕ TAMBAH ITEM',UBAH_HARGA:'💲 KOREKSI HARGA',POTONGAN:'🏷 POTONGAN HARGA',UBAH_QTY:'🔢 KOREKSI QTY'};
     box.innerHTML=list.map(function(p){
+      var butuhDir=(p.aksi==='UBAH_HARGA'||p.aksi==='POTONGAN');
+      var bisaPutus=!butuhDir||isDirekturUser;
+      var rinci;
+      if(p.aksi==='UBAH_HARGA'){
+        rinci='<div class="rp-row"><span class="rp-lbl">Harga</span><span class="rp-val">'+fmtRupiah(p.harga_lama)+' → <b>'+fmtRupiah(p.harga)+'</b> ('+fmtAngka(p.qty)+' '+esc(p.satuan||'')+')</span></div>'+
+          '<div class="rp-row"><span class="rp-lbl">Harga order</span><span class="rp-val">'+(p.update_harga_order?'<b>ikut diupdate</b>':'tidak diubah')+'</span></div>';
+      }else if(p.aksi==='POTONGAN'){
+        rinci='<div class="rp-row"><span class="rp-lbl">Potongan</span><span class="rp-val">'+fmtRupiah(p.potongan_lama||0)+' → <b>'+fmtRupiah(p.potongan)+'</b> (dari '+fmtRupiah((p.qty||0)*(p.harga||0))+')</span></div>';
+      }else if(p.aksi==='UBAH_QTY'){
+        rinci='<div class="rp-row"><span class="rp-lbl">Qty</span><span class="rp-val">'+fmtAngka(p.qty_lama)+' → <b>'+fmtAngka(p.qty)+'</b> '+esc(p.satuan||'')+' @ '+fmtRupiah(p.harga||0)+'</span></div>';
+      }else{
+        rinci='<div class="rp-row"><span class="rp-lbl">Qty / Harga</span><span class="rp-val">'+fmtAngka(p.qty||0)+' '+esc(p.satuan||'')+' @ '+fmtRupiah(p.harga||0)+'</span></div>';
+      }
       return '<div class="rp-item">'+
         '<div class="rp-row"><span class="rp-lbl">No. SJ / Nota</span><span class="rp-val">'+esc(p.no_sj)+' / '+esc(p.no_nota)+'</span></div>'+
         '<div class="rp-row"><span class="rp-lbl">Pelanggan</span><span class="rp-val">'+esc(p.nama_pelanggan)+'</span></div>'+
-        '<div class="rp-row"><span class="rp-lbl">Aksi</span><span class="rp-val">'+(p.aksi==='HAPUS'?'🗑 HAPUS':'➕ TAMBAH')+' — '+esc(p.nama_item||'')+(p.subitem?' ('+esc(p.subitem)+')':'')+'</span></div>'+
-        '<div class="rp-row"><span class="rp-lbl">Qty / Harga</span><span class="rp-val">'+fmtAngka(p.qty||0)+' '+esc(p.satuan||'')+' @ '+fmtRupiah(p.harga||0)+'</span></div>'+
+        '<div class="rp-row"><span class="rp-lbl">Aksi</span><span class="rp-val">'+(labelAksi[p.aksi]||esc(p.aksi))+' — '+esc(p.nama_item||'')+(p.subitem?' ('+esc(p.subitem)+')':'')+'</span></div>'+
+        rinci+
+        (p.tarik_penagihan?'<div class="rp-row"><span class="rp-lbl">Penagihan</span><span class="rp-val" style="color:#856404">⚠ sudah ditagihkan — nota ditarik &amp; diganti</span></div>':'')+
         '<div class="rp-row"><span class="rp-lbl">Diajukan oleh</span><span class="rp-val">'+esc(p.diajukan_oleh)+' — '+fmtTgl(p.tgl_ajukan)+'</span></div>'+
         '<div class="rp-row"><span class="rp-lbl">Alasan</span><span class="rp-val">'+esc(p.alasan||'—')+'</span></div>'+
-        '<div style="display:flex;gap:.5rem;margin-top:.5rem;justify-content:flex-end">'+
-          '<button class="btn-outline" style="border-color:var(--red);color:var(--red)" onclick="approveEditSJAction(\''+esc(p.id_pengajuan)+'\',false,this)">✗ Tolak</button>'+
-          '<button class="btn-navy" onclick="approveEditSJAction(\''+esc(p.id_pengajuan)+'\',true,this)">✓ Approve</button>'+
-        '</div></div>';
+        (bisaPutus?
+          '<div style="display:flex;gap:.5rem;margin-top:.5rem;justify-content:flex-end">'+
+            '<button class="btn-outline" style="border-color:var(--red);color:var(--red)" onclick="approveEditSJAction(\''+esc(p.id_pengajuan)+'\',false,this)">✗ Tolak</button>'+
+            '<button class="btn-navy" onclick="approveEditSJAction(\''+esc(p.id_pengajuan)+'\',true,this)">✓ Approve</button>'+
+          '</div>':
+          '<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);text-align:right;margin-top:.4rem">Menunggu keputusan Direktur</div>')+
+        '</div>';
     }).join('');
   }catch(e){
     box.innerHTML='<div style="color:var(--red);font-family:var(--mono);font-size:.78rem">Gagal memuat: '+esc(e.message)+'</div>';
@@ -1191,8 +1520,14 @@ async function approveEditSJAction(idPengajuan,disetujui,btn){
   btn.disabled=true;
   try{
     var r=await dbRpc('approve_edit_item_pengiriman',{p_id_pengajuan:idPengajuan,p_disetujui:disetujui,p_approved_by:getNamaUser(),p_role:roleUser});
-    var e=cekErrorSupabase(r); if(e) throw new Error(e);
+    cekErrorSupabase(r);
+    if(disetujui&&r.revisi_ke){
+      alert('Disetujui. Nota sekarang REV-'+r.revisi_ke+'.'+
+        (r.reprint&&r.reprint.length?'\nOtomatis masuk Antrian Cetak PC: '+r.reprint.join(' & ')+'.':'')+
+        (r.penagihan_diupdate?'\nNilai di penagihan sudah diganti — tarik nota lama dari pelanggan.':''));
+    }
     muatApproveEditSJ();
+    cekBadgeAntrianAwal();
     muatSJ();
   }catch(e){
     alert('Gagal: '+e.message);
@@ -1538,7 +1873,9 @@ function cetakDokumen(sj,items,jenis){
 }
 
 // ── LAYOUT PRINT ──
+function noRev(no,sj){return (sj.revisi_ke>0)?no+' REV-'+sj.revisi_ke:no;}
 function layoutSJ(sj,items){
+  items=(items||[]).filter(function(it){return !it.dibatalkan;});
   var isPT=sj.entitas==='PT';
   var coName=isPT?'PT. ELIM CITRA OFFSET':'DK OFFSET';
   var coAddr=isPT?'Jl. Rinjani Utara IV No. 2, Mojosongo, Surakarta 57127':'';
@@ -1555,7 +1892,7 @@ function layoutSJ(sj,items){
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
       '<div><div style="font-size:10.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:7.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
       '<div style="text-align:right"><div style="font-size:10pt;font-weight:700;letter-spacing:.05em">SURAT JALAN</div>'+
-        '<div style="font-size:9pt;font-weight:700;margin-top:1px">'+esc(sj.no_sj)+'</div>'+
+        '<div style="font-size:9pt;font-weight:700;margin-top:1px">'+esc(noRev(sj.no_sj,sj))+'</div>'+
         '<div style="font-size:8pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
     '</div>'+
     '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:8.5pt;align-items:flex-start;flex-shrink:0">'+
@@ -1576,6 +1913,7 @@ function layoutSJ(sj,items){
 }
 
 function layoutInvoice(sj,items){
+  items=(items||[]).filter(function(it){return !it.dibatalkan;});
   var isPT=sj.entitas==='PT';
   var coName=isPT?'PT. ELIM CITRA OFFSET':'DK OFFSET';
   var coAddr=isPT?'Jl. Rinjani Utara IV No. 2, Mojosongo, Surakarta 57127':'';
@@ -1587,12 +1925,15 @@ function layoutInvoice(sj,items){
   var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:8pt;font-weight:700;text-align:left;';
   var tdS='padding:.04cm .1cm;vertical-align:top;font-size:8.5pt;line-height:1.3;';
   var rows=items.map(function(it,i){
+    var pot=parseFloat(it.potongan||0);
+    var bruto=(parseFloat(it.qty_kirim)||0)*(parseFloat(it.harga)||0);
     return '<tr><td style="'+tdS+';width:.5cm">'+(i+1)+'</td>'+
       '<td style="'+tdS+';word-wrap:break-word;word-break:break-word;white-space:normal">'+esc(it.nama_item||'')+(it.subitem?' \u2014 '+esc(it.subitem):'')+(it.no_po?' '+esc(it.no_po):'')+'</td>'+
       '<td style="'+tdS+';text-align:right;width:1.5cm">'+fmtAngka(it.qty_kirim||0)+'</td>'+
       '<td style="'+tdS+';width:.8cm">'+esc(it.satuan||'')+'</td>'+
       '<td style="'+tdS+';text-align:right;width:1.8cm">'+fmtAngka(parseFloat(it.harga||0))+'</td>'+
-      '<td style="'+tdS+';text-align:right;width:2cm">'+fmtAngka(parseFloat(it.subtotal||0))+'</td></tr>';
+      '<td style="'+tdS+';text-align:right;width:2cm">'+fmtAngka(bruto)+'</td></tr>'+
+      (pot>0?'<tr><td style="'+tdS+'"></td><td colspan="4" style="'+tdS+'">POTONGAN HARGA</td><td style="'+tdS+';text-align:right">-'+fmtAngka(pot)+'</td></tr>':'');
   }).join('');
   var footer=isPT?
     '<tr><td colspan="5" style="'+tdS+';text-align:right;font-size:8pt">Subtotal</td><td style="'+tdS+';text-align:right">'+fmtAngka(subtotal)+'</td></tr>'+
@@ -1603,7 +1944,7 @@ function layoutInvoice(sj,items){
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1.5px solid #000;padding-bottom:.18cm;margin-bottom:.2cm;flex-shrink:0">'+
       '<div><div style="font-size:10.5pt;font-weight:700;letter-spacing:.02em">'+coName+'</div>'+(coAddr?'<div style="font-size:7.2pt;color:#444;margin-top:1px">'+coAddr+'</div>':'')+'</div>'+
       '<div style="text-align:right"><div style="font-size:10pt;font-weight:700;letter-spacing:.05em">NOTA / INVOICE</div>'+
-        '<div style="font-size:9pt;font-weight:700;margin-top:1px">'+esc(sj.no_nota)+'</div>'+
+        '<div style="font-size:9pt;font-weight:700;margin-top:1px">'+esc(noRev(sj.no_nota,sj))+'</div>'+
         '<div style="font-size:8pt;color:#444;margin-top:1px">'+tglStr+'</div></div>'+
     '</div>'+
     '<div style="display:flex;gap:.5cm;margin-bottom:.2cm;font-size:8.5pt;align-items:flex-start;flex-shrink:0">'+

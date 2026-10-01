@@ -53,6 +53,7 @@
     .bj-keluar-rusak{background:#fff0f0;color:var(--red);}
     .bj-adjust-opname-masuk{background:#e8f5e9;color:#1b5e20;}
     .bj-adjust-opname-keluar{background:#fff0f0;color:var(--red);}
+    .bj-koreksi-hapus-item-kirim{background:#e8f5e9;color:#1b5e20;}
     .bj-pending{background:#fff9c4;color:#827717;}
     .bj-approved{background:var(--green-bg);color:var(--green);}
     .bj-ditolak{background:#fff0f0;color:var(--red);}
@@ -257,7 +258,8 @@ function badgeJenis(j){
   var label={
     'MASUK_PACKING':'MASUK PACKING','MASUK_RETUR':'MASUK RETUR',
     'KELUAR_KIRIM':'KELUAR KIRIM','KELUAR_RUSAK':'KELUAR RUSAK',
-    'ADJUST_OPNAME_MASUK':'OPNAME ↑','ADJUST_OPNAME_KELUAR':'OPNAME ↓'
+    'ADJUST_OPNAME_MASUK':'OPNAME ↑','ADJUST_OPNAME_KELUAR':'OPNAME ↓',
+    'KOREKSI_HAPUS_ITEM_KIRIM':'KOREKSI KIRIM ↑'
   }[j]||j;
   return '<span class="badge-jenis bj-'+k+'">'+esc(label)+'</span>';
 }
@@ -266,7 +268,9 @@ function badgeApproval(s){
   return '<span class="badge-jenis '+(map[s]||'')+'">'+esc(s)+'</span>';
 }
 function isKeluar(j){return['KELUAR_KIRIM','KELUAR_RUSAK','ADJUST_OPNAME_KELUAR'].indexOf(j)>=0;}
-function isMasuk(j){return['MASUK_PACKING','MASUK_RETUR','ADJUST_OPNAME_MASUK'].indexOf(j)>=0;}
+// KOREKSI_HAPUS_ITEM_KIRIM = stok kembali dari koreksi SJ (hapus item / qty turun / void SJ) -> MASUK.
+// Harus sama dgn rumus saldo di RPC get_rekap_stok_bj & get_sisa_kirim_dari_bj.
+function isMasuk(j){return['MASUK_PACKING','MASUK_RETUR','ADJUST_OPNAME_MASUK','KOREKSI_HAPUS_ITEM_KIRIM'].indexOf(j)>=0;}
 function genIdLog(){return'LBJ'+Date.now()+Math.floor(Math.random()*1000);}
 
 // ── REKAP ──
