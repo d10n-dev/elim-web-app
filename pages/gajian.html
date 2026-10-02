@@ -50,6 +50,8 @@
   .notif-row{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:.5rem .8rem;font-size:.78rem;margin-bottom:.4rem;}
   .notif-row b{color:var(--navy);}
   .notif-row.void{opacity:.55;text-decoration:line-through;}
+  /* MANAGER: elemen khusus direktur disembunyikan (server tetap menolak) */
+  body.role-manager .only-dir{display:none !important;}
 </style>
 </head>
 <body>
@@ -73,17 +75,17 @@
 
   <div class="periode-bar">
     <select id="selPeriode" onchange="gantiPeriode()"></select>
-    <button class="btn-outline" onclick="bukaModalPeriodeBaru()">+ Periode Baru</button>
+    <button class="btn-outline only-dir" onclick="bukaModalPeriodeBaru()">+ Periode Baru</button>
     <span class="periode-info" id="infoPeriode">—</span>
   </div>
 
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="tPeriode" onclick="gantiTab('tPeriode')">📅 Periode & Libur</button>
-    <button class="tab-btn" data-tab="tMaster" onclick="gantiTab('tMaster')">👤 Master Karyawan</button>
+    <button class="tab-btn only-dir" data-tab="tMaster" onclick="gantiTab('tMaster')">👤 Master Karyawan</button>
     <button class="tab-btn" data-tab="tImport" onclick="gantiTab('tImport')">📥 Import Absensi</button>
     <button class="tab-btn" data-tab="tCuti" onclick="gantiTab('tCuti')">🏖️ Cuti & Izin<span id="badgeSanggahan" class="tab-badge-count" style="display:none"></span></button>
     <button class="tab-btn" data-tab="tKinerja" onclick="gantiTab('tKinerja')">📊 Kinerja</button>
-    <button class="tab-btn" data-tab="tBon" onclick="gantiTab('tBon')">💰 Bon</button>
+    <button class="tab-btn only-dir" data-tab="tBon" onclick="gantiTab('tBon')">💰 Bon</button>
     <button class="tab-btn" data-tab="tHasil" onclick="gantiTab('tHasil')">🧾 Hasil & Slip</button>
   </div>
 
@@ -91,7 +93,7 @@
   <div class="tab-pane active" id="tPeriode">
     <div class="card-box">
       <h6>Hari Libur / Cuti Bersama Periode Ini</h6>
-      <div class="form-grid" style="grid-template-columns:150px 1fr 160px 100px;align-items:end;">
+      <div class="form-grid only-dir" style="grid-template-columns:150px 1fr 160px 100px;align-items:end;">
         <div><label>Tanggal</label><input type="date" id="libTanggal"></div>
         <div><label>Keterangan</label><input type="text" id="libKeterangan" placeholder="mis. Libur Nasional / Cuti Bersama"></div>
         <div><label>Cuti Bersama?</label><select id="libCutiBersama"><option value="false">Bukan</option><option value="true">Ya, potong kuota cuti</option></select></div>
@@ -106,7 +108,7 @@
   </div>
 
   <!-- =========== TAB: MASTER KARYAWAN =========== -->
-  <div class="tab-pane" id="tMaster">
+  <div class="tab-pane only-dir" id="tMaster">
     <div class="card-box">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;">
         <h6 style="margin:0">Daftar Karyawan</h6>
@@ -216,7 +218,7 @@
         <tbody id="tblKinerja"><tr><td colspan="4" class="text-center text-muted">Pilih periode dulu</td></tr></tbody>
       </table>
     </div>
-    <div class="card-box">
+    <div class="card-box only-dir">
       <h6>Bonus Khusus / Koreksi Manual (Periode Ini)</h6>
       <p class="text-muted" style="font-size:.75rem">Nominal positif = tambahan bonus/kontribusi/pengembalian dana. Nominal negatif = koreksi pengurangan (misal salah hitung bulan lalu). Ini di luar rumus standar, langsung menambah/mengurangi bonus_final.</p>
       <div class="form-grid" style="grid-template-columns:1fr 160px 1fr 100px;align-items:end;">
@@ -233,7 +235,7 @@
   </div>
 
   <!-- =========== TAB: BON =========== -->
-  <div class="tab-pane" id="tBon">
+  <div class="tab-pane only-dir" id="tBon">
     <div class="card-box">
       <h6>Catat Transaksi Bon</h6>
       <div class="form-grid" style="grid-template-columns:1fr 160px 140px 1fr 100px;align-items:end;">
@@ -275,16 +277,16 @@
         <h6 style="margin:0">Rekap Gaji Periode Terpilih</h6>
         <div>
           <button class="btn-outline" onclick="hitungGajiPeriode()">🔄 Hitung / Hitung Ulang</button>
-          <button class="btn-outline" onclick="exportGajiPokok()">⬇ Export Gaji Pokok</button>
-          <button class="btn-outline" onclick="exportBonus()">⬇ Export Bonus</button>
-          <button class="btn-navy" id="btnFinalisasi" onclick="finalisasiPeriode()">🔒 Finalisasi Periode</button>
-          <button class="btn-outline" id="btnBukaKembali" style="display:none;border-color:var(--red);color:var(--red)" onclick="bukaModalBukaKembali()">🔓 Buka Kembali Periode</button>
+          <button class="btn-outline only-dir" onclick="exportGajiPokok()">⬇ Export Gaji Pokok</button>
+          <button class="btn-outline only-dir" onclick="exportBonus()">⬇ Export Bonus</button>
+          <button class="btn-navy only-dir" id="btnFinalisasi" onclick="finalisasiPeriode()">🔒 Finalisasi Periode</button>
+          <button class="btn-outline only-dir" id="btnBukaKembali" style="display:none;border-color:var(--red);color:var(--red)" onclick="bukaModalBukaKembali()">🔓 Buka Kembali Periode</button>
         </div>
       </div>
       <div id="alertHasil" style="margin-top:.5rem"></div>
 
-      <div id="statusNotifGaji" style="margin-top:.7rem"></div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+      <div id="statusNotifGaji" class="only-dir" style="margin-top:.7rem"></div>
+      <div class="only-dir" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
         <button class="btn-outline" onclick="uploadNotifPokok()">🔔 Upload Notif Gaji Pokok (setelah upload BCA)</button>
         <button class="btn-outline" onclick="bukaModalNotifBonus()">🔔 Upload Notif Bonus (setelah upload BCA)</button>
       </div>
@@ -469,9 +471,9 @@ function gantiTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === id));
   if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); muatDaftarSanggahan(); }
-  if (id === 'tKinerja') { muatKinerja(); muatPenyesuaian(); }
-  if (id === 'tBon') { muatSaldoBon(); muatRiwayatBon(); }
-  if (id === 'tHasil') { muatHasil(); muatStatusNotifGaji(); }
+  if (id === 'tKinerja') { muatKinerja(); if (isDirektur()) muatPenyesuaian(); }
+  if (id === 'tBon') { if (!isDirektur()) return; muatSaldoBon(); muatRiwayatBon(); }
+  if (id === 'tHasil') { muatHasil(); if (isDirektur()) muatStatusNotifGaji(); }
 }
 
 // ============================================================
@@ -543,7 +545,7 @@ async function muatLibur() {
       <td class="td-mono">${formatTanggal(r.tanggal)}</td>
       <td>${escHtml(r.keterangan || '')}</td>
       <td>${r.is_cuti_bersama ? '<span class="badge-aktif">Ya</span>' : '<span class="badge-resign">Tidak</span>'}</td>
-      <td><button class="btn-sm-action btn-hapus" onclick="hapusLibur(${r.id_libur})">Hapus</button></td>
+      <td><button class="btn-sm-action btn-hapus only-dir" onclick="hapusLibur(${r.id_libur})">Hapus</button></td>
     </tr>`).join('');
 }
 
@@ -1370,7 +1372,9 @@ window.addEventListener('load', async function () {
   try {
     if (typeof guardHalaman !== 'function') { tampilkanErrorHalaman('guardHalaman tidak ditemukan — nav.js/utils.js gagal dimuat.'); return; }
     if (!guardHalaman()) return;
-    if (getRoleUser() !== 'DIREKTUR') { window.location.replace('../index.html'); return; }
+    // Akses halaman: DIREKTUR (penuh) & MANAGER (terbatas). Batas sebenarnya dikunci di database.
+    if (!isDirektur() && !isManager()) { window.location.replace('../index.html'); return; }
+    if (isManager()) document.body.classList.add('role-manager');
     initNav('gajian');
     document.getElementById('kontenGajian').style.display = '';
     await muatKaryawan();
