@@ -172,15 +172,13 @@
         <option value="">— Pilih Kategori Batch —</option>
         <option value="PIUTANG">PIUTANG</option>
         <option value="PIUTANG_KARYAWAN">PIUTANG_KARYAWAN</option>
-        <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
-        <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+        <option value="PEMBELIAN">PEMBELIAN (bayar nota)</option>
         <option value="HUTANG_KEUANGAN">HUTANG_KEUANGAN</option>
         <option value="GAJI">GAJI</option>
         <option value="KAS_KECIL">KAS_KECIL</option>
         <option value="PAJAK">PAJAK</option>
         <option value="PRIVE">PRIVE</option>
-        <option value="OPERASIONAL">OPERASIONAL</option>
-        <option value="PEMELIHARAAN">PEMELIHARAAN</option>
+        <option value="OPERASIONAL">OPERASIONAL (tanpa nota)</option>
         <option value="INVESTASI">INVESTASI</option>
         <option value="ANTAR_REKENING">ANTAR_REKENING</option>
         <option value="BIAYA_BANK">BIAYA_BANK</option>
@@ -229,8 +227,7 @@
         <option value="MODAL_MASUK">MODAL_MASUK</option>
         <option value="PENERIMAAN_LAIN">PENERIMAAN_LAIN</option>
         <option value="PENGELUARAN_LAIN">PENGELUARAN_LAIN</option>
-        <option value="OPERASIONAL">OPERASIONAL (tanpa nota)</option>
-        <option value="PEMELIHARAAN">PEMELIHARAAN (tanpa nota)</option>
+        <option value="OPERASIONAL">OPERASIONAL</option>
       </select>
       <button class="btn-navy" id="adBtnBulk" onclick="bukaAlokDirBulk()" disabled style="margin-left:auto">Alokasi Terpilih (0)</button>
       <button class="btn-sm-action" id="adBtnExport" onclick="exportAlokDirCsv()" disabled>⬇ Export CSV (0)</button>
@@ -274,8 +271,8 @@
   </div>
 
   <!-- TAB "Belum Dialokasi" & "Perlu Approve" dihapus (28 Sep 2026):
-       PIUTANG dialokasi+approve di piutang.html, HUTANG/OPERASIONAL/PEMELIHARAAN di pembelian.html,
-       biaya tanpa nota ditutup Direktur di tab Alokasi Dir. Notifikasi approval lewat lonceng header. -->
+       PIUTANG dialokasi+approve di piutang.html, PEMBELIAN (+kategori lama HUTANG/PEMELIHARAAN) ke nota di pembelian.html,
+       OPERASIONAL & biaya tanpa nota ditutup Direktur di tab Alokasi Dir. Notifikasi approval lewat lonceng header. -->
 
   <!-- ═══════════════════════════════════════════════════════
        TAB 6: TERALOKASI
@@ -294,6 +291,7 @@
         <option value="">Semua Kategori</option>
         <option value="PIUTANG">PIUTANG</option>
         <option value="PIUTANG_KARYAWAN">PIUTANG_KARYAWAN</option>
+        <option value="PEMBELIAN">PEMBELIAN</option>
         <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
         <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
         <option value="HUTANG_KEUANGAN">HUTANG_KEUANGAN</option>
@@ -346,15 +344,13 @@
           <option value="">— Pilih —</option>
           <option value="PIUTANG">PIUTANG</option>
         <option value="PIUTANG_KARYAWAN">PIUTANG_KARYAWAN</option>
-          <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
-          <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+          <option value="PEMBELIAN">PEMBELIAN (bayar nota)</option>
         <option value="HUTANG_KEUANGAN">HUTANG_KEUANGAN</option>
           <option value="GAJI">GAJI</option>
           <option value="KAS_KECIL">KAS_KECIL</option>
           <option value="PAJAK">PAJAK</option>
           <option value="PRIVE">PRIVE</option>
-          <option value="OPERASIONAL">OPERASIONAL</option>
-        <option value="PEMELIHARAAN">PEMELIHARAAN</option>
+          <option value="OPERASIONAL">OPERASIONAL (tanpa nota)</option>
         <option value="INVESTASI">INVESTASI</option>
           <option value="ANTAR_REKENING">ANTAR_REKENING</option>
           <option value="BIAYA_BANK">BIAYA_BANK</option>
@@ -559,15 +555,16 @@
           <select id="ekKategori" class="form-select" style="font-family:var(--mono);font-size:.82rem">
             <option value="PIUTANG">PIUTANG</option>
         <option value="PIUTANG_KARYAWAN">PIUTANG_KARYAWAN</option>
-            <option value="HUTANG_BAHAN">HUTANG_BAHAN</option>
-            <option value="HUTANG_MAKLOON">HUTANG_MAKLOON</option>
+            <option value="PEMBELIAN">PEMBELIAN (bayar nota)</option>
+            <option value="HUTANG_BAHAN">HUTANG_BAHAN (lama)</option>
+            <option value="HUTANG_MAKLOON">HUTANG_MAKLOON (lama)</option>
         <option value="HUTANG_KEUANGAN">HUTANG_KEUANGAN</option>
             <option value="GAJI">GAJI</option>
             <option value="KAS_KECIL">KAS_KECIL</option>
             <option value="PAJAK">PAJAK</option>
             <option value="PRIVE">PRIVE</option>
             <option value="OPERASIONAL">OPERASIONAL</option>
-        <option value="PEMELIHARAAN">PEMELIHARAAN</option>
+        <option value="PEMELIHARAAN">PEMELIHARAAN (lama)</option>
         <option value="INVESTASI">INVESTASI</option>
             <option value="ANTAR_REKENING">ANTAR_REKENING</option>
             <option value="BIAYA_BANK">BIAYA_BANK</option>
@@ -779,10 +776,10 @@ function muatRekap() {
       el.closest('.rekap-card').classList.toggle('warn', n > 0);
     });
 
-  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/HUTANG/BIAYA_BANK/KAS_KECIL
+  // Alokasi Direktur: POSTED + BELUM_DIALOKASI + bukan PIUTANG/kategori nota/BIAYA_BANK/KAS_KECIL
   dbGet('in_bank_statement', {
     select:'id', status:'eq.POSTED', status_alokasi:'eq.BELUM_DIALOKASI',
-    'kategori': 'not.in.(PIUTANG,HUTANG_BAHAN,HUTANG_MAKLOON,BIAYA_BANK,KAS_KECIL)',
+    'kategori': 'not.in.(PIUTANG,PEMBELIAN,HUTANG_BAHAN,HUTANG_MAKLOON,PEMELIHARAAN,BIAYA_BANK,KAS_KECIL)',
     limit:9999
   }).then(function(r){
     var n = Array.isArray(r) ? r.length : 0;
@@ -840,6 +837,10 @@ function toggleDetail(tdEl, rowId) {
   muatNotaAlokasiDetail(r);
 }
 
+// Kategori bayar nota (2 Okt 2026): PEMBELIAN untuk posting baru; HUTANG_BAHAN/HUTANG_MAKLOON/PEMELIHARAAN = data lama.
+var KAT_NOTA = ['PEMBELIAN','HUTANG_BAHAN','HUTANG_MAKLOON','PEMELIHARAAN'];
+function isKatNota(k) { return KAT_NOTA.indexOf(k) >= 0; }
+
 function muatNotaAlokasiDetail(r) {
   var wrap = document.getElementById('notaAlokWrap-' + r.id);
   if (!wrap) return;
@@ -848,7 +849,7 @@ function muatNotaAlokasiDetail(r) {
     table = 'in_bank_alokasi_piutang';
     selectCols = 'no_nota,nama_pelanggan,nominal_alokasi,status_alokasi';
     namaKol = 'nama_pelanggan';
-  } else if (r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON') {
+  } else if (isKatNota(r.kategori)) {
     table = 'in_bank_alokasi_hutang';
     selectCols = 'no_nota,nama_supplier,nominal_alokasi,status_alokasi';
     namaKol = 'nama_supplier';
@@ -918,17 +919,13 @@ async function muatKoran(reset) {
     var aksi = '';
     if (isDir) aksi += '<button class="btn-sm-action btn-edit" onclick="bukaEditKet(\'' + r.id + '\')">✏️</button> ';
     var isPiutang = r.kategori === 'PIUTANG';
-    var isHutang  = r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON';
-    var isBiayaNota = r.kategori === 'OPERASIONAL' || r.kategori === 'PEMELIHARAAN';
+    var isHutang  = isKatNota(r.kategori);
     var terbuka = r.status_alokasi === 'BELUM_DIALOKASI' && (r.status === 'POSTED' || r.status === 'PARTIAL');
-    // Satu jalur: PIUTANG → Piutang, HUTANG → Pembelian, OPERASIONAL/PEMELIHARAAN → Pembelian (ada nota) / Alokasi Dir (tanpa nota)
+    // Satu jalur: PIUTANG → Piutang, PEMBELIAN (+kategori lama) → nota di Pembelian, OPERASIONAL & lainnya → Alokasi Dir
     if (isPiutang && r.jenis === 'CR' && terbuka)
       aksi += '<a class="btn-sm-action btn-alokasi" style="text-decoration:none" href="piutang.html#alokasitf">→ Piutang</a>';
-    else if ((isHutang || isBiayaNota) && terbuka) {
+    else if (isHutang && terbuka)
       aksi += '<a class="btn-sm-action btn-alokasi" style="text-decoration:none" href="pembelian.html#alokasibank">→ Pembelian</a>';
-      if (isBiayaNota && isDir && r.status === 'POSTED')
-        aksi += ' <button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Tanpa nota</button>';
-    }
     else if (terbuka && r.status === 'POSTED' && isDir && r.kategori !== 'BIAYA_BANK' && r.kategori !== 'KAS_KECIL')
       aksi += '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokDir(\'' + r.id + '\')">Alokasi</button>';
     if (!isPiutang && (r.status_alokasi === 'MENUNGGU_APPROVE_MANAGER' || r.status_alokasi === 'MENUNGGU_APPROVE_DIREKTUR'))
@@ -974,6 +971,8 @@ async function muatPosting(reset) {
   var err = cekErrorSupabase(rows);
   if (err) { renderErr('psTbody', 8, err); return; }
   if (!Array.isArray(rows)) rows = [];
+  // Saran dari rule lama (HUTANG_BAHAN/HUTANG_MAKLOON/PEMELIHARAAN) diarahkan ke PEMBELIAN
+  rows.forEach(function(r){ if (isKatNota(r.saran_kategori)) r.saran_kategori = 'PEMBELIAN'; });
 
   if (reset === undefined || reset) psData = rows;
   else psData = psData.concat(rows);
@@ -1466,7 +1465,7 @@ function renderBelum() {
     rowStore[r.id] = r;
     var isAdm = ['ADMIN','MANAGER','DIREKTUR'].includes(roleUser);
     var aksi = isAdm ? '<button class="btn-sm-action btn-alokasi" onclick="bukaAlokAdmin(\'' + r.id + '\')">Alokasi</button>' : '';
-    var isLegacyKat = ['PIUTANG','HUTANG_BAHAN','HUTANG_MAKLOON'].includes(r.kategori);
+    var isLegacyKat = r.kategori === 'PIUTANG' || isKatNota(r.kategori);
     if (isLegacyKat) {
       aksi += ' <button class="btn-sm-action" style="color:#c45a00;border-color:#f5c98a" onclick="bukaAlokLegacy(\'' + r.id + '\')">Legacy</button>';
     }
@@ -1529,7 +1528,7 @@ function bukaAlokAdmin(id) {
   aaSelectedId = id;
   var r = rowStore[id] || {};
   if (r.kategori === 'PIUTANG') { location.href = 'piutang.html#alokasitf'; return; }
-  if (r.kategori === 'HUTANG_BAHAN' || r.kategori === 'HUTANG_MAKLOON' || r.kategori === 'OPERASIONAL' || r.kategori === 'PEMELIHARAAN') {
+  if (isKatNota(r.kategori)) {
     bukaAlokHutang(id);
     return;
   }
