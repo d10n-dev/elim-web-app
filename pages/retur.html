@@ -256,8 +256,9 @@ document.addEventListener('DOMContentLoaded',function(){
 
 function esc(s){return escHtml(s);}
 function fmtTgl(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}
-function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
-function fmtRupiah(n){return'Rp '+Number(n||0).toLocaleString('id-ID');}
+// Tanpa pembulatan: desimal ditampilkan apa adanya (maks 6 digit)
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:6});}
+function fmtRupiah(n){return'Rp '+Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:6});}
 function genIdRetur(){var d=new Date();var px='RET'+String(d.getFullYear()).slice(-2)+String(d.getMonth()+1).padStart(2,'0');return px+Date.now().toString().slice(-6);}
 function genIdRdet(){var d=new Date();var px='RTD'+String(d.getFullYear()).slice(-2)+String(d.getMonth()+1).padStart(2,'0');return px+Date.now().toString().slice(-6)+Math.floor(Math.random()*100);}
 function genIdLogBJ(){return'LBJ'+Date.now()+Math.floor(Math.random()*1000);}

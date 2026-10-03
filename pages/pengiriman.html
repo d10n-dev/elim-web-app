@@ -501,8 +501,9 @@ document.addEventListener('DOMContentLoaded',function(){
 function esc(s){return escHtml(s);}
 function fmtTgl(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});}
 function fmtTglPanjang(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});}
-function fmtAngka(n){return Number(n||0).toLocaleString('id-ID');}
-function fmtRupiah(n){return 'Rp '+Number(n||0).toLocaleString('id-ID');}
+// Tanpa pembulatan: desimal ditampilkan apa adanya (maks 6 digit, nol di belakang tidak ditampilkan)
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:6});}
+function fmtRupiah(n){return 'Rp '+Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:6});}
 function showAlert(elId,pesan){document.getElementById(elId).innerHTML='<div class="alert-box alert-err">'+pesan+'</div>';}
 function cekErrorSupabase(res){
   if(!res){throw new Error('Tidak ada respon dari server.');}
@@ -846,7 +847,7 @@ function renderItemRows(){
       hint='<div class="sisa-hint sisa-ok">Sisa: '+fmtAngka(b.sisa)+(b.qtyPack>0?' | Oplah: '+fmtAngka(b.qtyPack):'')+'</div>';
     }
     var kolomHarga=isStok
-      ? '<input type="number" min="0" value="'+(b.harga||'')+'" placeholder="0" oninput="updateHargaManual('+i+',this.value)" style="font-family:var(--mono);font-size:.72rem;width:100%"/>'
+      ? '<input type="number" min="0" step="any" inputmode="decimal" value="'+(b.harga||'')+'" placeholder="0" oninput="updateHargaManual('+i+',this.value)" style="font-family:var(--mono);font-size:.72rem;width:100%"/>'
       : '<div style="font-family:var(--mono);font-size:.72rem">'+fmtRupiah(b.harga)+'</div>';
     return '<div class="item-row">'+
       '<div><div style="font-family:var(--mono);font-size:.72rem;font-weight:600">'+esc(b.namaItem)+'</div>'+
