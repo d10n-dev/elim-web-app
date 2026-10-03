@@ -265,10 +265,11 @@
   <!-- ============== TAB: TRACKING TRANSFER — transfer keluar → nota yang dibayar ============== -->
   <div class="tab-pane" id="tabTracktf">
     <div class="toolbar" style="flex-wrap:wrap">
-      <input type="date" id="ttDari" style="max-width:150px" onchange="muatTrackTransfer()"/>
+      <input type="date" id="ttDari" style="max-width:150px" onchange="ttSemuaTgl=false;muatTrackTransfer()"/>
       <span style="align-self:center;color:var(--muted);font-size:.72rem">s/d</span>
-      <input type="date" id="ttSampai" style="max-width:150px" onchange="muatTrackTransfer()"/>
-      <input type="text" class="form-control" id="ttCari" placeholder="🔍 Cari supplier / no. nota / keterangan bank…" autocomplete="off" oninput="renderTrackTransfer()" style="flex:1;min-width:180px"/>
+      <input type="date" id="ttSampai" style="max-width:150px" onchange="ttSemuaTgl=false;muatTrackTransfer()"/>
+      <button class="btn-outline" onclick="ttSemuaTanggal()" title="Cari di semua transfer, tanpa batas tanggal">Semua Tanggal</button>
+      <input type="text" class="form-control" id="ttCari" placeholder="🔍 Cari supplier / no. nota / keterangan / nominal…" autocomplete="off" oninput="renderTrackTransfer()" style="flex:1;min-width:180px"/>
       <label style="font-family:var(--mono);font-size:.7rem;align-self:center;white-space:nowrap"><input type="checkbox" id="ttSisa" onchange="renderTrackTransfer()"/> Hanya yang masih ada sisa</label>
     </div>
     <div class="info-bar" id="ttInfo">Memuat…</div>
@@ -1482,18 +1483,31 @@ function muatApproveHutang(){
 // TRACKING TRANSFER — transfer keluar (PEMBELIAN + kategori lama HUTANG/PEMELIHARAAN) → nota yang dibayar
 // ============================================================
 var ttData=[];
+var ttSemuaTgl=false;
+function ttSemuaTanggal(){
+  ttSemuaTgl=true;
+  document.getElementById('ttDari').value='';
+  document.getElementById('ttSampai').value='';
+  muatTrackTransfer();
+}
 function muatTrackTransfer(){
   var dEl=document.getElementById('ttDari'), sEl=document.getElementById('ttSampai');
-  if(!dEl.value){var d=new Date();d.setDate(d.getDate()-60);dEl.value=d.toISOString().slice(0,10);}
-  if(!sEl.value) sEl.value=new Date().toISOString().slice(0,10);
+  if(!ttSemuaTgl){
+    if(!dEl.value){var d=new Date();d.setDate(d.getDate()-60);dEl.value=d.toISOString().slice(0,10);}
+    if(!sEl.value) sEl.value=new Date().toISOString().slice(0,10);
+  }
   var info=document.getElementById('ttInfo'); info.textContent='Memuat…';
   var bank=[];
-  dbGet('in_bank_statement',{
+  var prm={
     select:'id,id_rekening,tgl_transaksi,keterangan_bank,kategori,nominal,sisa_nominal,status_alokasi,selisih_alokasi,keterangan_selisih',
     jenis:'eq.DB', kategori:'in.(PEMBELIAN,HUTANG_BAHAN,HUTANG_MAKLOON,PEMELIHARAAN)',
-    and:'(tgl_transaksi.gte.'+dEl.value+',tgl_transaksi.lte.'+sEl.value+')',
-    order:'tgl_transaksi.desc,id.desc', limit:2000
-  }).then(function(res){
+    order:'tgl_transaksi.desc,id.desc', limit:5000
+  };
+  var fTgl=[];
+  if(dEl.value) fTgl.push('tgl_transaksi.gte.'+dEl.value);
+  if(sEl.value) fTgl.push('tgl_transaksi.lte.'+sEl.value);
+  if(fTgl.length) prm.and='('+fTgl.join(',')+')';
+  dbGet('in_bank_statement',prm).then(function(res){
     if(!Array.isArray(res)) throw new Error(cekErrorSupabase(res)||'Gagal memuat transfer');
     bank=res;
     var ids=bank.map(function(b){return b.id;});
@@ -1514,16 +1528,23 @@ function muatTrackTransfer(){
 function renderTrackTransfer(){
   var q=(document.getElementById('ttCari').value||'').trim().toLowerCase();
   var hanyaSisa=document.getElementById('ttSisa').checked;
+  var qBersih=q.replace(/[.,\s]/g,'').replace(/^rp/,'');
+  var qDigit=/^\d+$/.test(qBersih)?qBersih:'';
+  var cocokNom=function(v){
+    if(!qDigit||v===null||v===undefined||v==='') return false;
+    var n=parseFloat(v); return !isNaN(n) && String(Math.trunc(n)).indexOf(qDigit)>=0;
+  };
   var data=ttData.filter(function(x){
     if(hanyaSisa && !(parseFloat(x.b.sisa_nominal)>0)) return false;
     if(!q) return true;
     if((x.b.keterangan_bank||'').toLowerCase().indexOf(q)>=0 || (x.b.id||'').toLowerCase().indexOf(q)>=0) return true;
-    return x.nota.some(function(a){return ((a.no_nota||'')+' '+(a.nama_supplier||'')).toLowerCase().indexOf(q)>=0;});
+    if(cocokNom(x.b.nominal)||cocokNom(x.b.sisa_nominal)) return true;
+    return x.nota.some(function(a){return ((a.no_nota||'')+' '+(a.nama_supplier||'')).toLowerCase().indexOf(q)>=0 || cocokNom(a.nominal_alokasi);});
   });
   var tot=data.reduce(function(s,x){return s+x.total;},0);
   document.getElementById('ttInfo').textContent=data.length+' transfer · '+data.reduce(function(s,x){return s+x.nota.length;},0)+' nota · total teralokasi '+fmtRupiah(tot);
   var wrap=document.getElementById('ttWrap');
-  if(!data.length){wrap.innerHTML='<div class="loading" style="padding:1rem">Tidak ada data pada rentang ini.</div>';return;}
+  if(!data.length){wrap.innerHTML='<div class="loading" style="padding:1rem">Tidak ada data'+(ttSemuaTgl?'':' pada rentang ini (coba "Semua Tanggal")')+'.</div>';return;}
   var isDir=isDirektur();
   var bolehAjukan=['ADMIN','MANAGER'].indexOf(getRoleUser())>=0;
   wrap.innerHTML=data.map(function(x){
@@ -1540,7 +1561,8 @@ function renderTrackTransfer(){
           aksi='<div style="margin-top:.2rem"><button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.12rem .4rem" onclick="ajukanBatalAlokHutang('+arg+')">Ajukan Batal</button></div>';
         }
       }
-      return '<div class="apv-row"><div><div class="n">'+esc(a.no_nota)+(a.status_alokasi!=='TERALOKASI'?' <span class="badge-status">'+esc(a.status_alokasi)+'</span>':'')+'</div>'+
+      var hitN=q && (((a.no_nota||'')+' '+(a.nama_supplier||'')).toLowerCase().indexOf(q)>=0 || cocokNom(a.nominal_alokasi));
+      return '<div class="apv-row"'+(hitN?' style="background:#fff3cd"':'')+'><div><div class="n">'+esc(a.no_nota)+(a.status_alokasi!=='TERALOKASI'?' <span class="badge-status">'+esc(a.status_alokasi)+'</span>':'')+'</div>'+
         '<div class="s">'+esc(a.nama_supplier)+' · oleh '+esc(a.dialokasi_oleh||'-')+'</div></div>'+
         '<div class="nom">'+fmtRupiah(a.nominal_alokasi)+aksi+'</div></div>';
     }).join('');

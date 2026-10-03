@@ -311,7 +311,8 @@
     <input type="date" id="tbTglSampai" onchange="muatTrackingBayar()" style="max-width:150px"/>
     <button class="btn-outline" onclick="setTbHariIni()">Hari Ini</button>
     <button class="btn-outline" onclick="document.getElementById('tbTglDari').value='';document.getElementById('tbTglSampai').value='';muatTrackingBayar();">Reset</button>
-    <select id="tbSumber" onchange="renderTrackingBayar()" style="margin-left:auto">
+    <input type="text" class="form-control" id="tbCari" placeholder="🔍 Cari pelanggan / no. nota / SJ / ref / nominal…" autocomplete="off" oninput="renderTrackingBayar()" style="flex:1;min-width:180px"/>
+    <select id="tbSumber" onchange="renderTrackingBayar()">
       <option value="">Semua Sumber</option>
       <option value="TRANSFER">Transfer</option>
       <option value="TUNAI">Tunai</option>
@@ -1021,31 +1022,58 @@ function muatTrackingBayar(){
     renderTrackingBayar();
   }).catch(function(e){document.getElementById('tbInfoBar').textContent='Error: '+(e&&e.message?e.message:JSON.stringify(e));});
 }
+// Pencarian teks + nominal (digit saja → cocokkan angka nominal, abaikan titik/koma)
+function tbCocokNominal(v,qDigit){
+  if(!qDigit||v===null||v===undefined||v==='') return false;
+  var n=parseFloat(v); if(isNaN(n)) return false;
+  return String(Math.trunc(n)).indexOf(qDigit)>=0;
+}
+function tbCocokNota(d,q,qDigit){
+  if(!q) return false;
+  var teks=((d.no_nota||'')+' '+(d.id_sj||'')+' '+(d.id_saldo||'')+' '+(d.nama_pelanggan||'')).toLowerCase();
+  return teks.indexOf(q)>=0 || tbCocokNominal(d.nominal_alokasi,qDigit);
+}
 function renderTrackingBayar(){
   var sumberF=document.getElementById('tbSumber').value;
-  var data=sumberF?tbDataCache.filter(function(r){return r.sumber===sumberF;}):tbDataCache;
-  document.getElementById('tbInfoBar').textContent=data.length+' pembayaran ditemukan.';
+  var q=(document.getElementById('tbCari').value||'').trim().toLowerCase();
+  var qBersih=q.replace(/[.,\s]/g,'').replace(/^rp/,'');
+  var qDigit=/^\d+$/.test(qBersih)?qBersih:'';
+  var data=[];
+  tbDataCache.forEach(function(r){
+    if(sumberF && r.sumber!==sumberF) return;
+    var detail=Array.isArray(r.detail_nota)?r.detail_nota:[];
+    if(!q){data.push({r:r,hit:{},buka:false});return;}
+    var hit={}, adaNota=false;
+    detail.forEach(function(d,k){ if(tbCocokNota(d,q,qDigit)){hit[k]=true;adaNota=true;} });
+    var headTeks=((r.no_ref||'')+' '+(r.keterangan||'')).toLowerCase();
+    var cocokHead=headTeks.indexOf(q)>=0 || tbCocokNominal(r.nominal_total,qDigit);
+    if(cocokHead||adaNota) data.push({r:r,hit:hit,buka:adaNota});
+  });
+  var totNom=data.reduce(function(s,x){return s+(parseFloat(x.r.nominal_total)||0);},0);
+  document.getElementById('tbInfoBar').textContent=data.length+' pembayaran ditemukan · total '+fmtRupiah(totNom)+(q?' · nota cocok disorot kuning':'');
   var tb=document.getElementById('tbTbody');
   if(!data.length){tb.innerHTML='<tr><td colspan="7" class="loading">Tidak ada data.</td></tr>';return;}
   var lblSumber={TRANSFER:'🏦 Transfer',TUNAI:'💵 Tunai',LEGACY:'📜 Legacy'};
-  tb.innerHTML=data.map(function(r,i){
+  tb.innerHTML=data.map(function(x,i){
+    var r=x.r;
     var detail=Array.isArray(r.detail_nota)?r.detail_nota:[];
-    var detailRows=detail.map(function(d){
-      return '<tr style="background:#f7f8fa"><td colspan="3"></td>'+
+    var detailRows=detail.map(function(d,k){
+      var bg=x.hit[k]?'#fff3cd':'#f7f8fa';
+      return '<tr style="background:'+bg+'"><td colspan="3"></td>'+
         '<td class="td-mono" style="font-size:.7rem">'+esc(d.no_nota||d.id_sj||d.id_saldo||'—')+'</td>'+
         '<td class="td-mono" style="font-size:.7rem">'+esc(d.nama_pelanggan||'')+'</td>'+
         '<td class="td-mono td-right" style="font-size:.7rem">'+fmtRupiah(d.nominal_alokasi)+'</td>'+
         '<td>'+aksiBatalTB(r,d)+'</td></tr>';
     }).join('');
     return '<tr style="cursor:pointer" onclick="toggleDetailTB('+i+')">'+
-      '<td>▸</td>'+
+      '<td>'+(x.buka?'▾':'▸')+'</td>'+
       '<td class="td-mono">'+(lblSumber[r.sumber]||r.sumber)+'</td>'+
       '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
       '<td colspan="2">'+esc(r.no_ref||'—')+' — '+esc(r.keterangan||'')+'</td>'+
       '<td class="td-mono td-right">'+fmtRupiah(r.nominal_total)+'</td>'+
       '<td class="td-mono td-right" style="font-weight:600">'+r.jumlah_nota+'</td>'+
     '</tr>'+
-    '<tr id="tbDetail'+i+'" style="display:none"><td colspan="7" style="padding:0"><table style="width:100%">'+detailRows+'</table></td></tr>';
+    '<tr id="tbDetail'+i+'" style="display:'+(x.buka?'':'none')+'"><td colspan="7" style="padding:0"><table style="width:100%">'+detailRows+'</table></td></tr>';
   }).join('');
 }
 // Batal alokasi transfer yang SUDAH diapprove (per nota) — Direktur + PIN + alasan
