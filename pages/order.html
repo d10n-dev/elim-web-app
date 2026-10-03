@@ -636,9 +636,9 @@ function simpanOrder(){
   var btn=document.getElementById('btnSimpan');
   btn.disabled=true;btn.textContent='Menyimpan…';
 
-  var idOrder=genIdOrder();
+  // ID order dibuat SERVER (trigger trg_in_order_gen_id) — atomik, anti bentrok antar device/cache basi.
+  var idOrder=null;
   var rowOrder={
-    id_order:idOrder,
     id_pelanggan:idPelanggan,
     nama_pelanggan:namaPelanggan,
     no_po:document.getElementById('inputNoPo').value.trim(),
@@ -651,9 +651,18 @@ function simpanOrder(){
     entitas:entitas
   };
 
-  dbInsert('in_order', rowOrder).then(function(res){
-    if(res&&res.code) throw new Error(res.message);
-    // Insert detail
+  // POST tanpa auto-retry jaringan (arg ke-3 = true): retry POST non-idempoten bisa bikin order dobel.
+  dbFetch(SUPA_URL+'/rest/v1/in_order',{
+    method:'POST',
+    headers:{'Prefer':'return=representation'},
+    body:JSON.stringify(rowOrder)
+  },true).catch(function(e){
+    var err=new Error('Koneksi terputus saat menyimpan. Cek daftar order dulu (bisa jadi sudah tersimpan) sebelum simpan ulang.');
+    err.cekDaftar=true; throw err;
+  }).then(function(res){
+    cekErrorSupabase(res);
+    idOrder=Array.isArray(res)&&res[0]?res[0].id_order:null;
+    if(!idOrder) throw new Error('ID order tidak kembali dari server.');
     var details=items.map(function(it){
       return {
         id_detail: genIdDetail(),
@@ -670,10 +679,16 @@ function simpanOrder(){
         status_spk:'BELUM'
       };
     });
-    // Insert detail satu per satu untuk hindari constraint race
     return details.reduce(function(p,det){
-      return p.then(function(){ return dbInsert('in_order_detail',det); });
-    }, Promise.resolve());
+      return p.then(function(){ return dbInsert('in_order_detail',det).then(cekErrorSupabase); });
+    }, Promise.resolve()).catch(function(e){
+      // Detail gagal → buang header+detail parsial supaya tidak ada order yatim.
+      var id=idOrder; idOrder=null;
+      return dbDelete('in_order_detail',{id_order:'eq.'+id})
+        .then(function(){ return dbDelete('in_order',{id_order:'eq.'+id}); })
+        .catch(function(){})
+        .then(function(){ throw new Error('Detail gagal disimpan, order dibatalkan: '+(e.message||'Error')); });
+    });
   }).then(function(){
     bootstrap.Modal.getInstance(document.getElementById('modalTambah')).hide();
     return dbGet('in_order',{order:'tgl_order.desc'});
@@ -683,6 +698,10 @@ function simpanOrder(){
   }).catch(function(e){
     tampilAlert('Gagal: '+(e.message||'Error'));
     btn.disabled=false;btn.textContent='Simpan Order';
+    // Selalu refresh cache supaya tampilan sinkron dengan DB
+    dbGet('in_order',{order:'tgl_order.desc'}).then(function(r){
+      if(Array.isArray(r)){semuaOrder=r;renderTabel(semuaOrder);}
+    }).catch(function(){});
   });
 }
 
