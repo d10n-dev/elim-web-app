@@ -143,8 +143,14 @@
         <option value="SUDAH">Semua item sudah dialokasikan</option>
       </select>
       <input type="text" class="form-control" id="rkCari" placeholder="🔍 Cari no. nota / supplier…" autocomplete="off" oninput="renderRekap()" style="flex:1;min-width:180px"/>
+      <span style="align-self:center;font-family:var(--mono);font-size:.7rem;color:var(--muted);white-space:nowrap">Tgl Nota:</span>
+      <input type="date" id="rkTglDari" onchange="renderRekap()" style="max-width:150px"/>
+      <span style="align-self:center;color:var(--muted);font-size:.72rem">s/d</span>
+      <input type="date" id="rkTglSampai" onchange="renderRekap()" style="max-width:150px"/>
+      <button class="btn-outline" onclick="rkBulanIni()">Bulan Ini</button>
       <button class="btn-outline" onclick="resetFilterRekap()">Reset</button>
     </div>
+    <div class="info-bar" id="rkInfo"></div>
     <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -1677,7 +1683,23 @@ function resetFilterRekap(){
   document.getElementById('rkStatus').value='';
   document.getElementById('rkAlokasi').value='';
   document.getElementById('rkCari').value='';
+  document.getElementById('rkTglDari').value='';
+  document.getElementById('rkTglSampai').value='';
   muatRekap();
+}
+// Tanggal lokal (WIB) yyyy-mm-dd — aman untuk kolom date maupun timestamptz
+function rkTglLokal(s){
+  if(!s) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var d=new Date(s); if(isNaN(d)) return String(s).slice(0,10);
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+function rkBulanIni(){
+  var d=new Date();
+  var awal=new Date(d.getFullYear(),d.getMonth(),1), akhir=new Date(d.getFullYear(),d.getMonth()+1,0);
+  document.getElementById('rkTglDari').value=rkTglLokal(awal.toString());
+  document.getElementById('rkTglSampai').value=rkTglLokal(akhir.toString());
+  renderRekap();
 }
 
 var semuaRekap=[];
@@ -1709,14 +1731,26 @@ function renderRekap(){
   var tbody=document.getElementById('rekapTbody');
   var q=(document.getElementById('rkCari')||{value:''}).value.trim().toLowerCase();
   var filterAlokasi=(document.getElementById('rkAlokasi')||{value:''}).value;
+  var tDari=(document.getElementById('rkTglDari')||{value:''}).value;
+  var tSampai=(document.getElementById('rkTglSampai')||{value:''}).value;
+  if(tDari&&tSampai&&tDari>tSampai){var tx=tDari;tDari=tSampai;tSampai=tx;}
   var data=semuaRekap.filter(function(r){
     var cocokCari=!q || (r.no_nota||'').toLowerCase().indexOf(q)>=0 || (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
     var cocokAlokasi=true;
     if(filterAlokasi==='BELUM') cocokAlokasi=!!r._ada_belum_alokasi;
     if(filterAlokasi==='SUDAH') cocokAlokasi=!r._ada_belum_alokasi;
-    return cocokCari && cocokAlokasi;
+    var cocokTgl=true;
+    if(tDari||tSampai){
+      var t=rkTglLokal(r.tgl_pembelian);
+      if(tDari && t<tDari) cocokTgl=false;
+      if(tSampai && t>tSampai) cocokTgl=false;
+    }
+    return cocokCari && cocokAlokasi && cocokTgl;
   });
-  if(!data.length){ tbody.innerHTML='<tr><td colspan="10" class="loading">'+(q||filterAlokasi?'Tidak ada hasil dgn filter ini.':'Tidak ada data.')+'</td></tr>'; return; }
+  var sum=function(k){return data.reduce(function(s,r){return s+(parseFloat(r[k])||0);},0);};
+  var infoEl=document.getElementById('rkInfo');
+  if(infoEl) infoEl.textContent=data.length+' nota · Tagihan '+fmtRupiah(sum('total_tagihan'))+' · Dibayar '+fmtRupiah(sum('total_dibayar'))+' · Sisa '+fmtRupiah(sum('sisa_hutang'));
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="10" class="loading">'+(q||filterAlokasi||tDari||tSampai?'Tidak ada hasil dgn filter ini.':'Tidak ada data.')+'</td></tr>'; return; }
   rekapStore={};
   data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
   tbody.innerHTML=data.map(function(r){
