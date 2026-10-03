@@ -445,7 +445,7 @@
 var semuaSPK=[], semuaOrdDtl=[], sdetAktif=[], daftarItem=[], semuaOperator=[];
 var filterAktif='OPEN', idSpkAktif=null, itemDipilih=null, maxPpsForm=0, tabLogAktif='CETAK';
 var poByOrder={}, searchSpk='';
-var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]}, _bahanMap={}, _tintaMap={}, _pelangganMapPrint={};
+var _closingPerluApprove=false, _spkPrint=null, _sdetPrint=[], _finPrint=[], _bomPrint={bahan:[],tinta:[]}, _bahanMap={}, _tintaMap={}, _pelangganMapPrint={}, _poMapPrint={};
 var roleUser='', isMPGlobal=false, isDirekturGlobal=false, _reprintInfoSpk=null;
 // Accordion + edit mode
 var rowStore={}, sdetBySpk={}, pelangganByOrder={}, openSpkId=null, editModeSpk=null, idSpkReviewLebih=null;
@@ -570,6 +570,12 @@ function muatOrderDetail(){
         SATUAN:d.satuan||ppsInfo.satuan, PPS:ppsInfo.pps
       };
     }).filter(function(d){ return d.QTY_SISA>0||itemDenganKomponenSet[d.ID_ITEM]; });
+    var idOrdPicker=Array.from(new Set(semuaOrdDtl.map(function(d){return d.ID_ORDER;}).filter(Boolean)));
+    if(!idOrdPicker.length) return;
+    return dbGet('in_order',{id_order:'in.('+idOrdPicker.join(',')+')',select:'id_order,no_po'}).then(function(ro){
+      var mp={}; (Array.isArray(ro)?ro:[]).forEach(function(o){mp[o.id_order]=o.no_po||'';});
+      semuaOrdDtl.forEach(function(d){d.NO_PO=mp[d.ID_ORDER]||'';});
+    });
   }).catch(function(){});
 }
 
@@ -648,14 +654,14 @@ function renderAccordionBody(spk,sdet){
   else{
     html+='<div class="section-divider">Daftar Item</div>'+
       '<div style="overflow-x:auto"><table class="sdet-table"><thead><tr>'+
-      '<th>#</th><th>Pelanggan</th><th>ID Order</th><th>Item</th><th>Subitem</th><th style="text-align:right">PPS</th><th style="text-align:right">QTY SPK</th><th>Sat</th><th style="text-align:right">Pack</th>'+
+      '<th>#</th><th>Pelanggan</th><th>ID Order / PO</th><th>Item</th><th>Subitem</th><th style="text-align:right">PPS</th><th style="text-align:right">QTY SPK</th><th>Sat</th><th style="text-align:right">Pack</th>'+
       '</tr></thead><tbody>';
     sdet.forEach(function(r,i){
       var pct=r.qty_spk>0?Math.min(Math.round((r.qty_pack/r.qty_spk)*100),100):0;
       html+='<tr>'+
         '<td style="color:var(--muted);font-family:var(--mono);font-size:.68rem">'+(i+1)+'</td>'+
         '<td style="font-size:.72rem">'+esc(pelangganByOrder[r.id_order]||'—')+'</td>'+
-        '<td class="td-mono" style="font-size:.68rem">'+esc(r.id_order)+'</td>'+
+        '<td class="td-mono" style="font-size:.68rem">'+esc(r.id_order)+'<div style="font-weight:700">PO: '+esc(poByOrder[r.id_order]||'—')+'</div></td>'+
         '<td style="font-size:.78rem">'+esc(r.nama_item)+'</td>'+
         '<td class="td-mono" style="font-size:.68rem">'+esc(r.subitem||'—')+'</td>'+
         '<td class="td-mono" style="text-align:right">'+fmtAngka(r.pps)+'</td>'+
@@ -769,7 +775,7 @@ function initAcItem(){
       if(maxPpsForm>0&&parseInt(d.PPS,10)!==maxPpsForm) return false;
       if(!itemDenganKomponenSet[d.ID_ITEM]&&daftarItem.some(function(it){return it.idDetail===d.ID_DETAIL;})) return false;
       return (d.ID_DETAIL||'').toLowerCase().includes(q)||(d.ID_ORDER||'').toLowerCase().includes(q)||
-             (d.NAMA_ITEM||'').toLowerCase().includes(q)||(d.SUBITEM||'').toLowerCase().includes(q);
+             (d.NAMA_ITEM||'').toLowerCase().includes(q)||(d.SUBITEM||'').toLowerCase().includes(q)||(d.NO_PO||'').toLowerCase().includes(q);
     }).slice(0,30);
     renderAC(dropEl,data,inputEl);
   });
@@ -792,7 +798,7 @@ function renderAC(dropEl,data,inputEl){
       var saranPps=(oplah>0&&oplahSat>0)?Math.floor(qtySisa/oplahSat):0;
       var div=document.createElement('div');
       div.className='ac-item';
-      div.innerHTML='<span class="ac-item-id">'+esc(d.ID_ORDER)+' · '+esc(d.ID_DETAIL)+'</span>'+
+      div.innerHTML='<span class="ac-item-id">'+esc(d.ID_ORDER)+' · '+esc(d.ID_DETAIL)+' · PO: '+esc(d.NO_PO||'—')+'</span>'+
         '<span class="ac-item-nama">'+esc(d.NAMA_ITEM)+(d.SUBITEM?' <span class="ac-item-sub">'+esc(d.SUBITEM)+'</span>':'')+'</span>'+
         '<span class="ac-item-pps">QTY Sisa: '+fmtAngka(qtySisa)+' '+esc(d.SATUAN)+(saranPps>0?' | Saran PPS: <strong>'+saranPps+'</strong>':'')+'</span>';
       div.addEventListener('mousedown',function(e){e.preventDefault();pilihItem(d,inputEl,dropEl);});
@@ -2114,13 +2120,13 @@ function printSPK(){
   _spkPrint=spk; _sdetPrint=sdetAktif;
   var idItem=sdetAktif.length?sdetAktif[0].id_item:null;
   var idOrderList=Array.from(new Set(sdetAktif.map(function(r){return r.id_order;}).filter(Boolean)));
-  var pelangganPromise=idOrderList.length?dbGet('in_order',{id_order:'in.('+idOrderList.join(',')+')',select:'id_order,nama_pelanggan'}):Promise.resolve([]);
+  var pelangganPromise=idOrderList.length?dbGet('in_order',{id_order:'in.('+idOrderList.join(',')+')',select:'id_order,nama_pelanggan,no_po'}):Promise.resolve([]);
   if(!idItem){
     _finPrint=[];_bomPrint={bahan:[],tinta:[]};
     pelangganPromise.then(function(ro){
-      _pelangganMapPrint={}; (Array.isArray(ro)?ro:[]).forEach(function(o){_pelangganMapPrint[o.id_order]=o.nama_pelanggan;});
+      _pelangganMapPrint={}; _poMapPrint={}; (Array.isArray(ro)?ro:[]).forEach(function(o){_pelangganMapPrint[o.id_order]=o.nama_pelanggan;_poMapPrint[o.id_order]=o.no_po||'';});
       setPrintSpkBtn(false,'🔍 Preview SPK');prosesLog();
-    }).catch(function(){_pelangganMapPrint={};setPrintSpkBtn(false,'🔍 Preview SPK');prosesLog();});
+    }).catch(function(){_pelangganMapPrint={};_poMapPrint={};setPrintSpkBtn(false,'🔍 Preview SPK');prosesLog();});
     return;
   }
   Promise.all([
@@ -2135,11 +2141,11 @@ function printSPK(){
     _bomPrint={tinta:Array.isArray(r[1])?r[1]:[],bahan:Array.isArray(r[2])?r[2]:[]};
     _bahanMap={}; (Array.isArray(r[3])?r[3]:[]).forEach(function(b){_bahanMap[b.id_bahan]=b.nama_bahan;});
     _tintaMap={}; (Array.isArray(r[4])?r[4]:[]).forEach(function(t){_tintaMap[t.id_tinta]=t.nama_tinta;});
-    _pelangganMapPrint={}; (Array.isArray(r[5])?r[5]:[]).forEach(function(o){_pelangganMapPrint[o.id_order]=o.nama_pelanggan;});
+    _pelangganMapPrint={}; _poMapPrint={}; (Array.isArray(r[5])?r[5]:[]).forEach(function(o){_pelangganMapPrint[o.id_order]=o.nama_pelanggan;_poMapPrint[o.id_order]=o.no_po||'';});
     setPrintSpkBtn(false,'🔍 Preview SPK');
     prosesLog();
   }).catch(function(){
-    _finPrint=[];_bomPrint={bahan:[],tinta:[]};_bahanMap={};_tintaMap={};_pelangganMapPrint={};
+    _finPrint=[];_bomPrint={bahan:[],tinta:[]};_bahanMap={};_tintaMap={};_pelangganMapPrint={};_poMapPrint={};
     setPrintSpkBtn(false,'🔍 Preview SPK');
     prosesLog();
   });
@@ -2295,7 +2301,7 @@ function renderDanCetak(printKe){
   var totPps=0,totQty=0;
   sdet.forEach(function(r){totPps+=parseInt(r.pps,10)||0;totQty+=parseInt(r.qty_spk,10)||0;});
   function tdRow(){return '<table style="width:100%;border-collapse:collapse;margin-bottom:0"><thead><tr>'+
-    '<th style="'+tdC+';background:#eee;width:22px">#</th><th style="'+tdC+';background:#eee">ID Order</th>'+
+    '<th style="'+tdC+';background:#eee;width:22px">#</th><th style="'+tdC+';background:#eee">ID Order / No. PO</th>'+
     '<th style="'+tdC+';background:#eee">Pelanggan</th>'+
     '<th style="'+tdC+';background:#eee">Item</th><th style="'+tdC+';background:#eee">Subitem</th>'+
     '<th style="'+tdC+';background:#eee;text-align:right">PPS</th><th style="'+tdC+';background:#eee;text-align:right">QTY</th>'+
@@ -2303,7 +2309,7 @@ function renderDanCetak(printKe){
     '</tr></thead><tbody>';}
   function tblRow(r,i){var bg=i%2===0?'':'background:#f8f8f8;';
     return '<tr style="'+bg+'"><td style="'+tdC+';color:#888;font-size:8.5pt">'+(i+1)+'</td>'+
-      '<td style="'+tdC+'">'+esc(r.id_order)+'</td>'+
+      '<td style="'+tdC+'">'+esc(r.id_order)+'<div style="font-size:9pt;font-weight:700;word-break:break-word">PO: '+esc(_poMapPrint[r.id_order]||'—')+'</div></td>'+
       '<td style="'+tdC+'">'+esc(_pelangganMapPrint[r.id_order]||'')+'</td>'+
       '<td style="'+tdC+'">'+esc(r.nama_item)+'</td>'+
       '<td style="'+tdC+'">'+esc(r.subitem||'')+'</td><td style="'+tdC+';text-align:right">'+esc(r.pps)+'</td>'+
