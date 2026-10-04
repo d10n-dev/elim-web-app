@@ -257,6 +257,7 @@
       </select>
       <input type="text" id="kkCari" placeholder="🔍 Cari deskripsi…" oninput="renderKasKecil()" style="flex:1;min-width:160px;font-size:.78rem;font-family:var(--mono);border:1px solid var(--border);border-radius:5px;padding:.35rem .6rem"/>
     </div>
+    <div id="kkUsulan"></div>
     <div class="info-bar" id="kkInfo">Memuat…</div>
 
     <div class="tbl-wrap">
@@ -1342,7 +1343,41 @@ var kkSelectedId = null;
 var kkRowStore = {};
 
 var kkDataCache = [];
+// Usulan otomatis pasangan bank ↔ TOPUP (Fase 2 Okt 2026): nominal sama,
+// tgl bank -1..+3 hari dari ACC kode; PENGGANTIAN = top-up dana pribadi Direktur.
+async function muatUsulanTopup() {
+  var el = document.getElementById('kkUsulan');
+  if (!el) return;
+  var rows = await dbRpc('get_usulan_link_topup', {});
+  if (!Array.isArray(rows) || !rows.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="info-bar" style="background:#e8f0fe;color:#1a56db">💡 ' + rows.length + ' usulan pasangan otomatis</div>' +
+    '<div class="tbl-wrap" style="margin-bottom:.75rem"><table><thead><tr>' +
+    '<th>Bank</th><th>Top-up</th><th class="td-right">Nominal</th><th></th></tr></thead><tbody>' +
+    rows.map(function(u){
+      return '<tr>' +
+        '<td class="td-mono" style="font-size:.7rem">' + h(u.id_bank) + '<br>' + fmtTgl(u.tgl_bank) + '<br><span style="color:var(--muted)">' + h(u.keterangan_bank) + '</span></td>' +
+        '<td class="td-mono" style="font-size:.7rem">' + h(u.no_kasmasuk) + (u.id_topup ? '<br>' + h(u.id_topup) : '') +
+          (u.kode_tarik ? ' · kode ' + h(u.kode_tarik) : '') + '<br>' + fmtTgl(u.tgl_topup) +
+          (u.jenis_usulan === 'PENGGANTIAN' ? '<br><b style="color:var(--red)">Penggantian dana pribadi</b>' : ' (selisih ' + u.selisih_hari + ' hr)') + '</td>' +
+        '<td class="td-right"><span class="keluar-val">' + fmtRp(u.nominal) + '</span></td>' +
+        '<td><button class="btn-sm-action btn-alokasi" onclick="linkUsulanTopup(this,\'' + h(u.id_bank) + '\',\'' + h(u.id_kasmasuk) + '\')">Link</button></td>' +
+        '</tr>';
+    }).join('') + '</tbody></table></div>';
+}
+
+async function linkUsulanTopup(btn, idBank, idKasmasuk) {
+  btn.disabled = true;
+  var res = await dbRpc('link_kaskecil_ke_bank', { p_id_bank_stmt: idBank, p_id_kasmasuk: idKasmasuk, p_user: getUser() });
+  var err = cekErrorSupabase(res);
+  if (!err && res && res.status === 'error') err = res.message;
+  if (err) { alert('Gagal: ' + err); btn.disabled = false; return; }
+  muatRekap();
+  muatKasKecilAlok();
+  if (typeof refreshNotifNav === 'function') refreshNotifNav();
+}
+
 async function muatKasKecilAlok() {
+  muatUsulanTopup();
   var rek = document.getElementById('kkRekening').value;
   document.getElementById('kkTbody').innerHTML = '<tr><td colspan="5" class="loading">Memuat…</td></tr>';
   var rows = await dbRpc('get_bank_kaskecil_tersedia', { p_id_rekening: rek || null });

@@ -307,9 +307,15 @@ function muatNotifNav(force) {
       }
     } catch (e) { /* abaikan cache rusak */ }
   }
-  return dbRpc('get_notif_pending', {})
-    .then(function (res) {
+  // get_notif_kas_kecil (top-up kas kecil, Okt 2026) digabung; kalau RPC-nya belum ada → diabaikan
+  const pKas = dbRpc('get_notif_kas_kecil', {})
+    .then(function (r) { return Array.isArray(r) ? r : []; })
+    .catch(function () { return []; });
+  return Promise.all([dbRpc('get_notif_pending', {}), pKas])
+    .then(function (hasil) {
+      let res = hasil[0];
       if (!Array.isArray(res)) throw new Error('notif tidak tersedia');
+      res = res.concat(hasil[1]);
       _notifRows = res; _notifTs = Date.now();
       try { sessionStorage.setItem(_notifKey(), JSON.stringify({ ts: _notifTs, rows: res })); } catch (e) {}
       renderNotifNav();

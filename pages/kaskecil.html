@@ -40,6 +40,21 @@
     .btn-outline:hover{border-color:var(--navy);}
     .btn-sm-action{font-family:var(--mono);font-size:.68rem;padding:.25rem .55rem;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;}
     .btn-approve{color:var(--green);border-color:var(--green-bd);}
+    .tu-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.65rem .8rem;margin-bottom:.55rem;}
+    .tu-card.tu-perlu{border-left:4px solid var(--orange);}
+    .tu-head{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;}
+    .tu-id{font-family:var(--mono);font-size:.7rem;color:var(--muted);}
+    .tu-nom{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--navy);}
+    .tu-kep{font-size:.8rem;margin:.2rem 0;}
+    .tu-meta{font-family:var(--mono);font-size:.65rem;color:var(--muted);line-height:1.5;}
+    .tu-kode{font-family:var(--mono);font-size:1.35rem;font-weight:700;letter-spacing:.18em;color:var(--navy);background:#fff8e1;border:1px dashed #e0b400;border-radius:6px;padding:.3rem .6rem;display:inline-block;margin:.35rem 0;}
+    .tu-act{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.45rem;}
+    .tu-badge{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.15rem .45rem;border-radius:3px;white-space:nowrap;display:inline-block;margin-left:.2rem;}
+    .tb-abu{background:#f0f2f6;color:var(--muted);}
+    .tb-kuning{background:#fff3cd;color:#856404;}
+    .tb-hijau{background:var(--green-bg);color:var(--green);}
+    .tb-merah{background:#fdecea;color:var(--red);}
+    .tb-biru{background:#e8f0fe;color:#1a56db;}
     .akses-blocked{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
     .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
     .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
@@ -54,6 +69,7 @@
   <!-- ============== TAB NAV ============== -->
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="mutasi" onclick="gantiTab('mutasi')">📋 Mutasi</button>
+    <button class="tab-btn" data-tab="topup" onclick="gantiTab('topup')">💰 Top-up</button>
     <button class="tab-btn" data-tab="kasbon" onclick="gantiTab('kasbon')">⏳ Kasbon Pending</button>
     <button class="tab-btn" data-tab="batal" onclick="gantiTab('batal')">🚫 Persetujuan Batal</button>
     <button class="tab-btn" data-tab="golongan" onclick="gantiTab('golongan')">🏷️ Golongan</button>
@@ -67,7 +83,6 @@
     </div>
 
     <div class="toolbar">
-      <button class="btn-tambah" onclick="bukaKasMasuk()">+ Kas Masuk</button>
       <button class="btn-tambah" style="background:var(--navy)" onclick="bukaKasKeluarLangsung()">+ Keluar Langsung</button>
       <button class="btn-tambah" style="background:#856404" onclick="bukaKasbon()">+ Kasbon</button>
     </div>
@@ -105,6 +120,25 @@
   </div>
 
   <!-- ============== TAB: KASBON PENDING ============== -->
+  <!-- ============== TAB: TOP-UP (pengajuan → kode tarik → konfirmasi) ============== -->
+  <div class="tab-pane" id="tabTopup">
+    <div class="info-bar" id="tuPemegangBar">Memuat…</div>
+    <div class="toolbar" id="tuSetPemegangWrap" style="display:none">
+      <select id="tuPemegangSel" style="flex:1;min-width:160px"></select>
+      <button class="btn-outline" onclick="simpanPemegangKas(this)">Simpan Pemegang</button>
+    </div>
+    <div class="toolbar" style="margin-top:.4rem">
+      <button class="btn-tambah" id="tuBtnAjukan" style="display:none" onclick="bukaAjukanTopup()">+ Ajukan Top-up</button>
+      <button class="btn-tambah" id="tuBtnLangsung" style="display:none;background:var(--navy)" onclick="bukaAccTopup(null)">+ Top-up Langsung</button>
+      <select id="tuFilter" onchange="muatTopup()">
+        <option value="AKTIF">Perlu proses</option>
+        <option value="SEMUA">Semua (300 terakhir)</option>
+      </select>
+    </div>
+    <div class="info-bar" id="tuInfoBar">Memuat…</div>
+    <div id="tuList"></div>
+  </div>
+
   <div class="tab-pane" id="tabKasbon">
     <div class="info-bar" id="kbInfoBar">Memuat data…</div>
     <div class="tbl-wrap">
@@ -349,7 +383,7 @@
         <input type="hidden" id="hidTabelBatal"/>
         <input type="hidden" id="hidIdTransaksiBatal"/>
         <div class="alert alert-warning py-2" style="font-size:.75rem">
-          Transaksi <b id="lblNoTransaksiBatal"></b> tidak akan dihapus, tapi diajukan batal. Status baru efektif (saldo terkoreksi) setelah disetujui Manager.
+          Transaksi <b id="lblNoTransaksiBatal"></b> tidak akan dihapus, tapi diajukan batal. Status baru efektif (saldo terkoreksi) setelah disetujui Direktur.
         </div>
         <div class="mb-2">
           <label class="form-label">Alasan Pembatalan *</label>
@@ -362,6 +396,74 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- MODAL AJUKAN TOP-UP -->
+<div class="modal fade" id="modalAjukanTopup" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title">Ajukan Top-up Kas Kecil</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertAjukanTopup"></div>
+      <div class="mb-2"><label class="form-label">Nominal *</label><input type="number" class="form-control" id="inpTuNominal" min="1"/></div>
+      <div class="mb-2"><label class="form-label">Keperluan *</label><input type="text" class="form-control" id="inpTuKeperluan" placeholder="mis. operasional minggu ini, beli solar…"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      <button class="btn-navy" onclick="submitAjukanTopup(this)">Ajukan</button>
+    </div>
+  </div></div>
+</div>
+<!-- MODAL ACC / TOP-UP LANGSUNG (Direktur) -->
+<div class="modal fade" id="modalAccTopup" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title" id="lblAccTopupJudul">ACC Top-up</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertAccTopup"></div>
+      <div id="accTopupInfo" style="font-size:.78rem;margin-bottom:.5rem"></div>
+      <div class="mb-2" id="wrapAccKeperluan"><label class="form-label">Keperluan *</label><input type="text" class="form-control" id="inpAccKeperluan"/></div>
+      <div class="mb-2"><label class="form-label">Nominal *</label><input type="number" class="form-control" id="inpAccNominal" min="1"/></div>
+      <div class="mb-2"><label class="form-label">Kode Tarik Tunai (dari rekening DK) *</label>
+        <input type="text" inputmode="numeric" class="form-control" id="inpAccKode" placeholder="6 digit" style="font-family:var(--mono);letter-spacing:.15em"/></div>
+      <div class="alert alert-warning py-2" style="font-size:.72rem">Pastikan kode dibuat dari rekening <b>BCA DK</b>, bukan rekening pribadi. Kode hanya terlihat oleh pemegang kas &amp; Direktur.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      <button class="btn-navy" onclick="submitAccTopup(this)">Simpan &amp; ACC</button>
+    </div>
+  </div></div>
+</div>
+<!-- MODAL KONFIRMASI SUDAH DITARIK (pemegang kas) -->
+<div class="modal fade" id="modalTarikTopup" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title">Konfirmasi Sudah Ditarik</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertTarikTopup"></div>
+      <div id="tarikTopupInfo" style="font-size:.78rem;margin-bottom:.5rem"></div>
+      <div class="mb-2"><label class="form-label">Tanggal Tarik *</label><input type="date" class="form-control" id="inpTarikTgl"/></div>
+      <div class="mb-2"><label class="form-label">Nominal Diterima (uang fisik) *</label><input type="number" class="form-control" id="inpTarikNominal" min="1"/></div>
+      <div style="font-size:.72rem;color:var(--muted)">Setelah disimpan, saldo kas kecil otomatis bertambah sebagai Top-up.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      <button class="btn-navy" onclick="submitTarikTopup(this)">Sudah Ditarik</button>
+    </div>
+  </div></div>
+</div>
+<!-- MODAL ALASAN (tolak / batalkan kode / salah rekening) -->
+<div class="modal fade" id="modalAlasanTopup" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title" id="lblAlasanTopupJudul">Alasan</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertAlasanTopup"></div>
+      <div id="alasanTopupInfo" style="font-size:.78rem;margin-bottom:.5rem"></div>
+      <label class="form-label">Alasan *</label>
+      <textarea class="form-control" id="inpAlasanTopup" rows="3"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      <button class="btn-navy" style="background:var(--red)" onclick="submitAlasanTopup(this)">Simpan</button>
+    </div>
+  </div></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -394,7 +496,15 @@ window.addEventListener('load', async function () {
     document.getElementById('btnTabPenyesuaian').style.display='';
   }
   muatSemuaData();
+  bukaTabDariHash();
+  window.addEventListener('hashchange', bukaTabDariHash);
 });
+
+// Deep link dari lonceng notifikasi: kaskecil.html#topup
+function bukaTabDariHash(){
+  var tab=(location.hash||'').replace('#','');
+  if(tab && document.querySelector('.tab-btn[data-tab="'+tab+'"]')) gantiTab(tab);
+}
 
 function gantiTab(tab){
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===tab);});
@@ -409,6 +519,7 @@ function muatSemuaData(){
   muatKasbonPending();
   muatPengajuanBatal();
   muatGolongan();
+  muatTopup();
   if (isDirektur()) muatPenyesuaian();
 }
 
@@ -527,6 +638,229 @@ function renderRiwayatFiltered(){
 function badgeJenis(j){
   var lbl={TOPUP:'Top-up',KEMBALIAN_KASBON:'Kembalian',LANGSUNG:'Keluar Langsung',KASBON:'Kasbon',PENYESUAIAN:'Penyesuaian'}[j]||j;
   return '<span class="badge-jenis j-'+j.toLowerCase()+'">'+lbl+'</span>';
+}
+
+// ============================================================
+// TAB: TOP-UP KAS KECIL (Fase 2, Okt 2026)
+// Alur: ajukan (pemegang kas/Manager) → ACC + kode tarik (Direktur)
+//       → "Sudah Ditarik" (pemegang kas) = kas masuk TOPUP otomatis
+//       → link ke mutasi DK di bank.html (Direktur)
+// Kode tarik hanya dikirim server ke Direktur & pemegang kas.
+// ============================================================
+var tuInfo=null, tuCache={}, tuAksi=null;
+
+var TU_STATUS={
+  MENUNGGU_ACC:['Menunggu ACC','tb-kuning'], DISETUJUI:['Siap ditarik','tb-biru'],
+  DITOLAK:['Ditolak','tb-merah'], BATAL:['Kode dibatalkan','tb-merah'],
+  TERVERIFIKASI:['Terverifikasi bank','tb-hijau'], SIAP_LINK:['Siap di-link (bank)','tb-biru'],
+  MENUNGGU_MUTASI:['Menunggu mutasi','tb-abu'], MENUNGGU_POSTING:['Ada di mutasi, belum diposting','tb-kuning'],
+  TIDAK_ADA_DI_MUTASI:['Tidak ada di mutasi DK','tb-merah'], MENUNGGU_PENGGANTIAN:['Dana pribadi — belum diganti','tb-merah']
+};
+function badgeTu(st){var b=TU_STATUS[st]||[st,'tb-abu'];return '<span class="tu-badge '+b[1]+'">'+esc(b[0])+'</span>';}
+function tglJam(s){return s?new Date(s).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'-';}
+function errTu(elId,msg){showAlert(elId,esc(msg));}
+
+async function muatTopup(){
+  document.getElementById('tuInfoBar').textContent='Memuat…';
+  try{
+    if(!tuInfo){
+      var inf=await dbRpc('get_info_topup',{});
+      if(inf && !inf.code) tuInfo=inf;
+    }
+    renderPemegangBar();
+    var res=await dbRpc('get_daftar_topup',{p_filter:document.getElementById('tuFilter').value});
+    var err=cekErrorSupabase(Array.isArray(res)?{}:res);
+    if(err) throw new Error(err);
+    renderTopup(Array.isArray(res)?res:[]);
+  }catch(e){
+    document.getElementById('tuInfoBar').textContent='Gagal memuat top-up: '+e.message;
+  }
+}
+
+function renderPemegangBar(){
+  var bar=document.getElementById('tuPemegangBar');
+  if(!tuInfo){bar.textContent='Fitur top-up belum aktif (SQL Fase 2 belum dijalankan).';return;}
+  bar.innerHTML='Pemegang kas kecil: <b>'+esc(tuInfo.pemegang_nama||'— belum ditetapkan —')+'</b>'+
+    (tuInfo.is_pemegang?' (Anda)':'');
+  var bolehAjukan=tuInfo.is_pemegang||tuInfo.role==='MANAGER'||tuInfo.is_direktur;
+  document.getElementById('tuBtnAjukan').style.display=bolehAjukan&&!tuInfo.is_direktur?'':'none';
+  document.getElementById('tuBtnLangsung').style.display=tuInfo.is_direktur?'':'none';
+  if(tuInfo.is_direktur && !document.getElementById('tuPemegangSel').options.length){
+    document.getElementById('tuSetPemegangWrap').style.display='';
+    dbRpc('get_user_kas_kecil',{}).then(function(rows){
+      rows=Array.isArray(rows)?rows:[];
+      document.getElementById('tuPemegangSel').innerHTML='<option value="">Pilih pemegang kas…</option>'+
+        rows.map(function(u){return '<option value="'+esc(u.email)+'"'+(u.email===tuInfo.pemegang_email?' selected':'')+'>'+esc(u.nama||u.email)+' ('+esc(u.role)+')</option>';}).join('');
+    });
+  }
+}
+
+async function simpanPemegangKas(btn){
+  var email=document.getElementById('tuPemegangSel').value;
+  if(!email){alert('Pilih user dulu.');return;}
+  if(!confirm('Tetapkan pemegang kas kecil ke user ini? Hanya dia yang bisa melihat kode & konfirmasi tarik tunai.'))return;
+  btn.disabled=true;
+  try{
+    var res=await dbRpc('set_pemegang_kas_kecil',{p_email:email});
+    var err=cekErrorSupabase(res); if(err) throw new Error(err);
+    tuInfo=null; muatTopup();
+  }catch(e){alert('Gagal: '+e.message);}
+  finally{btn.disabled=false;}
+}
+
+function renderTopup(rows){
+  var perlu=0;
+  var html=rows.map(function(r){
+    tuCache[r.id_topup]=r;
+    var st=r.status==='DITERIMA'?r.status_verif:r.status;
+    var aksi=[];
+    var dir=tuInfo&&tuInfo.is_direktur, pmg=tuInfo&&tuInfo.is_pemegang;
+    if(dir && r.status==='MENUNGGU_ACC'){
+      aksi.push('<button class="btn-sm-action btn-approve" onclick="bukaAccTopup(\''+esc(r.id_topup)+'\')">ACC + Kode</button>');
+      aksi.push('<button class="btn-sm-action" style="color:var(--red)" onclick="bukaAlasanTopup(\'tolak\',\''+esc(r.id_topup)+'\')">Tolak</button>');
+    }
+    if(dir && r.status==='DISETUJUI'){
+      aksi.push('<button class="btn-sm-action" onclick="bukaAccTopup(\''+esc(r.id_topup)+'\')">Ganti Kode</button>');
+      aksi.push('<button class="btn-sm-action" style="color:var(--red)" onclick="bukaAlasanTopup(\'tolak\',\''+esc(r.id_topup)+'\')">Batalkan Kode</button>');
+    }
+    if(pmg && r.status==='DISETUJUI'){
+      aksi.push('<button class="btn-sm-action btn-approve" onclick="bukaTarikTopup(\''+esc(r.id_topup)+'\')">✓ Sudah Ditarik</button>');
+    }
+    if(dir && r.status==='DITERIMA' && ['TIDAK_ADA_DI_MUTASI','MENUNGGU_MUTASI','MENUNGGU_POSTING'].indexOf(r.status_verif)>=0){
+      aksi.push('<button class="btn-sm-action" style="color:var(--red)" onclick="bukaAlasanTopup(\'salah\',\''+esc(r.id_topup)+'\')">Salah Rekening (dana pribadi)</button>');
+    }
+    if(dir && r.status==='DITERIMA' && (r.status_verif==='SIAP_LINK'||r.status_verif==='MENUNGGU_PENGGANTIAN')){
+      aksi.push('<a class="btn-sm-action" style="text-decoration:none" href="bank.html#kaskecil">Link di Bank →</a>');
+    }
+    var butuh=aksi.length>0 && st!=='MENUNGGU_PENGGANTIAN';
+    if(butuh) perlu++;
+    var nom=r.nominal_diterima||r.nominal_acc||r.nominal_ajuan;
+    var lama=(r.status==='DISETUJUI' && Number(r.jam_sejak_acc)>24)?' <span class="tu-badge tb-merah">'+esc(String(r.jam_sejak_acc))+' jam</span>':'';
+    return '<div class="tu-card'+(butuh?' tu-perlu':'')+'">'+
+      '<div class="tu-head"><div><div class="tu-id">'+esc(r.id_topup)+badgeTu(st)+lama+'</div>'+
+      '<div class="tu-kep">'+esc(r.keperluan||'')+'</div></div>'+
+      '<div class="tu-nom">'+fmtRupiah(nom)+'</div></div>'+
+      (r.status==='DISETUJUI'&&r.kode_tarik?'<div class="tu-kode">'+esc(r.kode_tarik)+'</div>':'')+
+      '<div class="tu-meta">Diajukan '+tglJam(r.tgl_ajukan)+' · '+esc(r.diajukan_oleh)+
+        (r.tgl_acc?'<br>ACC '+tglJam(r.tgl_acc)+' · '+fmtRupiah(r.nominal_acc)+(r.status!=='DISETUJUI'&&r.kode_tarik?' · kode '+esc(r.kode_tarik):''):'')+
+        (r.tgl_terima?'<br>Ditarik '+tglJam(r.tgl_terima)+' · '+fmtRupiah(r.nominal_diterima)+' · '+esc(r.no_kasmasuk||''):'')+
+        (r.id_bank_statement?'<br>Bank: '+esc(r.id_bank_statement):'')+
+        (r.alasan_tolak?'<br>Alasan: '+esc(r.alasan_tolak):'')+
+        (r.salah_rekening?'<br>Salah rekening: '+esc(r.alasan_salah_rekening||''):'')+
+      '</div>'+
+      (aksi.length?'<div class="tu-act">'+aksi.join('')+'</div>':'')+
+    '</div>';
+  }).join('');
+  document.getElementById('tuList').innerHTML=html||'<div class="loading">Tidak ada top-up yang perlu diproses ✓</div>';
+  document.getElementById('tuInfoBar').textContent=rows.length+' top-up'+(perlu?' · '+perlu+' perlu tindakan Anda':'');
+}
+
+function selesaiAksiTopup(modalId){
+  if(modalId) bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+  muatTopup(); muatSaldoCards(); muatRiwayat();
+  if(typeof refreshNotifNav==='function') refreshNotifNav();
+}
+
+// ── Ajukan ──
+function bukaAjukanTopup(){
+  document.getElementById('alertAjukanTopup').innerHTML='';
+  document.getElementById('inpTuNominal').value='';
+  document.getElementById('inpTuKeperluan').value='';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjukanTopup')).show();
+}
+async function submitAjukanTopup(btn){
+  var nom=parseFloat(document.getElementById('inpTuNominal').value)||0;
+  var kep=document.getElementById('inpTuKeperluan').value.trim();
+  if(nom<=0){errTu('alertAjukanTopup','Nominal harus lebih dari 0.');return;}
+  if(!kep){errTu('alertAjukanTopup','Keperluan wajib diisi.');return;}
+  btn.disabled=true;
+  try{
+    var res=await dbRpc('ajukan_topup',{p_nominal:nom,p_keperluan:kep});
+    var err=cekErrorSupabase(res); if(err) throw new Error(err);
+    selesaiAksiTopup('modalAjukanTopup');
+  }catch(e){errTu('alertAjukanTopup','Gagal: '+e.message);}
+  finally{btn.disabled=false;}
+}
+
+// ── ACC / Ganti kode / Top-up langsung (Direktur) ──
+function bukaAccTopup(id){
+  tuAksi={id:id};
+  var r=id?tuCache[id]:null;
+  document.getElementById('alertAccTopup').innerHTML='';
+  document.getElementById('lblAccTopupJudul').textContent=!id?'Top-up Langsung':(r.status==='DISETUJUI'?'Ganti Kode Tarik':'ACC Top-up');
+  document.getElementById('wrapAccKeperluan').style.display=id?'none':'';
+  document.getElementById('inpAccKeperluan').value='';
+  document.getElementById('accTopupInfo').innerHTML=r?('<b>'+esc(r.id_topup)+'</b> · '+esc(r.keperluan||'')+'<br>Diajukan '+fmtRupiah(r.nominal_ajuan)+' oleh '+esc(r.diajukan_oleh)):'';
+  document.getElementById('inpAccNominal').value=r?(r.nominal_acc||r.nominal_ajuan):'';
+  document.getElementById('inpAccKode').value='';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAccTopup')).show();
+}
+async function submitAccTopup(btn){
+  var nom=parseFloat(document.getElementById('inpAccNominal').value)||0;
+  var kode=document.getElementById('inpAccKode').value.replace(/\s/g,'');
+  var kep=document.getElementById('inpAccKeperluan').value.trim();
+  if(nom<=0){errTu('alertAccTopup','Nominal harus lebih dari 0.');return;}
+  if(!/^[0-9]{4,10}$/.test(kode)){errTu('alertAccTopup','Kode tarik tunai harus angka 4–10 digit.');return;}
+  if(!tuAksi.id && !kep){errTu('alertAccTopup','Keperluan wajib diisi.');return;}
+  btn.disabled=true;
+  try{
+    var res=await dbRpc('acc_topup',{p_id_topup:tuAksi.id,p_nominal:nom,p_kode_tarik:kode,p_keperluan:kep||null});
+    var err=cekErrorSupabase(res); if(err) throw new Error(err);
+    selesaiAksiTopup('modalAccTopup');
+  }catch(e){errTu('alertAccTopup','Gagal: '+e.message);}
+  finally{btn.disabled=false;}
+}
+
+// ── Sudah ditarik (pemegang kas) ──
+function bukaTarikTopup(id){
+  tuAksi={id:id};
+  var r=tuCache[id];
+  document.getElementById('alertTarikTopup').innerHTML='';
+  document.getElementById('tarikTopupInfo').innerHTML='<b>'+esc(r.id_topup)+'</b> · kode <b style="font-family:var(--mono)">'+esc(r.kode_tarik||'')+'</b><br>ACC '+fmtRupiah(r.nominal_acc)+' · '+esc(r.keperluan||'');
+  document.getElementById('inpTarikTgl').value=new Date(Date.now()+7*3600e3).toISOString().slice(0,10);
+  document.getElementById('inpTarikNominal').value=r.nominal_acc;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTarikTopup')).show();
+}
+async function submitTarikTopup(btn){
+  var r=tuCache[tuAksi.id];
+  var tgl=document.getElementById('inpTarikTgl').value;
+  var nom=parseFloat(document.getElementById('inpTarikNominal').value)||0;
+  if(!tgl){errTu('alertTarikTopup','Tanggal wajib diisi.');return;}
+  if(nom<=0){errTu('alertTarikTopup','Nominal harus lebih dari 0.');return;}
+  if(Math.round(nom)!==Math.round(Number(r.nominal_acc)) &&
+     !confirm('Nominal diterima ('+fmtRupiah(nom)+') beda dengan ACC ('+fmtRupiah(r.nominal_acc)+'). Lanjut simpan?'))return;
+  btn.disabled=true;
+  try{
+    var res=await dbRpc('konfirmasi_tarik_topup',{p_id_topup:tuAksi.id,p_nominal_diterima:nom,p_tgl:tgl});
+    var err=cekErrorSupabase(res); if(err) throw new Error(err);
+    selesaiAksiTopup('modalTarikTopup');
+  }catch(e){errTu('alertTarikTopup','Gagal: '+e.message);}
+  finally{btn.disabled=false;}
+}
+
+// ── Tolak / batalkan kode / salah rekening (Direktur) ──
+function bukaAlasanTopup(jenis,id){
+  tuAksi={id:id,jenis:jenis};
+  var r=tuCache[id];
+  var judul={tolak:(r.status==='DISETUJUI'?'Batalkan Kode Tarik':'Tolak Pengajuan'),salah:'Tandai Salah Rekening (Dana Pribadi)'}[jenis];
+  document.getElementById('lblAlasanTopupJudul').textContent=judul;
+  document.getElementById('alertAlasanTopup').innerHTML='';
+  document.getElementById('inpAlasanTopup').value='';
+  document.getElementById('alasanTopupInfo').innerHTML='<b>'+esc(r.id_topup)+'</b> · '+fmtRupiah(r.nominal_diterima||r.nominal_acc||r.nominal_ajuan)+
+    (jenis==='salah'?'<br><span style="color:var(--red)">Top-up ini dicatat sebagai <b>hutang perusahaan ke Direktur</b> sampai diganti lewat transfer DK (kategori KAS_KECIL) ke rekening Anda, lalu di-link di halaman Bank.</span>':'');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlasanTopup')).show();
+}
+async function submitAlasanTopup(btn){
+  var alasan=document.getElementById('inpAlasanTopup').value.trim();
+  if(!alasan){errTu('alertAlasanTopup','Alasan wajib diisi.');return;}
+  btn.disabled=true;
+  try{
+    var fn=tuAksi.jenis==='salah'?'tandai_salah_rekening_topup':'tolak_topup';
+    var res=await dbRpc(fn,{p_id_topup:tuAksi.id,p_alasan:alasan});
+    var err=cekErrorSupabase(res); if(err) throw new Error(err);
+    selesaiAksiTopup('modalAlasanTopup');
+  }catch(e){errTu('alertAlasanTopup','Gagal: '+e.message);}
+  finally{btn.disabled=false;}
 }
 
 // ============================================================
@@ -807,7 +1141,7 @@ function toggleStatusGolongan(idGol,sedangAktif){
 }
 
 // ============================================================
-// PEMBATALAN TRANSAKSI (void + approval Manager)
+// PEMBATALAN TRANSAKSI (void + approval Direktur)
 // ============================================================
 function bukaAjukanBatal(tabel,idTransaksi,noTransaksi){
   document.getElementById('hidTabelBatal').value=tabel;
@@ -841,7 +1175,7 @@ async function submitAjukanBatal(btn){
 }
 
 // ============================================================
-// TAB: PERSETUJUAN BATAL (Manager/Direktur)
+// TAB: PERSETUJUAN BATAL (Direktur)
 // ============================================================
 function muatPengajuanBatal(){
   document.getElementById('bpInfoBar').textContent='Memuat data…';
@@ -849,13 +1183,13 @@ function muatPengajuanBatal(){
     var data=Array.isArray(res)?res:[];
     document.getElementById('bpInfoBar').textContent=data.length+' pengajuan menunggu persetujuan.';
     var tb=document.getElementById('bpTbody');
-    var bolehApprove=isManager()||isDirektur();
+    var bolehApprove=isDirektur(); // 4 Okt 2026: koreksi kas kecil wajib Direktur
     if(!data.length){tb.innerHTML='<tr><td colspan="8" class="loading">Tidak ada pengajuan pembatalan.</td></tr>';return;}
     tb.innerHTML=data.map(function(r){
       var aksi=bolehApprove
         ? '<button class="btn-sm-action btn-approve" onclick="prosesApproveBatal(\''+esc(r.tabel)+'\',\''+esc(r.id_transaksi)+'\',true)">Setuju</button>'+
           ' <button class="btn-sm-action" style="color:var(--red);border-color:#f5a9a0" onclick="prosesApproveBatal(\''+esc(r.tabel)+'\',\''+esc(r.id_transaksi)+'\',false)">Tolak</button>'
-        : '<span style="font-size:.68rem;color:var(--muted)">Menunggu Manager</span>';
+        : '<span style="font-size:.68rem;color:var(--muted)">Menunggu Direktur</span>';
       return '<tr>'+
         '<td class="td-mono">'+esc(r.no_transaksi)+'</td>'+
         '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
