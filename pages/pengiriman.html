@@ -95,6 +95,12 @@
     <option value="PT">PT Elim</option>
     <option value="DK">DK Offset</option>
   </select>
+  <span class="filter-tgl" style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">
+    <input type="date" id="filterTglDari" title="Tanggal SJ dari" onchange="filterTabel()" style="font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.36rem .4rem;background:var(--bg);color:var(--text)"/>
+    <span style="font-size:.75rem;color:var(--muted,#777)">s/d</span>
+    <input type="date" id="filterTglSampai" title="Tanggal SJ sampai" onchange="filterTabel()" style="font-size:.8rem;border:1px solid var(--border);border-radius:6px;padding:.36rem .4rem;background:var(--bg);color:var(--text)"/>
+    <button class="btn-outline" type="button" onclick="resetFilterTgl()" title="Hapus filter tanggal" style="padding:.3rem .55rem">✕</button>
+  </span>
   <button class="btn-tambah" onclick="bukaBuatPengiriman()">+ Buat Pengiriman</button>
   <button class="btn-outline" onclick="bukaCariTracing()">🔍 Cari Item/PO</button>
   <button class="btn-outline" id="btnAntrianCetak" onclick="bukaAntrianCetak()">🖨 Antrian Cetak PC<span id="badgeAntrian" style="display:none"></span></button>
@@ -602,7 +608,7 @@ function muatSJ(){
   document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading">Memuat…</td></tr>';
   return dbGet('in_pengiriman',{order:'no_sj.desc'}).then(function(res){
     semuaSJ=Array.isArray(res)?res:[];
-    renderTabel(semuaSJ);
+    filterTabel();
   }).catch(function(){
     document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
   });
@@ -617,7 +623,13 @@ function sjMenungguPengganti(){
 function renderTabel(data){
   var nPengganti=sjMenungguPengganti().length;
   var info=document.getElementById('infoBar');
-  info.innerHTML=(filterKirimUlang?'<b>Filter: nota revisi perlu dikirim ulang</b> <a href="#" onclick="hapusFilterKirimUlang();return false;">[tampilkan semua]</a> &nbsp;·&nbsp; ':'')+esc(data.length+' SJ ditemukan')+(nPengganti?' &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600">⚠ '+nPengganti+' SJ void menunggu SJ pengganti</span>':'');
+  var tglD=document.getElementById('filterTglDari').value, tglS=document.getElementById('filterTglSampai').value;
+  var infoTgl='';
+  if(tglD||tglS){
+    var totAktif=0;data.forEach(function(r){if(!r.is_void)totAktif+=Number(r.total||0);});
+    infoTgl='<b>Tgl '+esc(tglD?fmtTgl(tglD):'awal')+' s/d '+esc(tglS?fmtTgl(tglS):'akhir')+'</b> · Total (non-void): <b>'+esc(fmtRupiah(totAktif))+'</b> &nbsp;·&nbsp; ';
+  }
+  info.innerHTML=infoTgl+(filterKirimUlang?'<b>Filter: nota revisi perlu dikirim ulang</b> <a href="#" onclick="hapusFilterKirimUlang();return false;">[tampilkan semua]</a> &nbsp;·&nbsp; ':'')+esc(data.length+' SJ ditemukan')+(nPengganti?' &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600">⚠ '+nPengganti+' SJ void menunggu SJ pengganti</span>':'');
   if(!data.length){document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading">Belum ada data pengiriman.</td></tr>';return;}
   document.getElementById('tbodySJ').innerHTML=data.map(function(r){
     var stCls='s-'+(r.status||'').toLowerCase().replace(/_/g,'-');
@@ -635,13 +647,29 @@ function renderTabel(data){
   }).join('');
 }
 
+// tanggal SJ -> 'YYYY-MM-DD' waktu lokal (aman untuk kolom date maupun timestamptz)
+function tglKeYMD(s){
+  if(!s)return'';s=String(s);
+  if(s.length<=10)return s;
+  var d=new Date(s);if(isNaN(d))return s.slice(0,10);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function resetFilterTgl(){
+  document.getElementById('filterTglDari').value='';
+  document.getElementById('filterTglSampai').value='';
+  filterTabel();
+}
 function filterTabel(){
   var q=document.getElementById('cariInput').value.toLowerCase();
+  var tD=document.getElementById('filterTglDari').value;
+  var tS=document.getElementById('filterTglSampai').value;
+  if(tD&&tS&&tD>tS){var tmp=tD;tD=tS;tS=tmp;}
   var st=document.getElementById('filterStatus').value;
   var ent=document.getElementById('filterEntitas').value;
   renderTabel(semuaSJ.filter(function(r){
     var hay=(r.no_sj+' '+r.no_nota+' '+r.nama_pelanggan).toLowerCase();
-    return(!q||hay.indexOf(q)>=0)&&(!st||r.status===st)&&(!ent||r.entitas===ent)&&(!filterKirimUlang||filterKirimUlang[r.id_sj]);
+    var tg=tglKeYMD(r.tgl);
+    return(!q||hay.indexOf(q)>=0)&&(!tD||tg>=tD)&&(!tS||tg<=tS)&&(!st||r.status===st)&&(!ent||r.entitas===ent)&&(!filterKirimUlang||filterKirimUlang[r.id_sj]);
   }));
 }
 
