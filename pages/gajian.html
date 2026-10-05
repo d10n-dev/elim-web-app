@@ -1350,7 +1350,7 @@ const BCA_PAYROLL = {
   corpId: 'CITRAELIMO',
   rekAsal: '0158001414',
   rekBiaya: '0158001414',
-  validasiNama: 'Y'   // Y = nama penerima diverifikasi BCA, beda nama -> transaksi ditolak
+  validasiNama: ''    // kosong = sama dgn file payroll yg terbukti berhasil (Y = verifikasi nama, gagal otorisasi 05-10-2026)
 };
 const BLN3_BCA = ['JAN','FEB','MAR','APR','MEI','JUN','JUL','AGU','SEP','OKT','NOV','DES'];
 const BLN3_EN  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1368,7 +1368,8 @@ function beritaPayroll(jenis) {
 function itemsPayroll(rows, fieldNominal) {
   const items = [], dilewati = [];
   rows.forEach(r => {
-    const nominal = Math.round(Number(r[fieldNominal] || 0) * 100) / 100;
+    // dibulatkan KE ATAS ke rupiah penuh (keputusan Direktur 05-10-2026)
+    const nominal = Math.ceil(Math.round(Number(r[fieldNominal] || 0) * 100) / 100 - 1e-9);
     const nama = bcaBersih(r.nama_lengkap || r.nama);
     if (!(nominal > 0)) { dilewati.push(nama || r.nip); return; }
     items.push({ nip: r.nip || '', no_rek: String(r.no_rek || '').replace(/\D/g, ''), nama, nominal });
@@ -1377,7 +1378,7 @@ function itemsPayroll(rows, fieldNominal) {
 }
 
 function unduhTxtPayrollBca(res, jenis) {
-  const berita = beritaPayroll(jenis);
+  const berita = '';  // dikosongkan, sama dgn file yg terbukti berhasil
   const baris = [];
   // Header: 0|PY|SD|B|CorpID|HeaderID|DepHeaderID|YYYYMMDD|Jam|RekAsal|OUR|RekBiaya|Berita1|Berita2|ValidasiNama
   baris.push(['0','PY','SD','B', BCA_PAYROLL.corpId, res.header_id, '', res.tgl_efektif, res.jam,
