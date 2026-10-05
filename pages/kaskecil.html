@@ -55,6 +55,15 @@
     .tb-hijau{background:var(--green-bg);color:var(--green);}
     .tb-merah{background:#fdecea;color:var(--red);}
     .tb-biru{background:#e8f0fe;color:#1a56db;}
+    .kk-status{border:1px solid var(--border);border-radius:8px;padding:.6rem .8rem;margin-bottom:.75rem;font-size:.78rem;background:var(--surface);}
+    .kk-status.merah{border-color:#f5a9a0;background:#fdf3f2;}
+    .kk-status.kuning{border-color:#f5d78a;background:#fffaeb;}
+    .kk-status .baris{display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:center;}
+    .foto-grid{display:flex;gap:.4rem;flex-wrap:wrap;margin:.4rem 0;}
+    .foto-grid img{width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer;}
+    .btn-foto-kurang{color:var(--red)!important;border-color:#f5a9a0!important;font-weight:600;}
+    .rv-sec{margin-top:.9rem;}
+    .rv-sec h6{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;color:var(--navy);margin-bottom:.35rem;}
     .akses-blocked{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1.5rem;text-align:center;}
     .akses-blocked .ic{font-size:2.5rem;margin-bottom:.75rem;}
     .akses-blocked h3{font-size:1rem;color:var(--navy);margin-bottom:.4rem;}
@@ -70,9 +79,11 @@
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="mutasi" onclick="gantiTab('mutasi')">📋 Mutasi</button>
     <button class="tab-btn" data-tab="topup" onclick="gantiTab('topup')">💰 Top-up</button>
+    <button class="tab-btn" data-tab="closing" onclick="gantiTab('closing')">🔒 Closing</button>
     <button class="tab-btn" data-tab="kasbon" onclick="gantiTab('kasbon')">⏳ Kasbon Pending</button>
     <button class="tab-btn" data-tab="batal" onclick="gantiTab('batal')">🚫 Persetujuan Batal</button>
     <button class="tab-btn" data-tab="golongan" onclick="gantiTab('golongan')">🏷️ Golongan</button>
+    <button class="tab-btn" data-tab="review" id="btnTabReview" onclick="gantiTab('review')" style="display:none">📊 Review</button>
     <button class="tab-btn" data-tab="penyesuaian" id="btnTabPenyesuaian" onclick="gantiTab('penyesuaian')" style="display:none">🛠️ Penyesuaian</button>
   </div>
 
@@ -82,6 +93,7 @@
       <div class="rekap-card"><div class="lbl">Saldo Kas Kecil</div><div class="val">…</div></div>
     </div>
 
+    <div id="kkStatusBar"></div>
     <div class="toolbar">
       <button class="btn-tambah" style="background:var(--navy)" onclick="bukaKasKeluarLangsung()">+ Keluar Langsung</button>
       <button class="btn-tambah" style="background:#856404" onclick="bukaKasbon()">+ Kasbon</button>
@@ -139,6 +151,20 @@
     <div id="tuList"></div>
   </div>
 
+  <!-- ============== TAB: CLOSING (hitung fisik → ACC Manager) ============== -->
+  <div class="tab-pane" id="tabClosing">
+    <div class="toolbar">
+      <button class="btn-tambah" id="clBtnAjukan" style="display:none" onclick="bukaClosing()">🔒 Closing Kas Sekarang</button>
+    </div>
+    <div class="info-bar" id="clInfoBar">Memuat…</div>
+    <div id="clList"></div>
+  </div>
+
+  <!-- ============== TAB: REVIEW MINGGUAN (Direktur) ============== -->
+  <div class="tab-pane" id="tabReview">
+    <div id="rvIsi"><div class="loading">Memuat…</div></div>
+  </div>
+
   <div class="tab-pane" id="tabKasbon">
     <div class="info-bar" id="kbInfoBar">Memuat data…</div>
     <div class="tbl-wrap">
@@ -154,6 +180,10 @@
 
   <!-- ============== TAB: PERSETUJUAN BATAL ============== -->
   <div class="tab-pane" id="tabBatal">
+    <div class="sec-label">Koreksi transaksi yang sudah closing</div>
+    <div class="info-bar" id="krInfoBar">Memuat data…</div>
+    <div id="krList"></div>
+    <div class="sec-label">Pengajuan batal</div>
     <div class="info-bar" id="bpInfoBar">Memuat data…</div>
     <div class="tbl-wrap">
       <table>
@@ -295,6 +325,11 @@
           <div class="mb-2"><label class="form-label">Golongan *</label><select class="form-select" id="inpGolonganLangsung"></select></div>
           <div class="mb-2"><label class="form-label">Nominal *</label><input type="number" class="form-control" id="inpNominalLangsung"/></div>
           <div class="mb-2"><label class="form-label">Keterangan</label><input type="text" class="form-control" id="inpKetLangsung" placeholder="Untuk apa…"/></div>
+          <div class="mb-2"><label class="form-label">Foto Nota * <span style="font-weight:400;color:var(--muted)">(wajib mulai 6 Okt 2026)</span></label>
+            <input type="file" class="form-control" id="inpFotoLangsung" accept="image/*" capture="environment"/></div>
+          <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkTanpaNotaLangsung" onchange="document.getElementById('wrapTanpaNotaLangsung').style.display=this.checked?'':'none'"/>
+            <label class="form-check-label" for="chkTanpaNotaLangsung" style="font-size:.78rem">Tidak ada nota</label></div>
+          <div class="mb-2" id="wrapTanpaNotaLangsung" style="display:none"><input type="text" class="form-control" id="inpAlasanTanpaNotaLangsung" placeholder="Alasan tidak ada nota (wajib)"/></div>
         </form>
       </div>
       <div class="modal-footer">
@@ -355,6 +390,11 @@
           <div class="mb-2"><label class="form-label">Golongan *</label><select class="form-select" id="inpGolonganRealisasi"></select></div>
           <div class="mb-2"><label class="form-label">Nominal Terpakai Riil *</label><input type="number" class="form-control" id="inpNominalRealisasi" oninput="hitungSisaKembali()"/></div>
           <div class="mb-2"><label class="form-label">Keterangan Realisasi *</label><input type="text" class="form-control" id="inpKetRealisasi" placeholder="Dipakai untuk apa…"/></div>
+          <div class="mb-2"><label class="form-label">Foto Nota * <span style="font-weight:400;color:var(--muted)">(wajib mulai 6 Okt 2026)</span></label>
+            <input type="file" class="form-control" id="inpFotoRealisasi" accept="image/*" capture="environment"/></div>
+          <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="chkTanpaNotaRealisasi" onchange="document.getElementById('wrapTanpaNotaRealisasi').style.display=this.checked?'':'none'"/>
+            <label class="form-check-label" for="chkTanpaNotaRealisasi" style="font-size:.78rem">Tidak ada nota</label></div>
+          <div class="mb-2" id="wrapTanpaNotaRealisasi" style="display:none"><input type="text" class="form-control" id="inpAlasanTanpaNotaRealisasi" placeholder="Alasan tidak ada nota (wajib)"/></div>
           <div class="mb-2" id="wrapSisaKembali" style="display:none">
             <div class="alert alert-success py-2" style="font-size:.78rem;margin:0">
               Sisa kembali ke kas: <b id="lblSisaKembali">Rp 0</b> (otomatis tercatat sbg kas masuk)
@@ -396,6 +436,80 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- MODAL CLOSING (hitung uang fisik) -->
+<div class="modal fade" id="modalClosing" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title">Closing Kas Kecil</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertClosing"></div>
+      <div style="font-size:.8rem;margin-bottom:.5rem">Saldo menurut sistem: <b id="lblClSaldoSistem" style="font-family:var(--mono)">…</b></div>
+      <div class="mb-2"><label class="form-label">Uang fisik dihitung *</label><input type="number" class="form-control" id="inpClFisik" min="0" oninput="hitungSelisihClosing()"/></div>
+      <div id="lblClSelisih" style="font-family:var(--mono);font-size:.8rem;margin-bottom:.5rem"></div>
+      <div class="mb-2" id="wrapClAlasan" style="display:none"><label class="form-label">Alasan selisih *</label><textarea class="form-control" id="inpClAlasan" rows="2"></textarea></div>
+      <div style="font-size:.72rem;color:var(--muted)">Setelah diajukan, Manager ikut menghitung uang fisik lalu ACC. Semua transaksi sampai saat ini terkunci; perubahan berikutnya wajib Ajukan Koreksi (ACC Direktur).</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      <button class="btn-navy" onclick="submitClosing(this)">Ajukan Closing</button>
+    </div>
+  </div></div>
+</div>
+<!-- MODAL CATATAN (ACC/tolak closing, tinjau selisih, putus koreksi, selesai review) -->
+<div class="modal fade" id="modalCatatanKK" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title" id="lblCatatanKKJudul">Catatan</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertCatatanKK"></div>
+      <div id="catatanKKInfo" style="font-size:.78rem;margin-bottom:.5rem"></div>
+      <label class="form-label" id="lblCatatanKKField">Catatan</label>
+      <textarea class="form-control" id="inpCatatanKK" rows="3"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      <button class="btn-navy" id="btnCatatanKK" onclick="submitCatatanKK(this)">Simpan</button>
+    </div>
+  </div></div>
+</div>
+<!-- MODAL EDIT / KOREKSI TRANSAKSI -->
+<div class="modal fade" id="modalEditKas" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title" id="lblEditKasJudul">Edit Transaksi</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertEditKas"></div>
+      <div id="editKasInfo" style="font-size:.78rem;margin-bottom:.5rem"></div>
+      <div class="mb-2"><label class="form-label">Tanggal *</label><input type="date" class="form-control" id="inpEkTgl"/></div>
+      <div class="mb-2"><label class="form-label">Penerima *</label><input type="text" class="form-control" id="inpEkPenerima"/></div>
+      <div class="mb-2" id="wrapEkGolongan"><label class="form-label">Golongan *</label><select class="form-select" id="inpEkGolongan"></select></div>
+      <div class="mb-2"><label class="form-label">Nominal *</label><input type="number" class="form-control" id="inpEkNominal" min="1"/></div>
+      <div class="mb-2"><label class="form-label">Keterangan</label><input type="text" class="form-control" id="inpEkKet"/></div>
+      <div class="mb-2" id="wrapEkAlasan" style="display:none"><label class="form-label">Alasan koreksi *</label><textarea class="form-control" id="inpEkAlasan" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+      <button class="btn-navy" id="btnEditKas" onclick="submitEditKas(this)">Simpan</button>
+    </div>
+  </div></div>
+</div>
+<!-- MODAL FOTO NOTA -->
+<div class="modal fade" id="modalFotoKas" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><span class="modal-title">Foto Nota</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="alertFotoKas"></div>
+      <div id="fotoKasInfo" style="font-size:.78rem;margin-bottom:.4rem"></div>
+      <div class="foto-grid" id="fotoKasGrid"></div>
+      <div class="mb-2"><label class="form-label">Tambah foto</label><input type="file" class="form-control" id="inpFotoTambah" accept="image/*" capture="environment"/></div>
+      <button class="btn-navy" onclick="uploadFotoTambah(this)">Upload Foto</button>
+      <hr/>
+      <div id="wrapTanpaNotaModal">
+        <label class="form-label">Tidak ada nota? Isi alasan:</label>
+        <input type="text" class="form-control mb-2" id="inpTanpaNotaModal" placeholder="mis. struk hilang, beli di pedagang kaki lima"/>
+        <button class="btn-outline" onclick="simpanTanpaNota(this)">Tandai Tanpa Nota</button>
+      </div>
+    </div>
+  </div></div>
 </div>
 
 <!-- MODAL AJUKAN TOP-UP -->
@@ -494,6 +608,7 @@ window.addEventListener('load', async function () {
   document.getElementById('kontenKasKecil').style.display='block';
   if (isDirektur()) {
     document.getElementById('btnTabPenyesuaian').style.display='';
+    document.getElementById('btnTabReview').style.display='';
   }
   muatSemuaData();
   bukaTabDariHash();
@@ -520,7 +635,10 @@ function muatSemuaData(){
   muatPengajuanBatal();
   muatGolongan();
   muatTopup();
-  if (isDirektur()) muatPenyesuaian();
+  muatStatusKas();
+  muatClosing();
+  muatKoreksi();
+  if (isDirektur()) { muatPenyesuaian(); muatReview(); }
 }
 
 // ============================================================
@@ -587,7 +705,12 @@ function muatRiwayat(){
   var jenis=document.getElementById('mtJenis').value||null;
 
   document.getElementById('mtInfoBar').textContent='Memuat data…';
-  dbRpc('get_riwayat_kas',{p_tgl_mulai:tglMulai,p_tgl_akhir:tglAkhir,p_id_golongan:idGol,p_jenis:jenis}).then(function(res){
+  var tglMeta=tglMulai||new Date(Date.now()-120*864e5).toISOString().slice(0,10);
+  var pMeta=dbRpc('get_meta_kas',{p_tgl_mulai:tglMeta}).then(function(m){
+    metaKasMap={}; (Array.isArray(m)?m:[]).forEach(function(x){metaKasMap[x.id_transaksi]=x;});
+  }).catch(function(){metaKasMap={};});
+  Promise.all([dbRpc('get_riwayat_kas',{p_tgl_mulai:tglMulai,p_tgl_akhir:tglAkhir,p_id_golongan:idGol,p_jenis:jenis}),pMeta]).then(function(hasil){
+    var res=hasil[0];
     riwayatKasCache=Array.isArray(res)?res:[];
     renderRiwayatFiltered();
   }).catch(function(){
@@ -615,15 +738,26 @@ function renderRiwayatFiltered(){
       var pendingBatal=r.status_aktif==='MENUNGGU_APPROVE_BATAL';
       var rowStyle=dibatalkan?' style="opacity:.5;text-decoration:line-through"':'';
       var aksi='—';
-      if(!dibatalkan&&!pendingBatal){
-        aksi='<button class="btn-sm-action" style="color:var(--red);border-color:#f5a9a0" onclick="bukaAjukanBatal(\''+(r.keluar>0?'keluar':'masuk')+'\',\''+esc(r.id_transaksi)+'\',\''+esc(r.no_transaksi)+'\')">Ajukan Batal</button>';
-      }else if(pendingBatal){
-        aksi='<span class="badge-status-kas st-belum_realisasi">Menunggu Approve Batal</span>';
+      var m=metaKasMap[r.id_transaksi]||null;
+      var tombol=[];
+      if(m && m.tabel==='keluar' && !dibatalkan && (r.jenis_transaksi==='LANGSUNG'||r.jenis_transaksi==='KASBON')){
+        var lblF=m.kurang_foto?'📷 Foto!':(m.jumlah_foto>0?'📷 '+m.jumlah_foto:(m.tanpa_nota?'📷 tanpa nota':'📷'));
+        tombol.push('<button class="btn-sm-action'+(m.kurang_foto?' btn-foto-kurang':'')+'" onclick="bukaFotoKas(\''+esc(r.id_transaksi)+'\')">'+lblF+'</button>');
       }
+      if(m && m.bisa_edit) tombol.push('<button class="btn-sm-action" onclick="bukaEditKas(\''+esc(r.id_transaksi)+'\',\'edit\')">Edit</button>');
+      if(m && m.bisa_koreksi) tombol.push('<button class="btn-sm-action" onclick="bukaEditKas(\''+esc(r.id_transaksi)+'\',\'koreksi\')">Koreksi</button>');
+      if(m && m.koreksi_pending) tombol.push('<span class="badge-status-kas st-belum_realisasi">Koreksi menunggu</span>');
+      if(!dibatalkan&&!pendingBatal){
+        tombol.push('<button class="btn-sm-action" style="color:var(--red);border-color:#f5a9a0" onclick="bukaAjukanBatal(\''+(r.keluar>0?'keluar':'masuk')+'\',\''+esc(r.id_transaksi)+'\',\''+esc(r.no_transaksi)+'\')">Ajukan Batal</button>');
+      }else if(pendingBatal){
+        tombol.push('<span class="badge-status-kas st-belum_realisasi">Menunggu Approve Batal</span>');
+      }
+      if(tombol.length) aksi='<div style="display:flex;gap:.25rem;flex-wrap:wrap">'+tombol.join('')+'</div>';
+      var gembok=m&&m.id_closing?(m.status_closing==='DISETUJUI'?'🔒 ':'⏳ '):'';
       return '<tr'+rowStyle+'>'+
         '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
         '<td>'+badgeJenis(r.jenis_transaksi)+(r.status==='BELUM_REALISASI'?' <span class="badge-status-kas st-belum_realisasi">PENDING</span>':'')+'</td>'+
-        '<td class="td-mono">'+esc(r.no_transaksi)+'</td>'+
+        '<td class="td-mono">'+gembok+esc(r.no_transaksi)+'</td>'+
         '<td>'+esc(r.penerima)+'</td>'+
         '<td>'+esc(r.golongan||'—')+'</td>'+
         '<td style="max-width:200px">'+esc(r.keterangan||'—')+(dibatalkan?'<br><span style="color:var(--red);font-size:.65rem;text-decoration:none;display:inline-block">✕ Dibatalkan: '+esc(r.alasan_batal||'')+'</span>':'')+'</td>'+
@@ -804,7 +938,11 @@ async function submitAccTopup(btn){
   if(!tuAksi.id && !kep){errTu('alertAccTopup','Keperluan wajib diisi.');return;}
   btn.disabled=true;
   try{
-    var res=await dbRpc('acc_topup',{p_id_topup:tuAksi.id,p_nominal:nom,p_kode_tarik:kode,p_keperluan:kep||null});
+    var res=await dbRpc('acc_topup',{p_id_topup:tuAksi.id,p_nominal:nom,p_kode_tarik:kode,p_keperluan:kep||null,p_darurat:false});
+    if(res && res.code_kk==='REVIEW_JATUH_TEMPO'){
+      if(!confirm(res.message+'\n\nLanjut ACC DARURAT? (tercatat & muncul di review)')) throw new Error('Dibatalkan — selesaikan review dulu di tab Review.');
+      res=await dbRpc('acc_topup',{p_id_topup:tuAksi.id,p_nominal:nom,p_kode_tarik:kode,p_keperluan:kep||null,p_darurat:true});
+    }
     var err=cekErrorSupabase(res); if(err) throw new Error(err);
     selesaiAksiTopup('modalAccTopup');
   }catch(e){errTu('alertAccTopup','Gagal: '+e.message);}
@@ -864,6 +1002,372 @@ async function submitAlasanTopup(btn){
 }
 
 // ============================================================
+// FASE 3 (Okt 2026): CLOSING, EDIT/KOREKSI, FOTO NOTA, REVIEW
+// Pengaman utama ada di server (RPC + trigger); UI hanya mempermudah.
+// ============================================================
+var TGL_WAJIB_FOTO='2026-10-06';
+var kkStatus=null, metaKasMap={}, clCache={}, krCache={}, ekAksi=null, fkAksi=null, ckAksi=null, rvData=null;
+
+function errKK(elId,msg){showAlert(elId,esc(msg));}
+function rpcErr(res){var e=cekErrorSupabase(res);return e;}
+function tglIsoHariIni(){return new Date(Date.now()+7*3600e3).toISOString().slice(0,10);}
+function tglLokal(s){return s?new Date(new Date(s).getTime()+7*3600e3).toISOString().slice(0,10):'';}
+
+// ── Foto: kompres di HP (maks 1280px, ±150KB) lalu upload ke bucket privat ──
+async function kompresFoto(file){
+  var img=await new Promise(function(ok,gagal){
+    var i=new Image(); i.onload=function(){ok(i);}; i.onerror=function(){gagal(new Error('File bukan gambar'));};
+    i.src=URL.createObjectURL(file);
+  });
+  var maks=1280, w=img.naturalWidth, h=img.naturalHeight, sk=Math.min(1, maks/Math.max(w,h));
+  var cv=document.createElement('canvas'); cv.width=Math.round(w*sk); cv.height=Math.round(h*sk);
+  cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+  URL.revokeObjectURL(img.src);
+  var q=[0.72,0.6,0.5,0.4], blob=null;
+  for(var k=0;k<q.length;k++){
+    blob=await new Promise(function(ok){cv.toBlob(ok,'image/jpeg',q[k]);});
+    if(blob && blob.size<=160*1024) break;
+  }
+  return blob;
+}
+async function uploadFotoNota(idKK,file){
+  var blob=await kompresFoto(file);
+  if(!blob) throw new Error('Gagal memproses foto');
+  await pastikanTokenValid();
+  var path=idKK+'/'+Date.now()+'.jpg';
+  var r=await fetch(SUPA_URL+'/storage/v1/object/nota-kas/'+path,{method:'POST',
+    headers:{Authorization:'Bearer '+getSupaToken(),apikey:SUPA_KEY,'Content-Type':'image/jpeg','x-upsert':'false'},body:blob});
+  if(!r.ok){var t=await r.text();throw new Error('Upload foto gagal ('+r.status+') '+t.slice(0,120));}
+  var res=await dbRpc('lampirkan_foto_kas',{p_id:idKK,p_path:path,p_ukuran:blob.size});
+  var e=rpcErr(res); if(e) throw new Error(e);
+  return path;
+}
+async function urlFotoNota(path){
+  await pastikanTokenValid();
+  var r=await fetch(SUPA_URL+'/storage/v1/object/sign/nota-kas/'+path,{method:'POST',
+    headers:{Authorization:'Bearer '+getSupaToken(),apikey:SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({expiresIn:900})});
+  var j=await r.json();
+  if(!j || !(j.signedURL||j.signedUrl)) throw new Error('Gagal membuka foto');
+  return SUPA_URL+'/storage/v1'+(j.signedURL||j.signedUrl);
+}
+// Validasi foto di form input. Return {file, alasan} atau string error.
+function cekInputFoto(tgl,idFile,idChk,idAlasan){
+  var f=document.getElementById(idFile).files[0]||null;
+  var tanpa=document.getElementById(idChk).checked;
+  var alasan=document.getElementById(idAlasan).value.trim();
+  if(tanpa && alasan.length<5) return 'Alasan tidak ada nota wajib diisi (min. 5 huruf).';
+  if(tgl>=TGL_WAJIB_FOTO && !f && !tanpa) return 'Foto nota wajib (atau centang "Tidak ada nota" + alasan).';
+  return {file:tanpa?null:f, alasan:tanpa?alasan:null};
+}
+async function simpanFotoSetelahInput(idKK,fo){
+  if(fo.file){ await uploadFotoNota(idKK,fo.file); }
+  else if(fo.alasan){
+    var res=await dbRpc('set_tanpa_nota_kas',{p_id:idKK,p_alasan:fo.alasan});
+    var e=rpcErr(res); if(e) throw new Error(e);
+  }
+}
+
+// ── Status banner ──
+async function muatStatusKas(){
+  try{
+    var st=await dbRpc('get_status_kas',{});
+    if(!st || st.code){document.getElementById('kkStatusBar').innerHTML='';return;}
+    kkStatus=st; renderStatusKas();
+    document.getElementById('clBtnAjukan').style.display=(st.is_pemegang||st.is_direktur)&&!st.closing_pending?'':'none';
+  }catch(e){}
+}
+function renderStatusKas(){
+  var st=kkStatus, el=document.getElementById('kkStatusBar'); if(!st){el.innerHTML='';return;}
+  var cls='', baris=[];
+  var last=st.closing_terakhir;
+  baris.push('🔒 Closing terakhir: <b>'+(last?tglJam(last.tgl_putus):'belum pernah (lakukan opname awal)')+'</b>'+
+    (last?' · '+st.hari_sejak_closing+' hari lalu':'')+' · '+fmtAngka(st.transaksi_belum_closing)+' transaksi belum closing');
+  if(st.closing_pending){cls='kuning';baris.push('⏳ Closing '+esc(st.closing_pending.id_closing)+' menunggu ACC Manager — input kas keluar ditahan.');}
+  else if(st.terblokir){cls='merah';baris.push('⛔ '+esc(st.alasan_blokir));}
+  else if(st.hari_sejak_closing>=3){cls='kuning';baris.push('⚠️ Besok input diblokir kalau belum closing.');}
+  var kf=st.kurang_foto||[];
+  if(kf.length){cls=cls||'kuning';baris.push('📷 '+kf.length+' transaksi belum ada foto nota: '+
+    kf.slice(0,5).map(function(k){return '<a href="javascript:void(0)" onclick="bukaFotoKas(\''+esc(k.id)+'\')">'+esc(k.no)+'</a>';}).join(', ')+(kf.length>5?' …':''));}
+  if(st.is_direktur && st.review && st.review.jatuh_tempo){cls=cls||'kuning';baris.push('📊 Review mingguan jatuh tempo — <a href="javascript:void(0)" onclick="gantiTab(\'review\')">buka review</a>');}
+  var tombol=(st.is_pemegang||st.is_direktur)&&!st.closing_pending?'<button class="btn-sm-action btn-approve" onclick="bukaClosing()">Closing Kas</button>':'';
+  el.innerHTML='<div class="kk-status '+cls+'"><div class="baris"><div>'+baris.join('<br>')+'</div>'+tombol+'</div></div>';
+}
+
+// ── Closing ──
+async function muatClosing(){
+  try{
+    var rows=await dbRpc('get_daftar_closing',{p_limit:30});
+    if(!Array.isArray(rows)){document.getElementById('clInfoBar').textContent='Fitur closing belum aktif.';return;}
+    var isMgr=isManager()||isDirektur(), email=((getUserInfo()||{}).email||'').toLowerCase();
+    document.getElementById('clInfoBar').textContent=rows.length+' closing terakhir';
+    document.getElementById('clList').innerHTML=rows.map(function(c){
+      clCache[c.id_closing]=c;
+      var badge=c.status==='MENUNGGU_ACC'?'<span class="tu-badge tb-kuning">Menunggu ACC</span>':
+                c.status==='DITOLAK'?'<span class="tu-badge tb-merah">Ditolak</span>':'<span class="tu-badge tb-hijau">Disetujui</span>';
+      var sel=Math.round(Number(c.selisih));
+      var aksi=[];
+      if(c.status==='MENUNGGU_ACC' && isMgr && c.diajukan_oleh!==email){
+        aksi.push('<button class="btn-sm-action btn-approve" onclick="bukaCatatanKK(\'acc_closing\',\''+esc(c.id_closing)+'\')">✓ ACC (uang cocok)</button>');
+        aksi.push('<button class="btn-sm-action" style="color:var(--red)" onclick="bukaCatatanKK(\'tolak_closing\',\''+esc(c.id_closing)+'\')">Tolak</button>');
+      }
+      if(c.status==='DISETUJUI' && sel!==0 && !c.selisih_ditinjau && isDirektur()){
+        aksi.push('<button class="btn-sm-action" style="color:var(--red)" onclick="bukaCatatanKK(\'tinjau\',\''+esc(c.id_closing)+'\')">Tinjau Selisih</button>');
+      }
+      return '<div class="tu-card'+(aksi.length?' tu-perlu':'')+'"><div class="tu-head"><div><div class="tu-id">'+esc(c.id_closing)+badge+
+        (c.is_opname_awal?'<span class="tu-badge tb-biru">Opname awal</span>':'')+'</div>'+
+        '<div class="tu-meta">Diajukan '+tglJam(c.tgl_ajukan)+' · '+esc(c.diajukan_oleh)+' · '+c.jumlah_transaksi+' transaksi'+
+        (c.tgl_putus?'<br>'+(c.status==='DITOLAK'?'Ditolak':'ACC')+' '+tglJam(c.tgl_putus)+' · '+esc(c.diputuskan_oleh||'')+(c.catatan_putus?' · '+esc(c.catatan_putus):''):'')+
+        (c.alasan_selisih?'<br>Alasan selisih: '+esc(c.alasan_selisih):'')+
+        (c.catatan_tinjau?'<br>Tinjau Direktur: '+esc(c.catatan_tinjau):'')+'</div></div>'+
+        '<div style="text-align:right;font-family:var(--mono);font-size:.75rem">Sistem '+fmtRupiah(c.saldo_sistem)+'<br>Fisik <b>'+fmtRupiah(c.saldo_fisik)+'</b><br>'+
+        '<span style="color:'+(sel===0?'var(--green)':'var(--red)')+'">Selisih '+fmtRupiah(c.selisih)+'</span></div></div>'+
+        (aksi.length?'<div class="tu-act">'+aksi.join('')+'</div>':'')+'</div>';
+    }).join('')||'<div class="loading">Belum ada closing.</div>';
+  }catch(e){document.getElementById('clInfoBar').textContent='Gagal memuat closing: '+e.message;}
+}
+async function bukaClosing(){
+  document.getElementById('alertClosing').innerHTML='';
+  document.getElementById('inpClFisik').value='';
+  document.getElementById('inpClAlasan').value='';
+  document.getElementById('lblClSelisih').textContent='';
+  document.getElementById('wrapClAlasan').style.display='none';
+  await muatStatusKas();
+  document.getElementById('lblClSaldoSistem').textContent=kkStatus?fmtRupiah(kkStatus.saldo_sistem):'?';
+  if(kkStatus && kkStatus.kurang_foto && kkStatus.kurang_foto.length){
+    errKK('alertClosing','Masih ada '+kkStatus.kurang_foto.length+' transaksi tanpa foto nota. Lengkapi dulu sebelum closing.');
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalClosing')).show();
+}
+function hitungSelisihClosing(){
+  var fisik=parseFloat(document.getElementById('inpClFisik').value);
+  if(isNaN(fisik)||!kkStatus){document.getElementById('lblClSelisih').textContent='';return;}
+  var sel=Math.round(fisik-Number(kkStatus.saldo_sistem));
+  var el=document.getElementById('lblClSelisih');
+  el.innerHTML=sel===0?'<span style="color:var(--green)">✓ Cocok, tidak ada selisih</span>':
+    '<span style="color:var(--red)">Selisih '+fmtRupiah(sel)+(sel<0?' (uang kurang)':' (uang lebih)')+'</span>';
+  document.getElementById('wrapClAlasan').style.display=sel===0?'none':'';
+}
+async function submitClosing(btn){
+  var fisik=parseFloat(document.getElementById('inpClFisik').value);
+  if(isNaN(fisik)||fisik<0){errKK('alertClosing','Isi jumlah uang fisik.');return;}
+  if(!confirm('Ajukan closing dengan uang fisik '+fmtRupiah(fisik)+'? Semua transaksi sampai saat ini akan dikunci.'))return;
+  btn.disabled=true;
+  try{
+    var res=await dbRpc('ajukan_closing',{p_saldo_fisik:fisik,p_alasan:document.getElementById('inpClAlasan').value.trim()||null});
+    var e=rpcErr(res); if(e) throw new Error(e);
+    bootstrap.Modal.getInstance(document.getElementById('modalClosing')).hide();
+    refreshSemuaKK();
+  }catch(e){errKK('alertClosing','Gagal: '+e.message);}
+  finally{btn.disabled=false;}
+}
+function refreshSemuaKK(){
+  muatStatusKas(); muatClosing(); muatRiwayat(); muatSaldoCards(); muatKoreksi();
+  if(isDirektur()) muatReview();
+  if(typeof refreshNotifNav==='function') refreshNotifNav();
+}
+
+// ── Modal catatan serbaguna ──
+var CK_CFG={
+  acc_closing:{judul:'ACC Closing',field:'Catatan (opsional)',wajib:false,tombol:'✓ ACC — uang fisik cocok'},
+  tolak_closing:{judul:'Tolak Closing',field:'Alasan penolakan *',wajib:true,tombol:'Tolak'},
+  tinjau:{judul:'Tinjau Selisih Closing',field:'Tindak lanjut * (mis. dibuat penyesuaian / dipotong dari ...)',wajib:true,tombol:'Simpan'},
+  acc_koreksi:{judul:'Setujui Koreksi',field:'Catatan (opsional)',wajib:false,tombol:'✓ Setujui'},
+  tolak_koreksi:{judul:'Tolak Koreksi',field:'Alasan penolakan *',wajib:true,tombol:'Tolak'},
+  review:{judul:'Selesaikan Review Mingguan',field:'Catatan review (opsional)',wajib:false,tombol:'✓ Selesai Review'}
+};
+function bukaCatatanKK(jenis,id){
+  ckAksi={jenis:jenis,id:id}; var cfg=CK_CFG[jenis];
+  document.getElementById('lblCatatanKKJudul').textContent=cfg.judul;
+  document.getElementById('lblCatatanKKField').textContent=cfg.field;
+  document.getElementById('btnCatatanKK').textContent=cfg.tombol;
+  document.getElementById('inpCatatanKK').value='';
+  document.getElementById('alertCatatanKK').innerHTML='';
+  var info='';
+  if(jenis.indexOf('closing')>=0||jenis==='tinjau'){var c=clCache[id];
+    info='<b>'+esc(id)+'</b> · sistem '+fmtRupiah(c.saldo_sistem)+' · fisik <b>'+fmtRupiah(c.saldo_fisik)+'</b> · selisih '+fmtRupiah(c.selisih)+
+      (jenis==='acc_closing'?'<br><span style="color:var(--red)">Hitung sendiri uang fisiknya sebelum ACC.</span>':'')+
+      (jenis==='tinjau'?'<br>Kalau perlu koreksi saldo, buat di tab Penyesuaian.':'');}
+  if(jenis.indexOf('koreksi')>=0){var r=krCache[id]; info=htmlKoreksi(r);}
+  document.getElementById('catatanKKInfo').innerHTML=info;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCatatanKK')).show();
+}
+async function submitCatatanKK(btn){
+  var cfg=CK_CFG[ckAksi.jenis], cat=document.getElementById('inpCatatanKK').value.trim();
+  if(cfg.wajib && !cat){errKK('alertCatatanKK','Wajib diisi.');return;}
+  var map={
+    acc_closing:['putuskan_closing',{p_id:ckAksi.id,p_setuju:true,p_catatan:cat||null}],
+    tolak_closing:['putuskan_closing',{p_id:ckAksi.id,p_setuju:false,p_catatan:cat}],
+    tinjau:['tinjau_selisih_closing',{p_id:ckAksi.id,p_catatan:cat}],
+    acc_koreksi:['putuskan_koreksi_kas',{p_id_koreksi:ckAksi.id,p_setuju:true,p_catatan:cat||null}],
+    tolak_koreksi:['putuskan_koreksi_kas',{p_id_koreksi:ckAksi.id,p_setuju:false,p_catatan:cat}],
+    review:['selesaikan_review',{p_catatan:cat||null}]
+  }[ckAksi.jenis];
+  btn.disabled=true;
+  try{
+    var res=await dbRpc(map[0],map[1]); var e=rpcErr(res); if(e) throw new Error(e);
+    bootstrap.Modal.getInstance(document.getElementById('modalCatatanKK')).hide();
+    refreshSemuaKK();
+  }catch(e){errKK('alertCatatanKK','Gagal: '+e.message);}
+  finally{btn.disabled=false;}
+}
+
+// ── Edit (sebelum closing) / Koreksi (sesudah closing) ──
+function bukaEditKas(id,mode){
+  var r=riwayatKasCache.find(function(x){return x.id_transaksi===id;}); if(!r)return;
+  ekAksi={id:id,mode:mode,jenis:r.jenis_transaksi};
+  document.getElementById('lblEditKasJudul').textContent=mode==='koreksi'?'Ajukan Koreksi (ACC Direktur)':'Edit Transaksi';
+  document.getElementById('btnEditKas').textContent=mode==='koreksi'?'Ajukan Koreksi':'Simpan';
+  document.getElementById('alertEditKas').innerHTML='';
+  document.getElementById('editKasInfo').innerHTML='<b>'+esc(r.no_transaksi)+'</b> · '+badgeJenis(r.jenis_transaksi)+
+    (mode==='koreksi'?'<br><span style="color:var(--red)">Sudah closing: transaksi lama akan dibatalkan &amp; diganti transaksi baru setelah Direktur menyetujui.</span>':'<br>Perubahan tercatat di log dan terlihat Direktur saat review.');
+  var sel=document.getElementById('inpEkGolongan');
+  sel.innerHTML='<option value="">Pilih golongan…</option>'+golonganCache.map(function(g){
+    return '<option value="'+esc(g.id_golongan)+'"'+(g.nama_golongan===r.golongan?' selected':'')+'>'+esc(g.nama_golongan)+'</option>';}).join('');
+  document.getElementById('wrapEkGolongan').style.display=r.jenis_transaksi==='LANGSUNG'?'':'none';
+  document.getElementById('inpEkTgl').value=tglLokal(r.tgl);
+  document.getElementById('inpEkPenerima').value=r.penerima||'';
+  document.getElementById('inpEkNominal').value=r.keluar;
+  document.getElementById('inpEkKet').value=r.keterangan||'';
+  document.getElementById('inpEkAlasan').value='';
+  document.getElementById('wrapEkAlasan').style.display=mode==='koreksi'?'':'none';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditKas')).show();
+}
+async function submitEditKas(btn){
+  var p={p_id:ekAksi.id,p_tgl:document.getElementById('inpEkTgl').value,
+    p_penerima:document.getElementById('inpEkPenerima').value.trim(),
+    p_id_golongan:ekAksi.jenis==='LANGSUNG'?document.getElementById('inpEkGolongan').value:null,
+    p_nominal:parseFloat(document.getElementById('inpEkNominal').value)||0,
+    p_keterangan:document.getElementById('inpEkKet').value.trim()||null};
+  if(!p.p_tgl||!p.p_penerima||p.p_nominal<=0){errKK('alertEditKas','Tanggal, penerima & nominal wajib diisi.');return;}
+  if(ekAksi.jenis==='LANGSUNG'&&!p.p_id_golongan){errKK('alertEditKas','Golongan wajib dipilih.');return;}
+  var fn='edit_transaksi_kas';
+  if(ekAksi.mode==='koreksi'){
+    p.p_alasan=document.getElementById('inpEkAlasan').value.trim();
+    if(!p.p_alasan){errKK('alertEditKas','Alasan koreksi wajib diisi.');return;}
+    fn='ajukan_koreksi_kas';
+  }
+  btn.disabled=true;
+  try{
+    var res=await dbRpc(fn,p); var e=rpcErr(res); if(e) throw new Error(e);
+    bootstrap.Modal.getInstance(document.getElementById('modalEditKas')).hide();
+    refreshSemuaKK();
+  }catch(e){errKK('alertEditKas','Gagal: '+e.message);}
+  finally{btn.disabled=false;}
+}
+
+// ── Daftar koreksi menunggu (di tab Persetujuan) ──
+function htmlKoreksi(r){
+  var a=r.data_lama||{}, b=r.data_baru||{};
+  function brs(lbl,x,y,fmt){var bx=fmt?fmt(x):esc(x==null?'—':String(x)), by=fmt?fmt(y):esc(y==null?'—':String(y));
+    return '<tr><td>'+lbl+'</td><td>'+bx+'</td><td'+(String(x)!==String(y)?' style="color:var(--red);font-weight:600"':'')+'>'+by+'</td></tr>';}
+  var gol=function(id){var g=golonganCache.find(function(x){return x.id_golongan===id;});return esc(g?g.nama_golongan:(id||'—'));};
+  return '<b>'+esc(a.no||r.id_kaskeluar)+'</b> · diajukan '+esc(r.diajukan_oleh)+' · '+tglJam(r.tgl_ajukan)+
+    '<table style="width:100%;font-size:.72rem;margin:.3rem 0"><tr><th></th><th>Lama</th><th>Baru</th></tr>'+
+    brs('Tanggal',a.tgl,b.tgl)+brs('Penerima',a.penerima,b.penerima)+brs('Golongan',a.id_golongan,b.id_golongan,gol)+
+    brs('Nominal',a.nominal,b.nominal,fmtRupiah)+brs('Keterangan',a.keterangan,b.keterangan)+'</table>'+
+    'Alasan: '+esc(r.alasan);
+}
+async function muatKoreksi(){
+  try{
+    var rows=await dbRpc('get_koreksi_pending',{});
+    if(!Array.isArray(rows)){document.getElementById('krInfoBar').textContent='—';return;}
+    document.getElementById('krInfoBar').textContent=rows.length+' koreksi menunggu ACC Direktur';
+    document.getElementById('krList').innerHTML=rows.map(function(r){
+      krCache[r.id_koreksi]=r;
+      return '<div class="tu-card'+(isDirektur()?' tu-perlu':'')+'"><div class="tu-meta" style="color:inherit">'+htmlKoreksi(r)+'</div>'+
+        (isDirektur()?'<div class="tu-act"><button class="btn-sm-action btn-approve" onclick="bukaCatatanKK(\'acc_koreksi\',\''+esc(r.id_koreksi)+'\')">✓ Setujui</button>'+
+        '<button class="btn-sm-action" style="color:var(--red)" onclick="bukaCatatanKK(\'tolak_koreksi\',\''+esc(r.id_koreksi)+'\')">Tolak</button>'+
+        '<button class="btn-sm-action" onclick="bukaFotoKas(\''+esc(r.id_kaskeluar)+'\')">📷 Nota</button></div>':'')+'</div>';
+    }).join('');
+  }catch(e){document.getElementById('krInfoBar').textContent='Gagal memuat koreksi.';}
+}
+
+// ── Modal foto nota per transaksi ──
+async function bukaFotoKas(id){
+  fkAksi={id:id};
+  var r=riwayatKasCache.find(function(x){return x.id_transaksi===id;});
+  document.getElementById('alertFotoKas').innerHTML='';
+  document.getElementById('inpFotoTambah').value='';
+  document.getElementById('inpTanpaNotaModal').value='';
+  document.getElementById('fotoKasInfo').innerHTML=r?('<b>'+esc(r.no_transaksi)+'</b> · '+esc(r.penerima)+' · '+fmtRupiah(r.keluar)+' · '+fmtTgl(r.tgl)):esc(id);
+  var m=metaKasMap[id];
+  document.getElementById('wrapTanpaNotaModal').style.display=(m&&m.jumlah_foto>0)?'none':'';
+  document.getElementById('fotoKasGrid').innerHTML='<span style="font-size:.75rem;color:var(--muted)">Memuat foto…</span>';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFotoKas')).show();
+  await renderFotoGrid(id);
+}
+async function renderFotoGrid(id){
+  var grid=document.getElementById('fotoKasGrid');
+  try{
+    var rows=await dbRpc('get_foto_kas',{p_id:id}); rows=Array.isArray(rows)?rows:[];
+    if(!rows.length){var m=metaKasMap[id];grid.innerHTML='<span style="font-size:.75rem;color:var(--muted)">'+(m&&m.tanpa_nota?'Ditandai tanpa nota.':'Belum ada foto.')+'</span>';return;}
+    var urls=await Promise.all(rows.map(function(f){return urlFotoNota(f.path).catch(function(){return '';});}));
+    grid.innerHTML=urls.map(function(u){return u?'<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="nota"/></a>':'<span class="tu-badge tb-merah">gagal muat</span>';}).join('');
+  }catch(e){grid.innerHTML='<span style="color:var(--red);font-size:.75rem">'+esc(e.message)+'</span>';}
+}
+async function uploadFotoTambah(btn){
+  var f=document.getElementById('inpFotoTambah').files[0];
+  if(!f){errKK('alertFotoKas','Pilih / ambil foto dulu.');return;}
+  btn.disabled=true; btn.textContent='Mengupload…';
+  try{
+    await uploadFotoNota(fkAksi.id,f);
+    document.getElementById('inpFotoTambah').value='';
+    document.getElementById('wrapTanpaNotaModal').style.display='none';
+    await renderFotoGrid(fkAksi.id);
+    muatStatusKas(); muatRiwayat();
+  }catch(e){errKK('alertFotoKas',e.message);}
+  finally{btn.disabled=false; btn.textContent='Upload Foto';}
+}
+async function simpanTanpaNota(btn){
+  var a=document.getElementById('inpTanpaNotaModal').value.trim();
+  if(a.length<5){errKK('alertFotoKas','Alasan minimal 5 huruf.');return;}
+  btn.disabled=true;
+  try{
+    var res=await dbRpc('set_tanpa_nota_kas',{p_id:fkAksi.id,p_alasan:a}); var e=rpcErr(res); if(e) throw new Error(e);
+    bootstrap.Modal.getInstance(document.getElementById('modalFotoKas')).hide();
+    muatStatusKas(); muatRiwayat();
+  }catch(e){errKK('alertFotoKas',e.message);}
+  finally{btn.disabled=false;}
+}
+
+// ── Review mingguan (Direktur) ──
+async function muatReview(){
+  var el=document.getElementById('rvIsi');
+  try{
+    var r=await dbRpc('get_ringkasan_review',{});
+    if(!r||r.code){el.innerHTML='<div class="loading">Review belum aktif.</div>';return;}
+    rvData=r;
+    var trx=r.transaksi||[];
+    var h='<div class="kk-status '+(r.jatuh_tempo?'merah':'')+'"><div class="baris"><div>'+
+      'Periode sejak <b>'+tglJam(r.sejak)+'</b> ('+r.hari+' hari) · Pengeluaran <b>'+fmtRupiah(r.total_keluar)+'</b> dari '+r.jumlah+' transaksi'+
+      (r.jatuh_tempo?'<br>⚠️ Jatuh tempo: '+esc(r.alasan)+'. ACC top-up baru hanya lewat ACC Darurat sampai review selesai.':'<br>Belum jatuh tempo (≥7 hari atau ≥ Rp 6 jt).')+
+      '</div><button class="btn-sm-action btn-approve" onclick="bukaCatatanKK(\'review\',null)">✓ Selesai Review</button></div></div>';
+    h+='<div class="rv-sec"><h6>Per golongan</h6><div class="tbl-wrap"><table><tbody>'+(r.per_golongan||[]).map(function(g){
+      return '<tr><td>'+esc(g.golongan)+'</td><td class="td-right td-mono">'+g.jumlah+'×</td><td class="td-right td-mono">'+fmtRupiah(g.total)+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+    var tanpa=trx.filter(function(t){return t.status_aktif!=='DIBATALKAN'&&(!t.foto||!t.foto.length);});
+    h+='<div class="rv-sec"><h6>Transaksi ('+trx.length+') · tanpa foto: '+tanpa.length+'</h6><div class="tbl-wrap"><table><tbody>'+trx.map(function(t){
+      var bat=t.status_aktif==='DIBATALKAN';
+      return '<tr'+(bat?' style="opacity:.5;text-decoration:line-through"':'')+'><td class="td-mono">'+fmtTgl(t.tgl)+'<br>'+esc(t.no)+'</td><td>'+esc(t.penerima)+
+        '<br><span style="font-size:.68rem;color:var(--muted)">'+esc(t.golongan||t.jenis)+' · '+esc(t.keterangan||'')+' · '+esc(t.user_input)+'</span>'+
+        (t.tanpa_nota?'<br><span class="tu-badge tb-merah">Tanpa nota: '+esc(t.alasan_tanpa_nota||'')+'</span>':'')+'</td>'+
+        '<td class="td-right td-mono">'+fmtRupiah(t.nominal)+'</td><td>'+(t.foto&&t.foto.length?
+          '<button class="btn-sm-action" onclick="bukaFotoKas(\''+esc(t.id)+'\')">📷 '+t.foto.length+'</button>':(bat?'':'<span class="tu-badge tb-merah">—</span>'))+'</td></tr>';}).join('')+'</tbody></table></div></div>';
+    var cl=(r.closing||[]);
+    h+='<div class="rv-sec"><h6>Closing ('+cl.length+')</h6>'+(cl.map(function(c){return '<div class="tu-meta">'+esc(c.id_closing)+' · '+esc(c.status)+' · fisik '+fmtRupiah(c.saldo_fisik)+' · selisih <b style="color:'+(Math.round(c.selisih)?'var(--red)':'var(--green)')+'">'+fmtRupiah(c.selisih)+'</b>'+(c.alasan_selisih?' · '+esc(c.alasan_selisih):'')+'</div>';}).join('')||'<div class="tu-meta">—</div>')+'</div>';
+    h+='<div class="rv-sec"><h6>Edit sebelum closing ('+(r.edit||[]).length+')</h6>'+((r.edit||[]).map(function(l){
+      var a=l.sebelum||{}, b=l.sesudah||{};
+      return '<div class="tu-meta">'+tglJam(l.waktu)+' · '+esc(l.user_input)+' · '+esc(l.aksi)+' '+esc(l.id_transaksi)+
+        (l.aksi==='EDIT'?' · nominal '+fmtRupiah(a.nominal)+' → '+fmtRupiah(b.nominal)+(a.penerima!==b.penerima?' · '+esc(a.penerima)+' → '+esc(b.penerima):''):
+         l.aksi==='TANPA_NOTA'?' · '+esc(b.alasan||''):'')+'</div>';}).join('')||'<div class="tu-meta">—</div>')+'</div>';
+    h+='<div class="rv-sec"><h6>Koreksi ('+(r.koreksi||[]).length+') · Batal ('+(r.batal||[]).length+')</h6>'+
+      (r.koreksi||[]).map(function(k){return '<div class="tu-meta">'+esc(k.id_koreksi)+' · '+esc(k.status)+' · '+fmtRupiah((k.data_lama||{}).nominal)+' → '+fmtRupiah((k.data_baru||{}).nominal)+' · '+esc(k.alasan)+'</div>';}).join('')+
+      (r.batal||[]).map(function(b){return '<div class="tu-meta">Batal '+esc(b.no)+' · '+esc(b.status_aktif)+' · '+fmtRupiah(b.nominal)+' · '+esc(b.alasan_batal||'')+'</div>';}).join('')+'</div>';
+    h+='<div class="rv-sec"><h6>Top-up ('+(r.topup||[]).length+')</h6>'+((r.topup||[]).map(function(t){return '<div class="tu-meta">'+esc(t.id_topup)+' · '+fmtRupiah(t.nominal_diterima||t.nominal_acc)+' · '+esc(t.status_verif||t.status)+(t.acc_darurat?' · <b style="color:var(--red)">ACC DARURAT</b>':'')+(t.salah_rekening?' · salah rekening':'')+'</div>';}).join('')||'<div class="tu-meta">—</div>')+'</div>';
+    el.innerHTML=h;
+  }catch(e){el.innerHTML='<div class="loading">Gagal memuat review: '+esc(e.message)+'</div>';}
+}
+
+// ============================================================
 // MODAL: KAS MASUK (top-up)
 // ============================================================
 function bukaKasMasuk(){
@@ -908,7 +1412,9 @@ async function submitKasMasuk(btn){
 function bukaKasKeluarLangsung(){
   document.getElementById('frmKasKeluarLangsung').reset();
   document.getElementById('alertKasKeluarLangsung').innerHTML='';
-  document.getElementById('inpTglKeluarLangsung').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpTglKeluarLangsung').value=tglIsoHariIni();
+  document.getElementById('wrapTanpaNotaLangsung').style.display='none';
+  if(kkStatus&&kkStatus.terblokir) showAlert('alertKasKeluarLangsung',esc(kkStatus.alasan_blokir),'warning');
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKasKeluarLangsung')).show();
 }
 
@@ -925,6 +1431,8 @@ async function submitKasKeluarLangsung(btn){
   if(!penerima){showAlert('alertKasKeluarLangsung','Nama penerima/pemberi wajib diisi.');return;}
   if(!golongan){showAlert('alertKasKeluarLangsung','Golongan wajib dipilih.');return;}
   if(nominal<=0){showAlert('alertKasKeluarLangsung','Nominal harus lebih dari 0.');return;}
+  var fotoIn=cekInputFoto(tgl,'inpFotoLangsung','chkTanpaNotaLangsung','inpAlasanTanpaNotaLangsung');
+  if(typeof fotoIn==='string'){showAlert('alertKasKeluarLangsung',esc(fotoIn));return;}
 
   var saldoRes=await dbRpc('get_saldo_kas_kecil',{});
   var saldo=Array.isArray(saldoRes)&&saldoRes.length?saldoRes[0].saldo:0;
@@ -941,8 +1449,11 @@ async function submitKasKeluarLangsung(btn){
       p_user_input:getNamaUser(),p_keterangan:ket||null
     });
     var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    btn.innerHTML='<span class="spinner-sm"></span> Upload foto…';
+    try{ await simpanFotoSetelahInput(idKK,fotoIn); }
+    catch(ef){ alert('Transaksi TERSIMPAN, tapi foto gagal: '+ef.message+'\nUpload ulang lewat tombol 📷 di daftar mutasi.'); }
     bootstrap.Modal.getInstance(document.getElementById('modalKasKeluarLangsung')).hide();
-    muatSaldoCards(); muatRiwayat();
+    muatSaldoCards(); muatRiwayat(); muatStatusKas();
   }catch(e){
     showAlert('alertKasKeluarLangsung','Gagal menyimpan: '+e.message);
   }finally{
@@ -956,7 +1467,7 @@ async function submitKasKeluarLangsung(btn){
 function bukaKasbon(){
   document.getElementById('frmKasbon').reset();
   document.getElementById('alertKasbon').innerHTML='';
-  document.getElementById('inpTglKasbon').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpTglKasbon').value=tglIsoHariIni();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKasbon')).show();
 }
 
@@ -1029,7 +1540,8 @@ function bukaRealisasiKasbon(idKK){
   document.getElementById('hidIdKaskeluarRealisasi').value=idKK;
   document.getElementById('lblNoKasbonRealisasi').textContent=r.no_kaskeluar+' — '+r.penerima;
   document.getElementById('lblNominalDiberikanRealisasi').textContent=fmtRupiah(r.nominal_diberikan);
-  document.getElementById('inpTglRealisasi').value=new Date().toISOString().slice(0,10);
+  document.getElementById('inpTglRealisasi').value=tglIsoHariIni();
+  document.getElementById('wrapTanpaNotaRealisasi').style.display='none';
   document.getElementById('inpNominalRealisasi').max=r.nominal_diberikan;
   document.getElementById('inpNominalRealisasi').setAttribute('data-max',r.nominal_diberikan);
   hitungSisaKembali();
@@ -1059,6 +1571,8 @@ async function submitRealisasi(btn){
   if(nominalRealisasi<=0){showAlert('alertRealisasi','Nominal realisasi harus lebih dari 0.');return;}
   if(!ket){showAlert('alertRealisasi','Keterangan realisasi wajib diisi.');return;}
   if(!tgl){showAlert('alertRealisasi','Tanggal realisasi wajib diisi.');return;}
+  var fotoIn=cekInputFoto(tgl,'inpFotoRealisasi','chkTanpaNotaRealisasi','inpAlasanTanpaNotaRealisasi');
+  if(typeof fotoIn==='string'){showAlert('alertRealisasi',esc(fotoIn));return;}
 
   btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
   try{
@@ -1073,6 +1587,9 @@ async function submitRealisasi(btn){
     }
     var res=await dbRpc('realisasi_kasbon',params);
     var errMsg=cekErrorSupabase(res); if(errMsg) throw new Error(errMsg);
+    try{ await simpanFotoSetelahInput(idKK,fotoIn); }
+    catch(ef){ alert('Realisasi TERSIMPAN, tapi foto gagal: '+ef.message+'\nUpload ulang lewat tombol 📷 di daftar mutasi.'); }
+    muatStatusKas();
 
     bootstrap.Modal.getInstance(document.getElementById('modalRealisasi')).hide();
     muatSaldoCards(); muatRiwayat(); muatKasbonPending();
