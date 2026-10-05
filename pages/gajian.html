@@ -8,7 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="../css/sieo.css" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   .periode-bar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:.85rem 1.1rem;background:var(--surface);border-bottom:1px solid var(--border);}
   .periode-bar select{font-family:var(--mono);font-size:.78rem;padding:.4rem .6rem;border:1px solid var(--border);border-radius:6px;min-width:220px;}
@@ -383,6 +382,29 @@
       <div id="alertNotifBonus" style="margin-top:.5rem"></div>
     </div>
     <div class="modal-footer"><button class="btn-navy" onclick="simpanNotifBonus()">Kirim Notif</button></div>
+  </div></div>
+</div>
+
+<!-- MODAL: Export Payroll BCA (pilih karyawan) -->
+<div class="modal fade" id="modalExportBca" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulExportBca">Export BCA</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p id="infoExportBca" style="font-size:.78rem;color:var(--muted)"></p>
+      <div id="wrapTglExportBca">
+        <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Tanggal Transfer</label>
+        <input type="date" id="exportBcaTgl" class="form-control" style="margin-bottom:.5rem">
+      </div>
+      <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;margin:.25rem 0 .4rem">
+        <input type="checkbox" id="cekSemuaBca" onchange="centangSemuaBca(this.checked)"> Pilih semua
+      </label>
+      <div id="listExportBca"></div>
+      <div id="dilewatiExportBca" style="font-size:.72rem;color:var(--red);margin-top:.4rem"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <div id="totalExportBca" style="font-family:var(--mono);font-size:.8rem"></div>
+      <button class="btn-navy" onclick="prosesExportBca()">Buat File BCA</button>
+    </div>
   </div></div>
 </div>
 
@@ -1315,45 +1337,102 @@ async function batalkanNotif(idNotif) {
   await muatStatusNotifGaji();
 }
 
-// ============================================================
-// EXPORT PAYROLL BCA (Multi Transaksi)
-// ============================================================
 function namaBulanIndo(d) {
   const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   return bulan[d.getMonth()];
 }
 
-function buatFileExcelPayroll(items, namaFile) {
-  const now = new Date();
-  const yy = String(now.getFullYear()).slice(2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const tglSelesai = new Date(periodeAktif.tgl_selesai + 'T00:00:00');
-  const remark = `26-25 ${namaBulanIndo(tglSelesai)} ${tglSelesai.getFullYear()}`;
+// ============================================================
+// EXPORT PAYROLL BCA — file .txt format Template Payroll MBB BCA 3.2
+// (replika makro WriteTextFile; langsung upload ke myBCA Bisnis)
+// ============================================================
+const BCA_PAYROLL = {
+  corpId: 'CITRAELIMO',
+  rekAsal: '0158001414',
+  rekBiaya: '0158001414',
+  validasiNama: 'Y'   // Y = nama penerima diverifikasi BCA, beda nama -> transaksi ditolak
+};
+const BLN3_BCA = ['JAN','FEB','MAR','APR','MEI','JUN','JUL','AGU','SEP','OKT','NOV','DES'];
+const BLN3_EN  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const dipakai = items.filter(it => it.amount && it.amount > 0);
-  const dilewati = items.length - dipakai.length;
-
-  const header = ['No','Transaction ID','Transfer Type ','Beneficiary ID','Credited Account','Receiver Name','Amount','NIP','Remark','Beneficiary email address','Receiver Swift Code','Receiver Cust Type','Receiver Cust Residence'];
-  const data = dipakai.map((it, i) => {
-    const seq = String(i + 1).padStart(2, '0');
-    return [i + 1, `${yy}${mm}${dd}${seq}`, 'BCA', '', it.no_rek || '', it.nama, Math.round(it.amount * 100) / 100, '', remark, '', '', '', ''];
-  });
-  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Data');
-  XLSX.writeFile(wb, namaFile + '.xlsx');
-
-  if (dilewati > 0) alert(`⚠ ${dilewati} karyawan dilewati dari export karena nominalnya 0/kosong.`);
+function bcaBersih(s) {
+  return String(s == null ? '' : s).normalize('NFKD').replace(/[^\x20-\x7E]/g, '').replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
 }
+
+function beritaPayroll(jenis) {
+  const d = new Date(periodeAktif.tgl_selesai + 'T00:00:00');
+  // maks 18 karakter, contoh "GAJI POKOK OKT 26" / "BONUS OKT 26"
+  return (jenis === 'POKOK' ? 'GAJI POKOK ' : 'BONUS ') + BLN3_BCA[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2);
+}
+
+function itemsPayroll(rows, fieldNominal) {
+  const items = [], dilewati = [];
+  rows.forEach(r => {
+    const nominal = Math.round(Number(r[fieldNominal] || 0) * 100) / 100;
+    const nama = bcaBersih(r.nama_lengkap || r.nama);
+    if (!(nominal > 0)) { dilewati.push(nama || r.nip); return; }
+    items.push({ nip: r.nip || '', no_rek: String(r.no_rek || '').replace(/\D/g, ''), nama, nominal });
+  });
+  return { items, dilewati };
+}
+
+function unduhTxtPayrollBca(res, jenis) {
+  const berita = beritaPayroll(jenis);
+  const baris = [];
+  // Header: 0|PY|SD|B|CorpID|HeaderID|DepHeaderID|YYYYMMDD|Jam|RekAsal|OUR|RekBiaya|Berita1|Berita2|ValidasiNama
+  baris.push(['0','PY','SD','B', BCA_PAYROLL.corpId, res.header_id, '', res.tgl_efektif, res.jam,
+              BCA_PAYROLL.rekAsal, 'OUR', BCA_PAYROLL.rekBiaya, berita, '', BCA_PAYROLL.validasiNama].join('|'));
+  // Detail: kolom B..V template (20 kolom B..U + V kosong), sama persis dgn output makro
+  res.items.forEach(it => {
+    const kol = [it.trx_id, 'BCA', '', '', '', 'IDR', '', '', '', it.no_rek, it.nama,
+                 Number(it.nominal).toFixed(2), berita, '', '', '', '', '', '', '', ''];
+    baris.push(('1|' + kol.join('|')).toUpperCase());
+  });
+  const isi = baris.join('\r\n') + '\r\n';
+
+  const n = new Date(), p2 = x => String(x).padStart(2, '0');
+  const stamp = p2(n.getDate()) + BLN3_EN[n.getMonth()] + n.getFullYear() + '_' + p2(n.getHours()) + p2(n.getMinutes()) + p2(n.getSeconds());
+  const namaFile = `Payroll_BCA_${jenis}_${res.header_id}_${stamp}.txt`;
+
+  const blob = new Blob([isi], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = namaFile;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  return namaFile;
+}
+
+async function buatBatchPayroll(jenis, items, tgl) {
+  const params = { p_id_periode: periodeAktif.id_periode, p_jenis: jenis, p_tgl_efektif: tgl || null,
+                   p_items: items, p_user: getNamaUser(), p_ulang: false };
+  let res = await dbRpc('buat_batch_payroll_bca', params);
+  if (res && res.status === 'konfirmasi') {
+    if (!confirm('⚠ ' + res.message + '\n\nTetap buat file BARU?')) return null;
+    params.p_ulang = true;
+    res = await dbRpc('buat_batch_payroll_bca', params);
+  }
+  if (!cekErrorSupabase(res)) return null;
+  if (!res || res.status !== 'ok') { alert('❌ Respon tidak dikenal dari server.'); return null; }
+  return res;
+}
+
+function ringkasExport(jenis, res, namaFile, dilewati) {
+  const t = res.tgl_efektif;
+  let msg = `✓ File ${jenis} dibuat: ${namaFile}\n\nHeader ID: ${res.header_id}\nTanggal efektif: ${t.slice(6,8)}-${t.slice(4,6)}-${t.slice(0,4)} jam ${res.jam}:00\n${res.jumlah} transaksi, total ${formatRupiah(res.total)}\n\nUpload file ini di myBCA Bisnis → Payroll.`;
+  if (dilewati.length) msg += `\n\n⚠ Dilewati (nominal 0/minus): ${dilewati.join(', ')}`;
+  alert(msg);
+}
+
+let exportBca = { jenis: null, items: [], dilewati: [] };
 
 async function exportGajiPokok() {
   if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
   const rows = await dbRpc('get_gaji_pokok_periode', { p_id_periode: periodeAktif.id_periode });
   if (!cekErrorSupabase(rows)) return;
   if (!rows.length) { alert('Tidak ada karyawan untuk periode ini.'); return; }
-  const items = rows.map(r => ({ no_rek: r.no_rek, nama: r.nama_lengkap || r.nama, amount: r.gaji_pokok_bulanan }));
-  buatFileExcelPayroll(items, 'GajiPokok_' + periodeAktif.id_periode);
+  bukaModalExportBca('POKOK', rows, 'gaji_pokok_bulanan');
 }
 
 async function exportBonus() {
@@ -1361,8 +1440,70 @@ async function exportBonus() {
   const rows = await dbRpc('get_rekap_gaji_periode', { p_id_periode: periodeAktif.id_periode });
   if (!cekErrorSupabase(rows)) return;
   if (!rows.length) { alert('Belum ada hasil hitung untuk periode ini. Tekan "Hitung / Hitung Ulang" dulu.'); return; }
-  const items = rows.map(r => ({ no_rek: r.no_rek, nama: r.nama_lengkap || r.nama, amount: r.bonus_final_rp }));
-  buatFileExcelPayroll(items, 'Bonus_' + periodeAktif.id_periode);
+  bukaModalExportBca('BONUS', rows, 'bonus_final_rp');
+}
+
+function bukaModalExportBca(jenis, rows, fieldNominal) {
+  const { items, dilewati } = itemsPayroll(rows, fieldNominal);
+  if (!items.length) { alert(jenis === 'POKOK' ? 'Semua nominal gaji pokok 0.' : 'Tidak ada bonus > 0 untuk ditransfer.'); return; }
+  exportBca = { jenis, items, dilewati };
+  const now = new Date();
+  document.getElementById('judulExportBca').textContent = jenis === 'POKOK' ? 'Export Gaji Pokok → File BCA' : 'Export Bonus → File BCA';
+  document.getElementById('infoExportBca').textContent = jenis === 'POKOK'
+    ? `Nominal = gaji pokok tanpa potongan. Transfer dikunci 26 ${namaBulanIndo(now)} ${now.getFullYear()} jam 06:00. Hilangkan centang karyawan yang tidak lewat payroll (sudah dibayar duluan / dibayar cara lain).`
+    : 'Nominal = Bonus Final (sudah dipotong bon & potongan). Jam 06:00. Hilangkan centang karyawan yang tidak lewat payroll.';
+  document.getElementById('wrapTglExportBca').style.display = jenis === 'BONUS' ? '' : 'none';
+  if (jenis === 'BONUS') {
+    const b = new Date(); b.setDate(b.getDate() + 1);
+    document.getElementById('exportBcaTgl').value = b.getFullYear() + '-' + String(b.getMonth() + 1).padStart(2, '0') + '-' + String(b.getDate()).padStart(2, '0');
+  }
+  document.getElementById('listExportBca').innerHTML = items.map((it, i) => `
+    <label style="display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid #eee;font-size:.8rem">
+      <input type="checkbox" class="cekBca" data-i="${i}" checked onchange="hitungTotalExportBca()">
+      <span style="flex:1">${escHtml(it.nama)}<br><span class="td-mono" style="font-size:.7rem;color:var(--muted)">${escHtml(it.no_rek || '— no rek kosong —')}</span></span>
+      <span class="td-mono">${formatRupiah(it.nominal)}</span>
+    </label>`).join('');
+  document.getElementById('dilewatiExportBca').textContent = dilewati.length ? `Tidak ditampilkan (nominal 0/minus): ${dilewati.join(', ')}` : '';
+  document.getElementById('cekSemuaBca').checked = true;
+  hitungTotalExportBca();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalExportBca')).show();
+}
+
+function centangSemuaBca(v) {
+  document.querySelectorAll('#listExportBca .cekBca').forEach(c => { c.checked = v; });
+  hitungTotalExportBca();
+}
+
+function itemTerpilihBca() {
+  return Array.from(document.querySelectorAll('#listExportBca .cekBca:checked')).map(c => exportBca.items[Number(c.dataset.i)]);
+}
+
+function hitungTotalExportBca() {
+  const pilih = itemTerpilihBca();
+  const total = pilih.reduce((s, it) => s + it.nominal, 0);
+  document.getElementById('totalExportBca').textContent = `${pilih.length}/${exportBca.items.length} karyawan · ${formatRupiah(total)}`;
+  document.getElementById('cekSemuaBca').checked = pilih.length === exportBca.items.length;
+}
+
+async function prosesExportBca() {
+  const jenis = exportBca.jenis;
+  const pilih = itemTerpilihBca();
+  if (!pilih.length) { alert('Belum ada karyawan yang dicentang.'); return; }
+  let tgl = null;
+  if (jenis === 'BONUS') {
+    tgl = document.getElementById('exportBcaTgl').value;
+    if (!tgl) { alert('Pilih tanggal transfer bonus.'); return; }
+  }
+  const total = pilih.reduce((s, it) => s + it.nominal, 0);
+  const tidak = exportBca.items.length - pilih.length;
+  const now = new Date();
+  const tglTxt = jenis === 'POKOK' ? `26 ${namaBulanIndo(now)} ${now.getFullYear()}` : tgl.split('-').reverse().join('-');
+  if (!confirm(`Buat file BCA ${jenis}\n${pilih.length} karyawan, total ${formatRupiah(total)}\nTransfer: ${tglTxt} jam 06:00` +
+               (tidak ? `\n\n${tidak} karyawan TIDAK dicentang (tidak ikut file).` : '') + '\n\nLanjut?')) return;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalExportBca')).hide();
+  const res = await buatBatchPayroll(jenis, pilih, tgl);
+  if (!res) return;
+  ringkasExport(jenis, res, unduhTxtPayrollBca(res, jenis), exportBca.dilewati);
 }
 
 // ============================================================
