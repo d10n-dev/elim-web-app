@@ -137,6 +137,11 @@
         <option value="MENUNGGU_KONFIRMASI">Menunggu Konfirmasi</option>
         <option value="LUNAS">Lunas</option>
       </select>
+<select id="rkEntitas" onchange="renderRekapCards();renderRekap()" style="max-width:130px">
+        <option value="">PT &amp; DK</option>
+        <option value="PT">PT Elim</option>
+        <option value="DK">DK Offset</option>
+      </select>
       <select id="rkAlokasi" onchange="renderRekap()" style="max-width:200px">
         <option value="">Semua (alokasi stok)</option>
         <option value="BELUM">Ada item belum dialokasikan</option>
@@ -167,6 +172,11 @@
     <div id="alertInput" class="alert alert-danger py-2" style="font-size:.78rem;display:none"></div>
     <div class="toolbar">
       <button class="btn-tambah" onclick="bukaInputPembelian()">+ Input Nota Pembelian</button>
+<select id="inputEntitas" onchange="renderInputList()" style="max-width:130px">
+        <option value="">PT &amp; DK</option>
+        <option value="PT">PT Elim</option>
+        <option value="DK">DK Offset</option>
+      </select>
       <input type="text" class="form-control" id="inputCari" placeholder="🔍 Cari no. nota / supplier…" autocomplete="off" oninput="renderInputList()" style="flex:1;min-width:180px"/>
     </div>
     <div class="tbl-wrap">
@@ -1660,9 +1670,16 @@ async function rejectHutang(id){
 // ============================================================
 // REKAP
 // ============================================================
+var rkCardData=[];
 function muatRekapCards(){
   dbRpc('get_rekap_hutang',{p_id_supplier:null,p_status:null}).then(function(res){
-    var data=Array.isArray(res)?res:[];
+    rkCardData=Array.isArray(res)?res:[];
+    renderRekapCards();
+  });
+}
+function renderRekapCards(){
+    var ent=(document.getElementById('rkEntitas')||{value:''}).value;
+    var data=ent?rkCardData.filter(function(r){return r.entitas===ent;}):rkCardData;
     var totalOutstanding=0, belumLunas=0, sebagianBayar=0, menungguKonf=0;
     data.forEach(function(r){
       if(r.status_hutang!=='LUNAS') totalOutstanding+=Number(r.sisa_hutang);
@@ -1675,13 +1692,14 @@ function muatRekapCards(){
     cards[1].textContent=belumLunas+' nota';
     cards[2].textContent=sebagianBayar+' nota';
     cards[3].textContent=menungguKonf+' nota';
-  });
 }
 
 function resetFilterRekap(){
   document.getElementById('rkSupplier').value='';
   document.getElementById('rkStatus').value='';
   document.getElementById('rkAlokasi').value='';
+  document.getElementById('rkEntitas').value='';
+  renderRekapCards();
   document.getElementById('rkCari').value='';
   document.getElementById('rkTglDari').value='';
   document.getElementById('rkTglSampai').value='';
@@ -1731,6 +1749,7 @@ function renderRekap(){
   var tbody=document.getElementById('rekapTbody');
   var q=(document.getElementById('rkCari')||{value:''}).value.trim().toLowerCase();
   var filterAlokasi=(document.getElementById('rkAlokasi')||{value:''}).value;
+  var fEnt=(document.getElementById('rkEntitas')||{value:''}).value;
   var tDari=(document.getElementById('rkTglDari')||{value:''}).value;
   var tSampai=(document.getElementById('rkTglSampai')||{value:''}).value;
   if(tDari&&tSampai&&tDari>tSampai){var tx=tDari;tDari=tSampai;tSampai=tx;}
@@ -1745,12 +1764,12 @@ function renderRekap(){
       if(tDari && t<tDari) cocokTgl=false;
       if(tSampai && t>tSampai) cocokTgl=false;
     }
-    return cocokCari && cocokAlokasi && cocokTgl;
+    return cocokCari && cocokAlokasi && cocokTgl && (!fEnt || r.entitas===fEnt);
   });
   var sum=function(k){return data.reduce(function(s,r){return s+(parseFloat(r[k])||0);},0);};
   var infoEl=document.getElementById('rkInfo');
-  if(infoEl) infoEl.textContent=data.length+' nota · Tagihan '+fmtRupiah(sum('total_tagihan'))+' · Dibayar '+fmtRupiah(sum('total_dibayar'))+' · Sisa '+fmtRupiah(sum('sisa_hutang'));
-  if(!data.length){ tbody.innerHTML='<tr><td colspan="10" class="loading">'+(q||filterAlokasi||tDari||tSampai?'Tidak ada hasil dgn filter ini.':'Tidak ada data.')+'</td></tr>'; return; }
+  if(infoEl) infoEl.textContent=(fEnt?'['+fEnt+'] ':'')+data.length+' nota · Tagihan '+fmtRupiah(sum('total_tagihan'))+' · Dibayar '+fmtRupiah(sum('total_dibayar'))+' · Sisa '+fmtRupiah(sum('sisa_hutang'));
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="10" class="loading">'+(q||filterAlokasi||fEnt||tDari||tSampai?'Tidak ada hasil dgn filter ini.':'Tidak ada data.')+'</td></tr>'; return; }
   rekapStore={};
   data.forEach(function(r){rekapStore[r.id_pembelian]=r;});
   tbody.innerHTML=data.map(function(r){
@@ -2309,11 +2328,13 @@ function muatInputList(){
 function renderInputList(){
   var tbody=document.getElementById('inputTbody');
   var q=(document.getElementById('inputCari')||{value:''}).value.trim().toLowerCase();
-  var data=q?semuaInput.filter(function(r){
-    return (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
-           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0;
-  }):semuaInput;
-  if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">'+(q?'Tidak ada hasil pencarian.':'Belum ada data.')+'</td></tr>'; return; }
+  var fEnt=(document.getElementById('inputEntitas')||{value:''}).value;
+  var data=semuaInput.filter(function(r){
+    return (!fEnt || r.entitas===fEnt) && (!q ||
+           (r.no_nota||'').toLowerCase().indexOf(q)>=0 ||
+           (r.nama_supplier||'').toLowerCase().indexOf(q)>=0);
+  });
+  if(!data.length){ tbody.innerHTML='<tr><td colspan="7" class="loading">'+(q||fEnt?'Tidak ada hasil pencarian.':'Belum ada data.')+'</td></tr>'; return; }
   tbody.innerHTML=data.map(function(r){
     return '<tr>'+
       '<td class="td-mono">'+esc(r.no_nota)+'</td>'+
