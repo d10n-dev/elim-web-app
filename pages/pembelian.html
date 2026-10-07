@@ -293,6 +293,7 @@
   </div>
 
   <div class="tab-pane" id="tabApprove">
+    <div id="ueWrap"></div>
     <div id="pbhWrap"></div>
     <div class="info-bar" id="apvHInfo">Memuat…</div>
     <div id="apvHWrap" style="padding:0 .1rem"></div>
@@ -519,6 +520,35 @@
 </div>
 
 <!-- ============== MODAL: VOID NOTA PEMBELIAN ============== -->
+<div class="modal fade" id="modalUbahEntitas" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Ubah Entitas Nota Pembelian</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertUbahEntitas"></div>
+        <input type="hidden" id="ueIdPembelian"/>
+        <div class="info-c1" id="ueInfo" style="font-size:.78rem"></div>
+        <div class="mb-2">
+          <label class="form-label">Entitas Baru</label>
+          <select class="form-select" id="ueEntitasBaru"></select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Alasan *</label>
+          <input type="text" class="form-control" id="ueAlasan" placeholder="mis. salah input, nota sebenarnya milik DK"/>
+        </div>
+        <div id="ueWarn" style="font-size:.74rem"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="btnSubmitUbahEntitas" onclick="submitUbahEntitas(this)">Ajukan ke Direktur</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="modalVoidPembelian" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -1448,6 +1478,7 @@ function gantiTab(tab){
 var apvHData=[];
 function emailUserLogin(){ var i=getUserInfo(); return i&&i.email?i.email:''; }
 function muatApproveHutang(){
+  muatPengajuanUbahEntitas();
   muatPengajuanBatalHutang();
   var info=document.getElementById('apvHInfo'), wrap=document.getElementById('apvHWrap');
   info.textContent='Memuat…'; wrap.innerHTML='';
@@ -1607,6 +1638,85 @@ async function ajukanBatalAlokHutang(idAlokasi,idPembelian,noNota,nominal){
     if(typeof refreshNotifNav==='function') refreshNotifNav();
   }catch(e){alert('Gagal: '+e.message);}
 }
+// ── UBAH ENTITAS NOTA (7 Okt 2026) ──
+// Admin/Manager mengajukan, Direktur approve (PIN). Direktur sendiri: langsung eksekusi.
+// Alokasi pembayaran TIDAK berubah; talangan PT<->DK disesuaikan otomatis di server.
+function bolehUbahEntitas(){ return ['ADMIN','MANAGER','DIREKTUR'].indexOf(getRoleUser())>=0; }
+async function bukaUbahEntitas(idPembelian){
+  var r=rekapStore[idPembelian]; if(!r) return;
+  document.getElementById('alertUbahEntitas').innerHTML='';
+  document.getElementById('ueIdPembelian').value=idPembelian;
+  document.getElementById('ueAlasan').value='';
+  var baru=r.entitas==='PT'?'DK':'PT';
+  document.getElementById('ueEntitasBaru').innerHTML='<option value="'+baru+'">'+(baru==='PT'?'PT Elim Citra Offset':'DK Offset')+'</option>';
+  document.getElementById('ueInfo').innerHTML='Nota <b>'+esc(r.no_nota)+'</b> · '+esc(r.nama_supplier)+'<br>Entitas sekarang: <b>'+esc(r.entitas)+'</b> · Tagihan '+fmtRupiah(r.total_tagihan)+' · Dibayar '+fmtRupiah(r.total_dibayar);
+  var btn=document.getElementById('btnSubmitUbahEntitas');
+  btn.textContent=isDirektur()?'Ubah Sekarang (PIN)':'Ajukan ke Direktur';
+  var warn=document.getElementById('ueWarn'); warn.innerHTML='<span class="spinner-sm"></span>';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalUbahEntitas')).show();
+  try{
+    var h=await dbGet('in_pembelian',{select:'ada_ppn,ppn',id_pembelian:'eq.'+idPembelian});
+    var x=(Array.isArray(h)&&h[0])||{};
+    var html='';
+    if(Number(r.total_dibayar)>0) html+='<div class="alert alert-info py-1 px-2 mb-1">Nota sudah dibayar '+fmtRupiah(r.total_dibayar)+'. Alokasi pembayaran <b>tetap</b>; catatan talangan PT↔DK disesuaikan otomatis.</div>';
+    if(x.ada_ppn && baru==='DK') html+='<div class="alert alert-warning py-1 px-2 mb-1">Nota ber-PPN ('+fmtRupiah(x.ppn)+'). DK non-PKP → PPN tidak bisa dikreditkan, jadi biaya.</div>';
+    warn.innerHTML=html;
+  }catch(e){ warn.innerHTML=''; }
+}
+async function submitUbahEntitas(btn){
+  var id=document.getElementById('ueIdPembelian').value;
+  var baru=document.getElementById('ueEntitasBaru').value;
+  var alasan=document.getElementById('ueAlasan').value.trim();
+  if(alasan.length<5){ showAlert('alertUbahEntitas','Alasan wajib diisi (min. 5 karakter).'); return; }
+  var pin=null;
+  if(isDirektur()){
+    var r=rekapStore[id]||{};
+    pin=await mintaApprovalPin('Ubah entitas nota '+(r.no_nota||id)+' menjadi '+baru+'?');
+    if(!pin) return;
+  }
+  btn.disabled=true; var lbl=btn.textContent; btn.innerHTML='<span class="spinner-sm"></span> Memproses…';
+  try{
+    var res=await dbRpc('ajukan_ubah_entitas_pembelian',{p_id_pembelian:id,p_entitas_baru:baru,p_alasan:alasan,p_pin:pin});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    bootstrap.Modal.getInstance(document.getElementById('modalUbahEntitas')).hide();
+    if(!res.langsung) alert('Pengajuan terkirim. Menunggu approval Direktur.');
+    muatSemuaData();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){
+    showAlert('alertUbahEntitas','Gagal: '+e.message);
+  }finally{ btn.disabled=false; btn.textContent=lbl; }
+}
+var ueData=[];
+function muatPengajuanUbahEntitas(){
+  var wrap=document.getElementById('ueWrap'); if(!wrap) return;
+  dbGet('in_pembelian_ubah_entitas',{select:'*',status:'eq.PENDING',order:'tgl_ajukan.asc'}).then(function(res){
+    ueData=Array.isArray(res)?res:[];
+    if(!ueData.length){wrap.innerHTML='';return;}
+    wrap.innerHTML='<div class="sec-label" style="margin-top:0;background:#fff3cd;color:#856404">Pengajuan Ubah Entitas ('+ueData.length+')</div>'+
+      '<div class="apv-card">'+ueData.map(function(u,i){
+        return '<div class="apv-row"><div><div class="n">'+esc(u.no_nota)+' · <b>'+esc(u.entitas_lama)+' → '+esc(u.entitas_baru)+'</b></div>'+
+          '<div class="s">diajukan '+esc(u.diajukan_oleh||'-')+' '+fmtTgl(u.tgl_ajukan)+'</div>'+
+          '<div class="s" style="color:var(--navy)">Alasan: '+esc(u.alasan||'-')+'</div></div>'+
+          '<div class="nom"><div style="white-space:nowrap"><button class="btn-sm-action btn-approve" style="font-size:.6rem;padding:.12rem .4rem" onclick="putuskanUbahEntitas('+i+',true)">✓ Setujui</button> '+
+          '<button class="btn-sm-action btn-tolak" style="font-size:.6rem;padding:.12rem .4rem" onclick="putuskanUbahEntitas('+i+',false)">✗ Tolak</button></div></div></div>';
+      }).join('')+'</div>';
+  }).catch(function(){wrap.innerHTML='';});
+}
+async function putuskanUbahEntitas(i,setuju){
+  var u=ueData[i]; if(!u) return;
+  var catatan=null;
+  if(!setuju){ catatan=prompt('Catatan penolakan (opsional):',''); if(catatan===null) return; }
+  var pin=await mintaApprovalPin((setuju?'SETUJUI':'TOLAK')+' ubah entitas nota '+u.no_nota+' '+u.entitas_lama+' → '+u.entitas_baru+'?'+
+    (setuju?' Alokasi pembayaran tetap; talangan PT↔DK disesuaikan otomatis.':''));
+  if(!pin) return;
+  try{
+    var res=await dbRpc('putuskan_ubah_entitas_pembelian',{p_id_pengajuan:u.id_pengajuan,p_aksi:setuju?'APPROVE':'TOLAK',p_pin:pin,p_catatan:catatan});
+    var e=cekErrorSupabase(res); if(e) throw new Error(e);
+    muatPengajuanUbahEntitas(); muatSemuaData();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }catch(e){alert('Gagal: '+e.message);}
+}
+
 // ── Pengajuan batal (di tab Perlu Approve, Direktur) ──
 var pbhData=[];
 function muatPengajuanBatalHutang(){
@@ -1721,6 +1831,7 @@ function rkBulanIni(){
 }
 
 var semuaRekap=[];
+var ueMapPending={};
 function muatRekap(){
   var idSup=document.getElementById('rkSupplier').value||null;
   var status=document.getElementById('rkStatus').value||null;
@@ -1728,8 +1839,11 @@ function muatRekap(){
   tbody.innerHTML='<tr><td colspan="10" class="loading">Memuat…</td></tr>';
   Promise.all([
     dbRpc('get_rekap_hutang',{p_id_supplier:idSup,p_status:status}),
-    dbRpc('get_status_alokasi_pembelian',{})
+    dbRpc('get_status_alokasi_pembelian',{}),
+    dbGet('in_pembelian_ubah_entitas',{select:'id_pengajuan,id_pembelian,entitas_baru,diajukan_oleh',status:'eq.PENDING'}).catch(function(){return [];})
   ]).then(function(hasil){
+    ueMapPending={};
+    (Array.isArray(hasil[2])?hasil[2]:[]).forEach(function(u){ ueMapPending[u.id_pembelian]=u; });
     var rekap=Array.isArray(hasil[0])?hasil[0]:[];
     var statusAlokasi=Array.isArray(hasil[1])?hasil[1]:[];
     var mapAlokasi={};
@@ -1781,12 +1895,15 @@ function renderRekap(){
         ? '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;margin-right:.3rem" onclick="bukaEditPembelian(\''+r.id_pembelian+'\')">Edit</button>'+
           '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;color:var(--red);margin-right:.3rem" onclick="bukaVoidPembelian(\''+r.id_pembelian+'\')">Void</button>'
         : '<span style="font-size:.68rem;color:var(--muted);margin-right:.3rem" title="Sudah ada pembayaran/alokasi/faktur — pakai Nota Debit/Kredit">—</span>')+
-        '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="bukaAlokasiStokPembelian(\''+r.id_pembelian+'\')">📦 Alokasi Stok</button>';
+        '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem" onclick="bukaAlokasiStokPembelian(\''+r.id_pembelian+'\')">📦 Alokasi Stok</button>'+
+        (bolehUbahEntitas() && !ueMapPending[r.id_pembelian]
+          ? '<button class="btn-outline" style="font-size:.68rem;padding:.2rem .5rem;margin-left:.3rem" onclick="bukaUbahEntitas(\''+r.id_pembelian+'\')" title="Ubah entitas nota (perlu approval Direktur)">⇄ Entitas</button>' : '');
+      var uePend=ueMapPending[r.id_pembelian];
       return '<tr>'+
         '<td class="td-mono td-desc" onclick="toggleDetailPembelian(this,\''+esc(r.id_pembelian)+'\')" title="Tap untuk detail item &amp; alokasi">'+esc(r.no_nota)+'</td>'+
         '<td class="td-mono">'+fmtTgl(r.tgl_pembelian)+'</td>'+
         '<td>'+esc(r.nama_supplier)+'</td>'+
-        '<td class="td-mono">'+esc(r.entitas)+'</td>'+
+        '<td class="td-mono">'+esc(r.entitas)+(uePend?'<div><span class="badge-status" style="background:#fff3cd;color:#856404;white-space:nowrap" title="Diajukan '+esc(uePend.diajukan_oleh||'-')+', menunggu Direktur">⏳ → '+esc(uePend.entitas_baru)+'</span></div>':'')+'</td>'+
         '<td class="td-right td-mono">'+fmtRupiah(r.total_tagihan)+'</td>'+
         '<td class="td-right td-mono">'+fmtRupiah(r.total_dibayar)+'</td>'+
         '<td class="td-right td-mono">'+fmtRupiah(r.sisa_hutang)+'</td>'+
