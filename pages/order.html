@@ -78,6 +78,15 @@
     .pending-item-field label{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;display:block;}
     .pending-diff{display:flex;gap:.5rem;align-items:center;font-family:var(--mono);font-size:.72rem;}
     .diff-lama{color:var(--red);text-decoration:line-through;}
+    .pending-batal{background:#fdf0ef;border-color:#f5a9a0;}
+    .tag-batal{background:var(--red);color:#fff;font-size:.58rem;padding:.08rem .35rem;border-radius:3px;}
+    .tag-edit{background:var(--navy);color:#fff;font-size:.58rem;padding:.08rem .35rem;border-radius:3px;}
+    .btn-toggle-det{background:none;border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:.66rem;padding:.2rem .55rem;margin-top:.35rem;color:var(--navy);cursor:pointer;}
+    .pending-det{margin-top:.45rem;padding:.5rem;background:#fff;border:1px solid var(--border);border-radius:6px;}
+    .pending-det .kv-list{margin-bottom:.4rem;}
+    .bo-box{font-size:.74rem;margin:.35rem 0;}
+    .bo-ul{margin:.2rem 0 0;padding-left:1.1rem;}
+    .bo-ul li{margin-bottom:.2rem;}
     .diff-baru{color:var(--green);font-weight:600;}
     /* Log */
     .log-item{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.55rem .75rem;margin-bottom:.45rem;}
@@ -121,7 +130,7 @@
   </select>
   <button class="btn-sort" id="btnSort" onclick="toggleSort()" title="Urutan tanggal">↓ Terbaru</button>
   <button class="btn-tambah" onclick="bukaModalTambah()">+ Tambah Order</button>
-  <button class="btn-pending" onclick="bukaModalPending()">⏳ Pending Edit<span class="pending-badge" id="pendingCount" style="display:none">0</span></button>
+  <button class="btn-pending" onclick="bukaModalPending()">⏳ Pending Approval<span class="pending-badge" id="pendingCount" style="display:none">0</span></button>
 </div>
 <div class="info-bar" id="infoBar">Memuat data…</div>
 
@@ -236,6 +245,7 @@
       <div class="modal-footer">
         <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
         <button class="btn-log" id="btnLog" onclick="bukaModalLog()" style="display:none">📋 Log</button>
+        <button class="btn-batal" id="btnAjukanBatal" onclick="bukaModalBatal()" style="display:none;color:var(--red);border-color:var(--red)">🚫 Ajukan Batal</button>
         <button class="btn-edit-order" id="btnEdit" onclick="bukaModalEdit()" style="display:none">✏️ Edit</button>
         <button class="btn-simpan" id="btnClose" onclick="closeOrderModal()" style="background:var(--green);display:none">✓ Close Order</button>
       </div>
@@ -285,11 +295,45 @@
   </div>
 </div>
 
+<!-- MODAL AJUKAN BATAL ORDER -->
+<div class="modal fade" id="modalBatalOrder" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="batalTitle">Ajukan Batal Order</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertBatal"></div>
+        <div id="batalInfo"></div>
+        <div class="form-group"><label class="form-label">Jenis Pembatalan *</label>
+          <select class="form-control-edit" id="batalJenis" onchange="onJenisBatalChange()">
+            <option value="">— Pilih —</option>
+            <option value="PERMINTAAN_KONSUMEN">Permintaan konsumen</option>
+            <option value="SALAH_INPUT">Salah input</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Usulan Tindak Lanjut Produksi</label>
+          <select class="form-control-edit" id="batalTl">
+            <option value="LANJUT">LANJUT — selesaikan sampai packing, jadi stok BJ bebas</option>
+            <option value="STOP">STOP — hentikan produksi (sisa setengah jadi = waste)</option>
+          </select>
+          <div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.2rem">Keputusan akhir di Direktur saat ACC.</div></div>
+        <div class="form-group"><label class="form-label">Alasan *</label>
+          <input type="text" class="form-control-edit" id="batalAlasan" placeholder="Wajib diisi"/></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Tutup</button>
+        <button class="btn-simpan" id="btnKirimBatal" style="background:var(--red)" onclick="kirimPengajuanBatal()">Ajukan Batal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL PENDING -->
 <div class="modal fade" id="modalPending" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header"><span class="modal-title">Pending Approval — Edit Order</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-header"><span class="modal-title">Pending Approval — Edit / Batal Order</span><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body" id="pendingBody"><div class="loading">Memuat…</div></div>
     </div>
   </div>
@@ -719,7 +763,10 @@ function bukaDetail(idOrder){
   var bisaClose=orderAktif&&orderAktif.status==='ANTRI_KIRIM';
   // Edit selalu tersedia — baris yang sudah punya transaksi turunan otomatis
   // dikunci per-field di dalam form (lihat renderEditSubitem), bukan di sini.
-  var bisaEdit=!!orderAktif;
+  var stAktif=orderAktif?(orderAktif.status||''):'';
+  var bisaEdit=!!orderAktif&&stAktif!=='BATAL';
+  var bisaBatal=!!orderAktif&&['BATAL','SELESAI'].indexOf(stAktif)<0;
+  document.getElementById('btnAjukanBatal').style.display=bisaBatal?'':'none';
   document.getElementById('btnClose').style.display=bisaClose?'':'none';
   document.getElementById('btnEdit').style.display=bisaEdit?'':'none';
   document.getElementById('btnLog').style.display='';
@@ -1173,21 +1220,28 @@ function bukaModalPending(){
 function renderPendingList(data){
   var wrap=document.getElementById('pendingBody');
   var role=getRoleUser();
+  _pendingCache={};
   if(!data.length){
-    wrap.innerHTML='<div style="font-family:var(--mono);font-size:.78rem;color:var(--muted);text-align:center;padding:1.5rem">Tidak ada perubahan yang menunggu approval.</div>';
+    wrap.innerHTML='<div style="font-family:var(--mono);font-size:.78rem;color:var(--muted);text-align:center;padding:1.5rem">Tidak ada pengajuan yang menunggu approval.</div>';
     return;
   }
   var html='';
   data.forEach(function(p){
+    _pendingCache[p.id_log]=p;
     var level=p.level_approval||'MANAGER';
+    var batal=_isBatal(p);
+    var pl=_payload(p);
+    var ord=semuaOrder.find(function(o){return o.id_order===p.id_order;})||{};
     // DIREKTUR selalu bisa approve semua. MANAGER hanya bisa untuk level MANAGER.
     var bisaProses=(role==='DIREKTUR')||(role==='MANAGER'&&level==='MANAGER');
     var labelLevel=level==='DIREKTUR'
-      ?'<span style="color:var(--red);font-weight:600">Wajib approval DIREKTUR (perubahan harga)</span>'
+      ?'<span style="color:var(--red);font-weight:600">Wajib approval DIREKTUR'+(batal?'':' (harga/entitas)')+'</span>'
       :'<span style="color:var(--muted)">Approval MANAGER</span>';
-    html+='<div class="pending-item">'+
+    var idq=esc(p.id_log);
+    html+='<div class="pending-item'+(batal?' pending-batal':'')+'">'+
       '<div class="pending-item-hdr">'+
-        '<div><div class="pending-item-id">'+esc(p.id_order)+'</div></div>'+
+        '<div><div class="pending-item-id">'+(batal?'<span class="tag-batal">BATAL ORDER</span> ':'<span class="tag-edit">EDIT</span> ')+esc(p.id_order)+'</div>'+
+        '<div style="font-size:.74rem;font-weight:600">'+esc(ord.nama_pelanggan||'')+(ord.nama_item?' — '+esc(ord.nama_item):'')+'</div></div>'+
         '<div class="pending-item-tgl">'+fmtTgl(p.tgl)+'</div>'+
       '</div>'+
       '<div class="pending-item-field"><label>Level</label>'+labelLevel+'</div>'+
@@ -1197,22 +1251,37 @@ function renderPendingList(data){
       try{
         var ch=typeof p.changes==='string'?JSON.parse(p.changes):p.changes;
         Object.keys(ch).forEach(function(k){
-          html+='<div class="pending-item-field"><label>'+k+'</label>'+
+          html+='<div class="pending-item-field"><label>'+esc(k)+'</label>'+
             '<div class="pending-diff"><span class="diff-lama">'+esc(String(ch[k].lama))+'</span><span>→</span><span class="diff-baru">'+esc(String(ch[k].baru))+'</span></div></div>';
         });
       }catch(e){}
     }
-    if(bisaProses){
+    html+='<button type="button" class="btn-toggle-det" id="pdtg-'+idq+'" onclick="toggleDetailPending(\''+idq+'\')">▾ Detail order</button>'+
+      '<div class="pending-det" id="pdet-'+idq+'"></div>';
+    if(bisaProses&&batal){
+      var tl=pl.tindak_lanjut||'LANJUT';
+      html+='<div class="pending-item-field" style="margin-top:.5rem"><label>Tindak lanjut produksi (keputusan Direktur)</label>'+
+        '<select class="form-control-edit" id="tl-'+idq+'">'+
+          '<option value="LANJUT"'+(tl==='LANJUT'?' selected':'')+'>LANJUT — '+esc(TL_BATAL.LANJUT)+'</option>'+
+          '<option value="STOP"'+(tl==='STOP'?' selected':'')+'>STOP — '+esc(TL_BATAL.STOP)+'</option>'+
+        '</select></div>'+
+        '<div style="display:flex;gap:.5rem;margin-top:.6rem">'+
+          '<button class="btn-simpan" id="pacc-'+idq+'" style="font-size:.7rem;padding:.3rem .75rem;background:var(--red)" onclick="prosesBatalOrder(\''+idq+'\',this)">✓ ACC Batal</button>'+
+          '<button class="btn-batal" style="font-size:.7rem;padding:.3rem .75rem" onclick="prosesApprovalEdit(\''+idq+'\',\''+esc(p.id_order)+'\',\'TOLAK\',this)">✗ Tolak</button>'+
+        '</div>';
+    } else if(bisaProses){
       html+='<div style="display:flex;gap:.5rem;margin-top:.6rem">'+
-        '<button class="btn-simpan" style="font-size:.7rem;padding:.3rem .75rem;background:var(--green)" onclick="prosesApprovalEdit(\''+esc(p.id_log)+'\',\''+esc(p.id_order)+'\',\'APPROVE\',this)">✓ Approve</button>'+
-        '<button class="btn-batal" style="font-size:.7rem;padding:.3rem .75rem;color:var(--red);border-color:var(--red)" onclick="prosesApprovalEdit(\''+esc(p.id_log)+'\',\''+esc(p.id_order)+'\',\'TOLAK\',this)">✗ Tolak</button>'+
+        '<button class="btn-simpan" style="font-size:.7rem;padding:.3rem .75rem;background:var(--green)" onclick="prosesApprovalEdit(\''+idq+'\',\''+esc(p.id_order)+'\',\'APPROVE\',this)">✓ Approve</button>'+
+        '<button class="btn-batal" style="font-size:.7rem;padding:.3rem .75rem;color:var(--red);border-color:var(--red)" onclick="prosesApprovalEdit(\''+idq+'\',\''+esc(p.id_order)+'\',\'TOLAK\',this)">✗ Tolak</button>'+
       '</div>';
     } else if(role==='MANAGER'&&level==='DIREKTUR'){
-      html+='<div class="alert-box" style="background:#fdecea;border:1px solid #f5a9a0;color:#a00;margin-top:.6rem;padding:.4rem .6rem;font-size:.68rem">Perubahan harga — hanya Direktur yang dapat memproses.</div>';
+      html+='<div class="alert-box" style="background:#fdecea;border:1px solid #f5a9a0;color:#a00;margin-top:.6rem;padding:.4rem .6rem;font-size:.68rem">'+(batal?'Pembatalan order':'Perubahan harga/entitas')+' — hanya Direktur yang dapat memproses.</div>';
     }
     html+='</div>';
   });
   wrap.innerHTML=html;
+  // Detail langsung dimuat supaya approver tidak perlu bolak-balik ke tabel order.
+  data.forEach(function(p){muatDetailPending(p.id_log);});
 }
 
 function prosesApprovalEdit(idLog,idOrder,aksi,btnEl){
@@ -1239,6 +1308,269 @@ function prosesApprovalEdit(idLog,idOrder,aksi,btnEl){
   }
 
   langkah.then(function(){
+    muatPendingEdit();
+    bukaModalPending();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+  }).catch(function(e){
+    alert('Gagal: '+(e.message||'Error'));
+    btnEl.disabled=false;
+  });
+}
+
+// ── BATAL ORDER + DETAIL DI APPROVAL (Okt 2026) ──
+// Pengajuan batal disimpan di log_edit_order (payload.aksi='BATAL', level DIREKTUR),
+// dieksekusi RPC apply_batal_order. Tolak tetap lewat tolak_edit_order.
+var JENIS_BATAL={PERMINTAAN_KONSUMEN:'Permintaan konsumen',SALAH_INPUT:'Salah input'};
+var TL_BATAL={
+  LANJUT:'Lanjut produksi → hasil packing jadi stok BJ bebas',
+  STOP:'Stop produksi → SPK khusus order ini dibatalkan'
+};
+var STATUS_SPK_BISA_BATAL=['OPEN','MENUNGGU_APPROVE_MANAGER','CETAK','POTONG','FINISHING','PACKING','SIAP_CLOSE'];
+var _pendingCache={};
+
+function _arr(r){return Array.isArray(r)?r:[];}
+function _uniq(a){var o={},h=[];a.forEach(function(x){if(x&&!o[x]){o[x]=1;h.push(x);}});return h;}
+function _inList(a){return 'in.('+a.map(function(x){return '"'+String(x).replace(/"/g,'')+'"';}).join(',')+')';}
+function _payload(p){try{return typeof p.payload==='string'?JSON.parse(p.payload):(p.payload||{});}catch(e){return {};}}
+function _isBatal(p){return _payload(p).aksi==='BATAL';}
+
+// PT: PPN DPP Nilai Lain = round(round(dpp*11/12)*12/100). DK: 0.
+function hitungNilaiOrder(entitas,rows){
+  var dpp=rows.reduce(function(s,r){return s+(Number(r.qty)||0)*(Number(r.harga)||0);},0);
+  var ppn=entitas==='PT'?Math.round(Math.round(dpp*11/12)*12/100):0;
+  return {dpp:dpp,ppn:ppn,total:dpp+ppn};
+}
+
+// Konteks order: header, detail, SPK (+ campuran/tidak), SJ aktif.
+function muatKonteksOrder(idOrder){
+  var ctx={order:null,details:[],spkRows:[],spkHdr:{},spkCampur:{},sjAktif:[]};
+  var lokal=semuaOrder.find(function(o){return o.id_order===idOrder;});
+  return Promise.all([
+    lokal?Promise.resolve([lokal]):dbGet('in_order',{id_order:'eq.'+idOrder}),
+    dbGet('in_order_detail',{id_order:'eq.'+idOrder}),
+    dbGet('in_spk_detail',{id_order:'eq.'+idOrder,select:'id_spk,id_detail,subitem,qty_spk,qty_pack'})
+  ]).then(function(r){
+    ctx.order=_arr(r[0])[0]||null;
+    ctx.details=_arr(r[1]);
+    ctx.spkRows=_arr(r[2]);
+    var ids=ctx.details.map(function(d){return d.id_detail;});
+    var spkIds=_uniq(ctx.spkRows.map(function(s){return s.id_spk;}));
+    return Promise.all([
+      ids.length?dbGet('in_pengiriman_detail',{id_order_detail:_inList(ids),select:'id_sj,dibatalkan'}):Promise.resolve([]),
+      spkIds.length?dbGet('in_spk',{id_spk:_inList(spkIds),select:'id_spk,status'}):Promise.resolve([]),
+      spkIds.length?dbGet('in_spk_detail',{id_spk:_inList(spkIds),select:'id_spk,id_order'}):Promise.resolve([])
+    ]);
+  }).then(function(r){
+    var sjIds=_uniq(_arr(r[0]).filter(function(x){return !x.dibatalkan;}).map(function(x){return x.id_sj;}));
+    _arr(r[1]).forEach(function(s){ctx.spkHdr[s.id_spk]=s.status||'';});
+    _arr(r[2]).forEach(function(x){if(x.id_order!==idOrder) ctx.spkCampur[x.id_spk]=true;});
+    return sjIds.length?dbGet('in_pengiriman',{id_sj:_inList(sjIds),select:'id_sj,no_sj,is_void'}):[];
+  }).then(function(r){
+    ctx.sjAktif=_arr(r).filter(function(s){return !s.is_void;});
+    return ctx;
+  });
+}
+
+function _spkAktifList(ctx){
+  return Object.keys(ctx.spkHdr).filter(function(id){
+    var st=ctx.spkHdr[id]; return st!=='BATAL'&&st!=='SELESAI';
+  });
+}
+function _qtyPack(ctx){return ctx.spkRows.reduce(function(s,r){return s+(Number(r.qty_pack)||0);},0);}
+
+// Ringkasan SPK + efek tindak lanjut (dipakai modal ajukan & kartu approval)
+function htmlRingkasSpk(ctx){
+  var aktif=_spkAktifList(ctx);
+  var html='<div class="bo-box"><b>Qty sudah dipacking (masuk stok BJ):</b> '+fmtAngka(_qtyPack(ctx))+'</div>';
+  if(!aktif.length) return html+'<div class="bo-box">Tidak ada SPK aktif.</div>';
+  html+='<div class="bo-box"><b>SPK aktif:</b><ul class="bo-ul">';
+  aktif.forEach(function(id){
+    var st=ctx.spkHdr[id];
+    var campur=!!ctx.spkCampur[id];
+    var bisa=STATUS_SPK_BISA_BATAL.indexOf(st)>=0;
+    var efek=campur?'campuran dgn order lain → jika STOP, baris order ini dikurangi manual via Edit SPK'
+      :(bisa?'khusus order ini → jika STOP, otomatis dibatalkan':'status '+st+' → tidak dibatalkan otomatis');
+    html+='<li><span class="spk-chip '+spkKelasChip(st)+'">'+esc(id)+'</span> '+esc(st)+' — '+esc(efek)+'</li>';
+  });
+  return html+'</ul></div>';
+}
+
+// ── MODAL AJUKAN BATAL ──
+function bukaModalBatal(){
+  if(!orderAktif) return;
+  document.getElementById('batalTitle').textContent='Ajukan Batal — '+orderAktif.id_order;
+  document.getElementById('alertBatal').innerHTML='';
+  document.getElementById('batalJenis').value='';
+  document.getElementById('batalTl').value='LANJUT';
+  document.getElementById('batalAlasan').value='';
+  document.getElementById('batalInfo').innerHTML='<div class="loading">Memeriksa SJ & SPK…</div>';
+  var btn=document.getElementById('btnKirimBatal'); btn.disabled=true;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBatalOrder')).show();
+  var idOrder=orderAktif.id_order;
+  Promise.all([
+    muatKonteksOrder(idOrder),
+    dbGet('log_edit_order',{id_order:'eq.'+idOrder,status:'eq.PENDING',select:'id_log,payload'})
+  ]).then(function(r){
+    var ctx=r[0], pend=_arr(r[1]);
+    var adaBatal=pend.some(_isBatal);
+    var nEdit=pend.length-(adaBatal?1:0);
+    var html='';
+    if(ctx.sjAktif.length){
+      html+='<div class="alert-box alert-err">Order sudah punya SJ aktif: <b>'+esc(ctx.sjAktif.map(function(s){return s.no_sj||s.id_sj;}).join(', '))+
+        '</b>. Void SJ dulu di halaman Pengiriman, baru ajukan batal.</div>';
+    } else if(adaBatal){
+      html+='<div class="alert-box alert-err">Sudah ada pengajuan batal untuk order ini yang menunggu Direktur.</div>';
+    } else {
+      if(nEdit>0) html+='<div class="alert-box" style="background:#fff8e1;border:1px solid #ffe082;color:#9a6500">Ada '+nEdit+' pengajuan edit pending — otomatis ditolak jika batal di-ACC.</div>';
+      btn.disabled=false;
+    }
+    html+=htmlRingkasSpk(ctx);
+    document.getElementById('batalInfo').innerHTML=html;
+  }).catch(function(e){
+    document.getElementById('batalInfo').innerHTML='<div class="alert-box alert-err">Gagal memeriksa: '+esc(e.message||'Error')+'</div>';
+  });
+}
+
+function onJenisBatalChange(){
+  var j=document.getElementById('batalJenis').value;
+  if(j==='SALAH_INPUT') document.getElementById('batalTl').value='LANJUT';
+  if(j==='PERMINTAAN_KONSUMEN') document.getElementById('batalTl').value='STOP';
+}
+
+function kirimPengajuanBatal(){
+  var alertEl=document.getElementById('alertBatal'); alertEl.innerHTML='';
+  var jenis=document.getElementById('batalJenis').value;
+  var tl=document.getElementById('batalTl').value;
+  var alasan=document.getElementById('batalAlasan').value.trim();
+  if(!jenis){alertEl.innerHTML='<div class="alert-box alert-err">Jenis pembatalan wajib dipilih.</div>';return;}
+  if(!alasan){alertEl.innerHTML='<div class="alert-box alert-err">Alasan wajib diisi.</div>';return;}
+  if(!confirm('Ajukan pembatalan order '+orderAktif.id_order+' ke Direktur?'))return;
+  var btn=document.getElementById('btnKirimBatal'); btn.disabled=true; btn.textContent='Mengirim…';
+  var idLog='LED-'+new Date().toISOString().replace(/[-T:.Z]/g,'').slice(0,17)+'-'+Math.floor(Math.random()*900+100);
+  // Object mentah — dbInsert sudah stringify sekali.
+  dbInsert('log_edit_order',{
+    id_log:idLog,
+    id_order:orderAktif.id_order,
+    tgl:new Date().toISOString(),
+    status:'PENDING',
+    alasan:'['+JENIS_BATAL[jenis]+'] '+alasan,
+    changes:{
+      'Status':{lama:orderAktif.status||'',baru:'BATAL'},
+      'Jenis batal':{lama:'-',baru:JENIS_BATAL[jenis]},
+      'Usulan tindak lanjut':{lama:'-',baru:tl}
+    },
+    payload:{aksi:'BATAL',jenis_batal:jenis,tindak_lanjut:tl},
+    user_input:getNamaUser(),
+    level_approval:'DIREKTUR'
+  }).then(function(res){
+    cekErrorSupabase(res);
+    alertEl.innerHTML='<div class="alert-box alert-ok">✓ Pengajuan batal dikirim. Menunggu ACC Direktur.</div>';
+    muatPendingEdit();
+    if(typeof refreshNotifNav==='function') refreshNotifNav();
+    setTimeout(function(){bootstrap.Modal.getInstance(document.getElementById('modalBatalOrder')).hide();},1500);
+  }).catch(function(e){
+    alertEl.innerHTML='<div class="alert-box alert-err">'+esc(e.message||'Gagal mengirim.')+'</div>';
+    btn.disabled=false;
+  }).finally(function(){btn.textContent='Ajukan Batal';});
+}
+
+// ── DETAIL ORDER DI KARTU APPROVAL ──
+function toggleDetailPending(idLog){
+  var el=document.getElementById('pdet-'+idLog);
+  var tb=document.getElementById('pdtg-'+idLog);
+  if(!el) return;
+  var buka=el.style.display==='none';
+  el.style.display=buka?'':'none';
+  if(tb) tb.textContent=(buka?'▾':'▸')+' Detail order';
+  if(buka&&!el.getAttribute('data-loaded')) muatDetailPending(idLog);
+}
+
+function muatDetailPending(idLog){
+  var p=_pendingCache[idLog]; var el=document.getElementById('pdet-'+idLog);
+  if(!p||!el) return;
+  el.innerHTML='<div class="loading">Memuat detail…</div>';
+  muatKonteksOrder(p.id_order).then(function(ctx){
+    el.setAttribute('data-loaded','1');
+    el.innerHTML=renderDetailPending(p,ctx);
+    var btnAcc=document.getElementById('pacc-'+idLog);
+    if(btnAcc&&_isBatal(p)&&ctx.sjAktif.length) btnAcc.disabled=true;
+  }).catch(function(e){
+    el.innerHTML='<div class="alert-box alert-err">Gagal memuat: '+esc(e.message||'Error')+'</div>';
+  });
+}
+
+function renderDetailPending(p,ctx){
+  var o=ctx.order||{}; var dets=ctx.details;
+  var pl=_payload(p); var batal=pl.aksi==='BATAL';
+  var html='<div class="kv-list">'+
+    kv('Pelanggan',esc(o.nama_pelanggan||'—'))+
+    kv('Entitas',esc(o.entitas||'—'))+
+    kv('Item',esc(o.nama_item||(dets[0]&&dets[0].nama_item)||'—'))+
+    kv('No. PO',esc(o.no_po||'—'))+
+    kv('Status',esc(o.status||'—'))+
+    kv('Tgl. Order',fmtTgl(o.tgl_order))+
+    kv('Deadline',fmtTgl(o.deadline))+
+    kv('Keterangan',esc(o.keterangan||'—'))+
+  '</div>';
+
+  // Tabel subitem
+  var spkByDet={};
+  ctx.spkRows.forEach(function(s){(spkByDet[s.id_detail]=spkByDet[s.id_detail]||[]).push(s);});
+  html+='<div style="overflow-x:auto"><table class="detail-table"><thead><tr><th>Subitem</th><th>Qty</th><th>Dari Stok</th><th>Harga</th><th>Kirim</th><th>SPK (pack/spk)</th></tr></thead><tbody>';
+  dets.forEach(function(d){
+    var chips=(spkByDet[d.id_detail]||[]).map(function(s){
+      var st=ctx.spkHdr[s.id_spk]||'';
+      return '<span class="spk-chip '+spkKelasChip(st)+'">'+esc(s.id_spk)+' '+fmtAngka(s.qty_pack||0)+'/'+fmtAngka(s.qty_spk||0)+(st==='BATAL'?' ✗':'')+'</span>';
+    }).join(' ')||'<span class="dtl-belum-spk">—</span>';
+    html+='<tr><td>'+esc(d.subitem||'—')+'</td><td>'+fmtAngka(d.qty||0)+'</td><td>'+fmtAngka(d.qty_dari_stok||0)+'</td><td>'+fmtRupiah(d.harga||0)+'</td><td>'+fmtAngka(d.qty_kirim||0)+'</td><td>'+chips+'</td></tr>';
+  });
+  html+='</tbody></table></div>';
+
+  // Nilai order (estimasi; tagihan riil dihitung per SJ)
+  var entLama=o.entitas||'';
+  var lama=hitungNilaiOrder(entLama,dets.map(function(d){return {qty:d.qty,harga:d.harga};}));
+  if(batal){
+    html+='<div class="bo-box"><b>Nilai order (estimasi):</b> DPP '+fmtRupiah(lama.dpp)+(lama.ppn?' + PPN '+fmtRupiah(lama.ppn):'')+' = <b>'+fmtRupiah(lama.total)+'</b></div>';
+    if(ctx.sjAktif.length){
+      html+='<div class="alert-box alert-err">Tidak bisa di-ACC: SJ aktif <b>'+esc(ctx.sjAktif.map(function(s){return s.no_sj||s.id_sj;}).join(', '))+'</b>. Void SJ dulu.</div>';
+    }
+    html+=htmlRingkasSpk(ctx);
+  } else {
+    var h=pl.header||{};
+    var hargaBaru=(h.harga!==undefined&&h.harga!==null)?Number(h.harga):null;
+    var rows=dets.map(function(d){return {id:d.id_detail,qty:Number(d.qty)||0,harga:hargaBaru!==null?hargaBaru:(Number(d.harga)||0)};});
+    var hargaAdd=hargaBaru!==null?hargaBaru:(dets[0]?Number(dets[0].harga)||0:0);
+    (pl.details||[]).forEach(function(a){
+      if(a.aksi==='ADD') rows.push({id:null,qty:Number(a.qty)||0,harga:hargaAdd});
+      else if(a.aksi==='UPDATE'&&a.qty!==undefined){var r=rows.find(function(x){return x.id===a.id_detail;}); if(r) r.qty=Number(a.qty)||0;}
+      else if(a.aksi==='DELETE') rows=rows.filter(function(x){return x.id!==a.id_detail;});
+    });
+    var entBaru=h.entitas||entLama;
+    var baru=hitungNilaiOrder(entBaru,rows);
+    var sel=baru.total-lama.total;
+    html+='<div class="bo-box"><b>Nilai order (estimasi)</b>'+
+      '<div class="pending-diff" style="margin-top:.2rem"><span>'+esc(entLama)+'</span><span class="diff-lama">'+fmtRupiah(lama.total)+'</span><span>→</span><span>'+esc(entBaru)+'</span><span class="diff-baru">'+fmtRupiah(baru.total)+'</span></div>'+
+      '<div style="font-family:var(--mono);font-size:.68rem;color:var(--muted)">DPP '+fmtRupiah(lama.dpp)+' → '+fmtRupiah(baru.dpp)+(lama.ppn||baru.ppn?' | PPN '+fmtRupiah(lama.ppn)+' → '+fmtRupiah(baru.ppn):'')+'</div>'+
+      '<div style="font-weight:600;color:'+(sel<0?'var(--red)':sel>0?'var(--green)':'var(--muted)')+'">Selisih: '+(sel>0?'+':'')+fmtRupiah(sel)+'</div>'+
+    '</div>';
+  }
+  return html;
+}
+
+function prosesBatalOrder(idLog,btnEl){
+  var sel=document.getElementById('tl-'+idLog);
+  var tl=sel?sel.value:'';
+  if(!tl){alert('Pilih tindak lanjut produksi.');return;}
+  if(!confirm('ACC batal order ini?\nTindak lanjut: '+TL_BATAL[tl]))return;
+  btnEl.disabled=true;
+  dbRpc('apply_batal_order',{p_id_log:idLog,p_tindak_lanjut:tl,p_approved_by:getNamaUser()}).then(function(res){
+    cekErrorSupabase(res);
+    if(res&&res.message) alert(res.message);
+    return dbGet('in_order',{order:'tgl_order.desc'}).then(function(r){
+      semuaOrder=Array.isArray(r)?r:[];
+      renderTabel(semuaOrder);
+    });
+  }).then(function(){
     muatPendingEdit();
     bukaModalPending();
     if(typeof refreshNotifNav==='function') refreshNotifNav();

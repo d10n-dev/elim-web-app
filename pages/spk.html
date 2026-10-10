@@ -629,8 +629,10 @@ function muatOrderDetail(){
     }).filter(function(d){ return d.QTY_SISA>0||itemDenganKomponenSet[d.ID_ITEM]; });
     var idOrdPicker=Array.from(new Set(semuaOrdDtl.map(function(d){return d.ID_ORDER;}).filter(Boolean)));
     if(!idOrdPicker.length) return;
-    return dbGet('in_order',{id_order:'in.('+idOrdPicker.join(',')+')',select:'id_order,no_po'}).then(function(ro){
-      var mp={}; (Array.isArray(ro)?ro:[]).forEach(function(o){mp[o.id_order]=o.no_po||'';});
+    return dbGet('in_order',{id_order:'in.('+idOrdPicker.join(',')+')',select:'id_order,no_po,status'}).then(function(ro){
+      var mp={}, stOrd={}; (Array.isArray(ro)?ro:[]).forEach(function(o){mp[o.id_order]=o.no_po||''; stOrd[o.id_order]=o.status||'';});
+      // Order BATAL tidak boleh masuk SPK baru (Okt 2026)
+      semuaOrdDtl=semuaOrdDtl.filter(function(d){return stOrd[d.ID_ORDER]!=='BATAL';});
       semuaOrdDtl.forEach(function(d){d.NO_PO=mp[d.ID_ORDER]||'';});
     });
   }).catch(function(){});
