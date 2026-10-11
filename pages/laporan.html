@@ -42,6 +42,14 @@
     table.tbl-laporan td{padding:.5rem .6rem;border-bottom:1px solid var(--border);vertical-align:top;}
     table.tbl-laporan tr:hover td{background:#f4f7fc;}
     .empty-state{text-align:center;padding:2rem;color:var(--muted);font-family:var(--mono);font-size:.8rem;}
+    .kk-sec{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:1.1rem 0 .3rem;}
+    .kk-note,.kk-info{font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-bottom:.4rem;}
+    .kk-muted{font-size:.7rem;color:var(--muted);}
+    .kk-merah{color:var(--red);}
+    .kk-lv{font-family:var(--mono);font-size:.58rem;font-weight:600;padding:.12rem .4rem;border-radius:3px;white-space:nowrap;}
+    .kk-lv3{background:#fdecea;color:var(--red);border:1px solid #f5b5ae;}
+    .kk-lv2{background:#fff3cd;color:#856404;border:1px solid #fde68a;}
+    .kk-lv1{background:#f0f2f6;color:var(--muted);border:1px solid var(--border);}
     .print-header{display:none;}
     @media print{
       body *{visibility:hidden;}
@@ -50,6 +58,7 @@
       .print-area{position:absolute;top:0;left:0;width:100%;}
       #tabPiutang .rekap-grid,#tabPiutang .toolbar,#tabPiutang .ringkasan-wrap,
       #tabHutang .rekap-grid,#tabHutang .toolbar,#tabHutang .ringkasan-wrap{display:none!important;}
+      #tabKaskecil .toolbar{display:none!important;}
       .print-header{display:block!important;margin-bottom:.8rem;}
       .print-header .ph-judul{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--navy);}
       .print-header .ph-sub{font-family:var(--mono);font-size:.78rem;color:#333;margin-top:.15rem;}
@@ -68,6 +77,7 @@
   <button class="tab-btn"        data-tab="produksi"  onclick="gantiTab('produksi')">🏭 Produksi</button>
   <button class="tab-btn"        data-tab="lebihorder" onclick="gantiTab('lebihorder')">⚠ SPK Lebih Order</button>
   <button class="tab-btn"        data-tab="nilaistok" onclick="gantiTab('nilaistok')">💰 Nilai Stok</button>
+  <button class="tab-btn"        data-tab="kaskecil" id="tabBtnKaskecil" style="display:none" onclick="gantiTab('kaskecil')">💵 Kas Kecil</button>
 </div>
 
 <!-- ═══ TAB PIUTANG ═══ -->
@@ -385,6 +395,82 @@
   </div>
 </div>
 
+
+<!-- ═══ TAB KAS KECIL (khusus Direktur) ═══ -->
+<div class="tab-pane print-area" id="tabKaskecil">
+  <div class="print-header"><div class="ph-judul">Laporan Kas Kecil</div><div class="ph-sub" id="kkPrintSub"></div></div>
+  <div class="toolbar">
+    <select id="kkMode" onchange="kkGantiMode()">
+      <option value="BULAN">Bulanan</option>
+      <option value="MINGGU">Mingguan</option>
+    </select>
+    <input type="month" id="kkBulan"/>
+    <input type="date" id="kkMinggu" style="display:none" title="Pilih tanggal mana saja di minggu tsb"/>
+    <button class="btn-primary" onclick="muatKasKecil()">Tampilkan</button>
+    <button class="btn-outline" onclick="window.print()">🖨️ Print</button>
+  </div>
+  <div id="alertKasKecil"></div>
+  <div class="kk-info" id="kkInfo"></div>
+  <div class="rekap-grid">
+    <div class="rekap-card"><div class="lbl">Total Biaya</div><div class="val" id="kkCardBiaya">…</div></div>
+    <div class="rekap-card"><div class="lbl">Jml Transaksi</div><div class="val" id="kkCardJml">…</div></div>
+    <div class="rekap-card"><div class="lbl">Top-up Diterima</div><div class="val" id="kkCardTopup">…</div></div>
+    <div class="rekap-card"><div class="lbl">Saldo Awal → Akhir</div><div class="val" id="kkCardSaldo" style="font-size:.85rem">…</div></div>
+    <div class="rekap-card" id="kkCardSelisihWrap"><div class="lbl">Selisih Kas (net)</div><div class="val" id="kkCardSelisih">…</div></div>
+    <div class="rekap-card" id="kkCardKasbonWrap"><div class="lbl">Kasbon Terbuka</div><div class="val" id="kkCardKasbon">…</div></div>
+    <div class="rekap-card" id="kkCardTemuanWrap"><div class="lbl">Temuan Merah / Kuning</div><div class="val" id="kkCardTemuan">…</div></div>
+  </div>
+
+  <div class="kk-sec">1. Temuan — perlu dicek</div>
+  <div class="kk-note">Merah = pelanggaran aturan / risiko tinggi. Kuning = tidak wajar, minta penjelasan. Abu = catatan.</div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>Level</th><th>No / Tgl</th><th>Penerima · Golongan</th><th class="td-right">Nominal</th><th>Alasan</th>
+  </tr></thead><tbody id="kkBodyTemuan"></tbody></table></div>
+
+  <div class="kk-sec">2. Rekap per Golongan</div>
+  <div class="kk-note" id="kkNoteGol"></div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>Golongan</th><th class="td-right">Jml</th><th class="td-right">Total</th><th class="td-right">Porsi</th>
+    <th class="td-right">Normal*</th><th class="td-right">Δ</th><th>Status</th>
+  </tr></thead><tbody id="kkBodyGol"></tbody></table></div>
+
+  <div class="kk-sec">3. 10 Pengeluaran Terbesar</div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>#</th><th>No / Tgl</th><th>Penerima · Golongan</th><th>Keterangan</th><th class="td-right">Nominal</th>
+  </tr></thead><tbody id="kkBodyTop"></tbody></table></div>
+
+  <div class="kk-sec">4. Pengeluaran Baru (tidak muncul di 3 bulan sebelumnya)</div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>Jenis</th><th>Nama</th><th class="td-right">Jml</th><th class="td-right">Total</th><th>Contoh Keterangan</th>
+  </tr></thead><tbody id="kkBodyBaru"></tbody></table></div>
+
+  <div class="kk-sec">5. Kasbon Belum Realisasi (semua periode)</div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>No / Tgl</th><th>Penerima</th><th>Keterangan</th><th class="td-right">Nominal</th><th class="td-right">Umur</th>
+  </tr></thead><tbody id="kkBodyKasbon"></tbody></table></div>
+
+  <div class="kk-sec">6. Selisih Kas &amp; Closing</div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>Sumber</th><th>Tgl</th><th>Oleh</th><th>Alasan</th><th class="td-right">Selisih</th>
+  </tr></thead><tbody id="kkBodySelisih"></tbody></table></div>
+
+  <div class="kk-sec">7. Top-up Periode Ini</div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>ID / Tgl ACC</th><th>Keperluan</th><th class="td-right">ACC</th><th class="td-right">Diterima</th><th>Catatan</th>
+  </tr></thead><tbody id="kkBodyTopup"></tbody></table></div>
+
+  <div class="kk-sec">8. Per Penginput</div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>User</th><th class="td-right">Jml</th><th class="td-right">Total</th><th class="td-right">Temuan</th><th class="td-right">Tanpa Nota/Foto</th>
+  </tr></thead><tbody id="kkBodyUser"></tbody></table></div>
+
+  <div class="kk-sec">9. Pembatalan &amp; Koreksi</div>
+  <div class="kk-note" id="kkNoteKoreksi"></div>
+  <div style="overflow-x:auto"><table class="tbl-laporan"><thead><tr>
+    <th>No</th><th>Penerima</th><th class="td-right">Nominal</th><th>Status</th><th>Alasan · Oleh</th>
+  </tr></thead><tbody id="kkBodyBatal"></tbody></table></div>
+</div>
+
 <script src="../js/api.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/utils.js"></script>
@@ -480,12 +566,18 @@ window.addEventListener('load', function () {
   muatProduksi();
   muatLebihOrder();
   muatNilaiStok();
+  if (getRoleUser()==='DIREKTUR'){
+    document.getElementById('tabBtnKaskecil').style.display='';
+    document.getElementById('kkBulan').value = bulanIni();
+    document.getElementById('kkMinggu').value = kkHariIni();
+  }
 });
 
 function gantiTab(nama){
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active', b.dataset.tab===nama);});
   document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
   document.getElementById('tab'+nama.charAt(0).toUpperCase()+nama.slice(1)).classList.add('active');
+  if(nama==='kaskecil' && !kkSudahMuat) muatKasKecil();
 }
 
 // ═══ PENJUALAN ═══
@@ -987,6 +1079,277 @@ function renderNilaiStok(){
       '<td class="td-right td-mono">'+fmtRupiah(d.nilai_total)+'</td>'+
     '</tr>';
   }).join('');
+}
+
+// ═══ KAS KECIL (khusus Direktur) ═══
+// Ambang analisis — ubah di sini bila perlu
+var KK = {
+  BATAS_TRANSFER: 2000000,   // > ini wajib transfer → MERAH
+  BATAS_CEK: 1000000,        // ≥ ini perlu cek → KUNING
+  KALI_MEDIAN: 2,            // > 2× median golongan → KUNING
+  MIN_SAMPEL_MEDIAN: 5,
+  MIN_NOMINAL_MEDIAN: 100000,
+  HARI_DOBEL: 3,             // nominal+golongan sama dalam ≤3 hari
+  MIN_NOMINAL_DOBEL: 50000,
+  TOTAL_PECAH: 1000000,      // penerima sama, hari sama, ≥2 trx, total ≥ ini
+  HARI_MUNDUR: 2,            // created_at − tgl > 2 hari
+  HARI_KASBON: 3,            // kasbon terbuka > 3 hari → MERAH
+  NAIK_PERSEN: 30,           // golongan naik > 30% dari normal
+  NAIK_MIN_RP: 50000,
+  PORSI_LAIN: 10,            // golongan "lain-lain" > 10%
+  TGL_WAJIB_FOTO: '2026-10-06'
+};
+var kkSudahMuat = false;
+
+function kkTgl(ts){ // timestamp → 'YYYY-MM-DD' WIB
+  if(!ts) return '';
+  var d = new Date(ts); if(isNaN(d)) return String(ts).slice(0,10);
+  return d.toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'});
+}
+function kkTambahHari(ymd,n){ var d=new Date(ymd+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+function kkSelisihHari(a,b){ return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5); }
+function kkHariIni(){ return kkTgl(new Date().toISOString()); }
+function kkNorm(s){ return String(s||'').trim().toUpperCase().replace(/\s+/g,' '); }
+function kkPersen(n){ return (Math.round(n*10)/10).toLocaleString('id-ID')+'%'; }
+function kkMedian(arr){ var a=arr.slice().sort(function(x,y){return x-y;}); var m=Math.floor(a.length/2); return a.length%2?a[m]:(a[m-1]+a[m])/2; }
+function kkBadge(lv){ return lv===3?'<span class="kk-lv kk-lv3">MERAH</span>':lv===2?'<span class="kk-lv kk-lv2">KUNING</span>':'<span class="kk-lv kk-lv1">CATAT</span>'; }
+function kkKosong(tb,col,msg){ document.getElementById(tb).innerHTML='<tr><td colspan="'+col+'" class="empty-state">'+(msg||'Tidak ada.')+'</td></tr>'; }
+
+// Biaya bersih: LANGSUNG = diberikan; KASBON = realisasi (belum realisasi = 0, dilaporkan terpisah)
+function kkIsBiaya(t){ return t.jenis==='LANGSUNG' || t.jenis==='KASBON'; }
+function kkBiaya(t){
+  if(t.jenis==='KASBON'){ if(t.status==='BELUM_REALISASI') return 0; return Number(t.realisasi!=null?t.realisasi:t.diberikan)||0; }
+  if(t.jenis==='LANGSUNG') return Number(t.diberikan)||0;
+  return 0;
+}
+function kkNominalCek(t){ var b=kkBiaya(t); return b>0?b:(Number(t.diberikan)||0); }
+
+function kkGantiMode(){
+  var m=document.getElementById('kkMode').value;
+  document.getElementById('kkBulan').style.display = m==='BULAN'?'':'none';
+  document.getElementById('kkMinggu').style.display = m==='MINGGU'?'':'none';
+}
+
+function kkPeriode(){
+  var mode=document.getElementById('kkMode').value, p={mode:mode};
+  if(mode==='BULAN'){
+    var b=document.getElementById('kkBulan').value; if(!b) return null;
+    p.mulai=monthToRange(b,false); p.akhir=monthToRange(b,true);
+    var y=+b.slice(0,4), mo=+b.slice(5,7)-3; while(mo<1){mo+=12;y--;}
+    p.baseMulai=y+'-'+String(mo).padStart(2,'0')+'-01';
+    p.label='Bulan '+new Date(p.mulai+'T00:00:00').toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+    p.labelBase='rata-rata 3 bulan sebelumnya';
+  } else {
+    var t=document.getElementById('kkMinggu').value; if(!t) return null;
+    var dow=new Date(t+'T00:00:00Z').getUTCDay();
+    p.mulai=kkTambahHari(t,-((dow+6)%7)); p.akhir=kkTambahHari(p.mulai,6);
+    p.baseMulai=kkTambahHari(p.mulai,-28);
+    p.label='Minggu '+fmtTgl(p.mulai)+' – '+fmtTgl(p.akhir);
+    p.labelBase='rata-rata 4 minggu sebelumnya';
+  }
+  p.baseAkhir=kkTambahHari(p.mulai,-1);
+  p.hariBase=kkSelisihHari(p.baseMulai,p.mulai);
+  var hi=kkHariIni(), batas=p.akhir<hi?p.akhir:hi;
+  p.berjalan = p.akhir>=hi;
+  p.hariJalan=Math.max(1,kkSelisihHari(p.mulai,batas)+1);
+  return p;
+}
+
+function muatKasKecil(){
+  var p=kkPeriode();
+  if(!p){ showAlert('alertKasKecil','Pilih periode dulu.'); return; }
+  kkSudahMuat=true;
+  showAlert('alertKasKecil','');
+  document.getElementById('kkInfo').textContent='Memuat…';
+  dbRpc('get_laporan_kas_kecil',{p_tgl_mulai:p.mulai,p_tgl_akhir:p.akhir}).then(function(r){
+    var e=cekErrorSupabase(r); if(e) throw new Error(e);
+    if(!r||!Array.isArray(r.keluar)) throw new Error('Respons tidak dikenal.');
+    kkRender(r,p);
+  }).catch(function(e){
+    document.getElementById('kkInfo').textContent='';
+    showAlert('alertKasKecil',esc(e.message||'Gagal memuat laporan kas kecil.'));
+  });
+}
+
+function kkRender(d,p){
+  var hi=kkHariIni();
+  var semua=d.keluar.map(function(t){ t._tgl=kkTgl(t.tgl); t._in=kkTgl(t.created_at); t._b=kkBiaya(t); return t; });
+  var per=semua.filter(function(t){return kkIsBiaya(t)&&t._tgl>=p.mulai&&t._tgl<=p.akhir;});
+  var base=semua.filter(function(t){return kkIsBiaya(t)&&t._tgl>=p.baseMulai&&t._tgl<=p.baseAkhir;});
+  var keluarPer=semua.filter(function(t){return t._tgl>=p.mulai&&t._tgl<=p.akhir;});
+  var masuk=d.masuk||[];
+
+  document.getElementById('kkPrintSub').textContent=p.label;
+  document.getElementById('kkInfo').innerHTML=esc(p.label)+(p.berjalan?' · <b>periode berjalan</b> ('+p.hariJalan+' hari)':'')+
+    ' · pembanding: '+esc(p.labelBase)+' (disetarakan per hari)';
+
+  // ── Temuan per transaksi ──
+  var medianGol={}, arrGol={};
+  base.forEach(function(t){ if(t._b>0){ var g=t.golongan||'(tanpa golongan)'; (arrGol[g]=arrGol[g]||[]).push(t._b); } });
+  Object.keys(arrGol).forEach(function(g){ if(arrGol[g].length>=KK.MIN_SAMPEL_MEDIAN) medianGol[g]=kkMedian(arrGol[g]); });
+
+  var grupPecah={};
+  per.forEach(function(t){ var k=kkNorm(t.penerima)+'|'+t._tgl; (grupPecah[k]=grupPecah[k]||[]).push(t); });
+  var pembanding=base.concat(per);
+
+  var temuan={};
+  function tambah(t,lv,alasan){ var x=temuan[t.id]=temuan[t.id]||{t:t,lv:0,alasan:[]}; x.lv=Math.max(x.lv,lv); x.alasan.push(alasan); }
+
+  per.forEach(function(t){
+    var n=kkNominalCek(t), g=t.golongan||'(tanpa golongan)';
+    if(n>KK.BATAS_TRANSFER) tambah(t,3,'> Rp 2 jt — wajib transfer, bukan kas kecil');
+    else if(n>=KK.BATAS_CEK) tambah(t,2,'Nominal ≥ Rp 1 jt — minta bukti & penjelasan');
+    var med=medianGol[g];
+    if(med && n>=KK.MIN_NOMINAL_MEDIAN && n>KK.KALI_MEDIAN*med)
+      tambah(t,2,'Jauh di atas kebiasaan golongan ('+(Math.round(n/med*10)/10).toLocaleString('id-ID')+'× median '+fmtRupiah(med)+')');
+    var dobel=n<KK.MIN_NOMINAL_DOBEL?[]:pembanding.filter(function(o){ return o.id!==t.id && (o.golongan||'')===(t.golongan||'') &&
+      kkNominalCek(o)===n && Math.abs(kkSelisihHari(o._tgl,t._tgl))<=KK.HARI_DOBEL; });
+    if(dobel.length) tambah(t,2,'Kemungkinan dobel dengan '+dobel.map(function(o){return o.no;}).join(', '));
+    var gp=grupPecah[kkNorm(t.penerima)+'|'+t._tgl];
+    if(t.penerima && gp && gp.length>=2){
+      var tot=gp.reduce(function(s,o){return s+kkNominalCek(o);},0);
+      if(tot>=KK.TOTAL_PECAH) tambah(t,2,'Kemungkinan dipecah: '+gp.length+' trx ke penerima sama di hari sama, total '+fmtRupiah(tot));
+    }
+    var mundur=kkSelisihHari(t._tgl,t._in);
+    if(mundur>KK.HARI_MUNDUR) tambah(t,1,'Diinput mundur '+mundur+' hari');
+    if(t.tanpa_nota) tambah(t,2,'Tanpa nota'+(t.alasan_tanpa_nota?': '+t.alasan_tanpa_nota:''));
+    else if(Number(t.jml_foto)===0 && t._tgl>=KK.TGL_WAJIB_FOTO && t.status!=='BELUM_REALISASI') tambah(t,2,'Belum ada foto nota');
+    if(!t.golongan && t.status!=='BELUM_REALISASI') tambah(t,1,'Tanpa golongan');
+  });
+  var listTemuan=Object.keys(temuan).map(function(k){return temuan[k];})
+    .sort(function(a,b){ return b.lv-a.lv || kkNominalCek(b.t)-kkNominalCek(a.t); });
+  if(!listTemuan.length) kkKosong('kkBodyTemuan',5,'Tidak ada temuan. ✔');
+  else document.getElementById('kkBodyTemuan').innerHTML=listTemuan.map(function(x){ var t=x.t;
+    return '<tr><td>'+kkBadge(x.lv)+'</td><td class="td-mono">'+esc(t.no)+'<br>'+fmtTgl(t._tgl)+'</td>'+
+      '<td>'+esc(t.penerima||'—')+'<br><span class="kk-muted">'+esc(t.golongan||'—')+' · '+esc(t.jenis)+'</span></td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(kkNominalCek(t))+'</td>'+
+      '<td>'+x.alasan.map(esc).join('<br>')+'<br><span class="kk-muted">'+esc(t.keterangan||'')+'</span></td></tr>';
+  }).join('');
+
+  // ── Rekap golongan ──
+  var totalBiaya=per.reduce(function(s,t){return s+t._b;},0);
+  var gol={};
+  per.forEach(function(t){ if(t._b<=0) return; var g=t.golongan||'(tanpa golongan)'; var x=gol[g]=gol[g]||{n:0,tot:0,base:0}; x.n++; x.tot+=t._b; });
+  base.forEach(function(t){ if(t._b<=0) return; var g=t.golongan||'(tanpa golongan)'; var x=gol[g]=gol[g]||{n:0,tot:0,base:0}; x.base+=t._b; });
+  var adaBase=base.some(function(t){return t._b>0;});
+  document.getElementById('kkNoteGol').textContent='*Normal = '+p.labelBase+', disetarakan ke '+p.hariJalan+' hari'+
+    (p.berjalan?' (periode berjalan)':'')+'.'+(adaBase?'':' Data pembanding belum ada.');
+  var baris=Object.keys(gol).map(function(g){ var x=gol[g]; x.g=g; x.normal=x.base/p.hariBase*p.hariJalan; return x; })
+    .filter(function(x){return x.tot>0||x.normal>=KK.NAIK_MIN_RP;})
+    .sort(function(a,b){return b.tot-a.tot;});
+  if(!baris.length) kkKosong('kkBodyGol',7);
+  else document.getElementById('kkBodyGol').innerHTML=baris.map(function(x){
+    var porsi=totalBiaya?x.tot/totalBiaya*100:0, delta=x.normal>0?(x.tot-x.normal)/x.normal*100:null, st='';
+    if(/lain/i.test(x.g) && porsi>KK.PORSI_LAIN) st='<span class="kk-lv kk-lv2">LAIN² &gt;'+KK.PORSI_LAIN+'%</span> ';
+    if(adaBase && x.base===0 && x.tot>0) st+='<span class="kk-lv kk-lv2">BARU</span>';
+    else if(delta!==null && delta>KK.NAIK_PERSEN && x.tot-x.normal>=KK.NAIK_MIN_RP) st+='<span class="kk-lv kk-lv2">NAIK</span>';
+    else if(delta!==null && delta<-KK.NAIK_PERSEN) st+='<span class="kk-lv kk-lv1">TURUN</span>';
+    return '<tr><td>'+esc(x.g)+'</td><td class="td-right td-mono">'+x.n+'</td><td class="td-right td-mono">'+fmtRupiah(x.tot)+'</td>'+
+      '<td class="td-right td-mono">'+kkPersen(porsi)+'</td><td class="td-right td-mono">'+(adaBase?fmtRupiah(Math.round(x.normal)):'—')+'</td>'+
+      '<td class="td-right td-mono">'+(delta===null?'—':(delta>0?'+':'')+kkPersen(delta))+'</td><td>'+st+'</td></tr>';
+  }).join('')+'<tr><td><b>TOTAL</b></td><td class="td-right td-mono"><b>'+per.filter(function(t){return t._b>0;}).length+'</b></td>'+
+    '<td class="td-right td-mono"><b>'+fmtRupiah(totalBiaya)+'</b></td><td class="td-right td-mono">100%</td><td colspan="3"></td></tr>';
+
+  // ── Top 10 ──
+  var top=per.filter(function(t){return t._b>0;}).sort(function(a,b){return b._b-a._b;}).slice(0,10);
+  if(!top.length) kkKosong('kkBodyTop',5);
+  else document.getElementById('kkBodyTop').innerHTML=top.map(function(t,i){
+    return '<tr><td class="td-mono">'+(i+1)+'</td><td class="td-mono">'+esc(t.no)+'<br>'+fmtTgl(t._tgl)+'</td>'+
+      '<td>'+esc(t.penerima||'—')+'<br><span class="kk-muted">'+esc(t.golongan||'—')+'</span></td>'+
+      '<td>'+esc(t.keterangan||'')+'</td><td class="td-right td-mono">'+fmtRupiah(t._b)+'</td></tr>';
+  }).join('');
+
+  // ── Pengeluaran baru ──
+  var setGol={}, setPen={}, baru={};
+  base.forEach(function(t){ setGol[t.golongan||'']=1; setPen[kkNorm(t.penerima)]=1; });
+  if(adaBase) per.forEach(function(t){
+    var n=kkNominalCek(t);
+    if(t.golongan && !setGol[t.golongan]){ var k='G|'+t.golongan, x=baru[k]=baru[k]||{j:'Golongan',nama:t.golongan,n:0,tot:0,ket:t.keterangan}; x.n++; x.tot+=n; }
+    var pn=kkNorm(t.penerima);
+    if(pn && !setPen[pn]){ var k2='P|'+pn, y=baru[k2]=baru[k2]||{j:'Penerima',nama:t.penerima,n:0,tot:0,ket:t.keterangan}; y.n++; y.tot+=n; }
+  });
+  var lb=Object.keys(baru).map(function(k){return baru[k];}).sort(function(a,b){return b.tot-a.tot;});
+  if(!adaBase) kkKosong('kkBodyBaru',5,'Data pembanding belum ada.');
+  else if(!lb.length) kkKosong('kkBodyBaru',5);
+  else document.getElementById('kkBodyBaru').innerHTML=lb.map(function(x){
+    return '<tr><td class="td-mono">'+x.j+'</td><td>'+esc(x.nama)+'</td><td class="td-right td-mono">'+x.n+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(x.tot)+'</td><td class="kk-muted">'+esc(x.ket||'')+'</td></tr>';
+  }).join('');
+
+  // ── Kasbon terbuka ──
+  var kb=(d.kasbon_terbuka||[]).map(function(k){ k._umur=kkSelisihHari(kkTgl(k.tgl),hi); return k; });
+  var totKb=kb.reduce(function(s,k){return s+(Number(k.diberikan)||0);},0);
+  var kbLewat=kb.filter(function(k){return k._umur>KK.HARI_KASBON;}).length;
+  if(!kb.length) kkKosong('kkBodyKasbon',5);
+  else document.getElementById('kkBodyKasbon').innerHTML=kb.map(function(k){
+    return '<tr><td class="td-mono">'+esc(k.no)+'<br>'+fmtTgl(k.tgl)+'</td><td>'+esc(k.penerima||'—')+'</td><td>'+esc(k.keterangan||'')+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(k.diberikan)+'</td><td class="td-right">'+(k._umur>KK.HARI_KASBON?kkBadge(3)+' ':'')+k._umur+' hr</td></tr>';
+  }).join('');
+
+  // ── Selisih kas & closing ──
+  var sel=[];
+  keluarPer.filter(function(t){return t.jenis==='PENYESUAIAN';}).forEach(function(t){
+    sel.push({src:'Penyesuaian (kurang)',tgl:t._tgl,oleh:t.user_input,alasan:t.keterangan,n:-(Number(t.diberikan)||0)}); });
+  masuk.filter(function(m){return m.jenis==='PENYESUAIAN';}).forEach(function(m){
+    sel.push({src:'Penyesuaian (lebih)',tgl:kkTgl(m.tgl),oleh:m.user_input,alasan:m.keterangan,n:Number(m.nominal)||0}); });
+  var netSel=sel.reduce(function(s,x){return s+x.n;},0);
+  (d.closing||[]).forEach(function(c){ if(Number(c.selisih)) sel.push({src:'Closing '+c.id_closing+' ('+(c.status||'')+')'+(c.selisih_ditinjau?' ✔ditinjau':''),
+    tgl:kkTgl(c.tgl_ajukan),oleh:c.diajukan_oleh,alasan:c.alasan_selisih,n:Number(c.selisih)}); });
+  if(!sel.length) kkKosong('kkBodySelisih',5,'Tidak ada selisih. ✔');
+  else document.getElementById('kkBodySelisih').innerHTML=sel.map(function(x){
+    return '<tr><td>'+esc(x.src)+'</td><td class="td-mono">'+fmtTgl(x.tgl)+'</td><td>'+esc(x.oleh||'')+'</td><td>'+esc(x.alasan||'')+'</td>'+
+      '<td class="td-right td-mono '+(x.n<0?'kk-merah':'')+'">'+fmtRupiah(x.n)+'</td></tr>';
+  }).join('');
+
+  // ── Top-up ──
+  var tp=d.topup||[], totTp=0;
+  tp.forEach(function(t){ totTp+=Number(t.nominal_diterima)||0; });
+  if(!tp.length) kkKosong('kkBodyTopup',5);
+  else document.getElementById('kkBodyTopup').innerHTML=tp.map(function(t){
+    var c=[]; if(t.salah_rekening) c.push(kkBadge(3)+' salah rekening'); if(t.acc_darurat) c.push(kkBadge(2)+' ACC darurat');
+    if(t.nominal_diterima!=null && Number(t.nominal_diterima)!==Number(t.nominal_acc)) c.push(kkBadge(2)+' diterima ≠ ACC');
+    if(t.tgl_acc && t.nominal_diterima==null) c.push('belum dikonfirmasi terima');
+    return '<tr><td class="td-mono">'+esc(t.id_topup)+'<br>'+fmtTgl(t.tgl_acc)+'</td><td>'+esc(t.keperluan||'')+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(t.nominal_acc||0)+'</td><td class="td-right td-mono">'+(t.nominal_diterima!=null?fmtRupiah(t.nominal_diterima):'—')+'</td>'+
+      '<td>'+(c.join('<br>')||esc(t.status||''))+'</td></tr>';
+  }).join('');
+
+  // ── Per penginput ──
+  var usr={};
+  per.forEach(function(t){ var u=t.user_input||'—', x=usr[u]=usr[u]||{n:0,tot:0,tm:0,tn:0}; x.n++; x.tot+=kkNominalCek(t);
+    if(temuan[t.id]) x.tm++;
+    if(t.tanpa_nota || (Number(t.jml_foto)===0 && t._tgl>=KK.TGL_WAJIB_FOTO && t.status!=='BELUM_REALISASI')) x.tn++; });
+  var lu=Object.keys(usr).sort(function(a,b){return usr[b].tot-usr[a].tot;});
+  if(!lu.length) kkKosong('kkBodyUser',5);
+  else document.getElementById('kkBodyUser').innerHTML=lu.map(function(u){ var x=usr[u];
+    return '<tr><td>'+esc(u)+'</td><td class="td-right td-mono">'+x.n+'</td><td class="td-right td-mono">'+fmtRupiah(x.tot)+'</td>'+
+      '<td class="td-right td-mono">'+x.tm+'</td><td class="td-right td-mono">'+x.tn+'</td></tr>';
+  }).join('');
+
+  // ── Batal & koreksi ──
+  var bt=d.batal||[];
+  document.getElementById('kkNoteKoreksi').textContent='Pengajuan koreksi periode ini: '+(Number(d.jml_koreksi)||0)+' · Pembatalan: '+bt.length;
+  if(!bt.length) kkKosong('kkBodyBatal',5);
+  else document.getElementById('kkBodyBatal').innerHTML=bt.map(function(b){
+    return '<tr><td class="td-mono">'+esc(b.no)+'</td><td>'+esc(b.penerima||'')+'</td><td class="td-right td-mono">'+fmtRupiah(b.nominal||0)+'</td>'+
+      '<td class="td-mono">'+esc(b.status_aktif||'')+'</td><td>'+esc(b.alasan_batal||'')+'<br><span class="kk-muted">'+esc(b.diajukan_batal_oleh||'')+'</span></td></tr>';
+  }).join('');
+
+  // ── Kartu ringkasan ──
+  var saldoAwal=Number(d.saldo_awal)||0;
+  var saldoAkhir=saldoAwal+masuk.reduce(function(s,m){return s+(Number(m.nominal)||0);},0)
+    -keluarPer.reduce(function(s,t){return s+(Number(t.diberikan)||0);},0);
+  var merah=listTemuan.filter(function(x){return x.lv===3;}).length, kuning=listTemuan.filter(function(x){return x.lv===2;}).length;
+  document.getElementById('kkCardBiaya').textContent=fmtRupiah(totalBiaya);
+  document.getElementById('kkCardJml').textContent=per.filter(function(t){return t._b>0;}).length;
+  document.getElementById('kkCardTopup').textContent=fmtRupiah(totTp);
+  document.getElementById('kkCardSaldo').textContent=fmtRupiah(saldoAwal)+' → '+fmtRupiah(saldoAkhir);
+  document.getElementById('kkCardSelisih').textContent=fmtRupiah(netSel);
+  document.getElementById('kkCardKasbon').textContent=kb.length+' · '+fmtRupiah(totKb);
+  document.getElementById('kkCardTemuan').textContent=merah+' / '+kuning;
+  document.getElementById('kkCardSelisihWrap').classList.toggle('warn',netSel<0);
+  document.getElementById('kkCardKasbonWrap').classList.toggle('warn',kbLewat>0);
+  document.getElementById('kkCardTemuanWrap').classList.toggle('warn',merah>0);
 }
 </script>
 </body>
