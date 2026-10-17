@@ -302,7 +302,7 @@
   <div class="tab-pane" id="tabAlokasiumum">
     <div class="info-bar">Hubungkan baris nota pembelian ke stok Tinta/Sparepart. Qty langsung sesuai satuan beli (tanpa formula konversi lembar).</div>
     <div class="toolbar">
-      <input type="text" class="form-control" id="auCari" placeholder="🔍 Cari nama item nota / no. nota…" autocomplete="off" oninput="renderAlokasiUmum()" style="flex:1;min-width:200px"/>
+      <input type="text" class="form-control" id="auCari" placeholder="🔍 Cari nama item / no. nota / supplier…" autocomplete="off" oninput="auCariDebounce()" style="flex:1;min-width:200px"/>
       <button class="btn-outline" onclick="muatAlokasiUmum()">Muat Ulang</button>
     </div>
     <div class="tbl-wrap">
@@ -503,7 +503,7 @@
       <div class="modal-body">
         <div id="alertAlokasiStok"></div>
         <div class="info-bar" style="margin-bottom:.6rem">
-          Hanya menampilkan item yang <b>belum pernah</b> dialokasikan ke stok bahan. Item yang sudah pernah dialokasikan tidak bisa ditambah lagi lewat sini (untuk menghindari stok dobel masuk) — kalau perlu koreksi, itu lewat proses edit/koreksi terpisah.
+          Hanya menampilkan item yang <b>belum pernah</b> dialokasikan ke stok. Pilih tipe per item: <b>Bahan</b> (dihitung lembar), <b>Tinta/Sparepart</b> (qty sesuai satuan master, mis. KG). Item yang sudah dialokasikan tidak bisa ditambah lagi lewat sini (cegah stok dobel).
         </div>
         <div id="alokasiStokItemsWrap"></div>
         <div id="alokasiStokSudahWrap" style="margin-top:1rem"></div>
@@ -2816,6 +2816,42 @@ var alokasiStokItemBaris = []; // [{id_pbldet, nama_item_nota, jumlah, satuan, k
 var alokasiStokIdPembelianAktif = null;
 var itemSudahAlokasi = []; // [{id_pbldet, nama_item_nota, jumlah, satuan, alokasi:[{id_bahan,nama_bahan,pps_per_lembar,qty_hasil,keterangan}]}]
 var koreksiState = {}; // {id_pbldet: {konversi_lembar, alokasi:[...], alasan}} — cuma ada entry kalau lagi dikoreksi
+var itemSudahUmum = []; // item yg sudah dialokasi ke Tinta/Sparepart (read-only di modal ini)
+
+// Tebak tipe awal dari satuan nota. KG/LTR/KALENG = tinta; user tetap bisa ganti.
+function tebakTipeStok(d){
+  var sat=String(d.satuan||'').trim().toUpperCase();
+  if(['KG','KILO','KGS','LTR','LITER','L','KALENG','CAN','GR','GRAM'].indexOf(sat)>=0) return 'TINTA';
+  return 'BAHAN';
+}
+function ubahTipeAlokasiStok(idx,val){
+  var it=alokasiStokItemBaris[idx];
+  it.tipe=val;
+  it.umum.id_item=''; it.umum.nama_item=''; it.umum.satuan_master='';
+  renderAlokasiStokItems();
+}
+function updateAlokasiUmumQty(idx,val){ alokasiStokItemBaris[idx].umum.qty=val; }
+function attachUmumAcHandlers(){
+  document.querySelectorAll('.ac-umum-input').forEach(function(el){
+    var idx=parseInt(el.dataset.idxitem,10);
+    var it=alokasiStokItemBaris[idx];
+    var tinta=it.tipe==='TINTA';
+    var arr=tinta?auCacheTinta:auCacheSparepart, idKey=tinta?'id_tinta':'id_sparepart', namaKey=tinta?'nama_tinta':'nama_sparepart';
+    el.addEventListener('input',function(){ it.umum.id_item=''; it.umum.nama_item=''; it.umum.satuan_master=''; renderSatuanUmum(idx); });
+    buatAC(el, document.getElementById('bahanAcDrop'), arr, idKey, namaKey, function(d){
+      it.umum.id_item=d[idKey]; it.umum.nama_item=d[namaKey]; it.umum.satuan_master=d.satuan||'';
+      renderSatuanUmum(idx);
+    }, function(d){ return d.satuan||''; });
+  });
+}
+function renderSatuanUmum(idx){
+  var it=alokasiStokItemBaris[idx], el=document.getElementById('umumSatInfo_'+idx);
+  if(!el) return;
+  var sm=it.umum.satuan_master, sn=String(it.satuan||'');
+  if(!sm){ el.innerHTML='Pilih item dari daftar.'; return; }
+  var beda=sm.trim().toUpperCase()!==sn.trim().toUpperCase();
+  el.innerHTML='Qty dalam satuan master: <b>'+esc(sm)+'</b>'+(beda?' <span style="color:var(--red)">— beda dgn satuan nota ('+esc(sn)+'), isi qty hasil konversi ke '+esc(sm)+'.</span>':'');
+}
 
 async function bukaAlokasiStokPembelian(idPembelian){
   alokasiStokIdPembelianAktif=idPembelian;
@@ -2825,7 +2861,19 @@ async function bukaAlokasiStokPembelian(idPembelian){
   var m=bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiStokPembelian'));
   m.show();
 
-  var res=await dbRpc('get_pembelian_detail',{p_id_pembelian:idPembelian});
+  var hasil=await Promise.all([
+    dbRpc('get_pembelian_detail',{p_id_pembelian:idPembelian}),
+    dbRpc('get_pembelian_detail_untuk_alokasi_umum',{p_id_pembelian:idPembelian, p_limit:500}),
+    muatCacheTintaSparepart()
+  ]);
+  var res=hasil[0], resUmum=hasil[1];
+  var errUmum=cekErrorSupabase(resUmum);
+  if(errUmum || !Array.isArray(resUmum)){
+    showAlert('alertAlokasiStok','Gagal memuat alokasi tinta/sparepart: '+(errUmum||'respons tidak valid')+'. Pastikan SQL 02a/02b sudah dijalankan.');
+    return;
+  }
+  var mapUmum={};
+  resUmum.forEach(function(r){ if(r.alokasi&&r.alokasi.length) mapUmum[r.id_pbldet]=r.alokasi; });
   var errMsg=cekErrorSupabase(res);
   if(errMsg || !res || res.status==='error'){
     showAlert('alertAlokasiStok','Gagal memuat data: '+(errMsg||(res&&res.message)||'unknown'));
@@ -2836,13 +2884,16 @@ async function bukaAlokasiStokPembelian(idPembelian){
   cacheAkun.forEach(function(a){ mapPerluStok[a.id_akun]=(a.perlu_alokasi_stok!==false); });
   var perluStok=function(d){ return mapPerluStok.hasOwnProperty(d.id_akun) ? mapPerluStok[d.id_akun] : true; };
   var details_stok=details.filter(perluStok);
-  var belumAlokasi=details_stok.filter(function(d){ return !(d.alokasi&&d.alokasi.length); });
+  var belumAlokasi=details_stok.filter(function(d){ return !(d.alokasi&&d.alokasi.length) && !mapUmum[d.id_pbldet]; });
   var sudahAlokasi=details_stok.filter(function(d){ return d.alokasi&&d.alokasi.length; });
+  itemSudahUmum=details_stok.filter(function(d){ return !(d.alokasi&&d.alokasi.length) && mapUmum[d.id_pbldet]; })
+    .map(function(d){ return {nama_item_nota:d.nama_item_nota, jumlah:d.jumlah, satuan:d.satuan, alokasi:mapUmum[d.id_pbldet]}; });
 
   alokasiStokItemBaris=belumAlokasi.map(function(d){
     return {
       id_pbldet:d.id_pbldet, nama_item_nota:d.nama_item_nota,
-      jumlah:d.jumlah, satuan:d.satuan, konversi_lembar:'1', alokasi:[]
+      jumlah:d.jumlah, satuan:d.satuan, konversi_lembar:'1', alokasi:[],
+      tipe:tebakTipeStok(d), umum:{id_item:'', nama_item:'', satuan_master:'', qty:String(d.jumlah||'')}
     };
   });
   itemSudahAlokasi=sudahAlokasi.map(function(d){
@@ -2853,7 +2904,7 @@ async function bukaAlokasiStokPembelian(idPembelian){
   });
   koreksiState={};
 
-  if(!alokasiStokItemBaris.length && !itemSudahAlokasi.length){
+  if(!alokasiStokItemBaris.length && !itemSudahAlokasi.length && !itemSudahUmum.length){
     document.getElementById('alokasiStokItemsWrap').innerHTML='';
     document.getElementById('alokasiStokSudahWrap').innerHTML='';
     document.getElementById('alokasiStokKosong').style.display='block';
@@ -2919,9 +2970,22 @@ function renderAlokasiStokItems(){
         '<button type="button" onclick="hapusBarisAlokasiStok('+i+','+ai+')" style="background:none;border:none;color:var(--red);font-size:.95rem;cursor:pointer;padding:.2rem">✕</button>'+
       '</div>';
     }).join('');
-    return '<div class="item-row-form">'+
-      '<div style="font-size:.78rem;font-weight:600;margin-bottom:.2rem">'+esc(it.nama_item_nota)+'</div>'+
-      '<div style="font-size:.7rem;color:var(--muted);font-family:var(--mono);margin-bottom:.4rem">Dibeli: '+fmtAngka(jumlahItem)+' '+esc(it.satuan)+'</div>'+
+    var headHtml='<div style="display:flex;justify-content:space-between;gap:.5rem;align-items:start;margin-bottom:.4rem">'+
+        '<div><div style="font-size:.78rem;font-weight:600;margin-bottom:.2rem">'+esc(it.nama_item_nota)+'</div>'+
+        '<div style="font-size:.7rem;color:var(--muted);font-family:var(--mono)">Dibeli: '+fmtAngka(jumlahItem)+' '+esc(it.satuan)+'</div></div>'+
+        '<select class="form-select form-select-sm" style="max-width:130px;font-size:.72rem" onchange="ubahTipeAlokasiStok('+i+',this.value)">'+
+          ['BAHAN','TINTA','SPAREPART'].map(function(t){ return '<option value="'+t+'"'+(it.tipe===t?' selected':'')+'>'+(t==='BAHAN'?'Bahan (lembar)':t==='TINTA'?'Tinta':'Sparepart')+'</option>'; }).join('')+
+        '</select></div>';
+    if(it.tipe!=='BAHAN'){
+      return '<div class="item-row-form">'+headHtml+
+        '<div style="display:grid;grid-template-columns:1fr 110px;gap:.4rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
+          '<div><input type="text" class="form-control form-control-sm ac-umum-input" data-idxitem="'+i+'" placeholder="Ketik nama '+(it.tipe==='TINTA'?'tinta':'sparepart')+'…" value="'+esc(it.umum.nama_item)+'" autocomplete="off"/></div>'+
+          '<div><input type="number" step="any" class="form-control form-control-sm" placeholder="qty" value="'+esc(it.umum.qty)+'" oninput="updateAlokasiUmumQty('+i+',this.value)"/></div>'+
+          '<div class="" style="grid-column:1/-1;font-family:var(--mono);font-size:.66rem;color:var(--muted)" id="umumSatInfo_'+i+'"></div>'+
+        '</div>'+
+      '</div>';
+    }
+    return '<div class="item-row-form">'+headHtml+
       '<div class="row g-2 align-items-end" style="margin-bottom:.5rem;padding:.4rem;background:#fff8ee;border:1px solid #f0dcb8;border-radius:6px">'+
         '<div class="col-6"><label class="form-label" style="font-size:.68rem">Isi per Satuan Beli (dlm lembar)</label>'+
           '<input type="number" step="any" class="form-control form-control-sm" value="'+it.konversi_lembar+'" oninput="updateAlokasiStokKonversi('+i+',this.value)"/>'+
@@ -2938,6 +3002,8 @@ function renderAlokasiStokItems(){
     '</div>';
   }).join('');
   attachBahanAcHandlers();
+  attachUmumAcHandlers();
+  alokasiStokItemBaris.forEach(function(it,i){ if(it.tipe!=='BAHAN') renderSatuanUmum(i); });
 }
 
 // ============================================================
@@ -2946,9 +3012,24 @@ function renderAlokasiStokItems(){
 // Tersimpan ke log_audit_pembelian (aksi=KOREKSI_ALOKASI) utk dicek
 // Direktur di tab "🗑️ Riwayat Void/Edit".
 // ============================================================
+function htmlSudahUmum(){
+  if(!itemSudahUmum.length) return '';
+  return itemSudahUmum.map(function(it){
+    var ringkas=it.alokasi.map(function(a){ return esc(a.tipe_item)+': '+esc(a.nama_item||a.id_item)+' · '+fmtAngka(a.qty); }).join(', ');
+    return '<div class="item-row-form" style="background:var(--bg)">'+
+      '<div style="font-size:.78rem;font-weight:600">'+esc(it.nama_item_nota)+'</div>'+
+      '<div style="font-size:.7rem;color:var(--muted);margin-top:.2rem">'+ringkas+'</div>'+
+      '<div style="font-size:.64rem;color:var(--muted);font-family:var(--mono);margin-top:.2rem">Koreksi/hapus lewat tab 🎨 Alokasi Tinta/Sparepart.</div>'+
+    '</div>';
+  }).join('');
+}
 function renderItemSudahAlokasi(){
   var wrap=document.getElementById('alokasiStokSudahWrap');
-  if(!itemSudahAlokasi.length){ wrap.innerHTML=''; return; }
+  if(!itemSudahAlokasi.length && !itemSudahUmum.length){ wrap.innerHTML=''; return; }
+  if(!itemSudahAlokasi.length){
+    wrap.innerHTML='<div style="font-size:.7rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin:.6rem 0 .4rem">Item Sudah Dialokasikan</div>'+htmlSudahUmum();
+    return;
+  }
 
   wrap.innerHTML='<div style="font-size:.7rem;font-family:var(--mono);color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin:.6rem 0 .4rem">Item Sudah Dialokasikan</div>'+
     itemSudahAlokasi.map(function(it,i){
@@ -2968,7 +3049,7 @@ function renderItemSudahAlokasi(){
         '<button type="button" class="btn-outline" style="font-size:.68rem;padding:.25rem .55rem;white-space:nowrap" onclick="bukaKoreksiAlokasi(\''+it.id_pbldet+'\')">✏️ Koreksi</button>'+
       '</div>'+
     '</div>';
-  }).join('');
+  }).join('')+htmlSudahUmum();
   attachBahanAcHandlers();
 }
 
@@ -3139,10 +3220,17 @@ async function submitKoreksiAlokasi(idPbldet, btn){
 async function submitAlokasiStok(btn){
   document.getElementById('alertAlokasiStok').innerHTML='';
   var itemsIsi=alokasiStokItemBaris.filter(function(it){
-    return (it.alokasi||[]).some(function(a){return a.id_bahan&&a.pps_per_lembar;});
+    return it.tipe==='BAHAN' && (it.alokasi||[]).some(function(a){return a.id_bahan&&a.pps_per_lembar;});
   });
-  if(!itemsIsi.length){
-    showAlert('alertAlokasiStok','Isi minimal 1 baris alokasi (bahan + pps/lembar) di salah satu item.');
+  var umumKetik=alokasiStokItemBaris.filter(function(it){ return it.tipe!=='BAHAN' && (it.umum.id_item || it.umum.nama_item || (document.querySelector('.ac-umum-input[data-idxitem="'+alokasiStokItemBaris.indexOf(it)+'"]')||{}).value); });
+  for(var u=0;u<umumKetik.length;u++){
+    var iu=umumKetik[u];
+    if(!iu.umum.id_item){ showAlert('alertAlokasiStok',esc(iu.nama_item_nota)+': pilih item dari daftar pencarian.'); return; }
+    if(!(parseFloat(iu.umum.qty)>0)){ showAlert('alertAlokasiStok',esc(iu.nama_item_nota)+': qty harus lebih dari 0.'); return; }
+  }
+  var itemsUmum=umumKetik;
+  if(!itemsIsi.length && !itemsUmum.length){
+    showAlert('alertAlokasiStok','Isi minimal 1 item: bahan (+ pps/lembar) atau tinta/sparepart (+ qty).');
     return;
   }
   for(var i=0;i<itemsIsi.length;i++){
@@ -3184,6 +3272,18 @@ async function submitAlokasiStok(btn){
       if(res && res.status==='error') throw new Error(res.message);
     }catch(e){
       gagal.push(it.nama_item_nota+': '+e.message);
+    }
+  }
+  for(var k=0;k<itemsUmum.length;k++){
+    var iu2=itemsUmum[k];
+    try{
+      var resU=await dbRpc('alokasi_pembelian_umum',{
+        p_id_pbldet:iu2.id_pbldet, p_tipe_item:iu2.tipe, p_id_item:iu2.umum.id_item,
+        p_qty:parseFloat(iu2.umum.qty), p_keterangan:'Alokasi susulan', p_user_input:getNamaUser()
+      });
+      var errU=cekErrorSupabase(resU); if(errU) throw new Error(errU);
+    }catch(e){
+      gagal.push(iu2.nama_item_nota+': '+e.message);
     }
   }
   btn.disabled=false; btn.innerHTML='Simpan Alokasi Stok';
@@ -3691,7 +3791,8 @@ var modalAlokasiUmumInst;
 
 function muatAlokasiUmum(){
   document.getElementById('auTbody').innerHTML = '<tr><td colspan="5" class="loading">Memuat…</td></tr>';
-  dbRpc('get_pembelian_detail_untuk_alokasi_umum', { p_limit: 200 }).then(function(res){
+  var q=(document.getElementById('auCari').value||'').trim();
+  dbRpc('get_pembelian_detail_untuk_alokasi_umum', { p_limit: 200, p_cari: q||null }).then(function(res){
     var err = cekErrorSupabase(res);
     if (err) throw new Error(err);
     auData = Array.isArray(res) ? res : [];
@@ -3701,11 +3802,10 @@ function muatAlokasiUmum(){
   });
 }
 
+var auCariTimer=null;
+function auCariDebounce(){ clearTimeout(auCariTimer); auCariTimer=setTimeout(muatAlokasiUmum,450); }
 function renderAlokasiUmum(){
-  var q = (document.getElementById('auCari').value||'').toLowerCase();
-  var data = !q ? auData : auData.filter(function(d){
-    return (d.nama_item_nota||'').toLowerCase().indexOf(q)>=0 || (d.no_nota||'').toLowerCase().indexOf(q)>=0;
-  });
+  var data = auData;
   var tbody = document.getElementById('auTbody');
   if(!data.length){ tbody.innerHTML='<tr><td colspan="5" class="loading">Tidak ada data.</td></tr>'; return; }
   tbody.innerHTML = data.map(function(d){
