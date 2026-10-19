@@ -412,7 +412,7 @@ function updatePreviewTotal(){
     total+=qty*(parseFloat(it.harga)||0);
   });
   var isPT=sjDipilih&&sjDipilih.entitas==='PT';
-  var ppn=isPT?Math.round(total*0.11):0;
+  var ppn=isPT?hitungPPN(total):0;
   document.getElementById('previewTotal').textContent=fmtRupiah(total+ppn);
 }
 
@@ -466,7 +466,7 @@ async function submitRetur(){
     var entitas=sjDipilih.entitas||'PT';
     var now=new Date().toISOString();
     var totalNilai=items.reduce(function(s,it){return s+(it.qty*it.harga);},0);
-    var ppn=entitas==='PT'?Math.round(totalNilai*0.11):0;
+    var ppn=entitas==='PT'?hitungPPN(totalNilai):0;
     var totalTagihan=totalNilai+ppn;
     var dppNilaiLain=entitas==='PT'?Math.round(totalNilai*11/12):0;
     var idRetur=genIdRetur();

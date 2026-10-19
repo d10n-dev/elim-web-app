@@ -127,6 +127,14 @@ function generateIdLokal(dataArr, prefix, idKey, padLen) {
 // UI HELPERS
 // ============================================================
 
+// PPN keluaran PT (DPP Nilai Lain 11/12 x 12% = 11% efektif).
+// Okt 2026: TIDAK dibulatkan ke rupiah — hasil hitung apa adanya, 2 desimal
+// (permintaan pelanggan). Mis. 269.750 -> 29.672,50.
+function hitungPPN(dpp) {
+  var v = Number(dpp || 0) * 11 / 100;
+  return Math.round((v + Number.EPSILON) * 100) / 100;
+}
+
 function formatRupiah(angka) {
   return 'Rp ' + Number(angka).toLocaleString('id-ID');
 }

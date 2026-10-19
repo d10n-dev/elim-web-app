@@ -1334,10 +1334,10 @@ function _inList(a){return 'in.('+a.map(function(x){return '"'+String(x).replace
 function _payload(p){try{return typeof p.payload==='string'?JSON.parse(p.payload):(p.payload||{});}catch(e){return {};}}
 function _isBatal(p){return _payload(p).aksi==='BATAL';}
 
-// PT: PPN DPP Nilai Lain = round(round(dpp*11/12)*12/100). DK: 0.
+// PT: PPN = hitungPPN(dpp) (11%, 2 desimal, tanpa pembulatan rupiah). DK: 0.
 function hitungNilaiOrder(entitas,rows){
   var dpp=rows.reduce(function(s,r){return s+(Number(r.qty)||0)*(Number(r.harga)||0);},0);
-  var ppn=entitas==='PT'?Math.round(Math.round(dpp*11/12)*12/100):0;
+  var ppn=entitas==='PT'?hitungPPN(dpp):0;
   return {dpp:dpp,ppn:ppn,total:dpp+ppn};
 }
 

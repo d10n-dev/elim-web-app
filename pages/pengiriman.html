@@ -1010,11 +1010,10 @@ async function submitPengiriman(btn){
       var nomor=await generateNomorSJ(entitas);
       var idSJ=genIdSJ();
       var total=chunk.reduce(function(sm,b){return sm+(b.qtyKirim*b.harga);},0);
-      // PPN: skema DPP Nilai Lain. Rumus disamakan dgn versi print
-      // (round 2 tahap: DPP dibulatkan dulu, baru PPN) agar nominal
-      // tersimpan persis sama dgn yang tercetak di invoice/SJ fisik.
+      // PPN: hitungPPN() di utils.js — 11% efektif, 2 desimal, tanpa pembulatan rupiah.
+      // Rumus SAMA dgn RPC _eksekusi_edit_item_pengiriman & layout print.
       var dpp=total;
-      var ppn=(entitas==='PT')?Math.round(Math.round(dpp*11/12)*12/100):0;
+      var ppn=(entitas==='PT')?hitungPPN(dpp):0;
       var totalTagih=dpp+ppn;
 
       // jenis_kirim SJ: kalau chunk ini ada minimal 1 item terikat order,
@@ -1156,8 +1155,7 @@ function bukaDetail(idSJ){
     });
     html+='</tbody></table>';
     if(isPT){
-      var totalDpp=Math.round(totalSbt*11/12);
-      var ppn=Math.round(totalDpp*12/100);
+      var ppn=hitungPPN(totalSbt);
       html+='<div style="margin-top:.65rem;border-top:1px solid var(--border);padding-top:.5rem">'+
         '<div style="display:flex;justify-content:space-between;padding:.2rem 0;font-size:.8rem"><span style="font-family:var(--mono);color:var(--muted)">Subtotal</span><span style="font-family:var(--mono)">'+fmtRupiah(totalSbt)+'</span></div>'+
         '<div style="display:flex;justify-content:space-between;padding:.2rem 0;font-size:.8rem"><span style="font-family:var(--mono);color:var(--muted)">PPN 11%</span><span style="font-family:var(--mono)">'+fmtRupiah(ppn)+'</span></div>'+
@@ -1396,7 +1394,7 @@ function hitungPreviewKoreksi(){
   var sbtBaru=qty*harga-pot;
   var totalLain=itemsSJAktif.reduce(function(s,it){return (it.dibatalkan||it.id_pgdet===korItem.id_pgdet)?s:s+parseFloat(it.subtotal||0);},0);
   var dpp=totalLain+sbtBaru;
-  var ppn=sjAktif.entitas==='PT'?Math.round(Math.round(dpp*11/12)*12/100):0;
+  var ppn=sjAktif.entitas==='PT'?hitungPPN(dpp):0;
   var warn=sbtBaru<0?'<div style="color:var(--red)">Potongan melebihi subtotal.</div>':'';
   box.innerHTML='<div style="background:#eef6ff;border:1px solid #bcdcff;border-radius:6px;padding:.45rem .6rem">'+
     'Subtotal baris: '+fmtRupiah(korItem.subtotal)+' → <b>'+fmtRupiah(sbtBaru)+'</b><br>'+
@@ -2014,7 +2012,7 @@ function layoutInvoice(sj,items){
   var rekStr=isPT?'Pembayaran ke: BCA 0158001515 a/n PT. Elim Citra Offset':'Pembayaran ke: BCA 8175057770 a/n Dionisius Krisnata';
   var tglStr='Surakarta, '+fmtTglPanjang(sj.tgl);
   var subtotal=items.reduce(function(s,it){return s+parseFloat(it.subtotal||0);},0);
-  var ppn=isPT?Math.round(Math.round(subtotal*11/12)*12/100):0;
+  var ppn=isPT?hitungPPN(subtotal):0;
   var total=subtotal+ppn;
   var thS='border-bottom:1px solid #000;padding:.05cm .1cm;font-size:8pt;font-weight:700;text-align:left;';
   var tdS='padding:.04cm .1cm;vertical-align:top;font-size:8.5pt;line-height:1.3;';
