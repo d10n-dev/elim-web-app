@@ -157,10 +157,12 @@
             <label class="form-label">Keterangan</label>
             <input type="text" class="form-control" id="inpKet" placeholder="Opsional"/>
           </div>
-          <div class="col-12" id="wrapPengganti" style="display:none">
-            <label class="form-label">SJ ini pengganti untuk SJ yang di-void <span style="font-weight:400;text-transform:none;font-size:.65rem">(opsional)</span></label>
-            <select class="form-select" id="selPengganti"><option value="">— bukan SJ pengganti —</option></select>
-            <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.25rem">Isi kalau SJ ini menggantikan SJ yang di-void dengan alasan "Diganti SJ lain".</div>
+          <div class="col-12" id="wrapPengganti">
+            <label style="display:flex;gap:.45rem;align-items:center;font-size:.8rem;cursor:pointer">
+              <input type="checkbox" id="chkPengganti" onchange="renderKandidatPengganti()"/>
+              <span><b>SJ ini pengganti SJ lain</b> <span style="font-size:.68rem;color:var(--muted)">(salah administrasi: pelanggan/entitas/gabung/pecah SJ)</span></span>
+            </label>
+            <div id="kandidatPenggantiWrap" style="display:none;margin-top:.4rem"></div>
           </div>
         </div>
         <div class="sec-label">Tambah Item dari Order</div>
@@ -432,6 +434,27 @@
 </div>
 
 <!-- MODAL VOID SJ (Direktur) -->
+<div class="modal fade" id="modalTautkan" tabindex="-1" data-bs-backdrop="static" style="z-index:1065">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="tautTitle">Tautkan SJ</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="tautErr"></div>
+        <div id="tautInfo" style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.5rem"></div>
+        <input type="text" class="form-control" id="tautCari" placeholder="Cari no. SJ / nota / pelanggan…" oninput="renderKandidatTautkan()" autocomplete="off" style="margin-bottom:.5rem"/>
+        <div id="tautList"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-outline" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-navy" id="btnTautkan" onclick="submitTautkan(this)">🔗 Tautkan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="modalVoid" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -451,6 +474,10 @@
             <input type="radio" name="voidJenis" value="DIGANTI_SJ_LAIN" style="margin-top:.2rem"/>
             <span><b>Diganti SJ lain</b><br><span style="font-size:.72rem;color:var(--muted)">Barang sudah di pelanggan, SJ salah administrasi (salah pelanggan/entitas/gabung SJ). Stok dikembalikan lalu terpotong lagi saat SJ pengganti dibuat → efek bersih nol. <b>Wajib buat SJ pengganti</b> dan tautkan.</span></span>
           </label>
+        </div>
+        <div id="voidPenggantiWrap" style="display:none;margin-bottom:.6rem">
+          <label class="form-label">SJ pengganti <span style="font-weight:400;text-transform:none;font-size:.65rem">(opsional — kalau sudah dibuat)</span></label>
+          <select class="form-select" id="voidSelPengganti"><option value="">— belum ada / tautkan menyusul —</option></select>
         </div>
         <label class="form-label">Keterangan *</label>
         <textarea class="form-control" id="voidAlasan" rows="2" placeholder="Kronologi singkat"></textarea>
@@ -486,6 +513,7 @@ document.addEventListener('DOMContentLoaded',function(){
   isDirekturUser=(roleUser==='DIREKTUR');
   bisaEditTgl=(['ADMIN','MANAGER','DIREKTUR'].indexOf(roleUser)>=0);
   bisaEditItemSJ=(['ADMIN','MANAGER','DIREKTUR'].indexOf(roleUser)>=0);
+  bisaTautkan=bisaEditItemSJ;
   if(isMP) document.getElementById('btnApproveReprint').style.display='';
   if(isDirekturUser) document.getElementById('btnLogReprint').style.display='';
   if(isMP){ document.getElementById('btnApproveEditSJ').style.display=''; cekBadgeEditSJAwal(); }
@@ -608,22 +636,51 @@ async function submitCariTracing(){
 // ── MUAT SJ ──
 function muatSJ(){
   document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading">Memuat…</td></tr>';
-  return dbGet('in_pengiriman',{order:'no_sj.desc'}).then(function(res){
+  return Promise.all([
+    dbGet('in_pengiriman',{order:'no_sj.desc'}),
+    dbGet('in_sj_pengganti',{select:'*'}).catch(function(){return [];})
+  ]).then(function(hs){
+    var res=hs[0];
     semuaSJ=Array.isArray(res)?res:[];
+    linkSJ=Array.isArray(hs[1])?hs[1]:[];
     filterTabel();
   }).catch(function(){
     document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading" style="color:var(--red)">Gagal memuat data.</td></tr>';
   });
 }
 
-// SJ void "diganti SJ lain" yang belum punya SJ pengganti
-function sjMenungguPengganti(){
-  var sudahDiganti={};
-  semuaSJ.forEach(function(s){if(s.id_sj_asal&&!s.is_void)sudahDiganti[s.id_sj_asal]=true;});
-  return semuaSJ.filter(function(s){return s.is_void&&s.void_jenis==='DIGANTI_SJ_LAIN'&&!sudahDiganti[s.id_sj];});
+// ── TAUTAN SJ PENGGANTI (tabel in_sj_pengganti, mendukung gabung & pecah) ──
+var linkSJ=[];
+var filterAntrian=null;
+var bisaTautkan=false;
+function sjById(id){return semuaSJ.find(function(x){return x.id_sj===id;})||null;}
+function penggantiDari(idLama){
+  return linkSJ.filter(function(l){return l.id_sj_lama===idLama;}).map(function(l){return sjById(l.id_sj_baru);}).filter(function(s){return s&&!s.is_void;});
 }
+function lamaDari(idBaru){
+  return linkSJ.filter(function(l){return l.id_sj_baru===idBaru;}).map(function(l){return sjById(l.id_sj_lama);}).filter(Boolean);
+}
+// SJ void "diganti SJ lain" yang belum punya SJ pengganti aktif
+function sjMenungguPengganti(){
+  return semuaSJ.filter(function(s){return s.is_void&&s.void_jenis==='DIGANTI_SJ_LAIN'&&!penggantiDari(s.id_sj).length;});
+}
+// SJ pengganti aktif yang belum ditautkan, atau SJ lamanya belum di-void
+function sjPenggantiBelumBeres(){
+  return semuaSJ.filter(function(s){
+    if(s.is_void||!s.is_pengganti) return false;
+    var lm=lamaDari(s.id_sj);
+    return !lm.length||lm.some(function(x){return !x.is_void;});
+  });
+}
+function setFilterAntrian(jenis){
+  var arr=jenis==='VOID'?sjMenungguPengganti():sjPenggantiBelumBeres();
+  filterAntrian={}; arr.forEach(function(s){filterAntrian[s.id_sj]=true;});
+  filterTabel();
+}
+function hapusFilterAntrian(){filterAntrian=null;filterTabel();}
 function renderTabel(data){
   var nPengganti=sjMenungguPengganti().length;
+  var nBelumBeres=sjPenggantiBelumBeres().length;
   var info=document.getElementById('infoBar');
   var tglD=document.getElementById('filterTglDari').value, tglS=document.getElementById('filterTglSampai').value;
   var infoTgl='';
@@ -631,7 +688,9 @@ function renderTabel(data){
     var totAktif=0;data.forEach(function(r){if(!r.is_void)totAktif+=Number(r.total||0);});
     infoTgl='<b>Tgl '+esc(tglD?fmtTgl(tglD):'awal')+' s/d '+esc(tglS?fmtTgl(tglS):'akhir')+'</b> · Total (non-void): <b>'+esc(fmtRupiah(totAktif))+'</b> &nbsp;·&nbsp; ';
   }
-  info.innerHTML=infoTgl+(filterKirimUlang?'<b>Filter: nota revisi perlu dikirim ulang</b> <a href="#" onclick="hapusFilterKirimUlang();return false;">[tampilkan semua]</a> &nbsp;·&nbsp; ':'')+esc(data.length+' SJ ditemukan')+(nPengganti?' &nbsp;·&nbsp; <span style="color:var(--red);font-weight:600">⚠ '+nPengganti+' SJ void menunggu SJ pengganti</span>':'');
+  info.innerHTML=infoTgl+(filterKirimUlang?'<b>Filter: nota revisi perlu dikirim ulang</b> <a href="#" onclick="hapusFilterKirimUlang();return false;">[tampilkan semua]</a> &nbsp;·&nbsp; ':'')+(filterAntrian?'<b>Filter antrian SJ pengganti</b> <a href="#" onclick="hapusFilterAntrian();return false;">[tampilkan semua]</a> &nbsp;·&nbsp; ':'')+esc(data.length+' SJ ditemukan')+
+    (nPengganti?' &nbsp;·&nbsp; <a href="#" onclick="setFilterAntrian(\'VOID\');return false;" style="color:var(--red);font-weight:600">⚠ '+nPengganti+' SJ void belum ditautkan ke pengganti</a>':'')+
+    (nBelumBeres?' &nbsp;·&nbsp; <a href="#" onclick="setFilterAntrian(\'PENGGANTI\');return false;" style="color:#b45309;font-weight:600">⚠ '+nBelumBeres+' SJ pengganti: SJ lama belum ditautkan / belum di-void</a>':'');
   if(!data.length){document.getElementById('tbodySJ').innerHTML='<tr><td colspan="7" class="loading">Belum ada data pengiriman.</td></tr>';return;}
   document.getElementById('tbodySJ').innerHTML=data.map(function(r){
     var stCls='s-'+(r.status||'').toLowerCase().replace(/_/g,'-');
@@ -671,7 +730,7 @@ function filterTabel(){
   renderTabel(semuaSJ.filter(function(r){
     var hay=(r.no_sj+' '+r.no_nota+' '+r.nama_pelanggan).toLowerCase();
     var tg=tglKeYMD(r.tgl);
-    return(!q||hay.indexOf(q)>=0)&&(!tD||tg>=tD)&&(!tS||tg<=tS)&&(!st||r.status===st)&&(!ent||r.entitas===ent)&&(!filterKirimUlang||filterKirimUlang[r.id_sj]);
+    return(!q||hay.indexOf(q)>=0)&&(!tD||tg>=tD)&&(!tS||tg<=tS)&&(!st||r.status===st)&&(!ent||r.entitas===ent)&&(!filterKirimUlang||filterKirimUlang[r.id_sj])&&(!filterAntrian||filterAntrian[r.id_sj]);
   }));
 }
 
@@ -703,6 +762,7 @@ function pilihPelanggan(id,nama){
   document.getElementById('hidPelNama').value=nama;
   document.getElementById('acPelDrop').style.display='none';
   muatSisaKirim(id);
+  renderKandidatPengganti();
 }
 
 // ── SISA KIRIM ──
@@ -924,13 +984,8 @@ function bukaBuatPengiriman(){
   document.getElementById('sisaKirimWrap').style.display='none';
   document.getElementById('sisaKirimList').innerHTML='';
   document.getElementById('inpTgl').value=new Date().toISOString().slice(0,10);
-  // daftar SJ void "diganti SJ lain" yang belum punya pengganti
-  var pend=sjMenungguPengganti();
-  var sel=document.getElementById('selPengganti');
-  sel.innerHTML='<option value="">— bukan SJ pengganti —</option>'+pend.map(function(s){
-    return '<option value="'+esc(s.id_sj)+'">'+esc(s.no_sj+' / '+s.no_nota+' — '+s.nama_pelanggan+' ('+fmtTgl(s.tgl)+')')+'</option>';
-  }).join('');
-  document.getElementById('wrapPengganti').style.display=pend.length?'':'none';
+  document.getElementById('chkPengganti').checked=false;
+  renderKandidatPengganti();
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalBuat')).show();
 }
 
@@ -962,7 +1017,9 @@ async function submitPengiriman(btn){
   var entitas=document.getElementById('hidEntitas').value;
   var tgl=document.getElementById('inpTgl').value;
   var ket=document.getElementById('inpKet').value.trim();
-  var idSjAsal=document.getElementById('selPengganti').value||null;
+  var isPengganti=document.getElementById('chkPengganti').checked;
+  var lamaDipilih=isPengganti?Array.prototype.map.call(document.querySelectorAll('.chk-kand-lama:checked'),function(x){return x.value;}):[];
+  var idsBaru=[];
   var user=getNamaUser();
 
   if(!idPel){showAlert('alertBuat','Pelanggan wajib dipilih.');return;}
@@ -1028,9 +1085,10 @@ async function submitPengiriman(btn){
         entitas:entitas,jenis_kirim:jenisChunk,status:'TERKIRIM',
         total:total,dpp:dpp,ppn:ppn,total_tagih:totalTagih,
         user_input:user,keterangan:ket||null,
-        id_sj_asal:(c===0&&idSjAsal)?idSjAsal:null
+        is_pengganti:isPengganti
       });
       if(resSJ&&resSJ.code) throw new Error('Gagal insert SJ: '+resSJ.message);
+      idsBaru.push(idSJ);
 
       // Insert detail + update qty_kirim + insert KELUAR_KIRIM jika dari stok
       for(var j=0;j<chunk.length;j++){
@@ -1079,8 +1137,19 @@ async function submitPengiriman(btn){
       await cekStatusOrder(idOrd);
     }
 
+    // Tautkan ke SJ lama yang dipilih (gagal tautan tidak membatalkan SJ — bisa ditautkan menyusul)
+    var gagalTaut=[];
+    for(var li=0;li<lamaDipilih.length;li++){
+      for(var bi=0;bi<idsBaru.length;bi++){
+        try{ cekErrorSupabase(await dbRpc('tautkan_sj_pengganti',{p_id_sj_lama:lamaDipilih[li],p_id_sj_baru:idsBaru[bi],p_aksi:'TAUTKAN'})); }
+        catch(eT){ gagalTaut.push(eT.message); }
+      }
+    }
+
     bootstrap.Modal.getInstance(document.getElementById('modalBuat')).hide();
-    alert('Berhasil! SJ diterbitkan:\n'+hasilSJ.join('\n'));
+    alert('Berhasil! SJ diterbitkan:\n'+hasilSJ.join('\n')+
+      (isPengganti&&!lamaDipilih.length?'\n\nDitandai sebagai SJ pengganti — tautkan SJ lamanya lewat 🔗 di detail SJ.':'')+
+      (gagalTaut.length?'\n\n⚠ Tautan gagal: '+gagalTaut.join('; ')+'\nTautkan menyusul lewat detail SJ.':''));
     muatSJ();
   }catch(e){
     showAlert('alertBuat','Gagal: '+esc(e.message||'Error'));
@@ -1113,7 +1182,7 @@ function bukaDetail(idSJ){
       '<div class="det-row"><span class="det-label">Keterangan</span><span class="det-val">'+esc(sjAktif.keterangan||'—')+'</span></div>'+
       (sjAktif.revisi_ke>0?'<div class="det-row"><span class="det-label">Revisi</span><span class="det-val"><span class="badge-status" style="background:#fff3cd;color:#856404;border:1px solid #ffe083">REV-'+sjAktif.revisi_ke+'</span> '+fmtTgl(sjAktif.revisi_terakhir_at)+'</span></div>':'')+
       (sjAktif.is_void?'<div style="background:#fdecea;border:1px solid #f5a9a0;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:var(--red)"><b>SJ INI SUDAH DIBATALKAN</b>'+(sjAktif.void_jenis?' — '+(sjAktif.void_jenis==='DIGANTI_SJ_LAIN'?'DIGANTI SJ LAIN':'BATAL KIRIM'):' — (void lama, stok tidak dikembalikan)')+'<br>Oleh: '+esc(sjAktif.void_by||'-')+' pada '+fmtTgl(sjAktif.void_at)+'<br>Alasan: '+esc(sjAktif.void_alasan||'-')+infoPengganti(sjAktif)+'</div>':'')+
-      (sjAktif.id_sj_asal?'<div style="background:#eef6ff;border:1px solid #bcdcff;border-radius:6px;padding:.5rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem">SJ pengganti untuk: <b>'+esc(noSjDari(sjAktif.id_sj_asal))+'</b></div>':'')+
+      (!sjAktif.is_void?boxLamaDari(sjAktif):'')+
       '<div id="detPenagihanBox"></div>'+
       (sjAktif.edit_tgl_at?'<div style="background:#fff8e6;border:1px solid #f0d78c;border-radius:6px;padding:.6rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem;color:#8a6100"><b>TANGGAL PERNAH DIEDIT</b><br>Asal: '+fmtTgl(sjAktif.tgl_asli)+' → sekarang: '+fmtTgl(sjAktif.tgl)+'<br>Oleh: '+esc(sjAktif.edit_tgl_by||'-')+' pada '+fmtTgl(sjAktif.edit_tgl_at)+'<br>Alasan: '+esc(sjAktif.edit_tgl_alasan||'-')+'</div>':'');
     var totalSbt=0;
@@ -1203,12 +1272,116 @@ function noSjDari(idSj){
   var s=semuaSJ.find(function(x){return x.id_sj===idSj;});
   return s?(s.no_sj+' / '+s.no_nota):idSj;
 }
+function chipSJ(x,idLama,idBaru){
+  return '<span style="display:inline-block;background:#fff;border:1px solid var(--border);border-radius:4px;padding:.05rem .35rem;margin:.1rem .15rem 0 0;color:var(--navy)">'+
+    esc(x.no_sj+' / '+x.no_nota)+(x.is_void?' (void)':'')+
+    (bisaTautkan?' <a href="#" title="Lepas tautan" style="color:var(--red);text-decoration:none" onclick="lepasTautan(\''+esc(idLama)+'\',\''+esc(idBaru)+'\');return false;">✕</a>':'')+'</span>';
+}
 function infoPengganti(sj){
   if(sj.void_jenis!=='DIGANTI_SJ_LAIN')return '';
-  var peng=semuaSJ.filter(function(x){return x.id_sj_asal===sj.id_sj&&!x.is_void;});
+  var peng=penggantiDari(sj.id_sj);
+  var btn=bisaTautkan?' <button class="btn-outline" style="font-size:.66rem;padding:.12rem .45rem;margin-top:.3rem" onclick="bukaTautkan(\'CARI_BARU\')">🔗 Tautkan SJ pengganti</button>':'';
   return peng.length
-    ? '<br>Diganti oleh: <b>'+peng.map(function(x){return esc(x.no_sj+' / '+x.no_nota);}).join(', ')+'</b>'
-    : '<br><b>⚠ Belum ada SJ pengganti</b> — buat SJ baru dan pilih SJ ini di kolom "SJ pengganti untuk".';
+    ? '<br>Diganti oleh: '+peng.map(function(x){return chipSJ(x,sj.id_sj,x.id_sj);}).join('')+btn
+    : '<br><b>⚠ Belum ditautkan ke SJ pengganti.</b>'+btn;
+}
+function boxLamaDari(sj){
+  var lm=lamaDari(sj.id_sj);
+  if(!sj.is_pengganti&&!lm.length){
+    return bisaTautkan?'<div style="margin-top:.4rem"><a href="#" style="font-family:var(--mono);font-size:.68rem" onclick="bukaTautkan(\'CARI_LAMA\');return false;">🔗 Tandai sebagai pengganti SJ lain</a></div>':'';
+  }
+  var belumVoid=lm.filter(function(x){return !x.is_void;});
+  return '<div style="background:#eef6ff;border:1px solid #bcdcff;border-radius:6px;padding:.5rem .75rem;margin-top:.5rem;font-family:var(--mono);font-size:.72rem">'+
+    '<b>SJ PENGGANTI</b>'+(lm.length?' untuk: '+lm.map(function(x){return chipSJ(x,x.id_sj,sj.id_sj);}).join(''):'<br><b style="color:#b45309">⚠ SJ lama belum ditautkan.</b>')+
+    (belumVoid.length?'<br><b style="color:#b45309">⚠ SJ lama '+belumVoid.map(function(x){return esc(x.no_sj);}).join(', ')+' belum di-void</b> — buka SJ tsb lalu (ajukan) Void → "Diganti SJ lain".':'')+
+    (bisaTautkan?'<br><button class="btn-outline" style="font-size:.66rem;padding:.12rem .45rem;margin-top:.3rem" onclick="bukaTautkan(\'CARI_LAMA\')">🔗 Tautkan SJ lama</button>':'')+
+  '</div>';
+}
+
+// ── kandidat di form buat SJ ──
+function renderKandidatPengganti(){
+  var wrap=document.getElementById('kandidatPenggantiWrap'); if(!wrap) return;
+  if(!document.getElementById('chkPengganti').checked){wrap.style.display='none';wrap.innerHTML='';return;}
+  var idPel=document.getElementById('hidPelId').value;
+  var dicek={}; Array.prototype.forEach.call(document.querySelectorAll('.chk-kand-lama:checked'),function(x){dicek[x.value]=true;});
+  var batas=new Date(); batas.setDate(batas.getDate()-120);
+  var pend=sjMenungguPengganti();
+  var aktif=idPel?semuaSJ.filter(function(s){return !s.is_void&&s.id_pelanggan===idPel&&new Date(s.tgl)>=batas;}):[];
+  var row=function(s,ket){
+    return '<label style="display:flex;gap:.4rem;align-items:flex-start;font-size:.74rem;padding:.25rem 0;border-bottom:1px dashed var(--border)">'+
+      '<input type="checkbox" class="chk-kand-lama" value="'+esc(s.id_sj)+'"'+(dicek[s.id_sj]?' checked':'')+' style="margin-top:.15rem"/>'+
+      '<span><b>'+esc(s.no_sj+' / '+s.no_nota)+'</b> — '+esc(s.nama_pelanggan)+' · '+fmtTgl(s.tgl)+' · '+fmtRupiah(s.total)+'<br><span style="font-size:.64rem;color:var(--muted)">'+ket+'</span></span></label>';
+  };
+  var html='<div style="font-family:var(--mono);font-size:.66rem;color:var(--muted);margin-bottom:.25rem">Pilih SJ lama yang digantikan (boleh lebih dari satu, boleh dikosongkan → tautkan menyusul):</div>';
+  if(pend.length) html+='<div class="sec-label" style="margin:.3rem 0">Sudah di-void, belum ada pengganti</div>'+pend.map(function(s){return row(s,'VOID — diganti SJ lain');}).join('');
+  if(aktif.length) html+='<div class="sec-label" style="margin:.3rem 0">Masih aktif (akan di-void setelah ini)</div>'+aktif.map(function(s){return row(s,'Belum di-void — setelah SJ ini dibuat, ajukan void SJ lama → "Diganti SJ lain"');}).join('');
+  if(!pend.length&&!aktif.length) html+='<div style="font-size:.72rem;color:var(--muted)">'+(idPel?'Tidak ada kandidat.':'Pilih pelanggan dulu untuk melihat SJ aktif pelanggan tsb.')+'</div>';
+  wrap.innerHTML=html; wrap.style.display='';
+}
+
+// ── modal tautkan (menyusul) ──
+var tautMode=null;
+function bukaTautkan(mode){
+  if(!sjAktif||!bisaTautkan) return;
+  tautMode=mode;
+  document.getElementById('tautErr').innerHTML='';
+  document.getElementById('tautCari').value='';
+  document.getElementById('tautTitle').textContent=mode==='CARI_BARU'?'Pilih SJ pengganti untuk '+sjAktif.no_sj:'Pilih SJ lama yang digantikan '+sjAktif.no_sj;
+  document.getElementById('tautInfo').textContent=mode==='CARI_BARU'
+    ?'SJ bertanda pengganti & pelanggan yang sama tampil di atas. Boleh pilih lebih dari satu (SJ dipecah).'
+    :'SJ void "diganti SJ lain" & SJ aktif pelanggan yang sama tampil di atas. Boleh pilih lebih dari satu (SJ digabung).';
+  renderKandidatTautkan();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTautkan')).show();
+}
+function renderKandidatTautkan(){
+  var q=(document.getElementById('tautCari').value||'').toLowerCase().trim();
+  var sudah={};
+  linkSJ.forEach(function(l){ if(tautMode==='CARI_BARU'&&l.id_sj_lama===sjAktif.id_sj) sudah[l.id_sj_baru]=1; if(tautMode==='CARI_LAMA'&&l.id_sj_baru===sjAktif.id_sj) sudah[l.id_sj_lama]=1; });
+  var kand=semuaSJ.filter(function(s){
+    if(s.id_sj===sjAktif.id_sj||sudah[s.id_sj]) return false;
+    if(tautMode==='CARI_BARU') return !s.is_void;
+    return !s.is_void||s.void_jenis==='DIGANTI_SJ_LAIN';
+  });
+  var skor=function(s){
+    var n=0;
+    if(s.id_pelanggan===sjAktif.id_pelanggan) n+=2;
+    if(tautMode==='CARI_BARU'&&s.is_pengganti&&!lamaDari(s.id_sj).length) n+=4;
+    if(tautMode==='CARI_LAMA'&&s.is_void&&!penggantiDari(s.id_sj).length) n+=4;
+    return n;
+  };
+  if(q) kand=kand.filter(function(s){return (s.no_sj+' '+s.no_nota+' '+s.nama_pelanggan).toLowerCase().indexOf(q)>=0;});
+  else kand=kand.filter(function(s){return skor(s)>0;});
+  kand.sort(function(a,b){return skor(b)-skor(a)||String(b.tgl).localeCompare(String(a.tgl));});
+  kand=kand.slice(0,60);
+  document.getElementById('tautList').innerHTML=kand.length?kand.map(function(s){
+    var tag=s.is_void?'<span style="color:var(--red)">VOID</span>':(s.is_pengganti?'<span style="color:#1a56db">PENGGANTI</span>':'AKTIF');
+    return '<label style="display:flex;gap:.4rem;align-items:flex-start;font-size:.75rem;padding:.35rem 0;border-bottom:1px solid var(--border)">'+
+      '<input type="checkbox" class="chk-taut" value="'+esc(s.id_sj)+'" style="margin-top:.15rem"/>'+
+      '<span><b>'+esc(s.no_sj+' / '+s.no_nota)+'</b> · '+tag+'<br>'+esc(s.nama_pelanggan)+' · '+esc(s.entitas)+' · '+fmtTgl(s.tgl)+' · '+fmtRupiah(s.total)+'</span></label>';
+  }).join(''):'<div class="loading">'+(q?'Tidak ditemukan.':'Tidak ada kandidat utama — ketik untuk mencari SJ lain.')+'</div>';
+}
+async function submitTautkan(btn){
+  var ids=Array.prototype.map.call(document.querySelectorAll('.chk-taut:checked'),function(x){return x.value;});
+  var err=document.getElementById('tautErr'); err.innerHTML='';
+  if(!ids.length){err.innerHTML='<div class="alert-box alert-err">Pilih minimal satu SJ.</div>';return;}
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
+  var idAktif=sjAktif.id_sj, gagal=[], beda=false;
+  for(var i=0;i<ids.length;i++){
+    var lama=tautMode==='CARI_BARU'?idAktif:ids[i], baru=tautMode==='CARI_BARU'?ids[i]:idAktif;
+    try{ var r=cekErrorSupabase(await dbRpc('tautkan_sj_pengganti',{p_id_sj_lama:lama,p_id_sj_baru:baru,p_aksi:'TAUTKAN'})); if(r.beda_pelanggan) beda=true; }
+    catch(e){ gagal.push(e.message); }
+  }
+  btn.disabled=false; btn.innerHTML='🔗 Tautkan';
+  if(gagal.length){err.innerHTML='<div class="alert-box alert-err">'+esc(gagal.join('; '))+'</div>'; if(gagal.length===ids.length) return;}
+  bootstrap.Modal.getInstance(document.getElementById('modalTautkan')).hide();
+  if(beda) alert('Tertaut. Catatan: pelanggan SJ lama & pengganti berbeda (wajar kalau kasusnya salah pelanggan).');
+  await muatSJ(); bukaDetail(idAktif); segarkanNotif();
+}
+async function lepasTautan(idLama,idBaru){
+  if(!confirm('Lepas tautan '+noSjDari(idLama)+' → '+noSjDari(idBaru)+'?')) return;
+  try{ cekErrorSupabase(await dbRpc('tautkan_sj_pengganti',{p_id_sj_lama:idLama,p_id_sj_baru:idBaru,p_aksi:'LEPAS'})); }
+  catch(e){ alert('Gagal: '+e.message); return; }
+  var idAktif=sjAktif.id_sj; await muatSJ(); bukaDetail(idAktif); segarkanNotif();
 }
 
 // ── INFO PENAGIHAN DI DETAIL SJ ──
@@ -1277,10 +1450,26 @@ function voidSJ(){
   document.getElementById('voidErr').innerHTML='';
   document.getElementById('voidNoSj').textContent=sjAktif.no_sj+' / '+sjAktif.no_nota;
   document.getElementById('voidAlasan').value='';
-  document.querySelectorAll('input[name="voidJenis"]').forEach(function(r){r.checked=false;});
+  document.querySelectorAll('input[name="voidJenis"]').forEach(function(r){r.checked=false;r.onchange=togglePenggantiVoid;});
+  var calon=semuaSJ.filter(function(s){return !s.is_void&&s.id_sj!==sjAktif.id_sj&&(s.id_pelanggan===sjAktif.id_pelanggan||(s.is_pengganti&&!lamaDari(s.id_sj).length));})
+    .sort(function(a,b){return ((b.is_pengganti&&!lamaDari(b.id_sj).length)?1:0)-((a.is_pengganti&&!lamaDari(a.id_sj).length)?1:0)||String(b.tgl).localeCompare(String(a.tgl));}).slice(0,40);
+  document.getElementById('voidSelPengganti').innerHTML='<option value="">— belum ada / tautkan menyusul —</option>'+calon.map(function(s){
+    return '<option value="'+esc(s.id_sj)+'">'+esc((s.is_pengganti?'[PENGGANTI] ':'')+s.no_sj+' / '+s.no_nota+' — '+s.nama_pelanggan+' ('+fmtTgl(s.tgl)+')')+'</option>';
+  }).join('');
+  document.getElementById('voidPenggantiWrap').style.display='none';
   var btn=document.getElementById('btnVoid'); btn.disabled=false; btn.textContent=isDirekturUser?'Void SJ':'Ajukan Void';
   document.getElementById('voidInfoApproval').textContent=isDirekturUser?'Kamu Direktur — langsung diproses.':'Pengajuan ini menunggu keputusan Direktur. Selama menunggu, SJ tidak bisa diedit.';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVoid')).show();
+}
+function togglePenggantiVoid(){
+  var j=document.querySelector('input[name="voidJenis"]:checked');
+  document.getElementById('voidPenggantiWrap').style.display=(j&&j.value==='DIGANTI_SJ_LAIN')?'':'none';
+}
+async function tautkanDariVoid(jenis){
+  var idBaru=document.getElementById('voidSelPengganti').value;
+  if(jenis!=='DIGANTI_SJ_LAIN'||!idBaru) return '';
+  try{ cekErrorSupabase(await dbRpc('tautkan_sj_pengganti',{p_id_sj_lama:sjAktif.id_sj,p_id_sj_baru:idBaru,p_aksi:'TAUTKAN'})); return '\nTertaut ke SJ pengganti '+noSjDari(idBaru)+'.'; }
+  catch(e){ return '\n⚠ Tautan pengganti gagal: '+e.message+' — tautkan menyusul.'; }
 }
 async function submitVoid(btn){
   var err=document.getElementById('voidErr'); err.innerHTML='';
@@ -1295,8 +1484,10 @@ async function submitVoid(btn){
     try{
       var ra=await kirimPengajuanEdit({p_id_sj:sjAktif.id_sj,p_aksi:'VOID',p_id_pgdet:null,p_alasan:alasan,p_jenis_void:jenis});
       if(!ra){btn.disabled=false;btn.textContent='Ajukan Void';return;}
+      var infoTautA=await tautkanDariVoid(jenis);
       bootstrap.Modal.getInstance(document.getElementById('modalVoid')).hide();
-      alert('Pengajuan void terkirim — menunggu keputusan Direktur.');
+      alert('Pengajuan void terkirim — menunggu keputusan Direktur.'+infoTautA);
+      await muatSJ();
       segarkanNotif();
       bukaDetail(sjAktif.id_sj);
     }catch(e){
@@ -1317,11 +1508,12 @@ async function submitVoid(btn){
       res=await dbRpc('void_pengiriman',body);
       cekErrorSupabase(res);
     }
+    var infoTaut=await tautkanDariVoid(jenis);
     bootstrap.Modal.getInstance(document.getElementById('modalVoid')).hide();
     bootstrap.Modal.getInstance(document.getElementById('modalDetail')).hide();
     alert('SJ di-void. '+res.baris_stok_dikembalikan+' baris stok BJ dikembalikan.'+
       (res.penagihan_ditarik?'\nNota di penagihan ditandai ditarik.':'')+
-      (jenis==='DIGANTI_SJ_LAIN'?'\nSekarang buat SJ pengganti dan pilih SJ ini di kolom "SJ pengganti untuk".':''));
+      (infoTaut||(jenis==='DIGANTI_SJ_LAIN'?'\nTautkan SJ pengganti lewat 🔗 di detail SJ (atau centang "SJ ini pengganti" saat buat SJ baru).':'')));
     muatSJ();
     segarkanNotif();
   }catch(e){
@@ -1610,7 +1802,7 @@ async function approveEditSJAction(idPengajuan,disetujui,btn){
     cekErrorSupabase(r);
     if(disetujui&&r.jenis_void){
       alert('SJ di-void. '+(r.baris_stok_dikembalikan||0)+' baris stok BJ dikembalikan.'+
-        (r.jenis_void==='DIGANTI_SJ_LAIN'?'\nBuat SJ pengganti dan pilih SJ ini di kolom "SJ pengganti untuk".':''));
+        (r.jenis_void==='DIGANTI_SJ_LAIN'?'\nPastikan SJ ini sudah ditautkan ke SJ pengganti (🔗 di detail SJ).':''));
       muatSJ();
     }
     if(disetujui&&r.revisi_ke){
