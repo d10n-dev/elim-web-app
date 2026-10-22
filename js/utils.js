@@ -130,6 +130,13 @@ function generateIdLokal(dataArr, prefix, idKey, padLen) {
 // PPN keluaran PT (DPP Nilai Lain 11/12 x 12% = 11% efektif).
 // Okt 2026: TIDAK dibulatkan ke rupiah — hasil hitung apa adanya, 2 desimal
 // (permintaan pelanggan). Mis. 269.750 -> 29.672,50.
+// Buang sisa error floating-point JS (mis. 463679.99999999994 -> 463680)
+// sebelum disimpan ke DB. 6 desimal = presisi harga, jadi TIDAK membulatkan nilai sah.
+function bersihAngka(x) {
+  var v = Number(x || 0);
+  return Math.round(v * 1e6) / 1e6;
+}
+
 function hitungPPN(dpp) {
   var v = Number(dpp || 0) * 11 / 100;
   return Math.round((v + Number.EPSILON) * 100) / 100;

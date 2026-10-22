@@ -1009,7 +1009,7 @@ async function submitPengiriman(btn){
       var chunk=chunks[c];
       var nomor=await generateNomorSJ(entitas);
       var idSJ=genIdSJ();
-      var total=chunk.reduce(function(sm,b){return sm+(b.qtyKirim*b.harga);},0);
+      var total=bersihAngka(chunk.reduce(function(sm,b){return sm+(b.qtyKirim*b.harga);},0));
       // PPN: hitungPPN() di utils.js — 11% efektif, 2 desimal, tanpa pembulatan rupiah.
       // Rumus SAMA dgn RPC _eksekusi_edit_item_pengiriman & layout print.
       var dpp=total;
@@ -1036,7 +1036,7 @@ async function submitPengiriman(btn){
       for(var j=0;j<chunk.length;j++){
         var b=chunk[j];
         var qk=b.qtyKirim;
-        var sbt=qk*b.harga;
+        var sbt=bersihAngka(qk*b.harga);
         var idPgd=genIdPgdet();
 
         await dbInsert('in_pengiriman_detail',{

@@ -465,7 +465,7 @@ async function submitRetur(){
   try{
     var entitas=sjDipilih.entitas||'PT';
     var now=new Date().toISOString();
-    var totalNilai=items.reduce(function(s,it){return s+(it.qty*it.harga);},0);
+    var totalNilai=bersihAngka(items.reduce(function(s,it){return s+(it.qty*it.harga);},0));
     var ppn=entitas==='PT'?hitungPPN(totalNilai):0;
     var totalTagihan=totalNilai+ppn;
     var dppNilaiLain=entitas==='PT'?Math.round(totalNilai*11/12):0;
@@ -493,7 +493,7 @@ async function submitRetur(){
     // Insert in_retur_detail
     for(var j=0;j<items.length;j++){
       var it=items[j];
-      var sbt=it.qty*it.harga;
+      var sbt=bersihAngka(it.qty*it.harga);
       var dppRet=entitas==='PT'?Math.round(sbt*11/12):0;
       var res2=await dbInsert('in_retur_detail',{
         id_rdet:genIdRdet(),
