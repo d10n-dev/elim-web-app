@@ -22,7 +22,7 @@
     tbody tr:hover{background:#f4f7fc;}
     tbody td{padding:8px 10px;font-size:13px;vertical-align:middle;}
     .td-id{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
-    .badge-kat{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;}
+    .badge-kat{font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;background:#e5e7eb;color:#374151;}
     .badge-KERTAS{background:#dbeafe;color:#1e40af;}
     .badge-PLASTIK{background:#fef9c3;color:#854d0e;}
     .badge-PACKING{background:#f3e8ff;color:#6b21a8;}
@@ -43,9 +43,6 @@
   <input type="text" id="searchNama" placeholder="Cari nama bahan..." oninput="filterTabel()">
   <select id="filterKategori" onchange="filterTabel()">
     <option value="">Semua Kategori</option>
-    <option value="KERTAS">Kertas</option>
-    <option value="PLASTIK">Plastik</option>
-    <option value="PACKING">Packing</option>
   </select>
   <select id="filterStatus" onchange="filterTabel()">
     <option value="">Semua Status</option>
@@ -81,12 +78,10 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Kategori *</label>
-          <select class="form-select" id="fKategori">
+          <select class="form-select" id="fKategori" onchange="toggleKategoriBaru()">
             <option value="">-- Pilih --</option>
-            <option value="KERTAS">Kertas</option>
-            <option value="PLASTIK">Plastik</option>
-            <option value="PACKING">Packing</option>
           </select>
+          <input type="text" class="form-control mt-2" id="fKategoriBaru" placeholder="Nama kategori baru, misal: MASTER CETAKAN" style="display:none;text-transform:uppercase">
         </div>
         <div class="mb-3">
           <label class="form-label">Satuan *</label>
@@ -137,7 +132,8 @@ function muatData() {
   document.getElementById('tabelBahan').style.display = 'none';
   dbGet('m_bahan', { order: 'id_bahan.asc' }).then(res => {
     dataBahan = Array.isArray(res) ? res : [];
-    renderTabel(dataBahan);
+    isiOpsiKategori();
+    filterTabel();
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('tabelBahan').style.display = 'table';
   }).catch(err => {
@@ -157,13 +153,38 @@ function renderTabel(data) {
     <tr>
       <td class="td-id">${escHtml(b.id_bahan)}</td>
       <td style="font-weight:500">${escHtml(b.nama_bahan)}</td>
-      <td><span class="badge-kat badge-${b.kategori}">${escHtml(b.kategori)}</span></td>
+      <td><span class="badge-kat badge-${String(b.kategori||'').replace(/[^A-Z0-9]/gi,'_')}">${escHtml(b.kategori)}</span></td>
       <td><span class="badge-sat">${escHtml(b.satuan)}</span></td>
       <td><span class="badge-${b.status}">${b.status}</span></td>
       <td><button class="btn-edit" onclick='bukaModalEdit(${JSON.stringify(b)})'>Edit</button></td>
     </tr>
   `).join('');
   document.getElementById('counterBar').textContent = data.length + ' dari ' + dataBahan.length + ' bahan';
+}
+
+// Kategori dinamis: default + semua kategori yang sudah dipakai di m_bahan
+const KATEGORI_DEFAULT = ['KERTAS', 'PLASTIK', 'PACKING'];
+function daftarKategori() {
+  const set = new Set(KATEGORI_DEFAULT);
+  dataBahan.forEach(b => { if (b.kategori) set.add(String(b.kategori).trim().toUpperCase()); });
+  return Array.from(set).sort();
+}
+function isiOpsiKategori() {
+  const list = daftarKategori();
+  const flt = document.getElementById('filterKategori');
+  const vFlt = flt.value;
+  flt.innerHTML = '<option value="">Semua Kategori</option>' +
+    list.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('');
+  flt.value = list.includes(vFlt) ? vFlt : '';
+  document.getElementById('fKategori').innerHTML = '<option value="">-- Pilih --</option>' +
+    list.map(k => `<option value="${escHtml(k)}">${escHtml(k)}</option>`).join('') +
+    '<option value="__BARU__">➕ Kategori baru...</option>';
+}
+function toggleKategoriBaru() {
+  const baru = document.getElementById('fKategori').value === '__BARU__';
+  const inp = document.getElementById('fKategoriBaru');
+  inp.style.display = baru ? 'block' : 'none';
+  if (baru) { inp.value = ''; inp.focus(); }
 }
 
 function filterTabel() {
@@ -183,6 +204,7 @@ function bukaModalTambah() {
   document.getElementById('fId').value = '';
   document.getElementById('fNama').value = '';
   document.getElementById('fKategori').value = '';
+  toggleKategoriBaru();
   document.getElementById('fSatuan').value = '';
   document.getElementById('fStatus').value = 'AKTIF';
   document.getElementById('statusGroup').style.display = 'none';
@@ -194,7 +216,8 @@ function bukaModalEdit(b) {
   document.getElementById('alert-form').innerHTML = '';
   document.getElementById('fId').value      = b.id_bahan;
   document.getElementById('fNama').value    = b.nama_bahan;
-  document.getElementById('fKategori').value = b.kategori;
+  document.getElementById('fKategori').value = String(b.kategori || '').trim().toUpperCase();
+  toggleKategoriBaru();
   document.getElementById('fSatuan').value  = b.satuan;
   document.getElementById('fStatus').value  = b.status || 'AKTIF';
   document.getElementById('statusGroup').style.display = 'block';
@@ -204,7 +227,13 @@ function bukaModalEdit(b) {
 function simpanBahan() {
   const id     = document.getElementById('fId').value;
   const nama   = document.getElementById('fNama').value.trim().toUpperCase();
-  const kat    = document.getElementById('fKategori').value;
+  let kat      = document.getElementById('fKategori').value;
+  if (kat === '__BARU__') {
+    kat = document.getElementById('fKategoriBaru').value.trim().replace(/\s+/g, ' ').toUpperCase();
+    if (!kat) return tampilError('Isi nama kategori baru');
+    const ada = daftarKategori().find(k => k.replace(/\s/g, '') === kat.replace(/\s/g, ''));
+    if (ada) kat = ada; // cegah kategori dobel beda spasi
+  }
   const satuan = document.getElementById('fSatuan').value;
   const status = document.getElementById('fStatus').value;
 

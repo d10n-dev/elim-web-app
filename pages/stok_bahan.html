@@ -105,9 +105,6 @@
       <input type="text" id="cariSaldo" placeholder="Cari nama bahan..." oninput="renderSaldo()">
       <select id="filterKategori" onchange="renderSaldo()">
         <option value="">Semua Kategori</option>
-        <option value="KERTAS">Kertas</option>
-        <option value="PLASTIK">Plastik</option>
-        <option value="PACKING">Packing</option>
       </select>
       <label class="chk-wrap">
         <input type="checkbox" id="chkSembunyikanNol" checked onchange="renderSaldo()">
@@ -404,6 +401,14 @@ function muatMasterBahan(){
     daftarBahan = Array.isArray(res)?res:[];
     mapBahanKategori = {};
     daftarBahan.forEach(function(b){ mapBahanKategori[b.id_bahan]=b.kategori; });
+    // Opsi filter kategori dinamis dari master bahan
+    var set={}; ['KERTAS','PLASTIK','PACKING'].forEach(function(k){set[k]=1;});
+    daftarBahan.forEach(function(b){ if(b.kategori) set[b.kategori]=1; });
+    var flt=document.getElementById('filterKategori'), v=flt.value;
+    flt.innerHTML='<option value="">Semua Kategori</option>'+Object.keys(set).sort().map(function(k){
+      return '<option value="'+String(k).replace(/"/g,'&quot;')+'">'+String(k).replace(/</g,'&lt;')+'</option>';
+    }).join('');
+    flt.value=set[v]?v:'';
   });
 }
 
