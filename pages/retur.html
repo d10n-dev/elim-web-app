@@ -383,6 +383,13 @@ function renderRetItemList(){
     return;
   }
   document.getElementById('retItemList').innerHTML=itemSJAktif.map(function(it,i){
+    // Okt 2026: baris jual langsung dari stok BAHAN tidak bisa diretur (koreksi via Void SJ)
+    if(it.id_bahan){
+      return '<div class="ret-item" style="opacity:.6">'+
+        '<div class="ret-item-nama">'+esc(it.nama_item||'')+'</div>'+
+        '<div class="ret-item-info">Item bahan (jual langsung) — retur tidak didukung. Koreksi lewat Void SJ.</div>'+
+      '</div>';
+    }
     return '<div class="ret-item">'+
       '<div class="ret-item-nama">'+esc(it.nama_item||'')+'</div>'+
       (it.subitem?'<div class="ret-item-sub">'+esc(it.subitem)+'</div>':'')+

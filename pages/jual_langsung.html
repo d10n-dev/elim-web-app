@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Jual Langsung — SIEO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="../css/sieo.css" rel="stylesheet"/>
+  <style>
+    .btn-navy{background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.78rem;font-family:var(--mono);font-weight:600;padding:.4rem .85rem;cursor:pointer;}
+    .btn-navy:disabled{opacity:.6;}
+    .btn-outline{background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-family:var(--mono);padding:.4rem .85rem;cursor:pointer;text-decoration:none;display:inline-block;}
+    .sec-label{font-family:var(--mono);font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--navy);margin:.9rem 0 .4rem;}
+    .badge-src{font-family:var(--mono);font-size:.58rem;font-weight:700;padding:.08rem .4rem;border-radius:3px;margin-right:.3rem;vertical-align:middle;}
+    .src-BJ{background:#e8f0fe;color:#1a56db;border:1px solid #a4c0f9;}
+    .src-BAHAN{background:#fff3e0;color:#b45309;border:1px solid #f5c58a;}
+    .badge-void{font-family:var(--mono);font-size:.58rem;font-weight:700;padding:.08rem .4rem;border-radius:3px;background:#fdecea;color:var(--red);border:1px solid #f5a9a0;}
+    .it-card{border:1px solid var(--border);border-radius:8px;padding:.55rem .65rem;margin-bottom:.5rem;background:var(--surface);}
+    .it-head{display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start;}
+    .it-nama{font-size:.82rem;font-weight:600;line-height:1.25;}
+    .it-hint{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.1rem;}
+    .it-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-top:.45rem;}
+    .it-grid label{font-family:var(--mono);font-size:.6rem;color:var(--muted);display:block;margin-bottom:.1rem;}
+    .it-grid input{width:100%;font-family:var(--mono);font-size:.85rem;border:1px solid var(--border);border-radius:5px;padding:.35rem .45rem;}
+    .it-sub{font-family:var(--mono);font-size:.72rem;text-align:right;margin-top:.3rem;}
+    .btn-x{background:none;border:none;color:var(--red);font-size:1.1rem;line-height:1;padding:0 .2rem;cursor:pointer;}
+    .tot-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.8rem;padding:.2rem 0;}
+    .tot-final{border-top:2px solid var(--navy);font-weight:700;padding-top:.35rem;margin-top:.2rem;}
+    .det-row{display:flex;justify-content:space-between;gap:.75rem;font-size:.78rem;padding:.2rem 0;}
+    .det-label{font-family:var(--mono);color:var(--muted);}
+    .det-val{text-align:right;}
+    .hint{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:.15rem;}
+    .spinner-sm{width:1rem;height:1rem;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin .6s linear infinite;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .row-click{cursor:pointer;}
+  </style>
+</head>
+<body>
+
+<div id="navRoot"></div>
+
+<div class="toolbar">
+  <input type="text" id="cariInput" placeholder="Cari pembeli / no. SJ / nota…" oninput="renderDaftar()"/>
+  <select id="filterEntitas" onchange="renderDaftar()">
+    <option value="">PT &amp; DK</option>
+    <option value="PT">PT Elim</option>
+    <option value="DK">DK Offset</option>
+  </select>
+  <button class="btn-tambah" onclick="bukaJualBaru()">+ Jual Baru</button>
+</div>
+<div class="info-bar" id="infoBar">Memuat data…</div>
+
+<div class="tbl-wrap">
+  <table>
+    <thead><tr><th>Nota / SJ</th><th>Tanggal</th><th>Pembeli</th><th>Total</th></tr></thead>
+    <tbody id="tbodyJual"><tr><td colspan="4" class="loading">Memuat…</td></tr></tbody>
+  </table>
+</div>
+
+<!-- MODAL JUAL BARU -->
+<div class="modal fade" id="modalJual" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">Jual Langsung</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="alertJual"></div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Entitas *</label>
+            <select class="form-select" id="selEntitas" onchange="gantiEntitas()">
+              <option value="">— Pilih —</option>
+              <option value="DK">DK Offset</option>
+              <option value="PT">PT Elim (PPN)</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Tanggal *</label>
+            <input type="date" class="form-control" id="inpTgl"/>
+          </div>
+          <div class="col-12">
+            <label class="form-label" id="lblPel">Pelanggan</label>
+            <input type="text" class="form-control" id="inpPel" placeholder="Ketik nama pelanggan…" autocomplete="off" oninput="acPel(this)"/>
+            <input type="hidden" id="hidPelId"/>
+            <div class="hint" id="hintPel">Pilih entitas dulu.</div>
+            <div id="acPelDrop" class="ac-dropdown"></div>
+          </div>
+          <div class="col-12" id="wrapPembeli" style="display:none">
+            <label class="form-label">Nama Pembeli *</label>
+            <input type="text" class="form-control" id="inpPembeli" placeholder="Nama pembeli (walk-in)" autocomplete="off"/>
+            <div class="hint">Tercatat atas pelanggan UMUM (DK). Nama ini yang tampil di nota &amp; piutang.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Keterangan</label>
+            <input type="text" class="form-control" id="inpKet" placeholder="Opsional"/>
+          </div>
+        </div>
+
+        <div class="sec-label">Barang (stok BJ / stok bahan)</div>
+        <input type="text" class="form-control" id="inpCariStok" placeholder="Cari nama barang yang ada stoknya…" autocomplete="off" oninput="acStok(this)"/>
+        <div id="acStokDrop" class="ac-dropdown"></div>
+        <div id="itemList" style="margin-top:.6rem"></div>
+        <div id="totalBox" style="margin-top:.4rem"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-batal" data-bs-dismiss="modal">Batal</button>
+        <button class="btn-simpan" id="btnSimpan" onclick="simpanJual(this)">Simpan &amp; Terbitkan Nota</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETAIL -->
+<div class="modal fade" id="modalDetail" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title" id="detTitle">Detail</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detBody"></div>
+      <div class="modal-footer" id="detFooter" style="flex-wrap:wrap;gap:.4rem"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+// ── STATE ──
+var ID_UMUM_DK='PLE-UMUM-DK';
+var daftarJual=[], semuaPelanggan=[], stokList=null, itemBaris=[], sjAktif=null, roleUser='';
+
+// ── UTIL ──
+function esc(s){return escHtml(s);}
+function fmtAngka(n){return Number(n||0).toLocaleString('id-ID',{maximumFractionDigits:6});}
+function fmtUang(n){return Number(n||0).toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:6});}
+function fmtRupiah(n){return 'Rp '+fmtUang(n);}
+function fmtTgl(s){if(!s)return'—';var d=new Date(s);return isNaN(d)?s:d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Jakarta'});}
+function tglLokalHariIni(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function showAlert(elId,msg,ok){document.getElementById(elId).innerHTML='<div class="alert-box '+(ok?'alert-ok':'alert-err')+'">'+msg+'</div>';}
+function cekErrorSupabase(res){
+  if(!res){throw new Error('Tidak ada respon dari server.');}
+  if(res.code||res.status==='error'){throw new Error(res.message||res.msg||'Terjadi kesalahan.');}
+  return res;
+}
+function posisiDrop(inp,drop){var r=inp.getBoundingClientRect();drop.style.top=r.bottom+'px';drop.style.left=r.left+'px';drop.style.width=r.width+'px';drop.style.display='block';}
+function tutupDropSaatBlur(inp,drop){inp.addEventListener('blur',function(){setTimeout(function(){if(!drop._touching)drop.style.display='none';},250);},{once:true});}
+function _acTouchStart(e){var el=e.currentTarget;el._ty=e.touches[0].clientY;el._moved=false;if(el.parentElement)el.parentElement._touching=true;}
+function _acTouchMove(e){var el=e.currentTarget;if(Math.abs(e.touches[0].clientY-el._ty)>10)el._moved=true;}
+function _acTouchEnd(e,cb){e.preventDefault();var el=e.currentTarget;if(el.parentElement)el.parentElement._touching=false;if(el._moved)return;cb();}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded',function(){
+  if(!guardHalaman()) return;
+  initNav('jual_langsung');
+  roleUser=getRoleUser();
+  document.body.appendChild(document.getElementById('acPelDrop'));
+  document.body.appendChild(document.getElementById('acStokDrop'));
+  muatDaftar();
+  dbGet('m_pelanggan',{status:'eq.AKTIF',order:'nama.asc',select:'id_pelanggan,nama,tipe,npwp'}).then(function(r){
+    semuaPelanggan=(Array.isArray(r)?r:[]).filter(function(p){return p.id_pelanggan!==ID_UMUM_DK;});
+  });
+});
+
+// ── DAFTAR ──
+function muatDaftar(){
+  document.getElementById('tbodyJual').innerHTML='<tr><td colspan="4" class="loading">Memuat…</td></tr>';
+  return dbGet('in_pengiriman',{is_jual_langsung:'eq.true',order:'tgl.desc,no_sj.desc',limit:'300'}).then(function(res){
+    if(res&&res.code) throw new Error(res.message);
+    daftarJual=Array.isArray(res)?res:[];
+    renderDaftar();
+  }).catch(function(e){
+    document.getElementById('tbodyJual').innerHTML='<tr><td colspan="4" class="loading" style="color:var(--red)">Gagal memuat: '+esc(e.message||'')+'</td></tr>';
+  });
+}
+function renderDaftar(){
+  var q=document.getElementById('cariInput').value.toLowerCase().trim();
+  var ent=document.getElementById('filterEntitas').value;
+  var rows=daftarJual.filter(function(s){
+    if(ent&&s.entitas!==ent) return false;
+    if(!q) return true;
+    return ((s.nama_pelanggan||'')+' '+(s.no_sj||'')+' '+(s.no_nota||'')).toLowerCase().indexOf(q)>=0;
+  });
+  document.getElementById('infoBar').textContent=rows.length+' nota jual langsung (300 terbaru)';
+  if(!rows.length){document.getElementById('tbodyJual').innerHTML='<tr class="empty-row"><td colspan="4">Belum ada data.</td></tr>';return;}
+  document.getElementById('tbodyJual').innerHTML=rows.map(function(s){
+    return '<tr class="row-click" onclick="bukaDetail(\''+esc(s.id_sj)+'\')">'+
+      '<td class="td-id"><b style="color:var(--text)">'+esc(s.no_nota)+'</b><br>'+esc(s.no_sj)+' · '+esc(s.entitas)+'</td>'+
+      '<td class="td-tgl">'+fmtTgl(s.tgl)+'</td>'+
+      '<td style="font-size:.8rem">'+esc(s.nama_pelanggan||'')+(s.is_void?' <span class="badge-void">VOID</span>':'')+'</td>'+
+      '<td style="font-family:var(--mono);font-size:.75rem;white-space:nowrap;'+(s.is_void?'text-decoration:line-through;color:var(--muted)':'')+'">'+fmtRupiah(s.total_tagih)+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ── FORM JUAL BARU ──
+function bukaJualBaru(){
+  itemBaris=[]; stokList=null;
+  document.getElementById('alertJual').innerHTML='';
+  document.getElementById('selEntitas').value='';
+  document.getElementById('inpTgl').value=tglLokalHariIni();
+  document.getElementById('inpKet').value='';
+  document.getElementById('inpPembeli').value='';
+  document.getElementById('inpCariStok').value='';
+  resetPelanggan();
+  gantiEntitas();
+  renderItem();
+  var b=document.getElementById('btnSimpan'); b.disabled=false; b.innerHTML='Simpan &amp; Terbitkan Nota';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalJual')).show();
+  muatStok();
+}
+function resetPelanggan(){
+  var inp=document.getElementById('inpPel');
+  inp.value=''; inp.classList.remove('ac-selected');
+  document.getElementById('hidPelId').value='';
+}
+function gantiEntitas(){
+  var ent=document.getElementById('selEntitas').value;
+  var lbl=document.getElementById('lblPel'), hint=document.getElementById('hintPel');
+  if(ent==='PT'){
+    lbl.textContent='Pelanggan * (wajib dari master, ber-NPWP)';
+    hint.textContent='Belum ada di daftar? Tambahkan dulu di menu Master → Pelanggan (isi NPWP).';
+    document.getElementById('wrapPembeli').style.display='none';
+    var id=document.getElementById('hidPelId').value;
+    var p=semuaPelanggan.find(function(x){return x.id_pelanggan===id;});
+    if(p&&!p.npwp) resetPelanggan();
+  }else if(ent==='DK'){
+    lbl.textContent='Pelanggan (opsional)';
+    hint.textContent='Kosongkan untuk pembeli walk-in, lalu isi Nama Pembeli.';
+    document.getElementById('wrapPembeli').style.display=document.getElementById('hidPelId').value?'none':'';
+  }else{
+    lbl.textContent='Pelanggan';
+    hint.textContent='Pilih entitas dulu.';
+    document.getElementById('wrapPembeli').style.display='none';
+  }
+  renderTotal();
+}
+function acPel(inp){
+  var ent=document.getElementById('selEntitas').value;
+  var drop=document.getElementById('acPelDrop');
+  document.getElementById('hidPelId').value=''; inp.classList.remove('ac-selected');
+  if(ent==='DK') document.getElementById('wrapPembeli').style.display='';
+  var q=inp.value.toLowerCase().trim();
+  if(!q||!ent){drop.style.display='none';return;}
+  var hasil=semuaPelanggan.filter(function(p){return p.nama.toLowerCase().indexOf(q)>=0;}).slice(0,20);
+  if(!hasil.length){drop.innerHTML='<div class="ac-empty">Tidak ditemukan</div>';posisiDrop(inp,drop);tutupDropSaatBlur(inp,drop);return;}
+  drop.innerHTML=hasil.map(function(p){
+    var tanpaNpwp=(ent==='PT'&&!p.npwp);
+    var cb='pilihPel(\''+esc(p.id_pelanggan)+'\')';
+    return '<div class="ac-item" style="'+(tanpaNpwp?'opacity:.5':'')+'" onmousedown="event.preventDefault();'+cb+'" ontouchstart="_acTouchStart(event)" ontouchmove="_acTouchMove(event)" ontouchend="_acTouchEnd(event,function(){'+cb+'})">'+
+      '<span class="ac-item-nama">'+esc(p.nama)+'</span>'+
+      '<span class="ac-item-id">'+esc(p.id_pelanggan)+' · '+esc(p.tipe||'')+(tanpaNpwp?' · TANPA NPWP':'')+'</span></div>';
+  }).join('');
+  posisiDrop(inp,drop); tutupDropSaatBlur(inp,drop);
+}
+function pilihPel(id){
+  var ent=document.getElementById('selEntitas').value;
+  var p=semuaPelanggan.find(function(x){return x.id_pelanggan===id;});
+  document.getElementById('acPelDrop').style.display='none';
+  if(!p) return;
+  if(ent==='PT'&&!p.npwp){
+    alert('Pelanggan '+p.nama+' belum punya NPWP. Lengkapi dulu di Master → Pelanggan.');
+    return;
+  }
+  var inp=document.getElementById('inpPel');
+  inp.value=p.nama; inp.classList.add('ac-selected');
+  document.getElementById('hidPelId').value=p.id_pelanggan;
+  document.getElementById('wrapPembeli').style.display='none';
+}
+
+// ── STOK (BJ + BAHAN) ──
+function muatStok(){
+  if(stokList) return Promise.resolve(stokList);
+  return Promise.all([
+    dbRpc('get_rekap_stok_bj',{}).catch(function(){return [];}),
+    dbRpc('get_saldo_stok_bahan',{}).catch(function(){return [];})
+  ]).then(function(h){
+    var bj=(Array.isArray(h[0])?h[0]:[]).filter(function(r){return Number(r.saldo)>0;}).map(function(r){
+      return {sumber:'BJ',id:r.id_item,subitem:r.subitem||'',nama:r.nama_item||'',satuan:r.satuan||'',saldo:Number(r.saldo)};
+    });
+    var bh=(Array.isArray(h[1])?h[1]:[]).filter(function(r){return Number(r.saldo)>0;}).map(function(r){
+      return {sumber:'BAHAN',id:r.id_bahan,subitem:'',nama:r.nama_bahan||'',satuan:r.satuan||'',saldo:Number(r.saldo),kategori:r.kategori||''};
+    });
+    stokList=bh.concat(bj);
+    return stokList;
+  });
+}
+function kunciStok(s){return s.sumber+'|'+s.id+'|'+(s.subitem||'');}
+function acStok(inp){
+  var drop=document.getElementById('acStokDrop');
+  var q=inp.value.toLowerCase().trim();
+  if(!q){drop.style.display='none';return;}
+  muatStok().then(function(list){
+    var hasil=list.filter(function(s){
+      return ((s.nama||'')+' '+(s.subitem||'')+' '+(s.kategori||'')).toLowerCase().indexOf(q)>=0;
+    }).slice(0,25);
+    if(!hasil.length){drop.innerHTML='<div class="ac-empty">Tidak ditemukan / stok habis</div>';posisiDrop(inp,drop);tutupDropSaatBlur(inp,drop);return;}
+    drop.innerHTML=hasil.map(function(s){
+      var idx=list.indexOf(s);
+      var cb='tambahItem('+idx+')';
+      return '<div class="ac-item" onmousedown="event.preventDefault();'+cb+'" ontouchstart="_acTouchStart(event)" ontouchmove="_acTouchMove(event)" ontouchend="_acTouchEnd(event,function(){'+cb+'})">'+
+        '<span class="ac-item-nama"><span class="badge-src src-'+s.sumber+'">'+s.sumber+'</span>'+esc(s.nama)+(s.subitem?' ('+esc(s.subitem)+')':'')+'</span>'+
+        '<span class="ac-item-id">Stok: '+fmtAngka(s.saldo)+' '+esc(s.satuan)+'</span></div>';
+    }).join('');
+    posisiDrop(inp,drop); tutupDropSaatBlur(inp,drop);
+  });
+}
+function tambahItem(idx){
+  var s=stokList[idx];
+  document.getElementById('acStokDrop').style.display='none';
+  document.getElementById('inpCariStok').value='';
+  if(!s) return;
+  if(itemBaris.some(function(b){return kunciStok(b)===kunciStok(s);})){alert('Barang ini sudah ada di daftar.');return;}
+  itemBaris.push({sumber:s.sumber,id:s.id,subitem:s.subitem,nama:s.nama,satuan:s.satuan,saldo:s.saldo,qty:'',harga:''});
+  renderItem();
+}
+function hapusItem(i){itemBaris.splice(i,1);renderItem();}
+function ubahItem(i,field,val){
+  itemBaris[i][field]=val;
+  var b=itemBaris[i];
+  var sub=(parseFloat(b.qty)||0)*(parseFloat(b.harga)||0);
+  var el=document.getElementById('sub_'+i); if(el) el.textContent=fmtRupiah(bersihAngka(sub));
+  var w=document.getElementById('warn_'+i);
+  if(w) w.style.display=((parseFloat(b.qty)||0)>b.saldo)?'':'none';
+  renderTotal();
+}
+function renderItem(){
+  var box=document.getElementById('itemList');
+  if(!itemBaris.length){box.innerHTML='<div class="hint" style="padding:.4rem 0">Belum ada barang. Cari di atas.</div>';renderTotal();return;}
+  box.innerHTML=itemBaris.map(function(b,i){
+    var sub=(parseFloat(b.qty)||0)*(parseFloat(b.harga)||0);
+    return '<div class="it-card">'+
+      '<div class="it-head"><div><div class="it-nama"><span class="badge-src src-'+b.sumber+'">'+b.sumber+'</span>'+esc(b.nama)+(b.subitem?' ('+esc(b.subitem)+')':'')+'</div>'+
+        '<div class="it-hint">Stok: '+fmtAngka(b.saldo)+' '+esc(b.satuan)+'</div></div>'+
+        '<button class="btn-x" onclick="hapusItem('+i+')" aria-label="Hapus">×</button></div>'+
+      '<div class="it-grid">'+
+        '<div><label>Qty ('+esc(b.satuan||'-')+')</label><input type="number" inputmode="decimal" min="0" value="'+esc(String(b.qty))+'" oninput="ubahItem('+i+',\'qty\',this.value)"/></div>'+
+        '<div><label>Harga satuan</label><input type="number" inputmode="decimal" min="0" step="any" value="'+esc(String(b.harga))+'" oninput="ubahItem('+i+',\'harga\',this.value)"/></div>'+
+      '</div>'+
+      '<div id="warn_'+i+'" class="hint" style="color:var(--red);display:'+((parseFloat(b.qty)||0)>b.saldo?'':'none')+'">Melebihi stok.</div>'+
+      '<div class="it-sub" id="sub_'+i+'">'+fmtRupiah(bersihAngka(sub))+'</div>'+
+    '</div>';
+  }).join('');
+  renderTotal();
+}
+function renderTotal(){
+  var box=document.getElementById('totalBox');
+  if(!itemBaris.length){box.innerHTML='';return;}
+  var ent=document.getElementById('selEntitas').value;
+  var dpp=bersihAngka(itemBaris.reduce(function(t,b){return t+(parseFloat(b.qty)||0)*(parseFloat(b.harga)||0);},0));
+  var ppn=ent==='PT'?hitungPPN(dpp):0;
+  var nNota=Math.ceil(itemBaris.length/10);
+  box.innerHTML=
+    (ent==='PT'?'<div class="tot-row"><span>Subtotal (DPP)</span><span>'+fmtRupiah(dpp)+'</span></div><div class="tot-row"><span>PPN 11%</span><span>'+fmtRupiah(ppn)+'</span></div>':'')+
+    '<div class="tot-row tot-final"><span>TOTAL TAGIHAN</span><span>'+fmtRupiah(dpp+ppn)+'</span></div>'+
+    (nNota>1?'<div class="hint">'+itemBaris.length+' baris → dipecah jadi '+nNota+' nota (maks 10 baris per nota).</div>':'');
+}
+
+// ── SIMPAN ──
+async function simpanJual(btn){
+  var ent=document.getElementById('selEntitas').value;
+  var tgl=document.getElementById('inpTgl').value;
+  var idPel=document.getElementById('hidPelId').value;
+  var pembeli=document.getElementById('inpPembeli').value.trim();
+  var ket=document.getElementById('inpKet').value.trim();
+  document.getElementById('alertJual').innerHTML='';
+  if(!ent){showAlert('alertJual','Entitas wajib dipilih.');return;}
+  if(!tgl){showAlert('alertJual','Tanggal wajib diisi.');return;}
+  if(ent==='PT'&&!idPel){showAlert('alertJual','Entitas PT wajib pilih pelanggan dari master.');return;}
+  if(ent==='DK'&&!idPel&&!pembeli){showAlert('alertJual','Isi Nama Pembeli (atau pilih pelanggan dari master).');return;}
+  if(!itemBaris.length){showAlert('alertJual','Minimal 1 barang.');return;}
+  for(var i=0;i<itemBaris.length;i++){
+    var b=itemBaris[i], q=parseFloat(b.qty), h=parseFloat(b.harga);
+    var nm='"'+b.nama+(b.subitem?' ('+b.subitem+')':'')+'"';
+    if(!(q>0)){showAlert('alertJual','Qty '+esc(nm)+' harus > 0.');return;}
+    if(q>b.saldo){showAlert('alertJual','Qty '+esc(nm)+' melebihi stok ('+fmtAngka(b.saldo)+').');return;}
+    if(!(h>0)){showAlert('alertJual','Harga '+esc(nm)+' wajib diisi.');return;}
+  }
+  var payload={
+    entitas:ent, tgl:tgl, id_pelanggan:idPel||null,
+    nama_pembeli:idPel?null:pembeli, keterangan:ket||null,
+    items:itemBaris.map(function(b){return {sumber:b.sumber,id:b.id,subitem:b.subitem||null,qty:parseFloat(b.qty),harga:parseFloat(b.harga)};})
+  };
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span> Menyimpan…';
+  try{
+    // dbRpc sudah stringify body — JANGAN JSON.stringify payload manual
+    var res=await dbRpc('buat_jual_langsung',{p_data:payload});
+    cekErrorSupabase(res);
+    var sj=res.sj||[];
+    stokList=null;
+    await muatDaftar();
+    var mEl=document.getElementById('modalJual');
+    // tunggu modal form benar2 tertutup sebelum buka modal detail (cegah backdrop dobel)
+    mEl.addEventListener('hidden.bs.modal',function(){
+      if(sj.length===1){ bukaDetail(sj[0].id_sj, true); }
+      else alert('Berhasil. Nota terbit:\n'+sj.map(function(x){return x.no_nota+' / '+x.no_sj;}).join('\n')+'\n\nCetak lewat detail masing-masing.');
+    },{once:true});
+    bootstrap.Modal.getOrCreateInstance(mEl).hide();
+  }catch(e){
+    showAlert('alertJual','Gagal: '+esc(e.message||'Error'));
+    btn.disabled=false; btn.innerHTML='Simpan &amp; Terbitkan Nota';
+  }
+}
+
+// ── DETAIL + VOID ──
+function bukaDetail(idSJ, baru){
+  sjAktif=daftarJual.find(function(s){return s.id_sj===idSJ;})||null;
+  if(!sjAktif) return;
+  var s=sjAktif;
+  document.getElementById('detTitle').textContent=s.no_nota+' / '+s.no_sj;
+  document.getElementById('detBody').innerHTML='<div class="loading">Memuat…</div>';
+  document.getElementById('detFooter').innerHTML='';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetail')).show();
+  dbGet('in_pengiriman_detail',{id_sj:'eq.'+s.id_sj,order:'id_pgdet.asc'}).then(function(res){
+    var items=(Array.isArray(res)?res:[]).filter(function(it){return !it.dibatalkan;});
+    var html=(baru?'<div class="alert-box alert-ok">Nota berhasil diterbitkan. Masuk piutang pelanggan.</div>':'')+
+      (s.is_void?'<div class="alert-box alert-err"><b>SUDAH DIVOID</b>'+(s.void_alasan?' — '+esc(s.void_alasan):'')+'</div>':'')+
+      '<div class="det-row"><span class="det-label">Tanggal</span><span class="det-val">'+fmtTgl(s.tgl)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Pembeli</span><span class="det-val">'+esc(s.nama_pelanggan||'')+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Entitas</span><span class="det-val">'+esc(s.entitas)+'</span></div>'+
+      '<div class="det-row"><span class="det-label">Status piutang</span><span class="det-val">'+esc(s.status_piutang||'')+'</span></div>'+
+      (s.keterangan?'<div class="det-row"><span class="det-label">Keterangan</span><span class="det-val">'+esc(s.keterangan)+'</span></div>':'')+
+      '<div class="det-row"><span class="det-label">Input</span><span class="det-val">'+esc(s.user_input||'')+'</span></div>'+
+      '<div class="sec-label">Barang</div>'+
+      items.map(function(it){
+        var src=it.id_bahan?'BAHAN':'BJ';
+        return '<div class="it-card"><div class="it-nama"><span class="badge-src src-'+src+'">'+src+'</span>'+esc(it.nama_item||'')+(it.subitem?' ('+esc(it.subitem)+')':'')+'</div>'+
+          '<div class="tot-row"><span>'+fmtAngka(it.qty_kirim)+' '+esc(it.satuan||'')+' × '+fmtRupiah(it.harga)+'</span><span>'+fmtRupiah(it.subtotal)+'</span></div></div>';
+      }).join('')+
+      (s.entitas==='PT'?'<div class="tot-row"><span>DPP</span><span>'+fmtRupiah(s.dpp)+'</span></div><div class="tot-row"><span>PPN 11%</span><span>'+fmtRupiah(s.ppn)+'</span></div>':'')+
+      '<div class="tot-row tot-final"><span>TOTAL TAGIHAN</span><span>'+fmtRupiah(s.total_tagih)+'</span></div>';
+    if(!s.is_void&&roleUser==='DIREKTUR'){
+      html+='<div class="sec-label">Void (Direktur)</div>'+
+        '<input type="text" class="form-control" id="inpAlasanVoid" placeholder="Alasan void (wajib)"/>'+
+        '<div class="hint">Stok BJ/bahan dikembalikan. Tidak bisa void kalau sudah ada pembayaran, faktur pajak, atau retur.</div>'+
+        '<div id="alertVoid" style="margin-top:.4rem"></div>';
+    }
+    document.getElementById('detBody').innerHTML=html;
+    var f='';
+    if(!s.is_void) f+='<a class="btn-navy" style="text-decoration:none" href="pengiriman.html#sj='+encodeURIComponent(s.id_sj)+'">🖨 Cetak SJ / Invoice</a>';
+    if(!s.is_void&&roleUser==='DIREKTUR') f+='<button class="btn-navy" style="background:var(--red)" id="btnVoid" onclick="voidJual(this)">Void</button>';
+    f+='<button class="btn-batal" data-bs-dismiss="modal">Tutup</button>';
+    document.getElementById('detFooter').innerHTML=f;
+  }).catch(function(){
+    document.getElementById('detBody').innerHTML='<div class="loading" style="color:var(--red)">Gagal memuat detail.</div>';
+  });
+}
+async function voidJual(btn){
+  if(!sjAktif) return;
+  var alasan=(document.getElementById('inpAlasanVoid')||{}).value||'';
+  alasan=alasan.trim();
+  if(!alasan){showAlert('alertVoid','Alasan void wajib diisi.');return;}
+  if(!confirm('Void '+sjAktif.no_nota+' / '+sjAktif.no_sj+'?\nStok dikembalikan & nota dianggap tidak terjadi. Tidak bisa dibatalkan.')) return;
+  btn.disabled=true; btn.innerHTML='<span class="spinner-sm"></span>';
+  try{
+    var body={p_id_sj:sjAktif.id_sj,p_alasan:alasan,p_user:getNamaUser(),p_role:roleUser,p_jenis_void:'BATAL_KIRIM',p_tarik_penagihan:false};
+    var res=await dbRpc('void_pengiriman',body);
+    cekErrorSupabase(res);
+    if(res.status==='konfirmasi'){
+      if(!confirm(res.message)){btn.disabled=false;btn.textContent='Void';return;}
+      body.p_tarik_penagihan=true;
+      res=await dbRpc('void_pengiriman',body);
+      cekErrorSupabase(res);
+    }
+    var id=sjAktif.id_sj;
+    stokList=null;
+    await muatDaftar();
+    bukaDetail(id);
+  }catch(e){
+    showAlert('alertVoid','Gagal: '+esc(e.message||'Error'));
+    btn.disabled=false; btn.textContent='Void';
+  }
+}
+</script>
+</body>
+</html>

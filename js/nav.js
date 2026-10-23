@@ -47,6 +47,7 @@ const NAV_MENU = [
       { key: 'stok_bahan',    label: 'Stok Bahan',      icon: '🧱', href: 'pages/stok_bahan.html' },
       { key: 'stok_tinta_sparepart', label: 'Stok Tinta & Sparepart', icon: '🎨', href: 'pages/stok_tinta_sparepart.html' },
       { key: 'pengiriman',    label: 'Pengiriman',      icon: '🚚', href: 'pages/pengiriman.html' },
+      { key: 'jual_langsung', label: 'Jual Langsung',   icon: '🛍️', href: 'pages/jual_langsung.html' },
       { key: 'retur',         label: 'Retur',           icon: '↩️', href: 'pages/retur.html' },
     ]
   },

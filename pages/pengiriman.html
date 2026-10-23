@@ -554,6 +554,9 @@ function bukaDariHashPengiriman(){
   var h=(location.hash||'');
   if(h==='#approve-edit'&&isMP) bukaApproveEditSJ();
   if(h==='#kirim-ulang') tampilkanKirimUlang();
+  // Deep link dari Jual Langsung: #sj=<id_sj> -> buka detail SJ (cetak/void)
+  var mSJ=h.match(/^#sj=(.+)$/);
+  if(mSJ) bukaDetail(decodeURIComponent(mSJ[1]));
 }
 function tampilkanKirimUlang(){
   dbGet('in_penagihan_detail',{perlu_kirim_ulang:'eq.true',select:'id_sj'}).then(function(res){
@@ -1214,7 +1217,8 @@ function bukaDetail(idSJ){
         '<td>'+fmtRupiah(it.harga||0)+hargaAwalInfo+'</td><td>'+fmtRupiah(sbt)+(pot>0?'<br><span style="font-size:.6rem;color:var(--red)">pot. '+fmtRupiah(pot)+'</span>':'')+'</td>'+
         (isPT?'<td style="font-family:var(--mono);font-size:.7rem;color:#c45a00">'+fmtRupiah(dpp)+'</td>':'')+
         '<td style="font-family:var(--mono);font-size:.65rem">'+esc(it.jenis||'')+'</td>'+
-        (bisaHapusItem?'<td style="white-space:nowrap"><button class="btn-outline" style="font-size:.65rem;padding:.2rem .45rem" onclick="bukaKoreksi(\''+esc(it.id_pgdet)+'\')">✏ Koreksi</button> '+
+        (bisaHapusItem&&it.id_bahan?'<td style="font-family:var(--mono);font-size:.6rem;color:var(--muted)">Bahan — koreksi via Void</td>':'')+
+        (bisaHapusItem&&!it.id_bahan?'<td style="white-space:nowrap"><button class="btn-outline" style="font-size:.65rem;padding:.2rem .45rem" onclick="bukaKoreksi(\''+esc(it.id_pgdet)+'\')">✏ Koreksi</button> '+
           '<button class="btn-outline" style="color:var(--red);border-color:var(--red);font-size:.65rem;padding:.2rem .45rem" onclick="hapusItemSJ(\''+esc(it.id_pgdet)+'\',\''+esc(it.nama_item||'')+'\')">Hapus</button></td>':'')+
       '</tr>';
       if(pot>0){
