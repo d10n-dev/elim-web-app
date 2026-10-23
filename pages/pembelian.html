@@ -891,7 +891,7 @@
         <div class="mb-3">
           <label class="form-label" style="font-size:.75rem">Tipe *</label>
           <select class="form-select" id="auTipe" onchange="auGantiTipe()">
-            <option value="TINTA">Tinta</option>
+            <option value="TINTA">Tinta / Bahan Pendukung</option>
             <option value="SPAREPART">Sparepart</option>
           </select>
         </div>
@@ -2974,12 +2974,12 @@ function renderAlokasiStokItems(){
         '<div><div style="font-size:.78rem;font-weight:600;margin-bottom:.2rem">'+esc(it.nama_item_nota)+'</div>'+
         '<div style="font-size:.7rem;color:var(--muted);font-family:var(--mono)">Dibeli: '+fmtAngka(jumlahItem)+' '+esc(it.satuan)+'</div></div>'+
         '<select class="form-select form-select-sm" style="max-width:130px;font-size:.72rem" onchange="ubahTipeAlokasiStok('+i+',this.value)">'+
-          ['BAHAN','TINTA','SPAREPART'].map(function(t){ return '<option value="'+t+'"'+(it.tipe===t?' selected':'')+'>'+(t==='BAHAN'?'Bahan (lembar)':t==='TINTA'?'Tinta':'Sparepart')+'</option>'; }).join('')+
+          ['BAHAN','TINTA','SPAREPART'].map(function(t){ return '<option value="'+t+'"'+(it.tipe===t?' selected':'')+'>'+(t==='BAHAN'?'Bahan (lembar)':t==='TINTA'?'Tinta/Pendukung':'Sparepart')+'</option>'; }).join('')+
         '</select></div>';
     if(it.tipe!=='BAHAN'){
       return '<div class="item-row-form">'+headHtml+
         '<div style="display:grid;grid-template-columns:1fr 110px;gap:.4rem;padding:.4rem;background:var(--bg);border-radius:6px">'+
-          '<div><input type="text" class="form-control form-control-sm ac-umum-input" data-idxitem="'+i+'" placeholder="Ketik nama '+(it.tipe==='TINTA'?'tinta':'sparepart')+'…" value="'+esc(it.umum.nama_item)+'" autocomplete="off"/></div>'+
+          '<div><input type="text" class="form-control form-control-sm ac-umum-input" data-idxitem="'+i+'" placeholder="Ketik nama '+(it.tipe==='TINTA'?'tinta/pendukung':'sparepart')+'…" value="'+esc(it.umum.nama_item)+'" autocomplete="off"/></div>'+
           '<div><input type="number" step="any" class="form-control form-control-sm" placeholder="qty" value="'+esc(it.umum.qty)+'" oninput="updateAlokasiUmumQty('+i+',this.value)"/></div>'+
           '<div class="" style="grid-column:1/-1;font-family:var(--mono);font-size:.66rem;color:var(--muted)" id="umumSatInfo_'+i+'"></div>'+
         '</div>'+

@@ -539,7 +539,7 @@
     const inp  = div.querySelector('.ac-input');
     const drop = div.querySelector('.ac-dropdown');
     document.body.appendChild(drop); // append to body agar tidak terpotong modal
-    buatAC(inp, drop, dataTinta, 'id_tinta', 'nama_tinta', updateWarnaCount);
+    buatAC(inp, drop, dataTinta.filter(x => x.kategori !== 'PENDUKUNG'), 'id_tinta', 'nama_tinta', updateWarnaCount);
     if (tintaObj) inp._setItem(tintaObj);
     updateWarnaCount();
   }
