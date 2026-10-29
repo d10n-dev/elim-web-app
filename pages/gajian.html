@@ -132,6 +132,13 @@
           <span class="periode-info" id="ringkasanImport"></span>
           <button class="btn-navy" onclick="konfirmasiImport()">Import ke Periode Terpilih</button>
         </div>
+        <div id="nipBaruWrap" style="display:none;margin-top:.7rem;border:1px solid #ffe083;background:#fffbea;border-radius:6px;padding:.6rem .7rem">
+          <div style="font-weight:600;font-size:.8rem;color:#856404">⚠ NIP belum terdaftar di Master Karyawan — scan-nya tidak akan masuk perhitungan</div>
+          <p style="font-size:.72rem;color:var(--muted);margin:.2rem 0 .4rem">Daftarkan = buka form karyawan baru (NIP & nama terisi). Jika import sudah dilakukan, scan NIP tsb otomatis ikut diimport setelah disimpan. Abaikan = untuk orang di luar payroll.</p>
+          <table class="sieo-tbl"><thead><tr><th>NIP</th><th>Nama (CSV)</th><th class="td-right">Hari Scan</th><th></th></tr></thead>
+          <tbody id="tblNipBaru"></tbody></table>
+        </div>
+        <div id="nipResignInfo" style="display:none;margin-top:.5rem;font-size:.72rem;color:var(--muted)"></div>
         <div style="max-height:400px;overflow-y:auto;margin-top:.6rem">
           <table class="sieo-tbl">
             <thead><tr><th>NIP</th><th>Nama</th><th>Tanggal</th><th>Masuk</th><th>Pulang</th><th>Ket</th></tr></thead>
@@ -371,6 +378,28 @@
   </div></div>
 </div>
 
+<!-- MODAL: Revisi Manual Jam Scan (Direktur) -->
+<div class="modal fade" id="modalEditScan" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulEditScan">Revisi Jam Scan</h6></div>
+    <div class="modal-body">
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div><label>Jam Masuk</label><input type="time" id="esJamMasuk" class="form-control"></div>
+        <div><label>Jam Pulang</label><input type="time" id="esJamPulang" class="form-control"></div>
+      </div>
+      <label style="font-size:.78rem;margin-top:.5rem;display:flex;gap:.4rem;align-items:center"><input type="checkbox" id="esKosongkan" onchange="toggleKosongkanScan()"> Kosongkan jam scan (hari kerja = ALPA)</label>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;margin-top:.5rem;display:block">Alasan Revisi (wajib)</label>
+      <input type="text" id="esAlasan" class="form-control" placeholder="Contoh: mesin finger error, cek CCTV masuk 07:55">
+      <p style="font-size:.7rem;color:var(--muted);margin-top:.4rem">Hasil revisi ditandai MANUAL dan tidak tertimpa saat CSV diimport ulang. Klik Hitung Ulang setelah revisi.</p>
+      <div id="alertEditScan" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="batalEditScan()">Batal</button>
+      <button class="btn-navy" id="btnSimpanEditScan" onclick="simpanEditScan()">Simpan Revisi</button>
+    </div>
+  </div></div>
+</div>
+
 <!-- MODAL: Potongan Bon sebelum Hitung -->
 <div class="modal fade" id="modalPotongBon" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
@@ -491,7 +520,10 @@
 let daftarPeriode = [];
 let periodeAktif = null;      // objek periode terpilih
 let daftarKaryawan = [];      // cache m_karyawan_gaji
-let hasilRowsCsv = [];        // preview import
+let hasilRowsCsv = [];
+let sudahImport = false;      // import CSV periode ini sudah dijalankan
+let pendingDaftarNip = null;  // NIP dari import yg sedang didaftarkan
+let detailCtx = null;         // {nip, nama, rows} modal Detail Harian        // preview import
 let editNipKaryawan = null;
 
 function cekErrorSupabase(res) {
@@ -688,6 +720,12 @@ async function simpanKaryawanForm() {
 
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalKaryawan')).hide();
   await muatKaryawan();
+  if (pendingDaftarNip && pendingDaftarNip === nip) {
+    pendingDaftarNip = null;
+    renderTabelPreviewImport();
+    renderNipBelumTerdaftar();
+    await importUlangNip(nip);
+  }
 }
 
 // ============================================================
@@ -751,15 +789,82 @@ function prosesFileCsv(ev) {
       `${hasilRowsCsv.length} baris terbaca` +
       (dilewati ? ` · ${dilewati} baris dilewati (data tidak lengkap)` : '') +
       (tanpaPulang ? ` · ⚠ ${tanpaPulang} hari cuma 1 scan (jam pulang kosong, cek manual)` : '');
-    document.getElementById('tblPreviewImport').innerHTML = hasilRowsCsv.map(r => `
-      <tr>
-        <td class="td-mono">${r.nip}</td><td>${escHtml(r.nama)}</td><td class="td-mono">${r.tanggal}</td>
-        <td class="td-mono">${r.jam_masuk || '-'}</td><td class="td-mono">${r.jam_pulang || '-'}</td>
-        <td>${!r.jam_pulang ? '<span style="color:var(--red)">⚠ cek manual</span>' : ''}</td>
-      </tr>`).join('');
+    sudahImport = false;
+    renderTabelPreviewImport();
+    renderNipBelumTerdaftar();
     document.getElementById('previewImportWrap').style.display = '';
   };
   reader.readAsText(file, 'utf-8');
+}
+
+function ikutHitung(k) {
+  // Sama dgn filter hitung_gaji_periode: RESIGN dgn tgl_resign <= akhir periode dikecualikan total
+  if (k.status === 'AKTIF') return true;
+  return !!(periodeAktif && k.status === 'RESIGN' && k.tgl_resign && k.tgl_resign > periodeAktif.tgl_selesai);
+}
+
+function renderTabelPreviewImport() {
+  const terdaftar = new Set(daftarKaryawan.map(k => k.nip));
+  document.getElementById('tblPreviewImport').innerHTML = hasilRowsCsv.map(r => `
+      <tr>
+        <td class="td-mono">${escHtml(r.nip)}</td><td>${escHtml(r.nama)}</td><td class="td-mono">${r.tanggal}</td>
+        <td class="td-mono">${r.jam_masuk || '-'}</td><td class="td-mono">${r.jam_pulang || '-'}</td>
+        <td>${!terdaftar.has(r.nip) ? '<span style="color:#856404">NIP belum terdaftar</span>' : (!r.jam_pulang ? '<span style="color:var(--red)">⚠ cek manual</span>' : '')}</td>
+      </tr>`).join('');
+}
+
+function renderNipBelumTerdaftar() {
+  const terdaftar = new Set(daftarKaryawan.map(k => k.nip));
+  const grup = {};
+  hasilRowsCsv.forEach(r => {
+    if (terdaftar.has(r.nip)) return;
+    const g = grup[r.nip] || (grup[r.nip] = { nama: r.nama, hari: 0 });
+    g.hari++;
+  });
+  const list = Object.entries(grup);
+  const wrap = document.getElementById('nipBaruWrap');
+  wrap.style.display = list.length ? '' : 'none';
+  document.getElementById('tblNipBaru').innerHTML = list.map(([nip, g]) => `
+    <tr><td class="td-mono">${escHtml(nip)}</td><td>${escHtml(g.nama)}</td><td class="td-right td-mono">${g.hari}</td>
+    <td style="white-space:nowrap">
+      ${isDirektur() ? `<button class="btn-sm-action btn-edit" data-nip="${escHtml(nip)}" onclick="daftarkanNipImport(this.dataset.nip)">Daftarkan</button>` : ''}
+      <button class="btn-sm-action" data-nip="${escHtml(nip)}" onclick="abaikanNipImport(this.dataset.nip)">Abaikan</button>
+    </td></tr>`).join('');
+
+  // Info karyawan RESIGN yang ada di CSV (scan tetap tersimpan, tapi tidak dihitung)
+  const nipCsv = new Set(hasilRowsCsv.map(r => r.nip));
+  const resign = daftarKaryawan.filter(k => nipCsv.has(k.nip) && !ikutHitung(k));
+  const info = document.getElementById('nipResignInfo');
+  info.style.display = resign.length ? '' : 'none';
+  info.innerHTML = resign.length ? 'ℹ Karyawan RESIGN (tidak masuk perhitungan gaji periode ini): ' + resign.map(k => escHtml(k.nama) + ' (' + k.nip + ')').join(', ') : '';
+}
+
+function abaikanNipImport(nip) {
+  const nama = (hasilRowsCsv.find(r => r.nip === nip) || {}).nama || '';
+  if (!confirm(`Abaikan scan ${nip} ${nama}? Barisnya dikeluarkan dari import ini.`)) return;
+  hasilRowsCsv = hasilRowsCsv.filter(r => r.nip !== nip);
+  renderTabelPreviewImport();
+  renderNipBelumTerdaftar();
+  document.getElementById('ringkasanImport').textContent = `${hasilRowsCsv.length} baris akan diimport`;
+}
+
+function daftarkanNipImport(nip) {
+  const row = hasilRowsCsv.find(r => r.nip === nip) || {};
+  pendingDaftarNip = nip;
+  bukaModalKaryawan(null);
+  document.getElementById('fkNip').value = nip;
+  document.getElementById('fkNama').value = (row.nama || '').toUpperCase();
+  document.getElementById('fkNamaLengkap').value = row.nama || '';
+  document.getElementById('fkGajiPokok').focus();
+}
+
+async function importUlangNip(nip) {
+  if (!periodeAktif || !sudahImport) return;
+  const rows = hasilRowsCsv.filter(r => r.nip === nip);
+  if (!rows.length) return;
+  const res = await dbRpc('import_scanlog_periode', { p_id_periode: periodeAktif.id_periode, p_rows: rows });
+  if (!cekErrorSupabase(res)) return;
+  showAlert('alertImport', `✓ ${nip} terdaftar, ${res.jumlah_masuk} hari scan ikut diimport. Klik Hitung Ulang di tab Hasil.`, 'success');
 }
 
 async function konfirmasiImport() {
@@ -767,10 +872,14 @@ async function konfirmasiImport() {
   if (!hasilRowsCsv.length) { alert('Belum ada data untuk diimport.'); return; }
   const res = await dbRpc('import_scanlog_periode', { p_id_periode: periodeAktif.id_periode, p_rows: hasilRowsCsv });
   if (!cekErrorSupabase(res)) return;
+  sudahImport = true;
   let pesan = `✓ ${res.jumlah_masuk} baris berhasil diimport.`;
+  if (res.jumlah_dilindungi) pesan += `<br>🔒 ${res.jumlah_dilindungi} baris tidak ditimpa karena sudah direvisi MANUAL / koreksi sanggahan.`;
+  if (res.jumlah_luar_periode) pesan += `<br>ℹ ${res.jumlah_luar_periode} baris di luar tanggal periode dilewati.`;
   if (res.nip_belum_terdaftar && res.nip_belum_terdaftar.length) {
     const uniq = [...new Set(res.nip_belum_terdaftar)];
-    pesan += `<br>⚠ NIP belum terdaftar (dilewati, lengkapi dulu di tab Master Karyawan): ${uniq.join(', ')}`;
+    const label = uniq.map(n => { const r = hasilRowsCsv.find(x => x.nip === n); return escHtml(n + (r && r.nama ? ' ' + r.nama : '')); });
+    pesan += `<br>⚠ NIP belum terdaftar (dilewati): ${label.join(', ')} — lihat daftar di bawah untuk Daftarkan/Abaikan.`;
   }
   showAlert('alertImport', pesan, res.nip_belum_terdaftar && res.nip_belum_terdaftar.length ? 'warning' : 'success');
 }
@@ -1148,7 +1257,7 @@ async function siapkanPotongBon() {
     m.saldo += n;
   });
   dataPotongBon = daftarKaryawan
-    .filter(k => k.status === 'AKTIF' && map[k.nip] && (map[k.nip].saldo > 0 || map[k.nip].sudah !== 0))
+    .filter(k => ikutHitung(k) && map[k.nip] && (map[k.nip].saldo > 0 || map[k.nip].sudah !== 0))
     .map(k => ({ nip: k.nip, nama: k.nama, saldo: map[k.nip].saldo, sudah: Math.round(map[k.nip].sudah * 100) / 100 }));
   if (!dataPotongBon.length) return false;
 
@@ -1261,7 +1370,7 @@ async function hitungGajiPeriode() {
 async function jalankanHitungGaji() {
   const res = await dbRpc('hitung_gaji_periode', { p_id_periode: periodeAktif.id_periode });
   if (res.status === 'error') { showAlert('alertHasil', res.message); return; }
-  showAlert('alertHasil', `✓ Berhasil hitung ${res.jumlah_karyawan} karyawan.`, 'success');
+  showAlert('alertHasil', `✓ Berhasil hitung ${res.jumlah_karyawan} karyawan.` + (res.jumlah_dikecualikan ? ` ${res.jumlah_dikecualikan} hasil karyawan resign dihapus dari periode ini.` : ''), 'success');
   await muatHasil();
 }
 
@@ -1341,7 +1450,22 @@ async function lihatDetailHarian(nip, nama) {
   document.getElementById('judulDetailHarian').textContent = `Detail Harian — ${nama} (${nip})`;
   const res = await dbRpc('get_detail_harian_gaji', { p_id_periode: periodeAktif.id_periode, p_nip: nip });
   if (!cekErrorSupabase(res)) return;
-  document.getElementById('tblDetailHarian').innerHTML = (res || []).map(r => {
+  detailCtx = { nip, nama, rows: res || [] };
+  const bisaEdit = isDirektur() && periodeAktif.status !== 'FINAL';
+  // Tanda revisi manual (gagal baca = tanpa tanda, tidak memblok)
+  const metaScan = {};
+  if (isDirektur()) {
+    try {
+      const m = await dbGet('in_gaji_scanlog', { id_periode: 'eq.' + periodeAktif.id_periode, nip: 'eq.' + nip, select: 'tanggal,sumber,keterangan,diubah_oleh' });
+      if (Array.isArray(m)) m.forEach(x => { metaScan[x.tanggal] = x; });
+    } catch (e) { /* abaikan */ }
+  }
+  document.getElementById('tblDetailHarian').innerHTML = (res || []).map((r, idx) => {
+    const meta = metaScan[r.tanggal];
+    const tandaManual = meta && (meta.sumber === 'MANUAL' || meta.sumber === 'KOREKSI')
+      ? `<div style="font-size:.65rem;color:#856404">✏️ ${meta.sumber}${meta.keterangan ? ': ' + escHtml(meta.keterangan) : ''}${meta.diubah_oleh ? ' (' + escHtml(meta.diubah_oleh) + ')' : ''}</div>` : '';
+    const tombolEdit = bisaEdit && !['CUTI', 'IZIN'].includes(r.status)
+      ? `<button class="btn-sm-action btn-edit" onclick="bukaEditScan(${idx})">Edit</button>` : '';
     const d = new Date(r.tanggal + 'T00:00:00');
     const style = BADGE_STATUS[r.status] || '';
     const tombolIzin = r.status === 'ALPA'
@@ -1353,11 +1477,66 @@ async function lihatDetailHarian(nip, nama) {
       <td><span style="${style};font-family:var(--mono);font-size:.65rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;">${r.status}</span></td>
       <td class="td-mono">${r.jam_masuk || '-'}</td>
       <td class="td-mono">${r.jam_pulang || '-'}</td>
-      <td style="font-size:.72rem">${escHtml(r.keterangan || '')}</td>
-      <td>${tombolIzin}</td>
+      <td style="font-size:.72rem">${escHtml(r.keterangan || '')}${tandaManual}</td>
+      <td style="white-space:nowrap">${tombolEdit} ${tombolIzin}</td>
     </tr>`;
   }).join('');
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailHarian')).show();
+}
+
+// ============================================================
+// REVISI MANUAL JAM SCAN (Direktur)
+// ============================================================
+let editScanTanggal = null;
+
+function bukaEditScan(idx) {
+  const r = detailCtx.rows[idx];
+  editScanTanggal = r.tanggal;
+  document.getElementById('judulEditScan').textContent = `Revisi Jam Scan — ${detailCtx.nama}, ${formatTanggal(r.tanggal)}`;
+  document.getElementById('esJamMasuk').value = (r.jam_masuk || '').slice(0, 5);
+  document.getElementById('esJamPulang').value = (r.jam_pulang || '').slice(0, 5);
+  document.getElementById('esKosongkan').checked = false;
+  document.getElementById('esAlasan').value = '';
+  document.getElementById('alertEditScan').innerHTML = '';
+  document.getElementById('btnSimpanEditScan').disabled = false;
+  toggleKosongkanScan();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailHarian')).hide();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditScan')).show();
+}
+
+function toggleKosongkanScan() {
+  const k = document.getElementById('esKosongkan').checked;
+  ['esJamMasuk', 'esJamPulang'].forEach(id => { document.getElementById(id).disabled = k; });
+}
+
+function batalEditScan() {
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditScan')).hide();
+  if (detailCtx) lihatDetailHarian(detailCtx.nip, detailCtx.nama);
+}
+
+async function simpanEditScan() {
+  const kosong = document.getElementById('esKosongkan').checked;
+  const masuk = kosong ? '' : document.getElementById('esJamMasuk').value;
+  const pulang = kosong ? '' : document.getElementById('esJamPulang').value;
+  const alasan = document.getElementById('esAlasan').value.trim();
+  if (!kosong && (!masuk || !pulang)) { showAlert('alertEditScan', 'Isi jam masuk & pulang, atau centang Kosongkan.'); return; }
+  if (!kosong && pulang <= masuk) { showAlert('alertEditScan', 'Jam pulang harus setelah jam masuk.'); return; }
+  if (!alasan) { showAlert('alertEditScan', 'Alasan revisi wajib diisi.'); return; }
+  const btn = document.getElementById('btnSimpanEditScan');
+  btn.disabled = true;
+  const res = await dbRpc('import_scanlog_periode', {
+    p_id_periode: periodeAktif.id_periode,
+    p_rows: [{ nip: detailCtx.nip, nama: detailCtx.nama, tanggal: editScanTanggal, jam_masuk: masuk, jam_pulang: pulang }],
+    p_sumber: 'MANUAL', p_keterangan: alasan
+  });
+  if (!res || res.code || res.status === 'error') {
+    showAlert('alertEditScan', escHtml((res && res.message) || 'Gagal menyimpan.'));
+    btn.disabled = false;
+    return;
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditScan')).hide();
+  showAlert('alertHasil', `✏️ Jam scan ${escHtml(detailCtx.nama)} ${formatTanggal(editScanTanggal)} direvisi. Klik Hitung Ulang untuk menerapkan.`, 'warning');
+  await lihatDetailHarian(detailCtx.nip, detailCtx.nama);
 }
 
 function alokasiIzinDariAlpa(nip, tanggal) {
