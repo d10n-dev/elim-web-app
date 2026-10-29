@@ -371,6 +371,23 @@
   </div></div>
 </div>
 
+<!-- MODAL: Potongan Bon sebelum Hitung -->
+<div class="modal fade" id="modalPotongBon" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">💰 Potongan Bon Periode Ini</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p style="font-size:.75rem;color:var(--muted)">Rekomendasi potong maks Rp 200.000 (atau sisa saldo jika lebih kecil). Ubah nominal sesuai kebutuhan, isi 0 jika tidak dipotong. Jika potongan melebihi bonus, kekurangan otomatis kembali ke saldo bon.</p>
+      <table class="sieo-tbl">
+        <thead><tr><th>Nama</th><th class="td-right">Saldo Bon</th><th class="td-right">Potong</th></tr></thead>
+        <tbody id="tblPotongBon"></tbody>
+        <tfoot><tr><th colspan="2" class="td-right">Total Potong</th><th class="td-right td-mono" id="totPotongBon">0</th></tr></tfoot>
+      </table>
+      <div id="alertPotongBon" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" id="btnLanjutHitung" onclick="simpanPotongBonLaluHitung()">Simpan & Hitung</button></div>
+  </div></div>
+</div>
+
 <!-- MODAL: Upload Notif Bonus -->
 <div class="modal fade" id="modalNotifBonus" tabindex="-1">
   <div class="modal-dialog"><div class="modal-content">
@@ -1078,13 +1095,20 @@ async function simpanBon() {
   await muatSaldoBon(); await muatRiwayatBon();
 }
 
+// Ambil seluruh ledger bon sekali (hindari 1 RPC per karyawan)
+async function ambilLedgerBon() {
+  const res = await dbGet('log_gaji_bon', { select: 'nip,id_periode,jenis,nominal', limit: '5000' });
+  if (!cekErrorSupabase(res)) return null;
+  return res || [];
+}
+
 async function muatSaldoBon() {
   const aktif = daftarKaryawan.filter(k => k.status === 'AKTIF');
-  const rows = [];
-  for (const k of aktif) {
-    const saldo = await dbRpc('get_saldo_bon_gaji', { p_nip: k.nip });
-    rows.push({ k, saldo });
-  }
+  const ledger = await ambilLedgerBon();
+  if (ledger === null) return;
+  const saldoMap = {};
+  ledger.forEach(r => { saldoMap[r.nip] = (saldoMap[r.nip] || 0) + Number(r.nominal); });
+  const rows = aktif.map(k => ({ k, saldo: saldoMap[k.nip] || 0 }));
   document.getElementById('tblSaldoBon').innerHTML = rows.map(({ k, saldo }) => `
     <tr><td class="td-mono">${k.nip}</td><td>${escHtml(k.nama)}</td>
     <td class="td-right td-mono" style="${saldo > 0 ? 'color:var(--red)' : ''}">${formatRupiah(saldo)}</td></tr>`
@@ -1101,6 +1125,85 @@ async function muatRiwayatBon() {
       <td class="td-right td-mono" style="${r.nominal > 0 ? 'color:var(--red)' : 'color:var(--green)'}">${formatRupiah(r.nominal)}</td>
       <td>${escHtml(r.keterangan || '')}</td>
     </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted">Belum ada transaksi</td></tr>';
+}
+
+// ============================================================
+// POTONGAN BON SAAT HITUNG GAJI
+// ============================================================
+const REKOMENDASI_POTONG_BON = 200000;
+let dataPotongBon = [];   // [{nip, nama, saldo, sudah}]
+
+// return: true = ada bon (modal tampil), false = tidak ada bon, null = error
+async function siapkanPotongBon() {
+  const ledger = await ambilLedgerBon();
+  if (ledger === null) return null;
+  const idp = periodeAktif.id_periode;
+  const map = {};
+  ledger.forEach(r => {
+    const m = map[r.nip] || (map[r.nip] = { saldo: 0, sudah: 0 });
+    const n = Number(r.nominal);
+    // Saldo sebelum periode ini: abaikan POTONG_BONUS & CARRY_OVER periode ini (dihitung ulang)
+    if (r.id_periode === idp && r.jenis === 'POTONG_BONUS') { m.sudah += -n; return; }
+    if (r.id_periode === idp && r.jenis === 'CARRY_OVER') return;
+    m.saldo += n;
+  });
+  dataPotongBon = daftarKaryawan
+    .filter(k => k.status === 'AKTIF' && map[k.nip] && (map[k.nip].saldo > 0 || map[k.nip].sudah !== 0))
+    .map(k => ({ nip: k.nip, nama: k.nama, saldo: map[k.nip].saldo, sudah: Math.round(map[k.nip].sudah * 100) / 100 }));
+  if (!dataPotongBon.length) return false;
+
+  document.getElementById('tblPotongBon').innerHTML = dataPotongBon.map((d, i) => {
+    const def = d.sudah !== 0 ? d.sudah : Math.min(REKOMENDASI_POTONG_BON, Math.max(0, d.saldo));
+    return `<tr>
+      <td>${escHtml(d.nama)}<div class="td-mono" style="font-size:.65rem;color:var(--muted)">${d.nip}${d.sudah !== 0 ? ' · tercatat ' + formatRupiah(d.sudah) : ''}</div></td>
+      <td class="td-right td-mono" style="color:var(--red)">${formatRupiah(d.saldo)}</td>
+      <td class="td-right"><input type="number" inputmode="numeric" min="0" step="1000" class="form-control form-control-sm inp-potong-bon" data-i="${i}" value="${def}" style="width:110px;text-align:right;margin-left:auto" oninput="hitungTotPotongBon()"></td>
+    </tr>`;
+  }).join('');
+  hitungTotPotongBon();
+  document.getElementById('alertPotongBon').innerHTML = '';
+  document.getElementById('btnLanjutHitung').disabled = false;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPotongBon')).show();
+  return true;
+}
+
+function hitungTotPotongBon() {
+  let t = 0;
+  document.querySelectorAll('.inp-potong-bon').forEach(el => { t += Number(el.value || 0); });
+  document.getElementById('totPotongBon').textContent = formatRupiah(t);
+}
+
+async function simpanPotongBonLaluHitung() {
+  const inputs = [...document.querySelectorAll('.inp-potong-bon')];
+  const ubah = [];
+  for (const el of inputs) {
+    const d = dataPotongBon[Number(el.dataset.i)];
+    const baru = Number(el.value || 0);
+    if (baru < 0 || isNaN(baru)) { showAlert('alertPotongBon', `Nominal ${escHtml(d.nama)} tidak valid.`); return; }
+    if (baru > Math.max(0, d.saldo)) { showAlert('alertPotongBon', `Potongan ${escHtml(d.nama)} melebihi saldo bon (${formatRupiah(d.saldo)}).`); return; }
+    const delta = Math.round((baru - d.sudah) * 100) / 100;
+    if (delta !== 0) ubah.push({ d, baru, delta });
+  }
+  const btn = document.getElementById('btnLanjutHitung');
+  btn.disabled = true;
+  // Ledger: catat selisih sebagai POTONG_BONUS (negatif = tambah potongan, positif = koreksi kurangi potongan)
+  for (const u of ubah) {
+    const res = await dbRpc('catat_bon_gaji', {
+      p_nip: u.d.nip, p_jenis: 'POTONG_BONUS', p_nominal: -u.delta,
+      p_keterangan: u.d.sudah === 0
+        ? `Potong bon periode ${periodeAktif.id_periode}`
+        : `Koreksi potong bon periode ${periodeAktif.id_periode}: ${u.d.sudah} → ${u.baru}`,
+      p_id_periode: periodeAktif.id_periode, p_user: getNamaUser()
+    });
+    if (res && (res.code || res.status === 'error')) {
+      showAlert('alertPotongBon', `Gagal simpan ${escHtml(u.d.nama)}: ${escHtml(res.message || 'error')}. Data sebelumnya sudah tersimpan, buka ulang Hitung untuk lanjut.`);
+      btn.disabled = false;
+      return;
+    }
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPotongBon')).hide();
+  await jalankanHitungGaji();
+  if (document.getElementById('tBon')?.classList.contains('active')) { muatSaldoBon(); muatRiwayatBon(); }
 }
 
 // ============================================================
@@ -1146,6 +1249,16 @@ async function hapusPenyesuaian(id) {
 async function hitungGajiPeriode() {
   if (!periodeAktif) { alert('Pilih periode dulu.'); return; }
   if (periodeAktif.status === 'FINAL') { alert('Periode sudah FINAL, tidak bisa dihitung ulang.'); return; }
+  // Direktur: cek bon dulu, tampilkan rekomendasi potongan
+  if (isDirektur()) {
+    const adaBon = await siapkanPotongBon();
+    if (adaBon === null) return;          // error ambil data
+    if (adaBon) return;                    // modal tampil, hitung dilanjut dari modal
+  }
+  await jalankanHitungGaji();
+}
+
+async function jalankanHitungGaji() {
   const res = await dbRpc('hitung_gaji_periode', { p_id_periode: periodeAktif.id_periode });
   if (res.status === 'error') { showAlert('alertHasil', res.message); return; }
   showAlert('alertHasil', `✓ Berhasil hitung ${res.jumlah_karyawan} karyawan.`, 'success');
