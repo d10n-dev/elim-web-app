@@ -19,6 +19,7 @@
   .tab-btn.active{color:var(--navy);border-bottom-color:var(--orange);}
   .tab-pane{display:none;padding:0 1.1rem 1.5rem;}
   .tab-pane.active{display:block;}
+  .cek-filter.active{background:var(--navy);color:#fff;border-color:var(--navy);}
   .card-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem;margin-bottom:1rem;}
   .card-box h6{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.7rem;}
   table.sieo-tbl{width:100%;border-collapse:collapse;font-size:.78rem;}
@@ -82,6 +83,7 @@
     <button class="tab-btn active" data-tab="tPeriode" onclick="gantiTab('tPeriode')">📅 Periode & Libur</button>
     <button class="tab-btn only-dir" data-tab="tMaster" onclick="gantiTab('tMaster')">👤 Master Karyawan</button>
     <button class="tab-btn" data-tab="tImport" onclick="gantiTab('tImport')">📥 Import Absensi</button>
+    <button class="tab-btn" data-tab="tCekAbsen" onclick="gantiTab('tCekAbsen')">🔍 Cek Absensi<span id="badgeCekAbsen" class="tab-badge-count" style="display:none"></span></button>
     <button class="tab-btn" data-tab="tCuti" onclick="gantiTab('tCuti')">🏖️ Cuti & Izin<span id="badgeSanggahan" class="tab-badge-count" style="display:none"></span></button>
     <button class="tab-btn" data-tab="tKinerja" onclick="gantiTab('tKinerja')">📊 Kinerja</button>
     <button class="tab-btn only-dir" data-tab="tBon" onclick="gantiTab('tBon')">💰 Bon</button>
@@ -145,6 +147,29 @@
             <tbody id="tblPreviewImport"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========== TAB: CEK ABSENSI =========== -->
+  <div class="tab-pane" id="tCekAbsen">
+    <div class="card-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+        <h6 style="margin:0">Hari Kerja Bermasalah (ALPA) — Semua Karyawan</h6>
+        <button class="btn-outline" onclick="muatCekAbsensi()">🔄 Muat Ulang</button>
+      </div>
+      <p class="text-muted" style="font-size:.72rem;margin:.3rem 0 .5rem">Hanya hari kerja s/d hari ini, karyawan yang ikut dihitung periode ini. Tindak lanjuti tiap baris (revisi jam / izin / cuti) — baris hilang setelah ditangani. Selesai semua → Hitung Ulang di tab Hasil.</p>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <button class="btn-outline cek-filter active" data-f="SEMUA" onclick="setFilterCekAbsen('SEMUA')">Semua <b id="cntCekSemua">0</b></button>
+        <button class="btn-outline cek-filter" data-f="TIDAK_LENGKAP" onclick="setFilterCekAbsen('TIDAK_LENGKAP')">Scan tidak lengkap <b id="cntCekTL">0</b></button>
+        <button class="btn-outline cek-filter" data-f="TIDAK_MASUK" onclick="setFilterCekAbsen('TIDAK_MASUK')">Tidak masuk <b id="cntCekTM">0</b></button>
+      </div>
+      <div id="alertCekAbsen"></div>
+      <div style="overflow-x:auto">
+        <table class="sieo-tbl">
+          <thead><tr><th>Tanggal</th><th>Nama</th><th>Masalah</th><th>Masuk</th><th>Pulang</th><th></th></tr></thead>
+          <tbody id="tblCekAbsen"><tr><td colspan="6" class="text-center text-muted">Pilih periode lalu buka tab ini</td></tr></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -378,6 +403,22 @@
   </div></div>
 </div>
 
+<!-- MODAL: Tindak Lanjut Absensi -->
+<div class="modal fade" id="modalTindakAbsen" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulTindakAbsen">Tindak Lanjut</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p id="infoTindakAbsen" style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem"></p>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem" id="pilihTindakAbsen"></div>
+      <div id="formTindakAbsen"></div>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;margin-top:.5rem;display:block" id="lblKetTindak">Keterangan</label>
+      <input type="text" id="taKet" class="form-control">
+      <div id="alertTindakAbsen" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" id="btnSimpanTindak" onclick="simpanTindakAbsen()">Simpan</button></div>
+  </div></div>
+</div>
+
 <!-- MODAL: Revisi Manual Jam Scan (Direktur) -->
 <div class="modal fade" id="modalEditScan" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog"><div class="modal-content">
@@ -541,6 +582,7 @@ function cekErrorSupabase(res) {
 function gantiTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === id));
+  if (id === 'tCekAbsen') { muatCekAbsensi(); }
   if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); muatDaftarSanggahan(); }
   if (id === 'tKinerja') { muatKinerja(); if (isDirektur()) muatPenyesuaian(); }
   if (id === 'tBon') { if (!isDirektur()) return; muatSaldoBon(); muatRiwayatBon(); }
@@ -1482,6 +1524,160 @@ async function lihatDetailHarian(nip, nama) {
     </tr>`;
   }).join('');
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailHarian')).show();
+}
+
+// ============================================================
+// CEK ABSENSI — semua hari ALPA semua karyawan dalam 1 tab
+// ============================================================
+let dataCekAbsen = [];        // [{nip, nama, tanggal, jenis, jam_masuk, jam_pulang}]
+let filterCekAbsen = 'SEMUA';
+let tindakIdx = null;
+let tindakJenis = null;
+
+function tglHariIniLokal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function muatCekAbsensi() {
+  const tbody = document.getElementById('tblCekAbsen');
+  if (!periodeAktif) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Pilih periode dulu</td></tr>'; return; }
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Memuat…</td></tr>';
+  document.getElementById('alertCekAbsen').innerHTML = '';
+  const hariIni = tglHariIniLokal();
+  const karyawan = daftarKaryawan.filter(ikutHitung);
+  const hasil = await Promise.all(karyawan.map(k =>
+    dbRpc('get_detail_harian_gaji', { p_id_periode: periodeAktif.id_periode, p_nip: k.nip })
+      .then(res => ({ k, res })).catch(() => ({ k, res: null }))
+  ));
+  const gagal = [];
+  dataCekAbsen = [];
+  hasil.forEach(({ k, res }) => {
+    if (!Array.isArray(res)) { gagal.push(k.nama); return; }
+    res.forEach(r => {
+      if (r.status !== 'ALPA' || r.tanggal > hariIni) return;
+      dataCekAbsen.push({
+        nip: k.nip, nama: k.nama, tanggal: r.tanggal,
+        jenis: (r.jam_masuk || r.jam_pulang) ? 'TIDAK_LENGKAP' : 'TIDAK_MASUK',
+        jam_masuk: r.jam_masuk, jam_pulang: r.jam_pulang
+      });
+    });
+  });
+  dataCekAbsen.sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.nama.localeCompare(b.nama));
+  if (gagal.length) showAlert('alertCekAbsen', 'Gagal memuat: ' + gagal.map(escHtml).join(', '));
+  renderCekAbsensi();
+}
+
+function setFilterCekAbsen(f) {
+  filterCekAbsen = f;
+  document.querySelectorAll('.cek-filter').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+  renderCekAbsensi();
+}
+
+function renderCekAbsensi() {
+  const tl = dataCekAbsen.filter(d => d.jenis === 'TIDAK_LENGKAP').length;
+  document.getElementById('cntCekSemua').textContent = dataCekAbsen.length;
+  document.getElementById('cntCekTL').textContent = tl;
+  document.getElementById('cntCekTM').textContent = dataCekAbsen.length - tl;
+  const badge = document.getElementById('badgeCekAbsen');
+  badge.textContent = dataCekAbsen.length;
+  badge.style.display = dataCekAbsen.length ? '' : 'none';
+  const finalPeriode = periodeAktif && periodeAktif.status === 'FINAL';
+  const rows = dataCekAbsen.map((d, i) => ({ d, i })).filter(({ d }) => filterCekAbsen === 'SEMUA' || d.jenis === filterCekAbsen);
+  document.getElementById('tblCekAbsen').innerHTML = rows.map(({ d, i }) => {
+    const dt = new Date(d.tanggal + 'T00:00:00');
+    const label = d.jenis === 'TIDAK_LENGKAP'
+      ? '<span style="color:#856404;font-size:.72rem">Scan tidak lengkap</span>'
+      : '<span style="color:var(--red);font-size:.72rem">Tidak masuk</span>';
+    return `<tr>
+      <td class="td-mono" style="white-space:nowrap">${formatTanggal(d.tanggal)}<div style="font-size:.65rem;color:var(--muted)">${NAMA_HARI[dt.getDay()]}</div></td>
+      <td>${escHtml(d.nama)}<div class="td-mono" style="font-size:.65rem;color:var(--muted)">${escHtml(d.nip)}</div></td>
+      <td>${label}</td>
+      <td class="td-mono">${d.jam_masuk ? d.jam_masuk.slice(0, 5) : '-'}</td>
+      <td class="td-mono">${d.jam_pulang ? d.jam_pulang.slice(0, 5) : '-'}</td>
+      <td>${finalPeriode ? '' : `<button class="btn-sm-action btn-edit" onclick="bukaTindakAbsen(${i})">Tindak lanjut</button>`}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" class="text-center text-muted">${dataCekAbsen.length ? 'Tidak ada data untuk filter ini' : '✓ Tidak ada hari bermasalah'}</td></tr>`;
+}
+
+async function bukaTindakAbsen(i) {
+  tindakIdx = i;
+  const d = dataCekAbsen[i];
+  document.getElementById('judulTindakAbsen').textContent = `${d.nama} — ${formatTanggal(d.tanggal)}`;
+  document.getElementById('infoTindakAbsen').textContent = d.jenis === 'TIDAK_LENGKAP'
+    ? `Scan tidak lengkap (masuk ${d.jam_masuk ? d.jam_masuk.slice(0, 5) : '-'}, pulang ${d.jam_pulang ? d.jam_pulang.slice(0, 5) : '-'}).`
+    : 'Tidak ada scan sama sekali.';
+  const opsi = [];
+  if (isDirektur()) opsi.push(['JAM', '✏️ Revisi Jam']);
+  opsi.push(['IZIN', '📝 Izin'], ['CUTI', '🏖️ Cuti']);
+  document.getElementById('pilihTindakAbsen').innerHTML = opsi.map(([v, l]) =>
+    `<button class="btn-outline cek-filter tindak-opsi" data-v="${v}" onclick="pilihTindakAbsen('${v}')">${l}</button>`).join('');
+  document.getElementById('taKet').value = '';
+  document.getElementById('alertTindakAbsen').innerHTML = '';
+  document.getElementById('btnSimpanTindak').disabled = false;
+  // default: tidak lengkap → revisi jam (jika Direktur), tidak masuk → izin
+  pilihTindakAbsen(d.jenis === 'TIDAK_LENGKAP' && isDirektur() ? 'JAM' : 'IZIN');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTindakAbsen')).show();
+}
+
+async function pilihTindakAbsen(v) {
+  tindakJenis = v;
+  const d = dataCekAbsen[tindakIdx];
+  document.querySelectorAll('.tindak-opsi').forEach(b => b.classList.toggle('active', b.dataset.v === v));
+  document.getElementById('lblKetTindak').textContent = v === 'JAM' ? 'Alasan Revisi (wajib)' : 'Keterangan';
+  const box = document.getElementById('formTindakAbsen');
+  if (v === 'JAM') {
+    box.innerHTML = `<div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div><label>Jam Masuk</label><input type="time" id="taMasuk" class="form-control" value="${d.jam_masuk ? d.jam_masuk.slice(0, 5) : ''}"></div>
+      <div><label>Jam Pulang</label><input type="time" id="taPulang" class="form-control" value="${d.jam_pulang ? d.jam_pulang.slice(0, 5) : ''}"></div>
+    </div>`;
+  } else if (v === 'IZIN') {
+    box.innerHTML = `<div><label>Jumlah Jam Izin</label><input type="number" id="taJumlah" class="form-control" value="8" step="0.5" min="0.5" max="8"></div>`;
+  } else {
+    box.innerHTML = `<div><label>Jumlah Hari Cuti</label><input type="number" id="taJumlah" class="form-control" value="1" step="0.5" min="0.5" max="1"></div>
+      <div id="infoSisaCuti" style="font-size:.72rem;color:var(--muted);margin-top:.3rem">Memuat sisa cuti…</div>`;
+    const s = await dbRpc('get_saldo_cuti_gaji', { p_nip: d.nip, p_tahun: Number(d.tanggal.slice(0, 4)) });
+    const el = document.getElementById('infoSisaCuti');
+    if (el) el.innerHTML = s && s.sisa !== undefined
+      ? `Sisa cuti ${d.tanggal.slice(0, 4)}: <b style="${s.sisa <= 0 ? 'color:var(--red)' : ''}">${s.sisa} hari</b> (kuota ${s.kuota})`
+      : 'Sisa cuti tidak terbaca.';
+  }
+}
+
+async function simpanTindakAbsen() {
+  const d = dataCekAbsen[tindakIdx];
+  const ket = document.getElementById('taKet').value.trim();
+  const btn = document.getElementById('btnSimpanTindak');
+  let res;
+  if (tindakJenis === 'JAM') {
+    const masuk = document.getElementById('taMasuk').value;
+    const pulang = document.getElementById('taPulang').value;
+    if (!masuk || !pulang) { showAlert('alertTindakAbsen', 'Isi jam masuk & pulang.'); return; }
+    if (pulang <= masuk) { showAlert('alertTindakAbsen', 'Jam pulang harus setelah jam masuk.'); return; }
+    if (!ket) { showAlert('alertTindakAbsen', 'Alasan revisi wajib diisi.'); return; }
+    btn.disabled = true;
+    res = await dbRpc('import_scanlog_periode', {
+      p_id_periode: periodeAktif.id_periode,
+      p_rows: [{ nip: d.nip, nama: d.nama, tanggal: d.tanggal, jam_masuk: masuk, jam_pulang: pulang }],
+      p_sumber: 'MANUAL', p_keterangan: ket
+    });
+  } else {
+    const jml = Number(document.getElementById('taJumlah').value || 0);
+    if (!(jml > 0)) { showAlert('alertTindakAbsen', 'Jumlah wajib diisi.'); return; }
+    btn.disabled = true;
+    res = tindakJenis === 'IZIN'
+      ? await dbRpc('catat_izin_gaji', { p_nip: d.nip, p_tanggal: d.tanggal, p_jumlah_jam: jml, p_keterangan: ket, p_id_periode: periodeAktif.id_periode })
+      : await dbRpc('catat_cuti_gaji', { p_nip: d.nip, p_tanggal: d.tanggal, p_jumlah_hari: jml, p_keterangan: ket, p_id_periode: periodeAktif.id_periode });
+  }
+  if (!res || res.code || res.status === 'error') {
+    showAlert('alertTindakAbsen', escHtml((res && res.message) || 'Gagal menyimpan.'));
+    btn.disabled = false;
+    return;
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTindakAbsen')).hide();
+  dataCekAbsen.splice(tindakIdx, 1);
+  renderCekAbsensi();
+  showAlert('alertCekAbsen', `✓ ${escHtml(d.nama)} ${formatTanggal(d.tanggal)} ditangani. Klik Hitung Ulang di tab Hasil setelah selesai.`, 'success');
 }
 
 // ============================================================
