@@ -1123,6 +1123,16 @@ function kkBiaya(t){
   return 0;
 }
 function kkNominalCek(t){ var b=kkBiaya(t); return b>0?b:(Number(t.diberikan)||0); }
+// 1 nota bisa banyak item & golongan → analisis golongan memakai baris item
+function kkPecah(arr){
+  var out=[];
+  arr.forEach(function(t){
+    var it=(t._b>0&&t.items&&t.items.length)?t.items:null;
+    if(!it){ out.push({id:t.id,no:t.no,_tgl:t._tgl,golongan:t.golongan,keterangan:t.keterangan,_b:t._b,_n:t}); return; }
+    it.forEach(function(i){ out.push({id:t.id,no:t.no,_tgl:t._tgl,golongan:i.golongan||null,keterangan:i.uraian,_b:Number(i.nominal)||0,_n:t}); });
+  });
+  return out;
+}
 
 function kkGantiMode(){
   var m=document.getElementById('kkMode').value;
@@ -1177,6 +1187,7 @@ function kkRender(d,p){
   var per=semua.filter(function(t){return kkIsBiaya(t)&&t._tgl>=p.mulai&&t._tgl<=p.akhir;});
   var base=semua.filter(function(t){return kkIsBiaya(t)&&t._tgl>=p.baseMulai&&t._tgl<=p.baseAkhir;});
   var keluarPer=semua.filter(function(t){return t._tgl>=p.mulai&&t._tgl<=p.akhir;});
+  var perItem=kkPecah(per), baseItem=kkPecah(base);
   var masuk=d.masuk||[];
 
   document.getElementById('kkPrintSub').textContent=p.label;
@@ -1185,7 +1196,7 @@ function kkRender(d,p){
 
   // ── Temuan per transaksi ──
   var medianGol={}, arrGol={};
-  base.forEach(function(t){ if(t._b>0){ var g=t.golongan||'(tanpa golongan)'; (arrGol[g]=arrGol[g]||[]).push(t._b); } });
+  baseItem.forEach(function(t){ if(t._b>0){ var g=t.golongan||'(tanpa golongan)'; (arrGol[g]=arrGol[g]||[]).push(t._b); } });
   Object.keys(arrGol).forEach(function(g){ if(arrGol[g].length>=KK.MIN_SAMPEL_MEDIAN) medianGol[g]=kkMedian(arrGol[g]); });
 
   var grupPecah={};
@@ -1199,9 +1210,12 @@ function kkRender(d,p){
     var n=kkNominalCek(t), g=t.golongan||'(tanpa golongan)';
     if(n>KK.BATAS_TRANSFER) tambah(t,3,'> Rp 2 jt — wajib transfer, bukan kas kecil');
     else if(n>=KK.BATAS_CEK) tambah(t,2,'Nominal ≥ Rp 1 jt — minta bukti & penjelasan');
-    var med=medianGol[g];
-    if(med && n>=KK.MIN_NOMINAL_MEDIAN && n>KK.KALI_MEDIAN*med)
-      tambah(t,2,'Jauh di atas kebiasaan golongan ('+(Math.round(n/med*10)/10).toLocaleString('id-ID')+'× median '+fmtRupiah(med)+')');
+    perItem.filter(function(i){return i._n===t;}).forEach(function(i){
+      var med=medianGol[i.golongan||'(tanpa golongan)'], ni=i._b;
+      if(med && ni>=KK.MIN_NOMINAL_MEDIAN && ni>KK.KALI_MEDIAN*med)
+        tambah(t,2,'Jauh di atas kebiasaan golongan '+(i.golongan||'')+(t.items&&t.items.length>1?' (item: '+i.keterangan+')':'')+
+          ' ('+(Math.round(ni/med*10)/10).toLocaleString('id-ID')+'× median '+fmtRupiah(med)+')');
+    });
     var dobel=n<KK.MIN_NOMINAL_DOBEL?[]:pembanding.filter(function(o){ return o.id!==t.id && (o.golongan||'')===(t.golongan||'') &&
       kkNominalCek(o)===n && Math.abs(kkSelisihHari(o._tgl,t._tgl))<=KK.HARI_DOBEL; });
     if(dobel.length) tambah(t,2,'Kemungkinan dobel dengan '+dobel.map(function(o){return o.no;}).join(', '));
@@ -1214,13 +1228,13 @@ function kkRender(d,p){
     if(mundur>KK.HARI_MUNDUR) tambah(t,1,'Diinput mundur '+mundur+' hari');
     if(t.tanpa_nota) tambah(t,2,'Tanpa nota'+(t.alasan_tanpa_nota?': '+t.alasan_tanpa_nota:''));
     else if(Number(t.jml_foto)===0 && t._tgl>=KK.TGL_WAJIB_FOTO && t.status!=='BELUM_REALISASI') tambah(t,2,'Belum ada foto nota');
-    if(!t.golongan && t.status!=='BELUM_REALISASI') tambah(t,1,'Tanpa golongan');
+    if(t.status!=='BELUM_REALISASI' && perItem.some(function(i){return i._n===t && !i.golongan;})) tambah(t,1,'Tanpa golongan');
   });
   var listTemuan=Object.keys(temuan).map(function(k){return temuan[k];})
     .sort(function(a,b){ return b.lv-a.lv || kkNominalCek(b.t)-kkNominalCek(a.t); });
   if(!listTemuan.length) kkKosong('kkBodyTemuan',5,'Tidak ada temuan. ✔');
   else document.getElementById('kkBodyTemuan').innerHTML=listTemuan.map(function(x){ var t=x.t;
-    return '<tr><td>'+kkBadge(x.lv)+'</td><td class="td-mono">'+esc(t.no)+'<br>'+fmtTgl(t._tgl)+'</td>'+
+    return '<tr><td>'+kkBadge(x.lv)+'</td><td class="td-mono">'+esc(t.no)+(t.no_nota?'<br><span class="kk-muted">Nota '+esc(t.no_nota)+'</span>':'')+'<br>'+fmtTgl(t._tgl)+'</td>'+
       '<td>'+esc(t.penerima||'—')+'<br><span class="kk-muted">'+esc(t.golongan||'—')+' · '+esc(t.jenis)+'</span></td>'+
       '<td class="td-right td-mono">'+fmtRupiah(kkNominalCek(t))+'</td>'+
       '<td>'+x.alasan.map(esc).join('<br>')+'<br><span class="kk-muted">'+esc(t.keterangan||'')+'</span></td></tr>';
@@ -1229,8 +1243,8 @@ function kkRender(d,p){
   // ── Rekap golongan ──
   var totalBiaya=per.reduce(function(s,t){return s+t._b;},0);
   var gol={};
-  per.forEach(function(t){ if(t._b<=0) return; var g=t.golongan||'(tanpa golongan)'; var x=gol[g]=gol[g]||{n:0,tot:0,base:0}; x.n++; x.tot+=t._b; });
-  base.forEach(function(t){ if(t._b<=0) return; var g=t.golongan||'(tanpa golongan)'; var x=gol[g]=gol[g]||{n:0,tot:0,base:0}; x.base+=t._b; });
+  perItem.forEach(function(t){ if(t._b<=0) return; var g=t.golongan||'(tanpa golongan)'; var x=gol[g]=gol[g]||{n:0,tot:0,base:0}; x.n++; x.tot+=t._b; });
+  baseItem.forEach(function(t){ if(t._b<=0) return; var g=t.golongan||'(tanpa golongan)'; var x=gol[g]=gol[g]||{n:0,tot:0,base:0}; x.base+=t._b; });
   var adaBase=base.some(function(t){return t._b>0;});
   document.getElementById('kkNoteGol').textContent='*Normal = '+p.labelBase+', disetarakan ke '+p.hariJalan+' hari'+
     (p.berjalan?' (periode berjalan)':'')+'.'+(adaBase?'':' Data pembanding belum ada.');
@@ -1247,7 +1261,7 @@ function kkRender(d,p){
     return '<tr><td>'+esc(x.g)+'</td><td class="td-right td-mono">'+x.n+'</td><td class="td-right td-mono">'+fmtRupiah(x.tot)+'</td>'+
       '<td class="td-right td-mono">'+kkPersen(porsi)+'</td><td class="td-right td-mono">'+(adaBase?fmtRupiah(Math.round(x.normal)):'—')+'</td>'+
       '<td class="td-right td-mono">'+(delta===null?'—':(delta>0?'+':'')+kkPersen(delta))+'</td><td>'+st+'</td></tr>';
-  }).join('')+'<tr><td><b>TOTAL</b></td><td class="td-right td-mono"><b>'+per.filter(function(t){return t._b>0;}).length+'</b></td>'+
+  }).join('')+'<tr><td><b>TOTAL</b></td><td class="td-right td-mono"><b>'+perItem.filter(function(t){return t._b>0;}).length+'</b></td>'+
     '<td class="td-right td-mono"><b>'+fmtRupiah(totalBiaya)+'</b></td><td class="td-right td-mono">100%</td><td colspan="3"></td></tr>';
 
   // ── Top 10 ──
@@ -1261,10 +1275,13 @@ function kkRender(d,p){
 
   // ── Pengeluaran baru ──
   var setGol={}, setPen={}, baru={};
-  base.forEach(function(t){ setGol[t.golongan||'']=1; setPen[kkNorm(t.penerima)]=1; });
+  baseItem.forEach(function(t){ setGol[t.golongan||'']=1; });
+  base.forEach(function(t){ setPen[kkNorm(t.penerima)]=1; });
+  if(adaBase) perItem.forEach(function(i){
+    if(i.golongan && !setGol[i.golongan]){ var k='G|'+i.golongan, x=baru[k]=baru[k]||{j:'Golongan',nama:i.golongan,n:0,tot:0,ket:i.keterangan}; x.n++; x.tot+=(i._b>0?i._b:kkNominalCek(i._n)); }
+  });
   if(adaBase) per.forEach(function(t){
     var n=kkNominalCek(t);
-    if(t.golongan && !setGol[t.golongan]){ var k='G|'+t.golongan, x=baru[k]=baru[k]||{j:'Golongan',nama:t.golongan,n:0,tot:0,ket:t.keterangan}; x.n++; x.tot+=n; }
     var pn=kkNorm(t.penerima);
     if(pn && !setPen[pn]){ var k2='P|'+pn, y=baru[k2]=baru[k2]||{j:'Penerima',nama:t.penerima,n:0,tot:0,ket:t.keterangan}; y.n++; y.tot+=n; }
   });
