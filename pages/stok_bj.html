@@ -472,6 +472,8 @@ async function simpanAdj(){
   if(!_adjItem){alertEl.innerHTML='<div class="alert-box alert-err">Pilih item dari daftar.</div>';return;}
   if(qtyInput<=0){alertEl.innerHTML='<div class="alert-box alert-err">QTY harus lebih dari 0.</div>';return;}
   if(!satuan) satuan=_adjItem.satuan||'';
+  // Subitem kosong = nama item (konvensi sama dgn order), selalu UPPERCASE
+  subitem=(subitem||_adjItem.nama_item||'').toUpperCase();
 
   var btn=document.getElementById('btnSimpanAdj');
   btn.disabled=true; btn.textContent='Menyimpan…';
