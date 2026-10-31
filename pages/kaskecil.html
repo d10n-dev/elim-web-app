@@ -218,8 +218,8 @@
     <div class="info-bar" id="glInfoBar">Memuat data…</div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Nama Golongan</th><th>Status</th><th class="td-right">Total Pemakaian (semua waktu)</th><th></th></tr></thead>
-        <tbody id="glTbody"><tr><td colspan="4" class="loading">Memuat…</td></tr></tbody>
+        <thead><tr><th>Nama Golongan</th><th>Kelompok</th><th>Status</th><th class="td-right">Total Pemakaian (semua waktu)</th><th></th></tr></thead>
+        <tbody id="glTbody"><tr><td colspan="5" class="loading">Memuat…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -683,7 +683,7 @@ function cardRekap(lbl,val,warn,red,green){
 // ============================================================
 var golonganCache=[];
 function muatGolonganDropdown(){
-  dbGet('m_golongan_kas',{status:'eq.AKTIF',select:'id_golongan,nama_golongan',order:'nama_golongan.asc'}).then(function(res){
+  dbGet('m_golongan_kas',{status:'eq.AKTIF',select:'id_golongan,nama_golongan,kelompok',order:'nama_golongan.asc'}).then(function(res){
     golonganCache=Array.isArray(res)?res:[];
     var optsFilter='<option value="">Semua Golongan</option>'+golonganCache.map(function(g){
       return '<option value="'+esc(g.id_golongan)+'">'+esc(g.nama_golongan)+'</option>';
@@ -701,7 +701,7 @@ function edOpsiGol(sel,nama){
   var ada=golonganCache.some(function(g){return g.id_golongan===sel;});
   return '<option value="">Golongan…</option>'+
     (sel&&!ada?'<option value="'+esc(sel)+'" selected>'+esc(nama||sel)+' (nonaktif)</option>':'')+
-    golonganCache.map(function(g){return '<option value="'+esc(g.id_golongan)+'"'+(g.id_golongan===sel?' selected':'')+'>'+esc(g.nama_golongan)+'</option>';}).join('');
+    golonganCache.map(function(g){return '<option value="'+esc(g.id_golongan)+'"'+(g.id_golongan===sel?' selected':'')+'>'+esc(g.nama_golongan)+(g.kelompok==='PEMBELIAN'?' ★ PEMBELIAN':'')+'</option>';}).join('');
 }
 function edInit(key,items){
   var src=(items&&items.length)?items:[{}];
@@ -718,12 +718,14 @@ function edRender(key){
       '<div class="ed-bot"><select class="form-select form-select-sm" onchange="edSet(\''+key+'\','+i+',\'id_golongan\',this.value)">'+edOpsiGol(x.id_golongan,x.golongan)+'</select>'+
       '<input type="number" inputmode="decimal" class="form-control form-control-sm ed-nom" placeholder="Nominal" value="'+(x.nominal===''?'':x.nominal)+'" oninput="edSet(\''+key+'\','+i+',\'nominal\',this.value)"/></div></div>';
   }).join('')+'<div class="ed-foot"><button type="button" class="btn-sm-action" onclick="edTambah(\''+key+'\')">+ Item</button>'+
-    '<span>'+it.length+' item · Total <b id="edTot_'+key+'">'+fmtRupiah(edTotal(key))+'</b></span></div>';
+    '<span>'+it.length+' item · Total <b id="edTot_'+key+'">'+fmtRupiah(edTotal(key))+'</b></span></div>'+
+    (it.some(function(x){var g=golonganCache.find(function(z){return z.id_golongan===x.id_golongan;});return g&&g.kelompok==='PEMBELIAN';})?
+      '<div style="font-size:.7rem;color:#1a56db;padding:.2rem .1rem">★ Ada item golongan PEMBELIAN — notanya wajib diinput di halaman Pembelian, lalu kas keluar ini dialokasikan di tab <b>Alokasi Kas Kecil</b>.</div>':'');
 }
 function edSet(key,i,f,v){
   var x=itemEd[key][i]; if(!x) return;
   if(f==='nominal'){ x.nominal=(v===''?'':parseFloat(v)); var el=document.getElementById('edTot_'+key); if(el) el.textContent=fmtRupiah(edTotal(key)); if(edOnTotal[key]) edOnTotal[key](); }
-  else x[f]=v;
+  else { x[f]=v; if(f==='id_golongan') edRender(key); }
 }
 function edTambah(key){
   var it=itemEd[key], last=it[it.length-1];
@@ -1167,6 +1169,9 @@ function renderStatusKas(){
   var kf=st.kurang_foto||[];
   if(kf.length){cls=cls||'kuning';baris.push('📷 '+kf.length+' transaksi belum ada foto nota: '+
     kf.slice(0,5).map(function(k){return '<a href="javascript:void(0)" onclick="bukaFotoKas(\''+esc(k.id)+'\')">'+esc(k.no)+'</a>';}).join(', ')+(kf.length>5?' …':''));}
+  var bp=st.belum_alokasi_pembelian||[];
+  if(bp.length){cls=cls||'kuning';baris.push('★ '+bp.length+' kas keluar berisi item PEMBELIAN belum dialokasikan ke nota Pembelian (&gt; 3 hari): '+
+    bp.slice(0,5).map(function(k){return esc(k.no)+' ('+fmtRupiah(k.nominal)+')';}).join(', ')+(bp.length>5?' …':'')+' — <a href="pembelian.html">buka Pembelian</a>');}
   if(st.is_direktur && st.review && st.review.jatuh_tempo){cls=cls||'kuning';baris.push('📊 Review mingguan jatuh tempo — <a href="javascript:void(0)" onclick="gantiTab(\'review\')">buka review</a>');}
   var tombol=(st.is_pemegang||st.is_direktur)&&!st.closing_pending?'<button class="btn-sm-action btn-approve" onclick="bukaClosing()">Closing Kas</button>':'';
   el.innerHTML='<div class="kk-status '+cls+'"><div class="baris"><div>'+baris.join('<br>')+'</div>'+tombol+'</div></div>';
@@ -1727,11 +1732,13 @@ function muatGolongan(){
 function renderGolongan(){
   document.getElementById('glInfoBar').textContent=semuaGolongan.length+' golongan.';
   var tb=document.getElementById('glTbody');
-  if(!semuaGolongan.length){tb.innerHTML='<tr><td colspan="4" class="loading">Belum ada golongan.</td></tr>';return;}
+  if(!semuaGolongan.length){tb.innerHTML='<tr><td colspan="5" class="loading">Belum ada golongan.</td></tr>';return;}
   tb.innerHTML=semuaGolongan.map(function(g){
     var aktif=g.status==='AKTIF';
     return '<tr>'+
       '<td>'+esc(g.nama_golongan)+'</td>'+
+      '<td>'+(isDirektur()?'<select class="form-select form-select-sm" style="min-width:130px" onchange="ubahKelompokGolongan(\''+esc(g.id_golongan)+'\',this)">'+
+        KELOMPOK_GOL.map(function(k){return '<option'+(k===(g.kelompok||'OPERASIONAL')?' selected':'')+'>'+k+'</option>';}).join('')+'</select>':esc(g.kelompok||'OPERASIONAL'))+'</td>'+
       '<td><span class="badge-status-kas '+(aktif?'st-selesai':'st-belum_realisasi')+'">'+esc(g.status)+'</span></td>'+
       '<td class="td-mono td-right">'+fmtRupiah(g.total_pemakaian)+'</td>'+
       '<td><button class="btn-sm-action" onclick="toggleStatusGolongan(\''+esc(g.id_golongan)+'\','+aktif+')">'+(aktif?'Nonaktifkan':'Aktifkan')+'</button></td>'+
@@ -1744,9 +1751,21 @@ function bukaTambahGolongan(){
   if(!nama)return;
   nama=nama.trim().toUpperCase();
   if(!nama)return;
+  var kel=(prompt('Kelompok golongan "'+nama+'":\nPEMBELIAN = barang stok / ada nota Pembelian\nHPP = biaya produksi langsung\nOPERASIONAL = beban usaha','OPERASIONAL')||'').trim().toUpperCase();
+  if(KELOMPOK_GOL.indexOf(kel)<0){alert('Kelompok harus PEMBELIAN, HPP, atau OPERASIONAL.');return;}
   var idGol='GOL'+Date.now();
-  dbInsert('m_golongan_kas',{id_golongan:idGol,nama_golongan:nama}).then(function(res){
+  dbInsert('m_golongan_kas',{id_golongan:idGol,nama_golongan:nama,kelompok:kel}).then(function(res){
     if(res&&res.code){alert('Gagal: '+res.message);return;}
+    muatGolongan(); muatGolonganDropdown();
+  });
+}
+
+var KELOMPOK_GOL=['PEMBELIAN','HPP','OPERASIONAL'];
+function ubahKelompokGolongan(idGol,sel){
+  var g=semuaGolongan.find(function(x){return x.id_golongan===idGol;})||{};
+  if(!confirm('Ubah kelompok '+(g.nama_golongan||idGol)+' menjadi '+sel.value+'?\nBerlaku juga untuk transaksi lama di laporan.')){sel.value=g.kelompok||'OPERASIONAL';return;}
+  dbUpdate('m_golongan_kas',{id_golongan:'eq.'+idGol},{kelompok:sel.value}).then(function(res){
+    if(res&&res.code){alert('Gagal: '+res.message);sel.value=g.kelompok||'OPERASIONAL';return;}
     muatGolongan(); muatGolonganDropdown();
   });
 }

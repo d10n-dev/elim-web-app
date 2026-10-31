@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -207,13 +208,13 @@
 
   <!-- ============== TAB: ALOKASI KAS KECIL ============== -->
   <div class="tab-pane" id="tabBayar">
-    <div class="info-bar" id="akkInfoBar">Kas keluar LANGSUNG yang belum dialokasikan ke hutang pembelian.</div>
+    <div class="info-bar" id="akkInfoBar">Kas keluar kas kecil yang berisi item golongan kelompok <b>PEMBELIAN</b> (bahan baku, kertas, sparepart, dll) dan belum dialokasikan ke nota pembelian. Nominal yang bisa dialokasikan = total item PEMBELIAN saja.</div>
     <input type="text" class="form-control" id="bayarCari" placeholder="🔍 Cari no. kas keluar / penerima…" autocomplete="off" oninput="renderPembayaranList()" style="margin-bottom:.6rem"/>
     <div class="tbl-wrap">
     <table>
       <thead><tr>
         <th>No. Kas Keluar</th><th>Tanggal</th><th>Penerima</th>
-        <th class="td-right">Nominal</th><th>Keterangan</th><th></th>
+        <th class="td-right">Item PEMBELIAN</th><th>Item</th><th></th>
       </tr></thead>
       <tbody id="bayarTbody"><tr><td colspan="6" class="loading">Memuat…</td></tr></tbody>
     </table>
@@ -3701,7 +3702,8 @@ function bukaAlokasiKasKecil(idKas){
   document.getElementById('infoBarAKK').textContent=
     kasKeluarAktif.no_kaskeluar+' — '+fmtTgl(kasKeluarAktif.tgl)+
     ' | Penerima: '+kasKeluarAktif.penerima+
-    ' | Nominal: '+fmtRupiah(kasKeluarAktif.nominal_diberikan);
+    ' | Item PEMBELIAN: '+fmtRupiah(kasKeluarAktif.nominal_pembelian)+
+    (Number(kasKeluarAktif.nominal_pembelian)<Number(kasKeluarAktif.nominal_diberikan)?' (dari total '+fmtRupiah(kasKeluarAktif.nominal_diberikan)+')':'');
   document.getElementById('inpCariSupplierBayar').value='';
   document.getElementById('notaSupplierBayarWrap').innerHTML='';
   document.getElementById('notaSupplierBayarWrap').style.display='none';
@@ -3735,8 +3737,8 @@ async function submitPembayaranHutang(btn){
 
   if(!alokasi.length){showAlert('alertPembayaranHutang','Pilih minimal 1 nota dan isi nominal.');return;}
   var totalAlokasi=alokasi.reduce(function(s,a){return s+a.nominal;},0);
-  if(totalAlokasi>Number(kasKeluarAktif.nominal_diberikan)){
-    showAlert('alertPembayaranHutang','Total alokasi ('+fmtRupiah(totalAlokasi)+') melebihi nominal kas keluar ('+fmtRupiah(kasKeluarAktif.nominal_diberikan)+').');
+  if(totalAlokasi>Number(kasKeluarAktif.nominal_pembelian)){
+    showAlert('alertPembayaranHutang','Total alokasi ('+fmtRupiah(totalAlokasi)+') melebihi total item PEMBELIAN di kas keluar ini ('+fmtRupiah(kasKeluarAktif.nominal_pembelian)+').');
     return;
   }
   if(lewatSisa){
@@ -3781,17 +3783,19 @@ function renderPembayaranList(){
   var data=q?semuaBayar.filter(function(r){
     return (r.no_kaskeluar||'').toLowerCase().indexOf(q)>=0 ||
            (r.penerima||'').toLowerCase().indexOf(q)>=0 ||
-           (r.keterangan||'').toLowerCase().indexOf(q)>=0;
+           (r.keterangan||'').toLowerCase().indexOf(q)>=0 ||
+           (r.no_nota||'').toLowerCase().indexOf(q)>=0;
   }):semuaBayar;
   if(!data.length){ tbody.innerHTML='<tr><td colspan="6" class="loading">'+(q?'Tidak ada hasil pencarian.':'Tidak ada kas keluar belum dialokasikan.')+'</td></tr>'; return; }
   data.forEach(function(r){kasKeluarStore[r.id_kaskeluar]=r;});
   tbody.innerHTML=data.map(function(r){
     return '<tr>'+
-      '<td class="td-mono">'+esc(r.no_kaskeluar)+'</td>'+
+      '<td class="td-mono">'+esc(r.no_kaskeluar)+(r.no_nota?'<br><span style="font-size:.62rem;color:var(--muted)">Nota: '+esc(r.no_nota)+'</span>':'')+'</td>'+
       '<td class="td-mono">'+fmtTgl(r.tgl)+'</td>'+
-      '<td>'+esc(r.penerima)+'</td>'+
-      '<td class="td-right td-mono">'+fmtRupiah(r.nominal_diberikan)+'</td>'+
-      '<td>'+esc(r.keterangan||'—')+'</td>'+
+      '<td>'+esc(r.penerima)+(r.jenis==='KASBON'?' <span class="badge-status">KASBON</span>':'')+'</td>'+
+      '<td class="td-right td-mono">'+fmtRupiah(r.nominal_pembelian)+
+        (Number(r.nominal_pembelian)<Number(r.nominal_diberikan)?'<br><span style="font-size:.62rem;color:var(--muted)">dari '+fmtRupiah(r.nominal_diberikan)+'</span>':'')+'</td>'+
+      '<td>'+((r.items_pembelian||[]).map(function(i){return esc(i.uraian)+' · '+esc(i.golongan||'')+' · '+fmtRupiah(i.nominal);}).join('<br>')||esc(r.keterangan||'—'))+'</td>'+
       '<td><button class="btn-sm-action btn-approve" onclick="bukaAlokasiKasKecil(\''+esc(r.id_kaskeluar)+'\')">Alokasi</button></td>'+
     '</tr>';
   }).join('');

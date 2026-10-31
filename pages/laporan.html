@@ -1117,19 +1117,29 @@ function kkKosong(tb,col,msg){ document.getElementById(tb).innerHTML='<tr><td co
 
 // Biaya bersih: LANGSUNG = diberikan; KASBON = realisasi (belum realisasi = 0, dilaporkan terpisah)
 function kkIsBiaya(t){ return t.jenis==='LANGSUNG' || t.jenis==='KASBON'; }
-function kkBiaya(t){
-  if(t.jenis==='KASBON'){ if(t.status==='BELUM_REALISASI') return 0; return Number(t.realisasi!=null?t.realisasi:t.diberikan)||0; }
-  if(t.jenis==='LANGSUNG') return Number(t.diberikan)||0;
-  return 0;
+// Uang tunai yang keluar (dipakai untuk cek batas transfer, dobel, dipecah)
+function kkKas(t){
+  if(t.jenis==='KASBON'){ if(t.status==='BELUM_REALISASI') return Number(t.diberikan)||0; return Number(t.realisasi!=null?t.realisasi:t.diberikan)||0; }
+  return Number(t.diberikan)||0;
 }
-function kkNominalCek(t){ var b=kkBiaya(t); return b>0?b:(Number(t.diberikan)||0); }
+// Pelunasan nota Pembelian (item kelompok PEMBELIAN) — BUKAN biaya, biayanya tercatat di Pembelian
+function kkPelunasan(t){
+  if(!kkIsBiaya(t) || (t.jenis==='KASBON'&&t.status==='BELUM_REALISASI')) return 0;
+  return (t.items||[]).reduce(function(s,i){return s+(i.kelompok==='PEMBELIAN'?Number(i.nominal)||0:0);},0);
+}
+function kkBiaya(t){
+  if(!kkIsBiaya(t) || (t.jenis==='KASBON'&&t.status==='BELUM_REALISASI')) return 0;
+  return Math.max(0, kkKas(t)-kkPelunasan(t));
+}
+function kkNominalCek(t){ return kkKas(t); }
 // 1 nota bisa banyak item & golongan → analisis golongan memakai baris item
 function kkPecah(arr){
   var out=[];
   arr.forEach(function(t){
     var it=(t._b>0&&t.items&&t.items.length)?t.items:null;
-    if(!it){ out.push({id:t.id,no:t.no,_tgl:t._tgl,golongan:t.golongan,keterangan:t.keterangan,_b:t._b,_n:t}); return; }
-    it.forEach(function(i){ out.push({id:t.id,no:t.no,_tgl:t._tgl,golongan:i.golongan||null,keterangan:i.uraian,_b:Number(i.nominal)||0,_n:t}); });
+    if(!it){ out.push({id:t.id,no:t.no,_tgl:t._tgl,golongan:t.golongan,keterangan:t.keterangan,kelompok:null,_b:t._b,_n:t}); return; }
+    it.forEach(function(i){ out.push({id:t.id,no:t.no,_tgl:t._tgl,golongan:i.golongan||null,keterangan:i.uraian,kelompok:i.kelompok||'OPERASIONAL',
+      _b:i.kelompok==='PEMBELIAN'?0:(Number(i.nominal)||0),_n:t}); });
   });
   return out;
 }
@@ -1262,7 +1272,15 @@ function kkRender(d,p){
       '<td class="td-right td-mono">'+kkPersen(porsi)+'</td><td class="td-right td-mono">'+(adaBase?fmtRupiah(Math.round(x.normal)):'—')+'</td>'+
       '<td class="td-right td-mono">'+(delta===null?'—':(delta>0?'+':'')+kkPersen(delta))+'</td><td>'+st+'</td></tr>';
   }).join('')+'<tr><td><b>TOTAL</b></td><td class="td-right td-mono"><b>'+perItem.filter(function(t){return t._b>0;}).length+'</b></td>'+
-    '<td class="td-right td-mono"><b>'+fmtRupiah(totalBiaya)+'</b></td><td class="td-right td-mono">100%</td><td colspan="3"></td></tr>';
+    '<td class="td-right td-mono"><b>'+fmtRupiah(totalBiaya)+'</b></td><td class="td-right td-mono">100%</td><td colspan="3"></td></tr>'+
+    ['HPP','OPERASIONAL'].map(function(k){
+      var v=perItem.reduce(function(s,i){return s+(i._b>0&&(i.kelompok||'OPERASIONAL')===k?i._b:0);},0);
+      return '<tr><td class="kk-muted">↳ '+k+'</td><td></td><td class="td-right td-mono">'+fmtRupiah(v)+'</td><td class="td-right td-mono">'+kkPersen(totalBiaya?v/totalBiaya*100:0)+'</td><td colspan="3"></td></tr>';
+    }).join('')+
+    (function(){
+      var nP=0,vP=0; per.forEach(function(t){var x=kkPelunasan(t); if(x>0){nP++;vP+=x;}});
+      return vP>0?'<tr><td class="kk-muted">Pelunasan nota Pembelian (bukan biaya)</td><td class="td-right td-mono">'+nP+'</td><td class="td-right td-mono">'+fmtRupiah(vP)+'</td><td colspan="4" class="kk-muted">biaya tercatat di Pembelian</td></tr>':'';
+    })();
 
   // ── Top 10 ──
   var top=per.filter(function(t){return t._b>0;}).sort(function(a,b){return b._b-a._b;}).slice(0,10);
