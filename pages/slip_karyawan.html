@@ -43,7 +43,7 @@
   .absen-badge{font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .5rem;border-radius:3px;white-space:nowrap;}
 
   @media print {
-    .topbar-slip, #navRoot, .btn-print, .btn-absensi, #debugBox, #gatePin, .notif-box, .btn-ubah-pin { display:none !important; }
+    .topbar-slip, #navRoot, .btn-print, .btn-absensi, #debugBox, #gatePin, .notif-box, .btn-ubah-pin, #areaPengajuan { display:none !important; }
     body, .wrap-slip { padding:0; margin:0; max-width:none; }
     .slip-card { border:none; }
   }
@@ -119,6 +119,7 @@
   </div>
   <div class="wrap-slip">
     <div id="notifBox"></div>
+    <div id="areaPengajuan"></div>
     <div id="areaSlip"></div>
   </div>
 </div>
@@ -162,6 +163,33 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- MODAL: Ajukan Izin / Cuti -->
+<div class="modal fade" id="modalAjukanIzin" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">Ajukan Izin / Cuti</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Jenis</label>
+      <select id="ajJenis" class="form-control" style="margin-bottom:.5rem" onchange="ubahJenisAjuan()">
+        <option value="IZIN">Izin (jam)</option>
+        <option value="CUTI">Cuti (hari)</option>
+      </select>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Tanggal</label>
+      <input type="date" id="ajTanggal" class="form-control" style="margin-bottom:.2rem">
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:.5rem">Paling lambat 1 hari setelah tidak masuk. Lewat dari itu hubungi Manager/Direktur.</div>
+      <label id="lblAjJumlah" style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Jumlah Jam</label>
+      <input type="number" id="ajJumlah" class="form-control" step="0.5" min="0.5" max="8" value="8">
+      <div id="ajInfoCuti" style="font-size:.7rem;color:var(--muted);margin:.2rem 0 .5rem"></div>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Alasan</label>
+      <textarea id="ajAlasan" class="form-control" rows="2" placeholder="Contoh: sakit, keperluan keluarga…" style="margin-bottom:.5rem"></textarea>
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Foto lampiran (opsional)</label>
+      <input type="file" id="ajFoto" class="form-control" accept="image/*">
+      <div style="font-size:.68rem;color:var(--muted);margin-top:.2rem">Mis. surat dokter / surat izin. Surat izin tertulis tetap diserahkan untuk ditandatangani Direktur.</div>
+      <div id="alertAjukanIzin" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-navy" id="btnKirimIzin" onclick="kirimPengajuanIzin()">Kirim Pengajuan</button></div>
+  </div></div>
 </div>
 
 <!-- MODAL: Ajukan Sanggahan -->
@@ -504,6 +532,144 @@ async function tandaiNotifDibaca(idDetail, el) {
 }
 
 // ============================================================
+// PENGAJUAN IZIN / CUTI (karyawan)
+// ============================================================
+let sisaCutiSaya = null;
+const PJ_STYLE = {
+  MENUNGGU: 'background:#fff3cd;color:#856404;border:1px solid #ffe083',
+  DISETUJUI: 'background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)',
+  DITOLAK: 'background:#fde9e9;color:var(--red);border:1px solid #f5b5bb',
+  DIBATALKAN: 'background:#f0f2f6;color:var(--muted);border:1px solid var(--border)'
+};
+
+function tglLokalStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function muatPengajuanSaya() {
+  const box = document.getElementById('areaPengajuan');
+  const res = await dbRpc('get_pengajuan_izin', { p_mode: 'SAYA', p_status: null });
+  if (!res || res.status !== 'ok') { box.innerHTML = ''; return; }
+  sisaCutiSaya = res.sisa_cuti;
+  const rows = (res.data || []).slice(0, 10);
+  box.innerHTML = `<div class="card-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <strong style="font-size:.88rem">📝 Pengajuan Izin / Cuti</strong>
+      <button class="btn-navy" onclick="bukaAjukanIzin()">+ Ajukan</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin:.3rem 0 .4rem">Sisa cuti tahun ini: <b>${sisaCutiSaya ?? '-'} hari</b></div>
+    ${rows.length ? `<table class="slip-mini-tbl"><tbody>${rows.map(p => `
+      <tr>
+        <td>${formatTanggal(p.tanggal)}</td>
+        <td>${p.jenis} ${p.jumlah_disetujui ?? p.jumlah} ${p.jenis === 'IZIN' ? 'jam' : 'hari'}${p.foto_path ? ' 📷' : ''}
+          <div style="font-size:.68rem;color:var(--muted)">${escHtml(p.alasan)}${p.catatan_direktur ? ' · Catatan: ' + escHtml(p.catatan_direktur) : ''}</div></td>
+        <td style="text-align:right;white-space:nowrap">
+          <span style="${PJ_STYLE[p.status] || ''};font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.12rem .4rem;border-radius:3px">${p.status}</span>
+          ${p.status === 'MENUNGGU' ? `<div><button class="btn-ubah-pin" style="margin-top:.25rem" onclick="batalkanPengajuanIzin(${p.id_pengajuan})">Batalkan</button></div>` : ''}
+        </td>
+      </tr>`).join('')}</tbody></table>` : '<div style="font-size:.75rem;color:var(--muted)">Belum ada pengajuan.</div>'}
+  </div>`;
+}
+
+function ubahJenisAjuan() {
+  const izin = document.getElementById('ajJenis').value === 'IZIN';
+  const inp = document.getElementById('ajJumlah');
+  document.getElementById('lblAjJumlah').textContent = izin ? 'Jumlah Jam' : 'Jumlah Hari';
+  inp.max = izin ? 8 : 1;
+  inp.value = izin ? 8 : 1;
+  document.getElementById('ajInfoCuti').innerHTML = izin
+    ? '1 hari kerja = 8 jam. Izin di atas toleransi 8 jam/bulan memotong bonus.'
+    : `Cuti per tanggal 0,5 atau 1 hari. Sisa cuti: <b>${sisaCutiSaya ?? '-'} hari</b>.`;
+}
+
+function bukaAjukanIzin() {
+  const hariIni = new Date();
+  const kemarin = new Date(hariIni.getTime() - 86400000);
+  const maks = new Date(hariIni.getTime() + 60 * 86400000);
+  const t = document.getElementById('ajTanggal');
+  t.min = tglLokalStr(kemarin); t.max = tglLokalStr(maks); t.value = tglLokalStr(hariIni);
+  document.getElementById('ajJenis').value = 'IZIN';
+  document.getElementById('ajAlasan').value = '';
+  document.getElementById('ajFoto').value = '';
+  document.getElementById('alertAjukanIzin').innerHTML = '';
+  document.getElementById('btnKirimIzin').disabled = false;
+  ubahJenisAjuan();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjukanIzin')).show();
+}
+
+// Kompres foto di HP (maks 1280px, ±150KB) — sama dengan foto nota kas kecil
+async function kompresFotoIzin(file) {
+  const img = await new Promise((ok, gagal) => {
+    const i = new Image(); i.onload = () => ok(i); i.onerror = () => gagal(new Error('File bukan gambar'));
+    i.src = URL.createObjectURL(file);
+  });
+  const maks = 1280, w = img.naturalWidth, h = img.naturalHeight, sk = Math.min(1, maks / Math.max(w, h));
+  const cv = document.createElement('canvas'); cv.width = Math.round(w * sk); cv.height = Math.round(h * sk);
+  cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+  URL.revokeObjectURL(img.src);
+  let blob = null;
+  for (const q of [0.72, 0.6, 0.5, 0.4]) {
+    blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', q));
+    if (blob && blob.size <= 160 * 1024) break;
+  }
+  return blob;
+}
+
+async function uploadFotoIzin(nip, file) {
+  const blob = await kompresFotoIzin(file);
+  if (!blob) throw new Error('Gagal memproses foto');
+  await pastikanTokenValid();
+  const path = nip + '/' + Date.now() + '.jpg';
+  const r = await fetch(SUPA_URL + '/storage/v1/object/izin-karyawan/' + path, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + getSupaToken(), apikey: SUPA_KEY, 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
+    body: blob
+  });
+  if (!r.ok) { const t = await r.text(); throw new Error('Upload foto gagal (' + r.status + ') ' + t.slice(0, 120)); }
+  return path;
+}
+
+async function kirimPengajuanIzin() {
+  const jenis = document.getElementById('ajJenis').value;
+  const tgl = document.getElementById('ajTanggal').value;
+  const jml = Number(document.getElementById('ajJumlah').value || 0);
+  const alasan = document.getElementById('ajAlasan').value.trim();
+  const file = document.getElementById('ajFoto').files[0] || null;
+  const al = 'alertAjukanIzin';
+  if (!tgl) { showAlert(al, 'Pilih tanggal.'); return; }
+  if (tgl < document.getElementById('ajTanggal').min) { showAlert(al, 'Batas pengajuan sudah lewat. Hubungi Manager/Direktur.'); return; }
+  if (!alasan) { showAlert(al, 'Alasan wajib diisi.'); return; }
+  if (jenis === 'IZIN' && (jml < 0.5 || jml > 8)) { showAlert(al, 'Jumlah jam izin 0,5 – 8 jam.'); return; }
+  if (jenis === 'CUTI' && jml !== 0.5 && jml !== 1) { showAlert(al, 'Cuti per tanggal 0,5 atau 1 hari.'); return; }
+  const btn = document.getElementById('btnKirimIzin');
+  btn.disabled = true;
+  try {
+    let path = null;
+    if (file) {
+      const profil = await dbRpc('get_profil_login_saya', {});
+      if (!profil || !profil.nip) throw new Error('Data karyawan tidak terbaca untuk upload foto.');
+      showAlert(al, 'Mengunggah foto…', 'info');
+      path = await uploadFotoIzin(profil.nip, file);
+    }
+    const res = await dbRpc('ajukan_izin_karyawan', { p_jenis: jenis, p_tanggal: tgl, p_jumlah: jml, p_alasan: alasan, p_foto_path: path });
+    if (!res || res.code || res.status === 'error') throw new Error((res && res.message) || 'Gagal mengirim pengajuan.');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjukanIzin')).hide();
+    alert('✓ Pengajuan terkirim, menunggu persetujuan Direktur.');
+    await muatPengajuanSaya();
+  } catch (e) {
+    showAlert(al, escHtml(e.message));
+    btn.disabled = false;
+  }
+}
+
+async function batalkanPengajuanIzin(id) {
+  if (!confirm('Batalkan pengajuan ini?')) return;
+  const res = await dbRpc('putuskan_pengajuan_izin', { p_id: id, p_aksi: 'BATAL' });
+  if (!res || res.code || res.status === 'error') { alert('❌ ' + ((res && res.message) || 'Gagal')); return; }
+  await muatPengajuanSaya();
+}
+
+// ============================================================
 // INIT
 // ============================================================
 async function lanjutkanSetelahGate() {
@@ -535,6 +701,7 @@ async function lanjutkanSetelahGate() {
       return;
     }
     document.getElementById('judulHalaman').textContent = 'Slip Gaji — ' + profil.nama;
+    muatPengajuanSaya();
     await muatDaftarPeriode();
   }
 }

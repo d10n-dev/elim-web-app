@@ -177,6 +177,34 @@
   <!-- =========== TAB: CUTI & IZIN =========== -->
   <div class="tab-pane" id="tCuti">
     <div class="card-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.4rem">
+        <h6 style="margin:0">📝 Pengajuan Izin/Cuti Karyawan</h6>
+        <select id="filterPengajuan" style="font-family:var(--mono);font-size:.72rem;padding:.2rem .4rem" onchange="muatPengajuanIzin()">
+          <option value="MENUNGGU">Menunggu</option><option value="DISETUJUI">Disetujui</option>
+          <option value="DITOLAK">Ditolak</option><option value="DIBATALKAN">Dibatalkan</option><option value="">Semua</option>
+        </select>
+      </div>
+      <p class="text-muted" style="font-size:.7rem;margin:.3rem 0 .4rem">Diajukan karyawan lewat Slip Gaji Saya. Persetujuan oleh Direktur — saat disetujui otomatis tercatat sebagai izin/cuti.</p>
+      <div style="overflow-x:auto"><table class="sieo-tbl">
+        <thead><tr><th>Tanggal</th><th>Nama</th><th>Jenis</th><th class="td-right">Jumlah</th><th>Alasan</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tblPengajuan"><tr><td colspan="7" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card-box only-dir">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.4rem">
+        <h6 style="margin:0">🕵️ Aktivitas Manager — belum ditinjau <span id="cntLogManager" class="tab-badge-count" style="display:none"></span></h6>
+        <div>
+          <label style="font-size:.72rem;margin-right:.4rem"><input type="checkbox" id="logTampilSemua" onchange="muatLogManager()"> tampilkan yang sudah ditinjau</label>
+          <button class="btn-outline" onclick="tinjauLogManager(null)">✓ Tinjau semua</button>
+        </div>
+      </div>
+      <p class="text-muted" style="font-size:.7rem;margin:.3rem 0 .4rem">Semua input/ubah/hapus cuti & izin dan keputusan sanggahan oleh selain Direktur.</p>
+      <div style="overflow-x:auto"><table class="sieo-tbl">
+        <thead><tr><th>Waktu</th><th>Oleh</th><th>Aksi</th><th>Karyawan</th><th>Tgl Absen</th><th>Rincian</th><th></th></tr></thead>
+        <tbody id="tblLogManager"><tr><td colspan="7" class="text-center text-muted">Memuat…</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card-box">
       <h6 id="judulFormCuti">Input Cuti</h6>
       <input type="hidden" id="cutiEditId" value="">
       <div class="form-grid" style="grid-template-columns:1fr 140px 100px 1fr 100px 90px;align-items:end;">
@@ -403,6 +431,26 @@
   </div></div>
 </div>
 
+<!-- MODAL: Putuskan Pengajuan Izin/Cuti (Direktur) -->
+<div class="modal fade" id="modalPengajuan" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title" id="judulPengajuan">Pengajuan</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div id="infoPengajuan" style="font-size:.8rem;margin-bottom:.5rem"></div>
+      <div id="fotoPengajuanWrap" style="margin-bottom:.5rem"></div>
+      <label id="lblJumlahPengajuan" style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;">Jumlah disetujui</label>
+      <input type="number" id="pjJumlah" class="form-control" step="0.5" min="0.5">
+      <label style="font-family:var(--mono);font-size:.65rem;color:var(--muted);text-transform:uppercase;margin-top:.5rem;display:block">Catatan (wajib jika tolak)</label>
+      <input type="text" id="pjCatatan" class="form-control">
+      <div id="alertPengajuan" style="margin-top:.5rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" style="border-color:var(--red);color:var(--red)" id="btnTolakPengajuan" onclick="putuskanPengajuan('TOLAK')">Tolak</button>
+      <button class="btn-navy" id="btnSetujuPengajuan" onclick="putuskanPengajuan('SETUJU')">Setujui</button>
+    </div>
+  </div></div>
+</div>
+
 <!-- MODAL: Tindak Lanjut Absensi -->
 <div class="modal fade" id="modalTindakAbsen" tabindex="-1">
   <div class="modal-dialog"><div class="modal-content">
@@ -583,7 +631,7 @@ function gantiTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === id));
   if (id === 'tCekAbsen') { muatCekAbsensi(); }
-  if (id === 'tCuti') { muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); muatDaftarSanggahan(); }
+  if (id === 'tCuti') { muatPengajuanIzin(); if (isDirektur()) muatLogManager(); muatSaldoCuti(); muatRiwayatCuti(); muatRiwayatIzin(); muatDaftarSanggahan(); }
   if (id === 'tKinerja') { muatKinerja(); if (isDirektur()) muatPenyesuaian(); }
   if (id === 'tBon') { if (!isDirektur()) return; muatSaldoBon(); muatRiwayatBon(); }
   if (id === 'tHasil') { muatHasil(); if (isDirektur()) muatStatusNotifGaji(); }
@@ -694,9 +742,13 @@ async function hapusLibur(idLibur) {
 // MASTER KARYAWAN
 // ============================================================
 async function muatKaryawan() {
-  const res = await dbGet('m_karyawan_gaji', { order: 'nama.asc' });
+  // Manager: tabel m_karyawan_gaji dikunci RLS (data gaji), ambil versi ringkas via RPC
+  const res = isDirektur()
+    ? await dbGet('m_karyawan_gaji', { order: 'nama.asc' })
+    : await dbRpc('get_karyawan_gaji_ringkas', {});
   if (!cekErrorSupabase(res)) return;
-  daftarKaryawan = res || [];
+  daftarKaryawan = Array.isArray(res) ? res : [];
+  if (!isDirektur()) { isiDropdownKaryawan(); return; }
   const tbody = document.getElementById('tblKaryawan');
   tbody.innerHTML = daftarKaryawan.map(k => `
     <tr>
@@ -711,6 +763,10 @@ async function muatKaryawan() {
       <td><button class="btn-sm-action btn-edit" onclick="bukaModalKaryawan('${k.nip}')">Edit</button></td>
     </tr>`).join('') || '<tr><td colspan="9" class="text-center text-muted">Belum ada karyawan</td></tr>';
 
+  isiDropdownKaryawan();
+}
+
+function isiDropdownKaryawan() {
   // isi dropdown NIP di tab lain
   const opsi = daftarKaryawan.filter(k => k.status === 'AKTIF')
     .map(k => `<option value="${k.nip}">${k.nip} — ${escHtml(k.nama)}</option>`).join('');
@@ -1056,13 +1112,190 @@ async function muatRiwayatIzin() {
 }
 
 // ============================================================
+// PENGAJUAN IZIN/CUTI KARYAWAN
+// ============================================================
+let cachePengajuan = [];
+let pengajuanAktif = null;
+const STATUS_PJ_STYLE = {
+  MENUNGGU: 'background:#fff3cd;color:#856404;border:1px solid #ffe083',
+  DISETUJUI: 'background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)',
+  DITOLAK: 'background:#fde9e9;color:var(--red);border:1px solid #f5b5bb',
+  DIBATALKAN: 'background:#f0f2f6;color:var(--muted);border:1px solid var(--border)'
+};
+
+async function muatPengajuanIzin() {
+  const status = document.getElementById('filterPengajuan').value;
+  const res = await dbRpc('get_pengajuan_izin', { p_mode: 'SEMUA', p_status: status || null });
+  const tbody = document.getElementById('tblPengajuan');
+  if (!res || res.status === 'error' || res.code) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">${escHtml((res && res.message) || 'Gagal memuat (SQL K08 sudah dijalankan?)')}</td></tr>`;
+    return;
+  }
+  cachePengajuan = res.data || [];
+  tbody.innerHTML = cachePengajuan.map(p => {
+    const jml = p.jenis === 'IZIN' ? `${p.jumlah} jam` : `${p.jumlah} hari`;
+    const jmlSetuju = p.jumlah_disetujui != null && Number(p.jumlah_disetujui) !== Number(p.jumlah)
+      ? `<div style="font-size:.65rem;color:var(--green)">disetujui ${p.jumlah_disetujui}</div>` : '';
+    const aksi = p.status === 'MENUNGGU' && isDirektur()
+      ? `<button class="btn-sm-action btn-edit" onclick="bukaPengajuan(${p.id_pengajuan})">Proses</button>`
+      : (p.foto_path ? `<button class="btn-sm-action" onclick="bukaPengajuan(${p.id_pengajuan})">Lihat</button>` : '');
+    return `<tr>
+      <td class="td-mono" style="white-space:nowrap">${formatTanggal(p.tanggal)}<div style="font-size:.62rem;color:var(--muted)">diajukan ${formatTanggal(String(p.diajukan_at).slice(0, 10))}</div></td>
+      <td>${escHtml(p.nama || p.nip)}</td>
+      <td>${p.jenis}</td>
+      <td class="td-right td-mono">${jml}${jmlSetuju}</td>
+      <td style="font-size:.74rem">${escHtml(p.alasan)}${p.foto_path ? ' 📷' : ''}${p.catatan_direktur ? `<div style="font-size:.65rem;color:var(--muted)">Catatan: ${escHtml(p.catatan_direktur)}</div>` : ''}</td>
+      <td><span style="${STATUS_PJ_STYLE[p.status] || ''};font-family:var(--mono);font-size:.62rem;font-weight:600;padding:.15rem .45rem;border-radius:3px">${p.status}</span></td>
+      <td>${aksi}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="text-center text-muted">Tidak ada pengajuan</td></tr>';
+}
+
+async function urlFotoIzin(path) {
+  await pastikanTokenValid();
+  const r = await fetch(SUPA_URL + '/storage/v1/object/sign/izin-karyawan/' + path, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + getSupaToken(), apikey: SUPA_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresIn: 900 })
+  });
+  const j = await r.json();
+  if (!j || !(j.signedURL || j.signedUrl)) throw new Error('Gagal membuka foto');
+  return SUPA_URL + '/storage/v1' + (j.signedURL || j.signedUrl);
+}
+
+async function bukaFotoIzin(path, btn) {
+  try { btn.disabled = true; const u = await urlFotoIzin(path); document.getElementById('fotoPengajuanWrap').innerHTML = `<img src="${u}" style="max-width:100%;border-radius:6px;border:1px solid var(--border)">`; }
+  catch (e) { alert(e.message); btn.disabled = false; }
+}
+
+function bukaPengajuan(id) {
+  const p = cachePengajuan.find(x => x.id_pengajuan === id);
+  if (!p) return;
+  pengajuanAktif = p;
+  const satuan = p.jenis === 'IZIN' ? 'jam' : 'hari';
+  document.getElementById('judulPengajuan').textContent = `${p.jenis} — ${p.nama || p.nip}`;
+  document.getElementById('infoPengajuan').innerHTML = `
+    Tanggal: <b>${formatTanggal(p.tanggal)}</b> · Diajukan: <b>${p.jumlah} ${satuan}</b><br>
+    Alasan: ${escHtml(p.alasan)}
+    ${p.jenis === 'CUTI' ? `<br>Sisa cuti ${String(p.tanggal).slice(0, 4)}: <b style="${Number(p.sisa_cuti) < Number(p.jumlah) ? 'color:var(--red)' : ''}">${p.sisa_cuti ?? '-'} hari</b>` : ''}`;
+  document.getElementById('fotoPengajuanWrap').innerHTML = p.foto_path
+    ? `<button class="btn-outline" onclick="bukaFotoIzin('${escHtml(p.foto_path)}', this)">📷 Lihat foto lampiran</button>` : '';
+  const bisa = p.status === 'MENUNGGU' && isDirektur();
+  document.getElementById('lblJumlahPengajuan').textContent = `Jumlah disetujui (${satuan})`;
+  const inp = document.getElementById('pjJumlah');
+  inp.value = p.jumlah; inp.max = p.jenis === 'IZIN' ? 8 : 1; inp.disabled = !bisa;
+  document.getElementById('pjCatatan').value = ''; document.getElementById('pjCatatan').disabled = !bisa;
+  document.getElementById('btnTolakPengajuan').style.display = bisa ? '' : 'none';
+  document.getElementById('btnSetujuPengajuan').style.display = bisa ? '' : 'none';
+  document.getElementById('btnTolakPengajuan').disabled = false;
+  document.getElementById('btnSetujuPengajuan').disabled = false;
+  document.getElementById('alertPengajuan').innerHTML = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPengajuan')).show();
+}
+
+async function putuskanPengajuan(aksi) {
+  const p = pengajuanAktif;
+  if (!p) return;
+  const jml = Number(document.getElementById('pjJumlah').value || 0);
+  const cat = document.getElementById('pjCatatan').value.trim();
+  if (aksi === 'TOLAK' && !cat) { showAlert('alertPengajuan', 'Alasan penolakan wajib diisi.'); return; }
+  if (aksi === 'SETUJU' && !(jml > 0)) { showAlert('alertPengajuan', 'Jumlah wajib diisi.'); return; }
+  ['btnTolakPengajuan', 'btnSetujuPengajuan'].forEach(id => document.getElementById(id).disabled = true);
+  const res = await dbRpc('putuskan_pengajuan_izin', { p_id: p.id_pengajuan, p_aksi: aksi, p_jumlah: aksi === 'SETUJU' ? jml : null, p_catatan: cat || null });
+  if (!res || res.code || res.status === 'error') {
+    showAlert('alertPengajuan', escHtml((res && res.message) || 'Gagal.'));
+    ['btnTolakPengajuan', 'btnSetujuPengajuan'].forEach(id => document.getElementById(id).disabled = false);
+    return;
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPengajuan')).hide();
+  await muatPengajuanIzin();
+  if (aksi === 'SETUJU') { muatRiwayatCuti(); muatRiwayatIzin(); muatSaldoCuti(); }
+  muatBadgeSanggahan();
+}
+
+// ============================================================
+// AKTIVITAS MANAGER (log audit) — Direktur
+// ============================================================
+let cacheLogManager = [];
+const LABEL_KOREKSI = { SET_IZIN: 'jadi IZIN', SET_CUTI: 'jadi CUTI', SET_SCANLOG: 'perbaiki jam scan', HAPUS_IZIN: 'hapus izin', HAPUS_CUTI: 'hapus cuti', TIDAK_ADA_KOREKSI: 'tanpa ubah data' };
+
+function ringkasLog(l) {
+  const a = l.data_sebelum || {}, b = l.data_sesudah || {};
+  if (l.sumber === 'CUTI' || l.sumber === 'IZIN') {
+    const f = l.sumber === 'CUTI' ? 'jumlah_hari' : 'jumlah_jam';
+    const sat = l.sumber === 'CUTI' ? ' hari' : ' jam';
+    if (l.aksi === 'TAMBAH') return `${b[f]}${sat}${b.keterangan ? ' — ' + escHtml(b.keterangan) : ''}`;
+    if (l.aksi === 'HAPUS') return `dihapus: ${a[f]}${sat}${a.keterangan ? ' — ' + escHtml(a.keterangan) : ''}`;
+    const ch = [];
+    if (a.tanggal !== b.tanggal) ch.push(`tgl ${formatTanggal(a.tanggal)} → ${formatTanggal(b.tanggal)}`);
+    if (Number(a[f]) !== Number(b[f])) ch.push(`${a[f]} → ${b[f]}${sat}`);
+    if ((a.keterangan || '') !== (b.keterangan || '')) ch.push(`ket: "${escHtml(a.keterangan || '')}" → "${escHtml(b.keterangan || '')}"`);
+    return ch.join('; ') || 'tanpa perubahan';
+  }
+  if (l.sumber === 'SANGGAHAN') {
+    const sg = a.sanggahan || {};
+    const alasan = sg.alasan_karyawan ? `Alasan karyawan: ${escHtml(sg.alasan_karyawan)}<br>` : '';
+    if (l.aksi === 'TOLAK') return `${alasan}Ditolak${b.catatan ? ': ' + escHtml(b.catatan) : ''}`;
+    const k = b.koreksi || {};
+    const det = b.jenis_koreksi === 'SET_IZIN' ? ` ${k.jumlah_jam} jam`
+              : b.jenis_koreksi === 'SET_CUTI' ? ` ${k.jumlah_hari} hari`
+              : b.jenis_koreksi === 'SET_SCANLOG' ? ` ${k.jam_masuk || '-'}–${k.jam_pulang || '-'}` : '';
+    return `${alasan}Disetujui, ${LABEL_KOREKSI[b.jenis_koreksi] || b.jenis_koreksi}${det}${b.catatan ? ' · ' + escHtml(b.catatan) : ''}`;
+  }
+  return '';
+}
+
+async function muatLogManager() {
+  if (!isDirektur()) return;
+  const semua = document.getElementById('logTampilSemua').checked;
+  const res = await dbRpc('get_log_absensi', { p_hanya_belum: !semua });
+  const tbody = document.getElementById('tblLogManager');
+  if (!res || res.status === 'error' || res.code) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">${escHtml((res && res.message) || 'Gagal memuat (SQL J13 sudah dijalankan?)')}</td></tr>`;
+    return;
+  }
+  cacheLogManager = res.data || [];
+  const belum = cacheLogManager.filter(l => !l.ditinjau_at).length;
+  const cnt = document.getElementById('cntLogManager');
+  cnt.textContent = belum; cnt.style.display = belum ? '' : 'none';
+  tbody.innerHTML = cacheLogManager.map(l => {
+    const w = new Date(l.waktu);
+    const waktu = `${formatTanggal(l.waktu.slice(0, 10))} ${String(w.getHours()).padStart(2, '0')}:${String(w.getMinutes()).padStart(2, '0')}`;
+    return `<tr style="${l.ditinjau_at ? 'opacity:.55' : ''}">
+      <td class="td-mono" style="font-size:.68rem;white-space:nowrap">${waktu}</td>
+      <td style="font-size:.7rem">${escHtml(l.oleh || '-')}<div style="font-size:.62rem;color:var(--muted)">${escHtml(l.peran || '')}</div></td>
+      <td style="font-size:.72rem;white-space:nowrap"><b>${l.aksi}</b> ${l.sumber}</td>
+      <td>${escHtml(l.nama || l.nip || '')}</td>
+      <td class="td-mono" style="white-space:nowrap">${l.tanggal ? formatTanggal(l.tanggal) : '-'}</td>
+      <td style="font-size:.72rem">${ringkasLog(l)}</td>
+      <td>${l.ditinjau_at ? '<span style="font-size:.62rem;color:var(--green)">✓</span>' : `<button class="btn-sm-action btn-edit" onclick="tinjauLogManager([${l.id_log}])">✓</button>`}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="text-center text-muted">✓ Tidak ada aktivitas yang perlu ditinjau</td></tr>';
+}
+
+async function tinjauLogManager(ids) {
+  if (!ids && !confirm('Tandai semua aktivitas Manager sebagai sudah ditinjau?')) return;
+  const res = await dbRpc('tinjau_log_absensi', { p_ids: ids });
+  if (!cekErrorSupabase(res)) return;
+  await muatLogManager();
+  muatBadgeSanggahan();
+}
+
+// ============================================================
 // SANGGAHAN ABSENSI
 // ============================================================
 let cacheDaftarSanggahan = [];
 
 async function muatBadgeSanggahan() {
-  const res = await dbRpc('get_daftar_sanggahan_direktur', { p_status: 'MENUNGGU' });
-  const n = (res && res.status !== 'error') ? res.length : 0;
+  // Badge tab Cuti & Izin = sanggahan menunggu + pengajuan menunggu (+ aktivitas Manager belum ditinjau utk Direktur)
+  const [rs, rp, rl] = await Promise.all([
+    dbRpc('get_daftar_sanggahan_direktur', { p_status: 'MENUNGGU' }).catch(() => null),
+    dbRpc('get_pengajuan_izin', { p_mode: 'SEMUA', p_status: 'MENUNGGU' }).catch(() => null),
+    isDirektur() ? dbRpc('get_log_absensi', { p_hanya_belum: true }).catch(() => null) : Promise.resolve(null)
+  ]);
+  const n = (Array.isArray(rs) ? rs.length : 0)
+          + (rp && Array.isArray(rp.data) ? rp.data.length : 0)
+          + (rl && Array.isArray(rl.data) ? rl.data.length : 0);
   const badge = document.getElementById('badgeSanggahan');
   if (n > 0) { badge.textContent = n; badge.style.display = ''; }
   else { badge.style.display = 'none'; }
@@ -1072,7 +1305,7 @@ async function muatDaftarSanggahan() {
   const status = document.getElementById('filterStatusSanggahan').value;
   const res = await dbRpc('get_daftar_sanggahan_direktur', { p_status: status || null });
   if (res && res.status === 'error') { alert(res.message); return; }
-  cacheDaftarSanggahan = res || [];
+  cacheDaftarSanggahan = Array.isArray(res) ? res : [];
   document.getElementById('tblSanggahan').innerHTML = cacheDaftarSanggahan.map(s => {
     const badgeStyle = s.status === 'MENUNGGU' ? 'background:#fff3cd;color:#856404;border:1px solid #ffe083'
       : s.status === 'DISETUJUI' ? 'background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)'
@@ -1080,7 +1313,7 @@ async function muatDaftarSanggahan() {
     const aksi = s.status === 'MENUNGGU'
       ? `<button class="btn-sm-action btn-edit" onclick="bukaModalSetujuiSanggahan(${s.id_sanggahan})">Setujui</button>
          <button class="btn-sm-action btn-hapus" onclick="bukaModalTolakSanggahan(${s.id_sanggahan})">Tolak</button>`
-      : `<span style="font-size:.68rem;color:var(--muted)">${escHtml(s.catatan_direktur || '')}</span>`;
+      : `<span style="font-size:.68rem;color:var(--muted)">${escHtml(s.catatan_direktur || '')}${s.diputuskan_oleh ? '<br>oleh ' + escHtml(s.diputuskan_oleh) : ''}</span>`;
     return `<tr>
       <td class="td-mono" style="font-size:.7rem">${formatTanggal(s.diajukan_at.slice(0,10))}</td>
       <td class="td-mono">${s.nip}</td>
@@ -1551,6 +1784,9 @@ async function muatCekAbsensi() {
       .then(res => ({ k, res })).catch(() => ({ k, res: null }))
   ));
   const gagal = [];
+  const pj = await dbRpc('get_pengajuan_izin', { p_mode: 'SEMUA', p_status: 'MENUNGGU' }).catch(() => null);
+  const pjMap = {};
+  (pj && Array.isArray(pj.data) ? pj.data : []).forEach(x => { pjMap[x.nip + '|' + x.tanggal] = x; });
   dataCekAbsen = [];
   hasil.forEach(({ k, res }) => {
     if (!Array.isArray(res)) { gagal.push(k.nama); return; }
@@ -1559,7 +1795,8 @@ async function muatCekAbsensi() {
       dataCekAbsen.push({
         nip: k.nip, nama: k.nama, tanggal: r.tanggal,
         jenis: (r.jam_masuk || r.jam_pulang) ? 'TIDAK_LENGKAP' : 'TIDAK_MASUK',
-        jam_masuk: r.jam_masuk, jam_pulang: r.jam_pulang
+        jam_masuk: r.jam_masuk, jam_pulang: r.jam_pulang,
+        pengajuan: pjMap[k.nip + '|' + r.tanggal] || null
       });
     });
   });
@@ -1592,7 +1829,7 @@ function renderCekAbsensi() {
     return `<tr>
       <td class="td-mono" style="white-space:nowrap">${formatTanggal(d.tanggal)}<div style="font-size:.65rem;color:var(--muted)">${NAMA_HARI[dt.getDay()]}</div></td>
       <td>${escHtml(d.nama)}<div class="td-mono" style="font-size:.65rem;color:var(--muted)">${escHtml(d.nip)}</div></td>
-      <td>${label}</td>
+      <td>${label}${d.pengajuan ? `<div style="font-size:.65rem;color:#1a56b0">📝 ada pengajuan ${d.pengajuan.jenis.toLowerCase()} menunggu Direktur</div>` : ''}</td>
       <td class="td-mono">${d.jam_masuk ? d.jam_masuk.slice(0, 5) : '-'}</td>
       <td class="td-mono">${d.jam_pulang ? d.jam_pulang.slice(0, 5) : '-'}</td>
       <td>${finalPeriode ? '' : `<button class="btn-sm-action btn-edit" onclick="bukaTindakAbsen(${i})">Tindak lanjut</button>`}</td>
