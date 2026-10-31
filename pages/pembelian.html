@@ -96,6 +96,21 @@
     .apv-row:last-child{border-bottom:none;}
     .apv-row .n{font-family:var(--mono);} .apv-row .s{font-family:var(--mono);font-size:.62rem;color:var(--muted);}
     .apv-row .nom{font-family:var(--mono);white-space:nowrap;text-align:right;}
+    .rk-box{border:1px solid #cfe0f5;background:#f6faff;border-radius:8px;padding:.5rem .6rem;margin-bottom:.6rem;}
+    .rk-sup{display:flex;gap:.35rem;flex-wrap:wrap;margin:.3rem 0;}
+    .rk-chip{font-family:var(--mono);font-size:.68rem;padding:.25rem .55rem;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+    .rk-chip.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+    .rk-chip small{opacity:.7;}
+    .rk-opt{background:#fff;border:1px solid var(--border);border-radius:6px;padding:.45rem .55rem;margin-top:.4rem;}
+    .rk-opt-head{display:flex;justify-content:space-between;align-items:center;gap:.4rem;}
+    .rk-opt-list{font-family:var(--mono);font-size:.66rem;color:var(--muted);margin-top:.25rem;line-height:1.5;}
+    .rk-b{font-family:var(--mono);font-size:.6rem;font-weight:600;padding:.12rem .4rem;border-radius:3px;white-space:nowrap;}
+    .rk-pas{background:var(--green-bg);color:var(--green);}
+    .rk-seb{background:#e8f0fe;color:#1a56db;}
+    .rk-sel{background:#fff3cd;color:#856404;}
+    .rk-late{background:#fdecea;color:var(--red);}
+    .rk-lintas{background:#f0f2f6;color:var(--muted);}
+    .rk-muted{font-family:var(--mono);font-size:.68rem;color:var(--muted);}
   </style>
 </head>
 <body>
@@ -705,7 +720,10 @@
         <div id="infoBarAlokBank" style="font-family:var(--mono);font-size:.75rem;margin-bottom:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px"></div>
         <div id="sudahAlokBankWrap"></div>
 
-        <div class="sec-label">Cari Nota Supplier</div>
+        <div class="sec-label">💡 Rekomendasi</div>
+        <div id="rekomAlokBankWrap" class="rk-box"><span class="rk-muted">Memuat rekomendasi…</span></div>
+
+        <div class="sec-label">Cari Nota Supplier (manual)</div>
         <div style="position:relative">
           <div style="display:flex;gap:.4rem">
             <input type="text" class="form-control" id="inpCariNotaAlokBank" placeholder="Ketik nama supplier…" autocomplete="off" oninput="onInputCariNotaAlokBank()"/>
@@ -722,6 +740,7 @@
         <div class="sec-label">Nota Terpilih</div>
         <div id="alokasiBankTerpilihWrap"></div>
         <div style="text-align:right;font-family:var(--mono);font-weight:600;margin-top:.5rem" id="totalAlokasiBankInfo">Total alokasi: Rp 0</div>
+        <div id="warnLateAlokBank" style="display:none;font-family:var(--mono);font-size:.72rem;color:var(--red);margin-top:.35rem"></div>
 
         <div style="margin-top:.75rem;padding:.5rem;background:#f4f7fc;border-radius:6px">
           <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer">
@@ -1260,8 +1279,8 @@ function muatNotaAlokBank(namaSup){
       var sudahAda=alokasiBankTerpilih.some(function(a){return a.id_pembelian===r.id_pembelian;});
       return '<label class="sj-pick-row" style="'+(sudahAda?'opacity:.45':'')+'">'+
         '<input type="checkbox" class="chk-alokbank-cari" value="'+esc(r.id_pembelian)+'" '+(sudahAda?'disabled':'')+' '+
-          'data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_supplier)+'" data-sisa="'+r.sisa_hutang+'" onchange="updateTotalCentangAlokBank()"/>'+
-        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">'+esc(r.nama_supplier)+' · '+fmtTgl(r.tgl_pembelian)+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
+          'data-no-nota="'+esc(r.no_nota)+'" data-nama="'+esc(r.nama_supplier)+'" data-sisa="'+r.sisa_hutang+'" data-tgl="'+esc(rkTglWib(r.tgl_pembelian))+'" onchange="updateTotalCentangAlokBank()"/>'+
+        '<div><div class="sj-pick-nama">'+esc(r.no_nota)+'</div><div class="sj-pick-sub">'+esc(r.nama_supplier)+' · '+fmtTgl(r.tgl_pembelian)+' '+rkBadgeHari(rkHariVsTf(rkTglWib(r.tgl_pembelian)))+(sudahAda?' · sudah dipilih':'')+'</div></div>'+
         '<div class="sj-pick-nom">'+fmtRupiah(r.sisa_hutang)+'</div>'+
       '</label>';
     }).join('')+'</div>'+
@@ -1283,7 +1302,7 @@ function tambahNotaAlokBank(){
     alokasiBankTerpilih.push({
       id_pembelian:chk.value, no_nota:chk.dataset.noNota,
       nama_supplier:chk.dataset.nama, sisa:parseFloat(chk.dataset.sisa),
-      nominal:parseFloat(chk.dataset.sisa)
+      nominal:parseFloat(chk.dataset.sisa), tgl:chk.dataset.tgl||''
     });
   });
   document.getElementById('inpCariNotaAlokBank').value='';
@@ -1300,7 +1319,7 @@ function renderAlokasiBankTerpilih(){
     wrap.innerHTML='<div class="sj-pick-wrap">'+alokasiBankTerpilih.map(function(a,i){
       return '<div class="sj-pick-row">'+
         '<button type="button" onclick="hapusAlokasiBankTerpilih('+i+')" style="background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;">✕</button>'+
-        '<div><div class="sj-pick-nama">'+esc(a.nama_supplier)+'</div><div class="sj-pick-sub">'+esc(a.no_nota)+' · Sisa: '+fmtRupiah(a.sisa)+'</div></div>'+
+        '<div><div class="sj-pick-nama">'+esc(a.nama_supplier)+'</div><div class="sj-pick-sub">'+esc(a.no_nota)+(a.tgl?' · '+fmtTgl(a.tgl)+' '+rkBadgeHari(rkHariVsTf(a.tgl)):'')+' · Sisa: '+fmtRupiah(a.sisa)+'</div></div>'+
         '<input type="number" class="alokasi-input" value="'+a.nominal+'" oninput="updateNominalAlokBank('+i+',this.value)"/>'+
       '</div>';
     }).join('')+'</div>';
@@ -1308,6 +1327,13 @@ function renderAlokasiBankTerpilih(){
   var total=alokasiBankTerpilih.reduce(function(s,a){return s+(parseFloat(a.nominal)||0);},0);
   document.getElementById('totalAlokasiBankInfo').textContent='Total alokasi: '+fmtRupiah(total);
   updateInfoSelisihAlokBank(total);
+  var late=alokasiBankTerpilih.filter(function(a){return a.tgl && rkHariVsTf(a.tgl)>RK.HARI_TOL;});
+  var wl=document.getElementById('warnLateAlokBank');
+  if(wl){
+    wl.style.display=late.length?'':'none';
+    wl.innerHTML=late.length?('⚠ '+late.length+' nota bertanggal &gt; '+RK.HARI_TOL+' hari setelah transfer ('+late.map(function(a){return esc(a.no_nota);}).join(', ')+'). '+
+      (isDirektur()?'Anda Direktur — tersimpan langsung, tercatat di audit.':'Alokasi akan <b>menunggu ACC Direktur</b>.')):'';
+  }
 }
 
 function updateNominalAlokBank(idx,val){
@@ -1405,6 +1431,202 @@ function bukaAlokasiBank(idBankStmt){
   renderAlokasiBankTerpilih();
   muatSudahAlokBank(idBankStmt);
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAlokasiBank')).show();
+  muatRekomAlokBank();
+}
+
+// ============================================================
+// REKOMENDASI ALOKASI TRANSFER → NOTA (31 Okt 2026)
+// 1) tebak supplier: riwayat alokasi (nama penerima di keterangan bank) + kemiripan nama + kecocokan nominal
+// 2) kombinasi nota: tanggal dekat transfer (maks +7 hari setelah transfer), total mendekati sisa transfer
+// Nota > 7 hari setelah transfer tidak pernah direkomendasikan; kalau dipilih manual → ACC Direktur (dicek di server).
+// ============================================================
+var RK={HARI_TOL:7, TOL_RP:100, MAX_KANDIDAT:20, MAX_NODE:150000, MAX_SOLUSI:300};
+var rkNota=[], rkRiwayat=[], rkSupAktif=null, rkHasil=null;
+function rkTglWib(ts){
+  if(!ts) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(String(ts))) return String(ts);
+  var d=new Date(ts); if(isNaN(d)) return String(ts).slice(0,10);
+  return d.toLocaleDateString('en-CA',{timeZone:'Asia/Jakarta'});
+}
+function rkSelisihHari(a,b){ return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5); }
+function rkHariVsTf(tglNota){ if(!bankStmtAktif||!tglNota) return 0; return rkSelisihHari(rkTglWib(bankStmtAktif.tgl_transaksi),tglNota); }
+function rkBadgeHari(h){
+  if(h>RK.HARI_TOL) return '<span class="rk-b rk-late">+'+h+' hr setelah TF</span>';
+  if(h>0) return '<span class="rk-b rk-sel">+'+h+' hr</span>';
+  return '<span class="rk-muted">'+(h===0?'hari sama':(-h)+' hr sblm TF')+'</span>';
+}
+var RK_STOP={CV:1,PT:1,UD:1,TB:1,TOKO:1,PD:1,TBK:1,DAN:1,THE:1};
+function rkToken(s){
+  return String(s||'').toUpperCase().replace(/[^A-Z0-9 ]+/g,' ').split(/\s+/)
+    .filter(function(t){return t.length>=3 && !RK_STOP[t] && !/^\d+$/.test(t);});
+}
+// Ambil nama penerima dari "TRSF E-BANKING DB 1508/FTSCY/WS95051 16971600.00  ABADI JAYA CV"
+function rkPenerima(ket){
+  var k=String(ket||'').toUpperCase();
+  var m=k.match(/\d[\d,]*\.\d{2}\s+(.+)$/);
+  var s=m?m[1]:k.replace(/\b(TRSF|E-BANKING|E-BANK|BIF|TRANSFER|KE|DB|CR|FTSCY)\b|\/\S*|\d+[\d.,]*/g,' ');
+  return rkToken(s).join(' ');
+}
+function rkCocokToken(a,b){ // toleran nama terpotong (BCA memotong 18 huruf)
+  if(a===b) return true;
+  var n=Math.min(a.length,b.length); if(n<4) return false;
+  return a.indexOf(b)===0||b.indexOf(a)===0;
+}
+function rkSkorNama(tokSup,tokKet){
+  if(!tokSup.length||!tokKet.length) return 0;
+  var hit=tokSup.filter(function(t){return tokKet.some(function(k){return rkCocokToken(t,k);});}).length;
+  return hit/tokSup.length;
+}
+function rkEntitasBank(){ var m=String((bankStmtAktif&&bankStmtAktif.id_rekening)||'').toUpperCase().match(/(PT|DK)/); return m?m[1]:''; }
+
+async function muatRekomAlokBank(){
+  var box=document.getElementById('rekomAlokBankWrap');
+  box.innerHTML='<span class="rk-muted">Memuat rekomendasi…</span>';
+  rkSupAktif=null; rkHasil=null;
+  var idTf=bankStmtAktif&&bankStmtAktif.id;
+  try{
+    var r=await Promise.all([
+      dbGet('in_pembelian',{select:'id_pembelian,no_nota,nama_supplier,entitas,tgl_pembelian,total_tagihan,total_dibayar',
+        is_void:'eq.false',status_hutang:'neq.LUNAS',limit:5000}),
+      dbGet('in_bank_alokasi_hutang',{select:'nama_supplier,in_bank_statement(keterangan_bank,keterangan_manual)',
+        status_alokasi:'eq.TERALOKASI',limit:5000})
+    ]);
+    if(!bankStmtAktif||bankStmtAktif.id!==idTf) return; // modal sudah ganti transfer
+    if(!Array.isArray(r[0])) throw new Error(cekErrorSupabase(r[0])||'Gagal memuat nota.');
+    rkNota=r[0].map(function(n){
+      var sisa=Math.round(((Number(n.total_tagihan)||0)-(Number(n.total_dibayar)||0))*100)/100;
+      return {id_pembelian:n.id_pembelian,no_nota:n.no_nota,nama_supplier:n.nama_supplier,entitas:n.entitas,tgl:rkTglWib(n.tgl_pembelian),sisa:sisa};
+    }).filter(function(n){return n.sisa>RK.TOL_RP;});
+    rkRiwayat=(Array.isArray(r[1])?r[1]:[]).map(function(a){
+      var b=a.in_bank_statement||{};
+      return {sup:a.nama_supplier,pen:rkPenerima(b.keterangan_bank),man:rkToken(b.keterangan_manual)};
+    });
+    rkHasil=rkHitung();
+    rkRender();
+  }catch(e){ box.innerHTML='<span class="rk-muted" style="color:var(--red)">Rekomendasi gagal dimuat: '+esc(e.message)+' — gunakan cari manual.</span>'; }
+}
+
+function rkHitung(){
+  var T=Number(bankStmtAktif.sisa_nominal)||0, tglTf=rkTglWib(bankStmtAktif.tgl_transaksi);
+  var pen=rkPenerima(bankStmtAktif.keterangan_bank), tokPen=pen?pen.split(' '):[];
+  var tokMan=rkToken(bankStmtAktif.keterangan_manual);
+  // riwayat: penerima → supplier
+  var hist={};
+  rkRiwayat.forEach(function(h){
+    if(!h.pen||!pen) return;
+    var a=h.pen, b=pen, n=Math.min(a.length,b.length);
+    if(a===b || (n>=8 && (a.indexOf(b)===0||b.indexOf(a)===0))) hist[h.sup]=(hist[h.sup]||0)+1;
+  });
+  var perSup={};
+  rkNota.forEach(function(n){ (perSup[n.nama_supplier]=perSup[n.nama_supplier]||[]).push(n); });
+  var hasil=Object.keys(perSup).map(function(sup){
+    var tokSup=rkToken(sup);
+    var sNama=Math.max(rkSkorNama(tokSup,tokPen), rkSkorNama(tokSup,tokMan));
+    var opsi=rkKombinasi(perSup[sup],T,tglTf);
+    var adaPas=opsi.some(function(o){return o.jenis==='PAS';});
+    var skor=(hist[sup]?100+Math.min(hist[sup],5)*5:0)+sNama*60+(adaPas?40:0);
+    var alasan=[];
+    if(hist[sup]) alasan.push('riwayat transfer');
+    if(sNama>=0.5) alasan.push('nama mirip');
+    if(adaPas) alasan.push('nominal pas');
+    return {sup:sup,skor:skor,alasan:alasan,opsi:opsi,jml:perSup[sup].length};
+  }).filter(function(h){return h.skor>0;})
+    .sort(function(a,b){return b.skor-a.skor;});
+  return {pen:pen,list:hasil.slice(0,5)};
+}
+
+// Cari kombinasi nota untuk 1 supplier
+function rkKombinasi(notas,T,tglTf){
+  var ent=rkEntitasBank();
+  var kand=notas.map(function(n){var h=rkSelisihHari(tglTf,n.tgl);return Object.assign({},n,{hari:h,jarak:Math.abs(h)});})
+    .filter(function(n){return n.hari<=RK.HARI_TOL;})
+    .sort(function(a,b){return a.jarak-b.jarak;}).slice(0,RK.MAX_KANDIDAT);
+  if(!kand.length||T<=0) return [];
+  var opsi=[];
+  // (a) subset-sum: total = T ± Rp100, utamakan tanggal terdekat lalu jumlah nota sedikit
+  var urut=kand.slice().sort(function(a,b){return b.sisa-a.sisa;});
+  var suf=[]; for(var i=urut.length-1,acc=0;i>=0;i--){acc+=urut[i].sisa;suf[i]=acc;}
+  var sol=[], node=0, terbaikBawah={sum:0,idx:[]}, pilih=[];
+  (function dfs(i,sum){
+    if(++node>RK.MAX_NODE||sol.length>=RK.MAX_SOLUSI) return;
+    if(Math.abs(sum-T)<=RK.TOL_RP && pilih.length){ sol.push(pilih.slice()); return; }
+    if(sum<=T && sum>terbaikBawah.sum) terbaikBawah={sum:sum,idx:pilih.slice()};
+    if(i>=urut.length || sum+suf[i]<T-RK.TOL_RP){
+      return;
+    }
+    if(sum+urut[i].sisa<=T+RK.TOL_RP){ pilih.push(i); dfs(i+1,sum+urut[i].sisa); pilih.pop(); }
+    dfs(i+1,sum);
+  })(0,0);
+  // dfs berhenti lebih awal saat sum+suf<T → hitung "terbaik di bawah" juga dari semua kandidat
+  var semua=urut.reduce(function(s,n){return s+n.sisa;},0);
+  if(semua<=T && semua>terbaikBawah.sum) terbaikBawah={sum:semua,idx:urut.map(function(_,i){return i;})};
+  function bentuk(idx,jenis){
+    var items=idx.map(function(i){return urut[i];}).sort(function(a,b){return a.tgl<b.tgl?-1:a.tgl>b.tgl?1:0;});
+    var tot=items.reduce(function(s,n){return s+n.sisa;},0);
+    return {jenis:jenis,items:items.map(function(n){return Object.assign({},n,{nominal:n.sisa});}),total:Math.round(tot*100)/100,
+      jarak:items.reduce(function(s,n){return s+n.jarak;},0)/items.length,
+      lintas:items.some(function(n){return ent&&n.entitas!==ent;})};
+  }
+  sol.map(function(ix){return bentuk(ix,'PAS');})
+     .sort(function(a,b){return a.jarak-b.jarak||a.items.length-b.items.length;})
+     .slice(0,2).forEach(function(o){opsi.push(o);});
+  // (b) urut nota terlama (s.d. +7 hari), nota terakhir dibayar sebagian → total pas T
+  var lama=kand.slice().sort(function(a,b){return a.tgl<b.tgl?-1:a.tgl>b.tgl?1:0;}), acc2=0, it=[];
+  for(var j=0;j<lama.length&&acc2<T-RK.TOL_RP;j++){
+    var n=lama[j], ambil=Math.min(n.sisa,Math.round((T-acc2)*100)/100);
+    it.push(Object.assign({},n,{nominal:ambil})); acc2+=ambil;
+  }
+  if(it.length && Math.abs(acc2-T)<=RK.TOL_RP && it[it.length-1].nominal<it[it.length-1].sisa){
+    opsi.push({jenis:'SEBAGIAN',items:it,total:Math.round(acc2*100)/100,
+      jarak:it.reduce(function(s,n){return s+n.jarak;},0)/it.length,lintas:it.some(function(n){return ent&&n.entitas!==ent;})});
+  }
+  // (c) tidak ada yang pas → kombinasi terbesar di bawah transfer (sisa transfer = selisih)
+  if(!sol.length && terbaikBawah.idx.length) opsi.push(bentuk(terbaikBawah.idx,'SELISIH'));
+  // buang duplikat
+  var seen={};
+  return opsi.filter(function(o){var k=o.jenis+'|'+o.items.map(function(n){return n.id_pembelian+':'+n.nominal;}).join(',');if(seen[k])return false;seen[k]=1;return true;}).slice(0,3);
+}
+
+function rkRender(){
+  var box=document.getElementById('rekomAlokBankWrap'), h=rkHasil;
+  if(!h){box.innerHTML='';return;}
+  var head='<div class="rk-muted">Penerima di bank: <b>'+esc(h.pen||'—')+'</b> · sisa transfer '+fmtRupiah(bankStmtAktif.sisa_nominal)+'</div>';
+  if(!h.list.length){
+    box.innerHTML=head+'<div class="rk-muted" style="margin-top:.3rem">Tidak ada supplier yang cocok (nama/riwayat/nominal). Gunakan cari manual di bawah — alokasi manual ini akan jadi bahan belajar untuk transfer berikutnya.</div>';
+    return;
+  }
+  if(!rkSupAktif) rkSupAktif=h.list[0].sup;
+  var chips='<div class="rk-sup">'+h.list.map(function(x,i){
+    return '<button type="button" class="rk-chip'+(x.sup===rkSupAktif?' on':'')+'" onclick="rkPilihSup('+i+')">'+esc(x.sup)+
+      (x.alasan.length?' <small>· '+esc(x.alasan.join(', '))+'</small>':'')+'</button>';
+  }).join('')+'</div>';
+  var aktif=h.list.find(function(x){return x.sup===rkSupAktif;})||h.list[0];
+  var LBL={PAS:['PAS','rk-pas'],SEBAGIAN:['PAS · nota terakhir sebagian','rk-seb'],SELISIH:['SELISIH','rk-sel']};
+  var ops=aktif.opsi.length?aktif.opsi.map(function(o,i){
+    var sel=Math.round((Number(bankStmtAktif.sisa_nominal)-o.total)*100)/100;
+    var lb=LBL[o.jenis];
+    return '<div class="rk-opt"><div class="rk-opt-head"><div><span class="rk-b '+lb[1]+'">'+lb[0]+'</span> '+
+      (o.lintas?'<span class="rk-b rk-lintas">lintas entitas</span> ':'')+
+      '<b style="font-family:var(--mono);font-size:.78rem">'+o.items.length+' nota · '+fmtRupiah(o.total)+'</b>'+
+      (o.jenis==='SELISIH'?' <span class="rk-muted">sisa '+fmtRupiah(sel)+'</span>':'')+'</div>'+
+      '<button type="button" class="btn-sm-action btn-approve" onclick="rkPakai('+i+')">Pakai</button></div>'+
+      '<div class="rk-opt-list">'+o.items.map(function(n){
+        return esc(n.no_nota)+' · '+fmtTgl(n.tgl)+' · '+esc(n.entitas||'')+' · '+fmtRupiah(n.nominal)+(n.nominal<n.sisa?' (dari '+fmtRupiah(n.sisa)+')':'');
+      }).join('<br>')+'</div></div>';
+  }).join(''):'<div class="rk-muted" style="margin-top:.3rem">'+esc(aktif.sup)+' punya '+aktif.jml+' nota terbuka, tapi tidak ada yang bertanggal sebelum / s.d. '+RK.HARI_TOL+' hari setelah transfer. Pilih manual kalau memang nota terlambat input (perlu ACC Direktur).</div>';
+  box.innerHTML=head+chips+ops;
+}
+function rkPilihSup(i){ rkSupAktif=rkHasil.list[i].sup; rkRender(); }
+function rkPakai(i){
+  var aktif=rkHasil.list.find(function(x){return x.sup===rkSupAktif;}); if(!aktif) return;
+  var o=aktif.opsi[i]; if(!o) return;
+  if(alokasiBankTerpilih.length && !confirm('Ganti nota terpilih dengan rekomendasi ini?')) return;
+  alokasiBankTerpilih=o.items.map(function(n){
+    return {id_pembelian:n.id_pembelian,no_nota:n.no_nota,nama_supplier:n.nama_supplier,sisa:n.sisa,nominal:n.nominal,tgl:n.tgl};
+  });
+  document.getElementById('chkAlokBankParsial').checked=(o.jenis==='SELISIH');
+  renderAlokasiBankTerpilih();
+  var el=document.getElementById('alokasiBankTerpilihWrap'); if(el&&el.scrollIntoView) el.scrollIntoView({block:'center'});
 }
 
 async function submitAlokasiBank(btn,finalDenganSelisih){
@@ -1503,7 +1725,8 @@ function muatApproveHutang(){
     wrap.innerHTML=apvHData.map(function(r){
       var notas=per[r.id]||[];
       var total=notas.reduce(function(s,a){return s+(parseFloat(a.nominal_alokasi)||0);},0);
-      var bisaReject=r.status_alokasi==='MENUNGGU_APPROVE_DIREKTUR' && r.selisih_alokasi!==null && r.selisih_alokasi!==undefined;
+      var bisaReject=r.status_alokasi==='MENUNGGU_APPROVE_DIREKTUR';
+      var adaSelisih=r.selisih_alokasi!==null && r.selisih_alokasi!==undefined;
       var rows=notas.map(function(a){
         var pend=a.status_alokasi!=='TERALOKASI';
         return '<div class="apv-row"><div><div class="n">'+esc(a.no_nota)+(pend?' <span class="badge-status">MENUNGGU</span>':'')+'</div>'+
@@ -1517,7 +1740,7 @@ function muatApproveHutang(){
         '<div class="apv-nums">'+
           '<div class="apv-num"><div class="l">Nominal transfer</div><div class="v">'+fmtRupiah(r.nominal)+'</div></div>'+
           '<div class="apv-num"><div class="l">Total nota ('+notas.length+')</div><div class="v">'+fmtRupiah(total)+'</div></div>'+
-          '<div class="apv-num sel"><div class="l">Selisih</div><div class="v">'+(bisaReject?fmtRupiah(r.selisih_alokasi):'—')+'</div></div>'+
+          '<div class="apv-num sel"><div class="l">Selisih</div><div class="v">'+(adaSelisih?fmtRupiah(r.selisih_alokasi):'—')+'</div></div>'+
         '</div>'+
         '<div style="margin-top:.45rem">'+
           '<button class="btn-sm-action btn-approve" onclick="approveHutang(\''+esc(r.id)+'\',\''+esc(r.status_alokasi)+'\')">✓ Approve</button> '+
@@ -1754,7 +1977,7 @@ async function putuskanBatalHutang(i,setuju){
 }
 
 async function approveHutang(id,status){
-  var pin=await mintaApprovalPin('Approve alokasi hutang '+id+'? Selisih akan dianggap final.');
+  var pin=await mintaApprovalPin('Approve alokasi hutang '+id+'? Selisih / nota terlambat (lihat keterangan) dianggap sah.');
   if(!pin) return;
   var rpc=status==='MENUNGGU_APPROVE_MANAGER'?'approve_alokasi_manager':'approve_alokasi_direktur';
   try{
